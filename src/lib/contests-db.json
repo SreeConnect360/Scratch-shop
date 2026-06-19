@@ -1,0 +1,249 @@
+[
+  {
+    "id": "ct1",
+    "scope": "Global",
+    "country": "Global",
+    "year": 2025,
+    "month": 3,
+    "currentStage": "Ratings",
+    "status": "Ratings",
+    "contestants": 248,
+    "updated": "2h ago",
+    "timeline": [
+      {
+        "stage": "Application",
+        "start": "2026-05-21",
+        "end": "2026-05-31"
+      },
+      {
+        "stage": "Agency",
+        "start": "2026-06-01",
+        "end": "2026-06-08"
+      },
+      {
+        "stage": "Ratings",
+        "start": "2026-06-09",
+        "end": "2026-06-16"
+      },
+      {
+        "stage": "Casting",
+        "start": "2026-06-17",
+        "end": "2026-06-27"
+      },
+      {
+        "stage": "Judgement",
+        "start": "2026-06-28",
+        "end": "2026-07-05"
+      }
+    ],
+    "featured": true,
+    "voting": true,
+    "publicVisible": true
+  },
+  {
+    "id": "ct2",
+    "scope": "Country",
+    "country": "France",
+    "year": 2025,
+    "month": 4,
+    "currentStage": "Judgement",
+    "status": "Judgement",
+    "contestants": 64,
+    "updated": "1d ago",
+    "timeline": [
+      {
+        "stage": "Application",
+        "start": "2026-05-01",
+        "end": "2026-05-11"
+      },
+      {
+        "stage": "Agency",
+        "start": "2026-05-12",
+        "end": "2026-05-19"
+      },
+      {
+        "stage": "Ratings",
+        "start": "2026-05-20",
+        "end": "2026-05-27"
+      },
+      {
+        "stage": "Casting",
+        "start": "2026-05-28",
+        "end": "2026-06-07"
+      },
+      {
+        "stage": "Judgement",
+        "start": "2026-06-08",
+        "end": "2026-06-15"
+      }
+    ],
+    "featured": false,
+    "voting": true,
+    "publicVisible": true
+  },
+  {
+    "id": "ct3",
+    "scope": "Country",
+    "country": "Italy",
+    "year": 2025,
+    "month": 5,
+    "currentStage": "Live",
+    "status": "Live",
+    "contestants": 32,
+    "updated": "12 min ago",
+    "timeline": [
+      {
+        "stage": "Application",
+        "start": "2026-04-16",
+        "end": "2026-04-26"
+      },
+      {
+        "stage": "Agency",
+        "start": "2026-04-27",
+        "end": "2026-05-04"
+      },
+      {
+        "stage": "Ratings",
+        "start": "2026-05-05",
+        "end": "2026-05-12"
+      },
+      {
+        "stage": "Casting",
+        "start": "2026-05-13",
+        "end": "2026-05-23"
+      },
+      {
+        "stage": "Judgement",
+        "start": "2026-05-24",
+        "end": "2026-05-31"
+      }
+    ],
+    "featured": true,
+    "voting": true,
+    "publicVisible": true
+  },
+  {
+    "id": "ct4",
+    "scope": "Country",
+    "country": "Japan",
+    "year": 2025,
+    "month": 6,
+    "currentStage": "Application",
+    "status": "Open",
+    "contestants": 412,
+    "updated": "5h ago",
+    "timeline": [
+      {
+        "stage": "Application",
+        "start": "2026-06-12",
+        "end": "2026-06-22"
+      },
+      {
+        "stage": "Agency",
+        "start": "2026-06-23",
+        "end": "2026-06-30"
+      },
+      {
+        "stage": "Ratings",
+        "start": "2026-07-01",
+        "end": "2026-07-08"
+      },
+      {
+        "stage": "Casting",
+        "start": "2026-07-09",
+        "end": "2026-07-19"
+      },
+      {
+        "stage": "Judgement",
+        "start": "2026-07-20",
+        "end": "2026-07-27"
+      }
+    ],
+    "featured": false,
+    "voting": false,
+    "publicVisible": true
+  },
+  {
+    "id": "ct5",
+    "scope": "Country",
+    "country": "Nigeria",
+    "year": 2024,
+    "month": 11,
+    "currentStage": "Winner",
+    "status": "Closed",
+    "contestants": 184,
+    "updated": "3 mo ago",
+    "timeline": [
+      {
+        "stage": "Application",
+        "start": "2025-12-12",
+        "end": "2025-12-22"
+      },
+      {
+        "stage": "Agency",
+        "start": "2025-12-23",
+        "end": "2025-12-30"
+      },
+      {
+        "stage": "Ratings",
+        "start": "2025-12-31",
+        "end": "2026-01-07"
+      },
+      {
+        "stage": "Casting",
+        "start": "2026-01-08",
+        "end": "2026-01-18"
+      },
+      {
+        "stage": "Judgement",
+        "start": "2026-01-19",
+        "end": "2026-01-26"
+      }
+    ],
+    "featured": false,
+    "voting": false,
+    "publicVisible": true
+  },
+  {
+    "id": "ct6",
+    "scope": "Country",
+    "country": "Brazil",
+    "year": 2024,
+    "month": 9,
+    "currentStage": "Ratings",
+    "status": "Deleted",
+    "contestants": 96,
+    "updated": "2 mo ago",
+    "timeline": [
+      {
+        "stage": "Application",
+        "start": "2026-03-12",
+        "end": "2026-03-22"
+      },
+      {
+        "stage": "Agency",
+        "start": "2026-03-23",
+        "end": "2026-03-30"
+      },
+      {
+        "stage": "Ratings",
+        "start": "2026-03-31",
+        "end": "2026-04-07"
+      },
+      {
+        "stage": "Casting",
+        "start": "2026-04-08",
+        "end": "2026-04-18"
+      },
+      {
+        "stage": "Judgement",
+        "start": "2026-04-19",
+        "end": "2026-04-26"
+      }
+    ],
+    "featured": false,
+    "voting": false,
+    "publicVisible": false,
+    "deleted": true
+  }
+]
