@@ -754,16 +754,6 @@ function ShopLayout() {
                       Collections
                     </Link>
                   </li>
-                  <li>
-                    <Link
-                      to="/account"
-                      search={{ tab: "profile" } as any}
-                      onClick={() => setMobileOpen(false)}
-                      className="w-full rounded-xl px-4 py-3 text-left text-sm tracking-wide font-semibold transition-colors text-ink-muted hover:bg-gold/5 hover:text-ink block cursor-pointer"
-                    >
-                      Dashboards
-                    </Link>
-                  </li>
                 </ul>
               </motion.div>
             )}
