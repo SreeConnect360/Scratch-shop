@@ -11,13 +11,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-
-@RestController
-@RequestMapping("/api")
-@CrossOrigin(origins = {"http://localhost:5173", "https://reevibes.com"})
-@RequiredArgsConstructor
-public class ShopPortalController {
+ 
+ @RestController
+ @RequestMapping("/api")
+ @CrossOrigin(origins = {"http://localhost:5173", "https://reevibes.com"})
+ @RequiredArgsConstructor
+ @SuppressWarnings({"null", "unchecked"})
+ public class ShopPortalController {
 
     private final ProductBucketRepository bucketRepository;
     private final PlatformUserRepository userRepository;
