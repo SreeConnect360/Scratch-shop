@@ -460,7 +460,7 @@ function ShopLayout() {
               <ul className="hidden items-center gap-0.5 xl:flex" role="list">
                 {layout?.navigation?.itemsOrder ? (
                   layout.navigation.itemsOrder.map((item: string) => {
-                    const isVisible = layout.navigation.visibleItems.includes(item);
+                    const isVisible = layout?.navigation?.visibleItems?.includes(item);
                     if (!isVisible || item === "Logo" || ["Search", "Wishlist", "Account", "Cart"].includes(item)) return null;
 
                     if (item === "Men") return null;
@@ -575,7 +575,7 @@ function ShopLayout() {
                 </motion.button>
               </Link>
 
-              {(!layout || layout.navigation.visibleItems.includes("Account")) && (
+              {(!layout || !layout.navigation || !layout.navigation.visibleItems || layout.navigation.visibleItems.includes("Account")) && (
                 <div className="relative group py-2">
                   <Link to="/account" search={{ tab: "profile" }}>
                     <motion.button
@@ -717,7 +717,7 @@ function ShopLayout() {
                 <ul role="list" className="grid grid-cols-2 gap-1">
                   {layout?.navigation?.itemsOrder ? (
                     layout.navigation.itemsOrder.map((item: string) => {
-                      const isVisible = layout.navigation.visibleItems.includes(item);
+                      const isVisible = layout?.navigation?.visibleItems?.includes(item);
                       if (!isVisible || item === "Logo" || ["Search", "Wishlist", "Account", "Cart"].includes(item)) return null;
 
                       if (item === "Men") return null;
