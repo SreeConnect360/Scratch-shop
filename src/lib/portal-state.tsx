@@ -3,8 +3,9 @@
 // Admin writes propagate instantly to public reads (and vice versa) because
 // every page reads from the same single React context.
 
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, useCallback, type ReactNode } from "react";
 import { NOTIFICATIONS_SEED, SEED_COMMENTS, type CommentItem } from "./portal-data";
+import { BACKEND_URL } from "./config";
 import {
   PLATFORM_USERS, CONTESTANT_APPLICATIONS, ABUSE_REPORTS, PRODUCTS,
   type PlatformUser, type ContestantApplication, type AbuseReport, type Role, type Product,
@@ -27,7 +28,7 @@ export type PortalUser = {
 };
 
 export type CartItem = { productId: string; name: string; house: string; price: string; image: string; qty: number; selectedSize?: string };
-export type Notif = { id: string; icon: string; title: string; body: string; time: string; unread: boolean };
+export type Notif = { id: string; icon: string; title: string; body: string; time: string; unread: boolean; createdAt?: number };
 export type DraftApp = Record<string, unknown> & { id: string; updatedAt: string; step: number };
 
 /* ───────── Admin-side domain slices ───────── */
@@ -58,10 +59,16 @@ export type ReturnRequest = {
   comment: string;
   images: string[];
   videos: string[];
-  status: "Pending" | "Approved" | "Rejected";
+  status: string;
   refundAmount: number;
   refundTransactionId?: string;
   refundDate?: string;
+  selectedSize?: string;
+  qty?: number;
+  refundMethod?: string;
+  rejectionReason?: string;
+  expectedCreditDate?: string;
+  pickupDate?: string;
 };
 
 export type Vendor = {
@@ -85,6 +92,14 @@ export type ProductReview = {
   status: "Approved" | "Hidden";
 };
 
+export type Bucket = {
+  id: string;
+  name: string;
+  productIds: string[];
+  starProductId?: string;
+  hidden?: boolean;
+};
+
 export type ShopCoupon = {
   code: string;
   discount: number;
@@ -93,9 +108,11 @@ export type ShopCoupon = {
   usageLimit: number;
   userEligibility: string;
   active: boolean;
+  usedCount?: number;
 };
 
 export type PortalState = {
+  buckets: Bucket[];
   user: PortalUser | null;
   votesByDay: Record<string, string>;
   ratings: Record<string, number>;
@@ -117,6 +134,7 @@ export type PortalState = {
   castingWorkflow: Record<string, WorkflowStatus>;
   judgeRatings: Record<string, Record<string, Partial<Record<JudgeCriteria, number>>>>;
   rateScores: Record<string, Record<string, number>>;
+  majorAddresses: Record<string, string>; // userId -> major address string
   addresses: Record<string, string[]>;
   wishlist: Record<string, string[]>; // Main portal wishlist
   shopWishlist: Record<string, string[]>; // Isolated shop portal wishlist
@@ -141,13 +159,8 @@ export type PortalState = {
   productViews: Record<string, number>; // Keep track of product views for trending logic
   productCartAdditions: Record<string, number>; // Keep track of cart additions for trending logic
   productPurchases: Record<string, number>; // Keep track of purchases for trending logic
-  homepageLayout: {
-    heroBanners: Array<{ id: string; image: string; title: string; subtitle: string; link: string }>;
-    promoBanners: Array<{ id: string; image: string; title: string; subtitle: string; discount: string }>;
-    trendingProducts: string[];
-    featuredProducts: string[];
-    flashSale: { active: boolean; discount: number; endsAt: string; products: string[] };
-  };
+  homepageLayout: any;
+  homepageLayoutDraft: any;
 };
 
 const DEFAULT_CONTESTS: PublishedContest[] = [
@@ -168,9 +181,13 @@ const DEFAULT_REVIEWS: Record<string, ProductReview[]> = {
   ]
 };
 
+const DEFAULT_BUCKETS: Bucket[] = [
+  { id: "bkt1", name: "Summer Essentials", productIds: ["pr1", "pr3"], starProductId: "pr1" },
+  { id: "bkt2", name: "Luxury Black Curation", productIds: ["pr2", "pr5"], starProductId: "pr2" }
+];
+
 const DEFAULT_VENDORS: Vendor[] = [
-  { id: "vn1", companyName: "Maison Lumière", contactPerson: "Léa Dubois", email: "contact@maisonlumiere.com", phone: "+91 9876543210", products: ["pr1", "pr3", "prm3"], revenue: 450000 },
-  { id: "vn2", companyName: "Atelier Reine", contactPerson: "Léa Dubois", email: "contact@atelierreine.com", phone: "+91 9876543211", products: ["pr2", "prm1"], revenue: 300000 }
+  { id: "blankapparel", companyName: "Blank Apparel India", contactPerson: "Prakash Kumar", email: "wholesale@blankapparel.in", phone: "+91 9999911111", products: [], revenue: 0 }
 ];
 
 const DEFAULT_WALLETS: Record<string, number> = {
@@ -179,19 +196,187 @@ const DEFAULT_WALLETS: Record<string, number> = {
 };
 
 const DEFAULT_HOMEPAGE_LAYOUT = {
+  sectionOrder: [
+    "announcement",
+    "navigation",
+    "hero",
+    "categories",
+    "flashSale",
+    "trending",
+    "newArrivals",
+    "campaign",
+    "collections",
+    "liveFeed",
+    "bestSellers",
+    "limitedStock",
+    "influencerPicks",
+    "reviews",
+    "lookbook",
+    "recentlyViewed",
+    "recommended",
+    "brandStory",
+    "newsletter",
+    "footer"
+  ],
+  announcement: {
+    enabled: true,
+    text: "Summer Sale Live — Flat 20% Off on First Order",
+    linkUrl: "/categories",
+    backgroundColor: "#7c2d12",
+    countdownActive: true,
+    countdownEndsAt: "2026-07-31T23:59:59"
+  },
+  navigation: {
+    enabled: true,
+    itemsOrder: ["Logo", "Men", "Women", "New Arrivals", "Trending", "Collections", "Search", "Wishlist", "Account", "Cart"],
+    visibleItems: ["Logo", "Men", "Women", "New Arrivals", "Trending", "Collections", "Search", "Wishlist", "Account", "Cart"]
+  },
+  hero: {
+    enabled: true,
+    banners: [
+      {
+        id: "h1",
+        type: "Image Banner",
+        title: "Luxury Redefined",
+        subtitle: "Season 03 Collection Out Now",
+        buttonText: "Explore Collection",
+        redirectUrl: "/categories",
+        desktopImage: "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=1200&h=600&q=80",
+        mobileImage: "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=600&h=800&q=80",
+        videoUrl: "",
+        scheduleStart: "",
+        scheduleEnd: ""
+      },
+      {
+        id: "h2",
+        type: "Image Banner",
+        title: "The Art of Elegance",
+        subtitle: "Premium Fabrics & Silhouettes",
+        buttonText: "Discover Premium",
+        redirectUrl: "/categories",
+        desktopImage: "https://images.unsplash.com/photo-1496360166961-10a51d5f367a?auto=format&fit=crop&w=1200&h=600&q=80",
+        mobileImage: "https://images.unsplash.com/photo-1496360166961-10a51d5f367a?auto=format&fit=crop&w=600&h=800&q=80",
+        videoUrl: "",
+        scheduleStart: "",
+        scheduleEnd: ""
+      }
+    ]
+  },
+  categories: {
+    enabled: true,
+    items: [
+      { id: "cat1", name: "Women", image: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=400&h=500&q=80", redirectUrl: "/categories", sortOrder: 1 },
+      { id: "cat2", name: "Men", image: "https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?auto=format&fit=crop&w=400&h=500&q=80", redirectUrl: "/categories", sortOrder: 2 },
+      { id: "cat3", name: "New Arrivals", image: "https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=400&h=500&q=80", redirectUrl: "/categories", sortOrder: 3 },
+      { id: "cat4", name: "Trending", image: "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=400&h=500&q=80", redirectUrl: "/categories", sortOrder: 4 }
+    ]
+  },
+  flashSale: {
+    enabled: true,
+    startDate: "2026-06-01T00:00:00",
+    endDate: "2026-06-30T23:59:59",
+    discount: 15,
+    products: ["pr1", "prm2"]
+  },
+  trending: {
+    enabled: true,
+    autoMode: true,
+    manualProducts: ["pr1", "pr2", "pr3"]
+  },
+  newArrival: {
+    enabled: true,
+    productCount: 3,
+    layoutStyle: "grid"
+  },
+  campaign: {
+    enabled: true,
+    image: "https://images.unsplash.com/photo-1469334031218-e382a71b716b?auto=format&fit=crop&w=1200&h=600&q=80",
+    heading: "Summer Essentials 2026",
+    ctaText: "Shop the Campaign",
+    redirectUrl: "/categories"
+  },
+  collections: {
+    enabled: true,
+    collectionId: "Premium Collection",
+    coverImage: "https://images.unsplash.com/photo-1485230895905-ec40ba36b9bc?auto=format&fit=crop&w=1200&h=650&q=80"
+  },
+  liveFeed: {
+    enabled: true,
+    mode: "demo"
+  },
+  bestSellers: {
+    enabled: true,
+    autoMode: true,
+    manualProducts: ["pr3", "pr4", "pr5"]
+  },
+  limitedStock: {
+    enabled: true,
+    threshold: 5
+  },
+  influencerPicks: {
+    enabled: true,
+    products: ["pr1", "pr3", "prm1"]
+  },
+  reviews: {
+    enabled: true,
+    featuredReviewIds: ["rev1", "rev3"]
+  },
+  lookbook: {
+    enabled: true,
+    image: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1000&h=1200&q=80",
+    taggedProducts: [
+      { productId: "pr1", x: 30, y: 40 },
+      { productId: "pr2", x: 70, y: 50 }
+    ]
+  },
+  recentlyViewed: {
+    enabled: true
+  },
+  recommended: {
+    enabled: true,
+    algorithm: "category"
+  },
+  brandStory: {
+    enabled: true,
+    text: "Founded in 2024, ReeVibes represents the intersection of digital pageantry and premium avant-garde apparel. Every piece is curated to tell a story of visual elegance and structural perfection.",
+    image1: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=500&h=600&q=80",
+    image2: "https://images.unsplash.com/photo-1479064555552-3ef4979f8908?auto=format&fit=crop&w=500&h=600&q=80",
+    videoUrl: ""
+  },
+  newsletter: {
+    enabled: true,
+    rewardAmount: 200
+  },
+  footer: {
+    enabled: true,
+    aboutText: "ReeVibes is a high-fidelity luxury e-commerce experience designed for global styling curators.",
+    phone: "+91 98765 43210",
+    email: "concierge@reevibes.com",
+    address: "UB City, Level 14, Bangalore, Karnataka - 560001",
+    socialFacebook: "https://facebook.com/reevibes",
+    socialInstagram: "https://instagram.com/reevibes",
+    socialPinterest: "https://pinterest.com/reevibes"
+  },
+  assistant: {
+    enabled: true
+  },
+  chatbot: {
+    enabled: true
+  },
+  // Backward compatibility keys
   heroBanners: [
-    { id: "h1", image: "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=1200&h=600&q=80", title: "Luxury Redefined", subtitle: "Season 03 Collection Out Now", link: "/shop" },
-    { id: "h2", image: "https://images.unsplash.com/photo-1496360166961-10a51d5f367a?auto=format&fit=crop&w=1200&h=600&q=80", title: "The Art of Elegance", subtitle: "Premium Fabrics & Silhouettes", link: "/shop" }
+    { id: "h1", image: "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=1200&h=600&q=80", title: "Luxury Redefined", subtitle: "Season 03 Collection Out Now", link: "/" },
+    { id: "h2", image: "https://images.unsplash.com/photo-1496360166961-10a51d5f367a?auto=format&fit=crop&w=1200&h=600&q=80", title: "The Art of Elegance", subtitle: "Premium Fabrics & Silhouettes", link: "/" }
   ],
   promoBanners: [
     { id: "p1", image: "https://images.unsplash.com/photo-1485518882345-15568b007407?auto=format&fit=crop&w=600&h=400&q=80", title: "Festive Season Specials", subtitle: "Save on curation", discount: "20% OFF" }
   ],
   trendingProducts: ["pr1", "pr2", "pr3"],
-  featuredProducts: ["pr4", "pr5", "pr6"],
-  flashSale: { active: true, discount: 15, endsAt: "2026-06-25T23:59:59", products: ["pr1", "prm2"] }
+  featuredProducts: ["pr4", "pr5", "pr6"]
 };
 
 const DEFAULT: PortalState = {
+  buckets: DEFAULT_BUCKETS,
   user: null,
   votesByDay: {},
   ratings: {},
@@ -199,7 +384,13 @@ const DEFAULT: PortalState = {
   comments: {},
   cart: [],
   shopCart: [],
-  notifications: NOTIFICATIONS_SEED,
+  notifications: NOTIFICATIONS_SEED.map(n => {
+    let offset = 0;
+    if (n.time.includes("2h")) offset = 2 * 3600 * 1000;
+    else if (n.time.includes("1d")) offset = 24 * 3600 * 1000;
+    else if (n.time.includes("3d")) offset = 3 * 24 * 3600 * 1000;
+    return { ...n, createdAt: Date.now() - offset };
+  }),
   drafts: [],
   submitted: [],
   users: PLATFORM_USERS,
@@ -217,6 +408,9 @@ const DEFAULT: PortalState = {
   addresses: {
     "USR-1000": ["123, Luxury Lane, Indiranagar, Bangalore - 560038", "Flat 402, Royal Residency, Juhu, Mumbai - 400049"]
   },
+  majorAddresses: {
+    "USR-1000": "123, Luxury Lane, Indiranagar, Bangalore - 560038"
+  },
   wishlist: {
     "USR-1000": ["pr1", "pr3"]
   },
@@ -224,15 +418,26 @@ const DEFAULT: PortalState = {
     "USR-1000": ["pr1", "pr2"]
   },
   orders: {
-    "USR-1000": [{
-      id: "ORD-9481",
-      date: "2026-06-15",
-      items: [{ productId: "pr2", name: "Cashmere Cape", house: "Atelier Reine", price: "₹1,50,000", image: "https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=1200&h=1600&q=80", qty: 1, selectedSize: "M" }],
-      total: 150000,
-      status: "Shipped",
-      address: "123, Luxury Lane, Indiranagar, Bangalore - 560038",
-      paymentStatus: "Paid"
-    }]
+    "USR-1000": [
+      {
+        id: "ORD-9481",
+        date: "2026-06-15T14:30:00Z",
+        items: [{ productId: "pr2", name: "Cashmere Cape", house: "Atelier Reine", price: "₹1,50,000", image: "https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=1200&h=1600&q=80", qty: 1, selectedSize: "M" }],
+        total: 150000,
+        status: "Shipped",
+        address: "123, Luxury Lane, Indiranagar, Bangalore - 560038",
+        paymentStatus: "Paid"
+      },
+      {
+        id: "ORD-9500",
+        date: "2026-07-09T18:45:00Z",
+        items: [{ productId: "pr1", name: "Silk Slip — Noir", house: "Maison Lumière", price: "₹85,000", image: "https://images.unsplash.com/photo-1485518882345-15568b007407?auto=format&fit=crop&w=1200&h=1600&q=80", qty: 1, selectedSize: "S" }],
+        total: 85000,
+        status: "Processing",
+        address: "123, Luxury Lane, Indiranagar, Bangalore - 560038",
+        paymentStatus: "Paid"
+      }
+    ]
   },
   coupons: [
     { code: "FESTIVE20", discount: 20, type: "percentage", expiryDate: "2026-12-31", usageLimit: 100, userEligibility: "All", active: true },
@@ -262,7 +467,8 @@ const DEFAULT: PortalState = {
   productViews: {},
   productCartAdditions: {},
   productPurchases: {},
-  homepageLayout: DEFAULT_HOMEPAGE_LAYOUT
+  homepageLayout: DEFAULT_HOMEPAGE_LAYOUT,
+  homepageLayoutDraft: DEFAULT_HOMEPAGE_LAYOUT
 };
 
 function load(): PortalState {
@@ -306,6 +512,7 @@ type Ctx = {
   saveDraft: (d: DraftApp) => void;
   submitDraft: (d: DraftApp) => void;
   markNotificationsRead: () => void;
+  dismissNotification: (id: string) => void;
 
   // public -> admin
   registerUser: (u: { firstName: string; lastName: string; email: string; phone?: string; country?: string; dob?: string; gender?: string }) => PlatformUser;
@@ -342,8 +549,10 @@ type Ctx = {
   // Addresses, Wishlist, Coupons, Orders
   addAddress: (userId: string, address: string) => void;
   removeAddress: (userId: string, index: number) => void;
+  updateAddress: (userId: string, index: number, address: string) => void;
+  setMajorAddress: (userId: string, address: string) => void;
   toggleWishlist: (userId: string, productId: string) => void;
-  createOrder: (userId: string, order: { items: CartItem[]; total: number; address: string }) => void;
+  createOrder: (userId: string, order: { items: CartItem[]; total: number; address: string; appliedCoupon?: string }) => void;
   updateOrderStatus: (userId: string, orderId: string, status: string) => void;
   addCoupon: (coupon: { code: string; discount: number; type?: "fixed" | "percentage" | "wallet"; expiryDate?: string; usageLimit?: number; userEligibility?: string }) => void;
   removeCoupon: (code: string) => void;
@@ -353,24 +562,35 @@ type Ctx = {
   createProduct: (p: Omit<Product, "id"> & { sizes?: string[]; stockPerSize?: Record<string, number>; sku?: string; images?: string[]; videos?: string[] }) => void;
   updateProduct: (id: string, patch: Partial<Product> & { sizes?: string[]; stockPerSize?: Record<string, number>; sku?: string; images?: string[]; videos?: string[] }) => void;
   deleteProduct: (id: string) => void;
-  requestReturn: (req: { orderId: string; productId: string; productName: string; customerId: string; customerName: string; reason: string; comment: string; images: string[]; videos: string[]; refundAmount: number }) => void;
+  requestReturn: (req: { orderId: string; productId: string; productName: string; customerId: string; customerName: string; reason: string; comment: string; images: string[]; videos: string[]; refundAmount: number; selectedSize?: string; qty?: number; refundMethod?: string }) => void;
   approveReturn: (returnId: string) => void;
-  rejectReturn: (returnId: string) => void;
+  rejectReturn: (returnId: string, rejectionReason?: string) => void;
+  updateReturnDetails: (returnId: string, patch: Partial<ReturnRequest>) => void;
   suspendCustomer: (id: string) => void;
   reactivateCustomer: (id: string) => void;
   addWalletCredit: (userId: string, amount: number) => void;
   moderateReview: (productId: string, reviewId: string, action: "approve" | "hide") => void;
   addReview: (productId: string, r: Omit<ProductReview, "id" | "status" | "date">) => void;
   updateHomepageLayout: (layout: Partial<PortalState["homepageLayout"]>) => void;
+  updateHomepageLayoutDraft: (layout: Partial<PortalState["homepageLayoutDraft"]>) => void;
+  publishHomepageLayout: () => void;
+  revertHomepageLayout: () => void;
+  createBucket: (name: string, productIds: string[], starProductId?: string) => void;
+  updateBucket: (id: string, patch: Partial<Bucket>) => void;
+  deleteBucket: (id: string) => void;
+  reorderBuckets: (buckets: Bucket[]) => void;
   createVendor: (v: Omit<Vendor, "id" | "revenue" | "products">) => void;
   deleteVendor: (id: string) => void;
   
   // Isolated Shop Specific Carts & Wishlists
   addToShopCart: (item: Omit<CartItem, "qty"> & { qty?: number; selectedSize?: string }) => void;
-  removeFromShopCart: (productId: string) => void;
+  removeFromShopCart: (productId: string, selectedSize?: string) => void;
   clearShopCart: () => void;
   toggleShopWishlist: (userId: string, productId: string) => void;
   recordProductView: (productId: string) => void;
+  updateShopCartQty: (productId: string, selectedSize: string, qty: number) => void;
+  restoreToShopCart: (item: CartItem) => void;
+  reloadProducts: () => Promise<void>;
 };
 
 const PortalContext = createContext<Ctx | null>(null);
@@ -379,9 +599,75 @@ export function PortalProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<PortalState>(DEFAULT);
   const [hydrated, setHydrated] = useState(false);
 
+  // Fetch dynamic database vendors and products from PostgreSQL backend
+  const fetchBackendVendorsAndProducts = useCallback(async () => {
+    try {
+      // 1. Fetch Vendors
+      const vendorsRes = await fetch(`${BACKEND_URL}/api/vendors`);
+      let mappedVendors = DEFAULT_VENDORS;
+      if (vendorsRes.ok) {
+        const dbVendors = await vendorsRes.json();
+        if (dbVendors && dbVendors.length > 0) {
+          mappedVendors = dbVendors.map((v: any) => ({
+            id: v.id,
+            companyName: v.companyName || v.id,
+            contactPerson: v.contactPerson || "",
+            email: v.email || "",
+            phone: v.phone || "",
+            products: [],
+            revenue: v.revenue || 0
+          }));
+        }
+      }
+
+      // 2. Fetch Products
+      const res = await fetch(`${BACKEND_URL}/api/vendors/products`);
+      if (res.ok) {
+        const dbProducts = await res.json();
+        const mapped = dbProducts.map((p: any) => ({
+          ...p,
+          id: String(p.id),
+          house: p.house || p.brand || "Maison Curation",
+          price: typeof p.price === "number" ? `₹${p.price.toLocaleString("en-IN")}` : (p.price?.toString().startsWith("₹") ? p.price : `₹${p.price}`),
+        }));
+        
+         setState(s => {
+          const existingIds = new Set(mapped.map((p: any) => p.id));
+          const currentProductIds = new Set(s.products.map(p => p.id));
+          const filteredDefault = PRODUCTS.filter(p => !existingIds.has(String(p.id)) && currentProductIds.has(p.id));
+          return {
+            ...s,
+            vendors: mappedVendors,
+            products: [...filteredDefault, ...mapped]
+          };
+        });
+      } else {
+        setState(s => ({ ...s, vendors: mappedVendors }));
+      }
+    } catch (err) {
+      console.warn("Backend offline. Fallback to offline store data.", err);
+    }
+  }, []);
+
   useEffect(() => {
-    setState(load());
+    const loadedState = load();
+    
+    // Merge URL products
+    const checkedProducts = (loadedState.products || []).map((p: any) => {
+      if (p.images && p.images.length > 0) {
+        const first = p.images[0];
+        if (first.startsWith(BACKEND_URL) || first.startsWith("http://localhost:8081")) {
+          p.img = first;
+        }
+      }
+      return p;
+    });
+    loadedState.products = checkedProducts;
+    
+    setState(loadedState);
     setHydrated(true);
+
+    fetchBackendVendorsAndProducts();
 
     const handleStorage = (e: StorageEvent) => {
       if (e.key && e.key.startsWith("reevibes:")) {
@@ -390,12 +676,13 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     };
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
-  }, []);
+  }, [fetchBackendVendorsAndProducts]);
 
   useEffect(() => { if (hydrated) save(state); }, [state, hydrated]);
 
   const api = useMemo<Ctx>(() => ({
     state,
+    reloadProducts: fetchBackendVendorsAndProducts,
 
     signIn: (email, name) => {
       const match = state.users.find(u => u.email.toLowerCase() === email.toLowerCase());
@@ -479,6 +766,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       };
     }),
     markNotificationsRead: () => setState(s => ({ ...s, notifications: s.notifications.map(n => ({ ...n, unread: false })) })),
+    dismissNotification: (id) => setState(s => ({ ...s, notifications: s.notifications.filter(n => n.id !== id) })),
 
     /* ───── public → admin sync ───── */
     registerUser: (u) => {
@@ -488,7 +776,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         id,
         firstName: u.firstName,
         lastName: u.lastName,
-        gender: (u.gender as PlatformUser["gender"]) ?? "Female",
+        gender: (u.gender as PlatformUser["gender"]) ?? "",
         dob: u.dob ?? "",
         age: 2026 - year,
         country: u.country ?? "—",
@@ -667,11 +955,54 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 
     addAddress: (userId, address) => setState(s => {
       const list = s.addresses[userId] ?? [];
-      return { ...s, addresses: { ...s.addresses, [userId]: [...list, address] } };
+      const nextMajorAddresses = { ...s.majorAddresses };
+      // Auto set first address as major
+      if (list.length === 0) {
+        nextMajorAddresses[userId] = address;
+      }
+      return {
+        ...s,
+        addresses: { ...s.addresses, [userId]: [...list, address] },
+        majorAddresses: nextMajorAddresses
+      };
     }),
     removeAddress: (userId, index) => setState(s => {
       const list = s.addresses[userId] ?? [];
-      return { ...s, addresses: { ...s.addresses, [userId]: list.filter((_, i) => i !== index) } };
+      const addrToRemove = list[index];
+      const nextList = list.filter((_, i) => i !== index);
+      const major = s.majorAddresses?.[userId];
+      const nextMajorAddresses = { ...s.majorAddresses };
+      if (major === addrToRemove) {
+        if (nextList.length > 0) {
+          nextMajorAddresses[userId] = nextList[0];
+        } else {
+          delete nextMajorAddresses[userId];
+        }
+      }
+      return {
+        ...s,
+        addresses: { ...s.addresses, [userId]: nextList },
+        majorAddresses: nextMajorAddresses
+      };
+    }),
+    updateAddress: (userId, index, address) => setState(s => {
+      const list = s.addresses[userId] ?? [];
+      const oldAddr = list[index];
+      const nextList = list.map((a, i) => i === index ? address : a);
+      const major = s.majorAddresses?.[userId];
+      const nextMajorAddresses = { ...s.majorAddresses };
+      if (major === oldAddr) {
+        nextMajorAddresses[userId] = address;
+      }
+      return {
+        ...s,
+        addresses: { ...s.addresses, [userId]: nextList },
+        majorAddresses: nextMajorAddresses
+      };
+    }),
+    setMajorAddress: (userId, address) => setState(s => {
+      const next = { ...s.majorAddresses, [userId]: address };
+      return { ...s, majorAddresses: next };
     }),
     toggleWishlist: (userId, productId) => setState(s => {
       const list = s.wishlist[userId] ?? [];
@@ -683,17 +1014,70 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       const orderId = `ORD-${Math.floor(1000 + Math.random() * 9000)}`;
       const newOrder = {
         id: orderId,
-        date: new Date().toISOString().slice(0, 10),
+        date: new Date().toISOString(),
         items: order.items,
         total: order.total,
         status: "Processing",
         address: order.address,
         paymentStatus: "Paid" as const
       };
+
+      const nextCoupons = order.appliedCoupon
+        ? (s.coupons || []).map(c =>
+            c.code === order.appliedCoupon?.toUpperCase()
+              ? { ...c, usedCount: (c.usedCount || 0) + 1 }
+              : c
+          )
+        : s.coupons;
+
+      const orderItemKeys = new Set((order.items || []).map(item => `${item.productId}-${item.selectedSize || "M"}`));
+      const nextShopCart = (s.shopCart || []).filter(item => !orderItemKeys.has(`${item.productId}-${item.selectedSize || "M"}`));
+
+      // Revert price if buyer limit is reached, and decrement stock for the purchased size
+      const nextProducts = (s.products || []).map(p => {
+        const orderItem = order.items.find(item => String(item.productId) === String(p.id));
+        if (orderItem) {
+          const size = orderItem.selectedSize || "M";
+          const updatedStock = { ...(p.stockPerSize || {}) };
+          if (updatedStock[size] !== undefined) {
+            updatedStock[size] = Math.max(0, updatedStock[size] - orderItem.qty);
+          }
+
+          let updatedPrice = p.price;
+          let updatedDiscount = p.discount;
+          let updatedLimit = p.discountLimitBuyers;
+          let updatedExpiry = p.discountExpiryDate;
+
+          const currentCount = p.discountBuyersCount || 0;
+          const nextCount = currentCount + orderItem.qty;
+
+          if (p.discountLimitBuyers && nextCount >= p.discountLimitBuyers) {
+            updatedPrice = p.originalPrice || p.price;
+            updatedDiscount = 0;
+            updatedLimit = undefined;
+            updatedExpiry = undefined;
+          }
+
+          return {
+            ...p,
+            stockPerSize: updatedStock,
+            discountBuyersCount: p.discountLimitBuyers ? nextCount : currentCount,
+            price: updatedPrice,
+            discount: updatedDiscount,
+            discountLimitBuyers: updatedLimit,
+            discountExpiryDate: updatedExpiry
+          };
+        }
+        return p;
+      });
+
       return {
         ...s,
         orders: { ...s.orders, [userId]: [newOrder, ...list] },
+        products: nextProducts,
+        coupons: nextCoupons,
         cart: [], // clear cart on successful order
+        shopCart: nextShopCart,
         notifications: [
           { id: `n-${Date.now()}`, icon: "order", title: "Order Placed Successfully", body: `Your order ${orderId} for ₹${order.total.toLocaleString()} has been placed.`, time: "now", unread: true },
           ...s.notifications
@@ -741,17 +1125,41 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       };
       return { ...s, products: [newProduct, ...s.products] };
     }),
-    updateProduct: (id, patch) => setState(s => ({
-      ...s,
-      products: s.products.map(p => p.id === id ? { ...p, ...patch } : p)
-    })),
-    deleteProduct: (id) => setState(s => ({ ...s, products: s.products.filter(p => p.id !== id) })),
+    updateProduct: (id, patch) => {
+      setState(s => ({
+        ...s,
+        products: s.products.map(p => p.id === id ? { ...p, ...patch } : p)
+      }));
+      if (id.startsWith("vp-") || id.startsWith("vnd-") || id.includes("-catalog")) {
+        // Clean price strings to numbers if present
+        const cleanedPatch = { ...patch };
+        if (cleanedPatch.price !== undefined) {
+          cleanedPatch.price = cleanedPatch.price.toString().replace(/[^0-9.]/g, "") as any;
+        }
+        if (cleanedPatch.originalPrice !== undefined) {
+          cleanedPatch.originalPrice = cleanedPatch.originalPrice.toString().replace(/[^0-9.]/g, "") as any;
+        }
+        fetch(`${BACKEND_URL}/api/vendors/products/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(cleanedPatch)
+        }).catch(err => console.error("Failed to sync product update to backend:", err));
+      }
+    },
+    deleteProduct: (id) => {
+      setState(s => ({ ...s, products: s.products.filter(p => p.id !== id) }));
+      if (id.startsWith("vp-") || id.startsWith("vnd-") || id.includes("-catalog")) {
+        fetch(`${BACKEND_URL}/api/vendors/products/${id}`, {
+          method: "DELETE"
+        }).catch(err => console.error("Failed to sync product deletion to backend:", err));
+      }
+    },
     requestReturn: (req) => setState(s => {
       const returnId = `RET-${Math.floor(100 + Math.random() * 900)}`;
       const newReturn: ReturnRequest = {
         id: returnId,
         ...req,
-        status: "Pending"
+        status: "Return Requested"
       };
       return {
         ...s,
@@ -768,16 +1176,18 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       
       const updatedReturns = s.returns.map(r => r.id === returnId ? {
         ...r,
-        status: "Approved" as const,
+        status: "Refund Completed",
         refundTransactionId: `pay_razor_${Math.random().toString(36).substring(2, 11)}`,
-        refundDate: new Date().toISOString().slice(0, 10)
+        refundDate: new Date().toISOString().slice(0, 10),
+        expectedCreditDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
       } : r);
 
-      // Trigger wallet credit
-      const userWallet = s.wallets[req.customerId] ?? 0;
-      const updatedWallets = { ...s.wallets, [req.customerId]: userWallet + req.refundAmount };
+      let updatedWallets = s.wallets;
+      if (req.refundMethod === "ReeVibes Wallet" || req.refundMethod === "Store Credit") {
+        const userWallet = s.wallets[req.customerId] ?? 0;
+        updatedWallets = { ...s.wallets, [req.customerId]: userWallet + req.refundAmount };
+      }
 
-      // Update Order Status and Payment Status
       const userOrders = s.orders[req.customerId] ?? [];
       const updatedOrders = userOrders.map(o => {
         if (o.id === req.orderId) {
@@ -786,7 +1196,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
             status: "Returned",
             paymentStatus: "Refunded" as const,
             refundDetails: {
-              status: "Approved",
+              status: "Refund Completed",
               amount: req.refundAmount,
               transactionId: `pay_razor_${Math.random().toString(36).substring(2, 11)}`,
               date: new Date().toISOString().slice(0, 10)
@@ -802,23 +1212,27 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         wallets: updatedWallets,
         orders: { ...s.orders, [req.customerId]: updatedOrders },
         notifications: [
-          { id: `n-${Date.now()}`, icon: "wallet", title: "Refund Issued", body: `Refund of ₹${req.refundAmount.toLocaleString()} credited to your wallet (Razorpay Payout complete).`, time: "now", unread: true },
+          { id: `n-${Date.now()}`, icon: "wallet", title: "Refund Issued", body: `Refund of ₹${req.refundAmount.toLocaleString()} credited successfully.`, time: "now", unread: true },
           ...s.notifications
         ]
       };
     }),
-    rejectReturn: (returnId) => setState(s => {
+    rejectReturn: (returnId, rejectionReason) => setState(s => {
       const req = s.returns.find(r => r.id === returnId);
       if (!req) return s;
-      const updatedReturns = s.returns.map(r => r.id === returnId ? { ...r, status: "Rejected" as const } : r);
+      const updatedReturns = s.returns.map(r => r.id === returnId ? { ...r, status: "Rejected", rejectionReason: rejectionReason || "Insufficient evidence" } : r);
       return {
         ...s,
         returns: updatedReturns,
         notifications: [
-          { id: `n-${Date.now()}`, icon: "refund", title: "Return Request Rejected", body: `Return request ${returnId} for order ${req.orderId} was not approved.`, time: "now", unread: true },
+          { id: `n-${Date.now()}`, icon: "refund", title: "Return Request Rejected", body: `Return request ${returnId} for order ${req.orderId} was rejected. Reason: ${rejectionReason || "Insufficient evidence"}.`, time: "now", unread: true },
           ...s.notifications
         ]
       };
+    }),
+    updateReturnDetails: (returnId, patch) => setState(s => {
+      const nextList = s.returns.map(r => r.id === returnId ? { ...r, ...patch } : r);
+      return { ...s, returns: nextList };
     }),
     suspendCustomer: (id) => setState(s => ({
       ...s,
@@ -861,9 +1275,58 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         productReviews: { ...s.productReviews, [productId]: [newReview, ...productRevs] }
       };
     }),
-    updateHomepageLayout: (layout) => setState(s => ({
+    updateHomepageLayout: (layout) => setState(s => {
+      const next = {
+        ...s,
+        homepageLayout: { ...s.homepageLayout, ...layout }
+      };
+      save(next);
+      return next;
+    }),
+    updateHomepageLayoutDraft: (layout) => setState(s => {
+      const next = {
+        ...s,
+        homepageLayoutDraft: { ...s.homepageLayoutDraft, ...layout }
+      };
+      save(next);
+      return next;
+    }),
+    publishHomepageLayout: () => setState(s => {
+      const next = {
+        ...s,
+        homepageLayout: { ...s.homepageLayoutDraft }
+      };
+      save(next);
+      return next;
+    }),
+    revertHomepageLayout: () => setState(s => {
+      const next = {
+        ...s,
+        homepageLayoutDraft: { ...s.homepageLayout }
+      };
+      save(next);
+      return next;
+    }),
+    createBucket: (name, productIds, starProductId) => setState(s => {
+      const newBucket: Bucket = {
+        id: `bkt-${Date.now()}`,
+        name,
+        productIds,
+        starProductId
+      };
+      return { ...s, buckets: [...(s.buckets || []), newBucket] };
+    }),
+    updateBucket: (id, patch) => setState(s => {
+      const next = (s.buckets || []).map(b => b.id === id ? { ...b, ...patch } : b);
+      return { ...s, buckets: next };
+    }),
+    deleteBucket: (id) => setState(s => ({
       ...s,
-      homepageLayout: { ...s.homepageLayout, ...layout }
+      buckets: (s.buckets || []).filter(b => b.id !== id)
+    })),
+    reorderBuckets: (buckets) => setState(s => ({
+      ...s,
+      buckets
     })),
     createVendor: (v) => setState(s => {
       const newVendor: Vendor = {
@@ -881,13 +1344,14 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 
     // Isolated shop cart & wishlist implementations
     addToShopCart: (item) => setState(s => {
-      const existing = s.shopCart.find(c => c.productId === item.productId && c.selectedSize === item.selectedSize);
+      const cartList = s.shopCart || [];
+      const existing = cartList.find(c => c.productId === item.productId && c.selectedSize === item.selectedSize);
       const qty = item.qty ?? 1;
       let shopCart;
       if (existing) {
-        shopCart = s.shopCart.map(c => (c.productId === item.productId && c.selectedSize === item.selectedSize) ? { ...c, qty: c.qty + qty } : c);
+        shopCart = cartList.map(c => (c.productId === item.productId && c.selectedSize === item.selectedSize) ? { ...c, qty: c.qty + qty } : c);
       } else {
-        shopCart = [...s.shopCart, { ...item, qty }];
+        shopCart = [...cartList, { ...item, qty }];
       }
       // Increment shop cart additions trending log
       const currentAdditions = s.productCartAdditions[item.productId] ?? 0;
@@ -897,7 +1361,10 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         productCartAdditions: { ...s.productCartAdditions, [item.productId]: currentAdditions + qty }
       };
     }),
-    removeFromShopCart: (id) => setState(s => ({ ...s, shopCart: s.shopCart.filter(c => c.productId !== id) })),
+    removeFromShopCart: (id, size) => setState(s => ({
+      ...s,
+      shopCart: (s.shopCart || []).filter(c => size ? !(c.productId === id && c.selectedSize === size) : c.productId !== id)
+    })),
     clearShopCart: () => setState(s => ({ ...s, shopCart: [] })),
     toggleShopWishlist: (userId, productId) => setState(s => {
       const list = s.shopWishlist[userId] ?? [];
@@ -910,6 +1377,17 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         ...s,
         productViews: { ...s.productViews, [productId]: currentViews + 1 }
       };
+    }),
+    updateShopCartQty: (productId, selectedSize, qty) => setState(s => {
+      const shopCart = (s.shopCart || []).map(c =>
+        (c.productId === productId && c.selectedSize === selectedSize) ? { ...c, qty } : c
+      );
+      return { ...s, shopCart };
+    }),
+    restoreToShopCart: (item) => setState(s => {
+      const exists = (s.shopCart || []).some(c => c.productId === item.productId && c.selectedSize === item.selectedSize);
+      const shopCart = exists ? (s.shopCart || []) : [...(s.shopCart || []), item];
+      return { ...s, shopCart };
     })
   }), [state]);
 
@@ -929,11 +1407,11 @@ export function useAppStore() {
 
 export function useCartTotal() {
   const { state } = usePortal();
-  const count = state.cart.reduce((n, c) => n + c.qty, 0);
-  const total = state.cart.reduce((n, c) => n + Number(c.price.replace(/[^0-9.]/g, "")) * c.qty, 0);
+  const count = (state.cart || []).reduce((n, c) => n + c.qty, 0);
+  const total = (state.cart || []).reduce((n, c) => n + Number(String(c.price).replace(/[^0-9.]/g, "")) * c.qty, 0);
   
-  const shopCount = state.shopCart.reduce((n, c) => n + c.qty, 0);
-  const shopTotal = state.shopCart.reduce((n, c) => n + Number(c.price.replace(/[^0-9.]/g, "")) * c.qty, 0);
+  const shopCount = (state.shopCart || []).reduce((n, c) => n + c.qty, 0);
+  const shopTotal = (state.shopCart || []).reduce((n, c) => n + Number(String(c.price).replace(/[^0-9.]/g, "")) * c.qty, 0);
 
   return { count, total, shopCount, shopTotal };
 }

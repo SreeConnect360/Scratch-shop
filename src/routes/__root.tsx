@@ -11,6 +11,7 @@ import {
 import appCss from "../styles.css?url";
 import { ThemeProvider } from "@/hooks/use-theme";
 import { PortalProvider } from "@/lib/portal-state";
+import { GoogleOAuthProvider } from "@react-oauth/google";
 
 function NotFoundComponent() {
   return (
@@ -137,15 +138,21 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+import { Toaster } from "@/components/ui/sonner";
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <PortalProvider>
-          <Outlet />
-        </PortalProvider>
-      </ThemeProvider>
+      <GoogleOAuthProvider clientId={googleClientId}>
+        <ThemeProvider>
+          <PortalProvider>
+            <Outlet />
+            <Toaster duration={2000} position="top-right" closeButton />
+          </PortalProvider>
+        </ThemeProvider>
+      </GoogleOAuthProvider>
     </QueryClientProvider>
   );
 }

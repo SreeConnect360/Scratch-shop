@@ -1,0 +1,335 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import { usePortal } from "@/lib/portal-state";
+import { Slider } from "@/components/ui/slider";
+import { X, Film, Mail, Phone, MapPin, Globe } from "lucide-react";
+
+export const Route = createFileRoute("/FashionBattle/account/role-ratings")({
+  component: RoleRatingsPage,
+});
+
+function ContestantDetailModal({ contestant, onClose }: { contestant: any; onClose: () => void }) {
+  const { state, reportAbuse } = usePortal();
+  const [showAbuseForm, setShowAbuseForm] = useState(false);
+  const [abuseComment, setAbuseComment] = useState("");
+  const [isSubmitted, setIsSubmitted] = useState(false);
+
+  if (!contestant) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 overflow-y-auto">
+      <div className="bg-background border border-border-subtle w-full max-w-4xl rounded shadow-2xl overflow-hidden flex flex-col my-8 max-h-[90vh]">
+        <div className="flex justify-between items-center px-6 py-4 border-b border-border-subtle bg-surface">
+          <div>
+            <span className="editorial-label text-accent">Contestant Profile</span>
+            <h3 className="font-serif text-2xl mt-0.5">{contestant.fullName}</h3>
+          </div>
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => setShowAbuseForm(true)} 
+              className="text-xs uppercase tracking-wider font-semibold border border-rose-500/30 text-rose-400 px-3 py-1.5 hover:bg-rose-500/10 transition-colors rounded-sm"
+            >
+              Report Abuse
+            </button>
+            <button onClick={onClose} className="p-2 text-muted-foreground hover:text-foreground">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6 overflow-y-auto space-y-8 flex-1">
+          <div className="grid md:grid-cols-12 gap-8">
+            <div className="md:col-span-5 space-y-4">
+              <div className="aspect-[3/4] border border-border-subtle bg-surface-2 overflow-hidden rounded">
+                <img src={contestant.photos.portrait} alt="" className="w-full h-full object-cover" />
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {contestant.photos.fullBody && (
+                  <div className="aspect-[3/4] border border-border-subtle bg-surface-2 overflow-hidden rounded">
+                    <img src={contestant.photos.fullBody} alt="" className="w-full h-full object-cover" />
+                  </div>
+                )}
+                {contestant.photos.sideProfile && (
+                  <div className="aspect-[3/4] border border-border-subtle bg-surface-2 overflow-hidden rounded">
+                    <img src={contestant.photos.sideProfile} alt="" className="w-full h-full object-cover" />
+                  </div>
+                )}
+                {contestant.photos.candid && (
+                  <div className="aspect-[3/4] border border-border-subtle bg-surface-2 overflow-hidden rounded">
+                    <img src={contestant.photos.candid} alt="" className="w-full h-full object-cover" />
+                  </div>
+                )}
+              </div>
+              
+              {contestant.photos.additional && contestant.photos.additional.length > 0 && (
+                <div>
+                  <div className="editorial-label text-muted-foreground mb-2">Additional Media</div>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {contestant.photos.additional.map((ph: string, idx: number) => (
+                      <div key={idx} className="aspect-square border border-border-subtle bg-surface rounded overflow-hidden">
+                        <img src={ph} className="w-full h-full object-cover" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {contestant.videos?.intro && (
+                <div className="pt-2">
+                  <div className="editorial-label text-muted-foreground mb-2 flex items-center gap-1.5"><Film className="w-3.5 h-3.5 text-accent" /> Introduction Video</div>
+                  <div className="aspect-video bg-black rounded overflow-hidden border border-border-subtle">
+                    <video src={contestant.videos.intro} controls className="w-full h-full object-contain" />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="md:col-span-7 space-y-6">
+              <div>
+                <h4 className="editorial-label text-accent border-b border-border-subtle pb-1">Personal Details</h4>
+                <div className="grid grid-cols-2 gap-y-3 gap-x-6 mt-3 text-sm">
+                  <div><span className="text-muted-foreground">Age:</span> {contestant.age} years</div>
+                  <div><span className="text-muted-foreground">Height:</span> {contestant.height || "—"}</div>
+                  <div><span className="text-muted-foreground">Weight:</span> {contestant.weight || "—"}</div>
+                  <div><span className="text-muted-foreground">Hair:</span> {contestant.hairColour || "—"}</div>
+                  <div><span className="text-muted-foreground">Eyes:</span> {contestant.eyeColour || "—"}</div>
+                  <div><span className="text-muted-foreground">Shoe Size:</span> {contestant.shoeSize || "—"}</div>
+                  <div><span className="text-muted-foreground">Measurements:</span> {contestant.bust ? `${contestant.bust} - ${contestant.waist} - ${contestant.hips}` : "—"}</div>
+                  <div><span className="text-muted-foreground">Date of Birth:</span> {contestant.dob || "—"}</div>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="editorial-label text-accent border-b border-border-subtle pb-1">Contact & Location</h4>
+                <div className="grid grid-cols-2 gap-y-3 gap-x-6 mt-3 text-sm">
+                  <div className="flex items-center gap-1.5"><Mail className="w-3.5 h-3.5 text-muted-foreground" /> <span className="truncate">{contestant.email}</span></div>
+                  <div className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-muted-foreground" /> <span>{contestant.phone}</span></div>
+                  <div className="col-span-2 flex items-start gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-muted-foreground mt-0.5" /> 
+                    <span>{contestant.streetAddress ? `${contestant.streetAddress}, ${contestant.city}, ${contestant.stateProvince} ${contestant.zipCode}, ${contestant.country}` : contestant.country}</span>
+                  </div>
+                </div>
+              </div>
+
+              {contestant.biography && (
+                <div>
+                  <h4 className="editorial-label text-accent border-b border-border-subtle pb-1">Biography</h4>
+                  <p className="mt-2 text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">{contestant.biography}</p>
+                </div>
+              )}
+
+              {contestant.experience && (
+                <div>
+                  <h4 className="editorial-label text-accent border-b border-border-subtle pb-1">Modeling Experience</h4>
+                  <p className="mt-2 text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">{contestant.experience}</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                {contestant.profession && (
+                  <div>
+                    <h4 className="editorial-label text-accent border-b border-border-subtle pb-1">Profession</h4>
+                    <p className="mt-2 text-sm">{contestant.profession}</p>
+                  </div>
+                )}
+                {contestant.education && (
+                  <div>
+                    <h4 className="editorial-label text-accent border-b border-border-subtle pb-1">Education</h4>
+                    <p className="mt-2 text-sm">{contestant.education}</p>
+                  </div>
+                )}
+              </div>
+
+              {contestant.socialLinks && contestant.socialLinks.length > 0 && (
+                <div>
+                  <h4 className="editorial-label text-accent border-b border-border-subtle pb-1">Social Links</h4>
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {contestant.socialLinks.map((link: any, idx: number) => (
+                      <a key={idx} href={link.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs bg-surface-3 px-2.5 py-1 border border-border-subtle hover:text-accent transition-colors rounded">
+                        <Globe className="w-3 h-3" /> {link.platform}: {link.url}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {showAbuseForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+          <div className="bg-background border border-border-subtle w-full max-w-md rounded shadow-2xl p-6 space-y-4">
+            <div className="flex justify-between items-center pb-2 border-b border-border-subtle">
+              <h4 className="font-serif text-lg text-rose-500">Report Abuse</h4>
+              <button onClick={() => { setShowAbuseForm(false); setAbuseComment(""); }} className="text-muted-foreground hover:text-foreground">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            {isSubmitted ? (
+              <div className="space-y-4 py-4 text-center">
+                <p className="text-sm text-foreground">Thank you. Your report has been submitted for review.</p>
+                <button 
+                  onClick={() => {
+                    setShowAbuseForm(false);
+                    setIsSubmitted(false);
+                    setAbuseComment("");
+                  }} 
+                  className="px-4 py-2 text-xs uppercase tracking-wider font-semibold bg-accent text-white rounded-sm hover:opacity-90"
+                >
+                  Close
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-xs text-muted-foreground">
+                  Reporting contestant: <strong className="text-foreground">{contestant.fullName}</strong>
+                </p>
+                <div className="space-y-1.5">
+                  <label className="editorial-label text-muted-foreground">Leave your comment</label>
+                  <textarea 
+                    value={abuseComment}
+                    onChange={e => setAbuseComment(e.target.value)}
+                    placeholder="Provide details about the issue..."
+                    rows={4}
+                    className="w-full bg-transparent border border-border-subtle p-2 text-sm rounded bg-background text-foreground focus:outline-none focus:border-accent"
+                  />
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <button 
+                    onClick={() => { setShowAbuseForm(false); setAbuseComment(""); }} 
+                    className="px-4 py-2 text-xs uppercase tracking-wider font-semibold border border-border-subtle text-muted-foreground rounded-sm hover:text-foreground hover:bg-surface"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={() => {
+                      if (!abuseComment.trim()) return;
+                      reportAbuse({
+                        target: contestant.contestantId,
+                        reason: abuseComment,
+                        reporter: state.user?.email || "anonymous"
+                      });
+                      setIsSubmitted(true);
+                    }}
+                    disabled={!abuseComment.trim()}
+                    className="px-4 py-2 text-xs uppercase tracking-wider font-semibold bg-rose-600 text-white rounded-sm hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Submit Report
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RoleRatingsPage() {
+  const { state, setRateScore } = usePortal();
+  const userId = state.user?.id ?? "";
+  const countries = useMemo(() => Array.from(new Set(state.contests.filter(c => c.published).map(c => c.country))), [state.contests]);
+  const [country, setCountry] = useState<string>(countries[0] ?? "Global");
+  const [tab, setTab] = useState<"Approved" | "Rated">("Approved");
+  const [pendingRatings, setPendingRatings] = useState<Record<string, number>>({});
+  const [viewingContestant, setViewingContestant] = useState<any | null>(null);
+
+  const apps = state.applications.filter(a => a.country === country && (state.applicationsWorkflow[a.contestantId] ?? a.status) === "Approved");
+  const myScores = state.rateScores[userId] ?? {};
+  const list = tab === "Approved" ? apps.filter(a => myScores[a.contestantId] === undefined) : apps.filter(a => myScores[a.contestantId] !== undefined);
+
+  return (
+    <div className="space-y-8">
+      <header>
+        <p className="editorial-eyebrow text-accent">Role · Ratings</p>
+        <h2 className="mt-2 font-serif text-3xl">Rate Approved Contestants</h2>
+      </header>
+
+      <div className="flex flex-wrap gap-3">
+        <select value={country} onChange={e => { setCountry(e.target.value); setPendingRatings({}); }} className="bg-transparent border border-border-subtle px-3 py-2 text-sm rounded bg-background">
+          {countries.map(c => <option key={c} className="bg-background">{c}</option>)}
+        </select>
+      </div>
+
+      <div className="flex gap-1 editorial-label">
+        {(["Approved", "Rated"] as const).map(t => (
+          <button key={t} onClick={() => { setTab(t); setPendingRatings({}); }} className={`px-3 py-1 border transition-colors ${tab === t ? "border-accent text-accent bg-accent/5" : "border-border-subtle text-muted-foreground"}`}>{t}</button>
+        ))}
+      </div>
+
+      {list.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No contestants to {tab === "Approved" ? "rate" : "show"}.</p>
+      ) : (
+        <div className="space-y-6">
+          {list.map(a => {
+            const savedScore = myScores[a.contestantId];
+            const currentScore = pendingRatings[a.contestantId] ?? savedScore ?? 0;
+            const isChanged = pendingRatings[a.contestantId] !== undefined && pendingRatings[a.contestantId] !== savedScore;
+
+            return (
+              <div key={a.contestantId} className="border border-border-subtle p-4 flex gap-4 items-center bg-surface rounded">
+                <div className="relative w-20 h-24 overflow-hidden border border-border-subtle rounded group shrink-0">
+                  <img 
+                    src={a.photos.portrait} 
+                    className="w-full h-full object-cover cursor-pointer" 
+                    onClick={() => setViewingContestant(a)}
+                  />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer text-[8px] uppercase tracking-wider text-white text-center p-1" onClick={() => setViewingContestant(a)}>
+                    View Info
+                  </div>
+                </div>
+                <div className="flex-1 space-y-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="font-serif text-lg leading-tight">{a.fullName}</div>
+                      <div className="editorial-label text-muted-foreground text-[10px]">{a.contestantId}</div>
+                    </div>
+                    
+                    <button
+                      disabled={!isChanged}
+                      onClick={() => {
+                        setRateScore(userId, a.contestantId, currentScore);
+                        setPendingRatings(prev => {
+                          const copy = { ...prev };
+                          delete copy[a.contestantId];
+                          return copy;
+                        });
+                      }}
+                      className={`px-4 py-2 text-[10px] uppercase tracking-wider font-semibold border transition-all duration-300 rounded-sm ${
+                        isChanged
+                          ? "text-white cursor-pointer font-bold"
+                          : "bg-transparent border-border-subtle text-muted-foreground cursor-not-allowed opacity-50"
+                      }`}
+                      style={isChanged ? { backgroundColor: "#db2777", borderColor: "#db2777" } : {}}
+                    >
+                      Save Judges
+                    </button>
+                  </div>
+                  
+                  <div className="flex items-center gap-3">
+                    <Slider 
+                      value={[currentScore]} 
+                      max={10} 
+                      step={1} 
+                      onValueChange={v => setPendingRatings(prev => ({ ...prev, [a.contestantId]: v[0] }))} 
+                      className="flex-1" 
+                    />
+                    <span className="font-serif text-2xl w-10 text-right">{currentScore}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {viewingContestant && (
+        <ContestantDetailModal 
+          contestant={viewingContestant} 
+          onClose={() => setViewingContestant(null)} 
+        />
+      )}
+    </div>
+  );
+}

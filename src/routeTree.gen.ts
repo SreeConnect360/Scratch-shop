@@ -10,38 +10,14 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
-import { Route as ShopRouteImport } from './routes/shop'
-import { Route as RegisterRouteImport } from './routes/register'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as LiveContestRouteImport } from './routes/live-contest'
-import { Route as HouseOfFashionRouteImport } from './routes/house-of-fashion'
-import { Route as CartRouteImport } from './routes/cart'
-import { Route as BestPhotographyRouteImport } from './routes/best-photography'
-import { Route as ApplyRouteImport } from './routes/apply'
-import { Route as AngelsRouteImport } from './routes/angels'
-import { Route as AccountRouteImport } from './routes/account'
-import { Route as AboutRouteImport } from './routes/about'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as ShopIndexRouteImport } from './routes/shop.index'
-import { Route as ApplyIndexRouteImport } from './routes/apply.index'
+import { Route as ShopRouteImport } from './routes/_shop'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
-import { Route as AccountIndexRouteImport } from './routes/account.index'
-import { Route as ShopRegisterRouteImport } from './routes/shop.register'
-import { Route as ShopLoginRouteImport } from './routes/shop.login'
-import { Route as ShopCategoriesRouteImport } from './routes/shop.categories'
-import { Route as ShopCartRouteImport } from './routes/shop.cart'
-import { Route as ShopAccountRouteImport } from './routes/shop.account'
-import { Route as PhotographyPhotoIdRouteImport } from './routes/photography.$photoId'
-import { Route as LiveContestContestIdRouteImport } from './routes/live-contest.$contestId'
-import { Route as HouseOfFashionProductIdRouteImport } from './routes/house-of-fashion.$productId'
-import { Route as ContestantsSlugRouteImport } from './routes/contestants.$slug'
-import { Route as ContestantContestantIdRouteImport } from './routes/contestant.$contestantId'
-import { Route as ApplyContestIdRouteImport } from './routes/apply.$contestId'
+import { Route as ShopIndexRouteImport } from './routes/_shop.index'
+import { Route as FashionBattleIndexRouteImport } from './routes/FashionBattle.index'
 import { Route as ApiSponsorsRouteImport } from './routes/api.sponsors'
 import { Route as ApiFlagsRouteImport } from './routes/api.flags'
 import { Route as ApiCountriesLogosRouteImport } from './routes/api.countries-logos'
 import { Route as ApiAngelsRouteImport } from './routes/api.angels'
-import { Route as AngelsSlugRouteImport } from './routes/angels.$slug'
 import { Route as AdminVoteControlRouteImport } from './routes/admin.vote-control'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminTop16RouteImport } from './routes/admin.top-16'
@@ -52,15 +28,41 @@ import { Route as AdminOpenContestRouteImport } from './routes/admin.open-contes
 import { Route as AdminLiveContestRouteImport } from './routes/admin.live-contest'
 import { Route as AdminContestantsRouteImport } from './routes/admin.contestants'
 import { Route as AdminAbuseReportsRouteImport } from './routes/admin.abuse-reports'
-import { Route as AccountRoleRatingsRouteImport } from './routes/account.role-ratings'
-import { Route as AccountRoleJudgementsRouteImport } from './routes/account.role-judgements'
-import { Route as AccountRoleCastingRouteImport } from './routes/account.role-casting'
-import { Route as AccountRoleApplicationsRouteImport } from './routes/account.role-applications'
-import { Route as AccountProfileRouteImport } from './routes/account.profile'
-import { Route as AccountNotificationsRouteImport } from './routes/account.notifications'
-import { Route as AccountApplicationsRouteImport } from './routes/account.applications'
-import { Route as ShopProductProductIdRouteImport } from './routes/shop.product.$productId'
-import { Route as LiveContestCountryIdStageRouteImport } from './routes/live-contest.$countryId.$stage'
+import { Route as ShopSearchRouteImport } from './routes/_shop.search'
+import { Route as ShopRegisterRouteImport } from './routes/_shop.register'
+import { Route as ShopLoginRouteImport } from './routes/_shop.login'
+import { Route as ShopForgotPasswordRouteImport } from './routes/_shop.forgot-password'
+import { Route as ShopCategoriesRouteImport } from './routes/_shop.categories'
+import { Route as ShopCartRouteImport } from './routes/_shop.cart'
+import { Route as ShopAccountRouteImport } from './routes/_shop.account'
+import { Route as FashionBattleRegisterRouteImport } from './routes/FashionBattle.register'
+import { Route as FashionBattleLoginRouteImport } from './routes/FashionBattle.login'
+import { Route as FashionBattleLiveContestRouteImport } from './routes/FashionBattle.live-contest'
+import { Route as FashionBattleHouseOfFashionRouteImport } from './routes/FashionBattle.house-of-fashion'
+import { Route as FashionBattleCartRouteImport } from './routes/FashionBattle.cart'
+import { Route as FashionBattleBestPhotographyRouteImport } from './routes/FashionBattle.best-photography'
+import { Route as FashionBattleApplyRouteImport } from './routes/FashionBattle.apply'
+import { Route as FashionBattleAngelsRouteImport } from './routes/FashionBattle.angels'
+import { Route as FashionBattleAccountRouteImport } from './routes/FashionBattle.account'
+import { Route as FashionBattleAboutRouteImport } from './routes/FashionBattle.about'
+import { Route as FashionBattleApplyIndexRouteImport } from './routes/FashionBattle.apply.index'
+import { Route as FashionBattleAccountIndexRouteImport } from './routes/FashionBattle.account.index'
+import { Route as ShopProductProductIdRouteImport } from './routes/_shop.product.$productId'
+import { Route as FashionBattlePhotographyPhotoIdRouteImport } from './routes/FashionBattle.photography.$photoId'
+import { Route as FashionBattleLiveContestContestIdRouteImport } from './routes/FashionBattle.live-contest.$contestId'
+import { Route as FashionBattleHouseOfFashionProductIdRouteImport } from './routes/FashionBattle.house-of-fashion.$productId'
+import { Route as FashionBattleContestantsSlugRouteImport } from './routes/FashionBattle.contestants.$slug'
+import { Route as FashionBattleContestantContestantIdRouteImport } from './routes/FashionBattle.contestant.$contestantId'
+import { Route as FashionBattleApplyContestIdRouteImport } from './routes/FashionBattle.apply.$contestId'
+import { Route as FashionBattleAngelsSlugRouteImport } from './routes/FashionBattle.angels.$slug'
+import { Route as FashionBattleAccountRoleRatingsRouteImport } from './routes/FashionBattle.account.role-ratings'
+import { Route as FashionBattleAccountRoleJudgementsRouteImport } from './routes/FashionBattle.account.role-judgements'
+import { Route as FashionBattleAccountRoleCastingRouteImport } from './routes/FashionBattle.account.role-casting'
+import { Route as FashionBattleAccountRoleApplicationsRouteImport } from './routes/FashionBattle.account.role-applications'
+import { Route as FashionBattleAccountProfileRouteImport } from './routes/FashionBattle.account.profile'
+import { Route as FashionBattleAccountNotificationsRouteImport } from './routes/FashionBattle.account.notifications'
+import { Route as FashionBattleAccountApplicationsRouteImport } from './routes/FashionBattle.account.applications'
+import { Route as FashionBattleLiveContestCountryIdStageRouteImport } from './routes/FashionBattle.live-contest.$countryId.$stage'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
@@ -68,63 +70,12 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const ShopRoute = ShopRouteImport.update({
-  id: '/shop',
-  path: '/shop',
+  id: '/_shop',
   getParentRoute: () => rootRouteImport,
 } as any)
-const RegisterRoute = RegisterRouteImport.update({
-  id: '/register',
-  path: '/register',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LiveContestRoute = LiveContestRouteImport.update({
-  id: '/live-contest',
-  path: '/live-contest',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const HouseOfFashionRoute = HouseOfFashionRouteImport.update({
-  id: '/house-of-fashion',
-  path: '/house-of-fashion',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CartRoute = CartRouteImport.update({
-  id: '/cart',
-  path: '/cart',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const BestPhotographyRoute = BestPhotographyRouteImport.update({
-  id: '/best-photography',
-  path: '/best-photography',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApplyRoute = ApplyRouteImport.update({
-  id: '/apply',
-  path: '/apply',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AngelsRoute = AngelsRouteImport.update({
-  id: '/angels',
-  path: '/angels',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AccountRoute = AccountRouteImport.update({
-  id: '/account',
-  path: '/account',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AboutRoute = AboutRouteImport.update({
-  id: '/about',
-  path: '/about',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ShopIndexRoute = ShopIndexRouteImport.update({
@@ -132,75 +83,10 @@ const ShopIndexRoute = ShopIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ShopRoute,
 } as any)
-const ApplyIndexRoute = ApplyIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => ApplyRoute,
-} as any)
-const AdminIndexRoute = AdminIndexRouteImport.update({
-  id: '/admin/',
-  path: '/admin/',
+const FashionBattleIndexRoute = FashionBattleIndexRouteImport.update({
+  id: '/FashionBattle/',
+  path: '/FashionBattle/',
   getParentRoute: () => rootRouteImport,
-} as any)
-const AccountIndexRoute = AccountIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AccountRoute,
-} as any)
-const ShopRegisterRoute = ShopRegisterRouteImport.update({
-  id: '/register',
-  path: '/register',
-  getParentRoute: () => ShopRoute,
-} as any)
-const ShopLoginRoute = ShopLoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => ShopRoute,
-} as any)
-const ShopCategoriesRoute = ShopCategoriesRouteImport.update({
-  id: '/categories',
-  path: '/categories',
-  getParentRoute: () => ShopRoute,
-} as any)
-const ShopCartRoute = ShopCartRouteImport.update({
-  id: '/cart',
-  path: '/cart',
-  getParentRoute: () => ShopRoute,
-} as any)
-const ShopAccountRoute = ShopAccountRouteImport.update({
-  id: '/account',
-  path: '/account',
-  getParentRoute: () => ShopRoute,
-} as any)
-const PhotographyPhotoIdRoute = PhotographyPhotoIdRouteImport.update({
-  id: '/photography/$photoId',
-  path: '/photography/$photoId',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LiveContestContestIdRoute = LiveContestContestIdRouteImport.update({
-  id: '/$contestId',
-  path: '/$contestId',
-  getParentRoute: () => LiveContestRoute,
-} as any)
-const HouseOfFashionProductIdRoute = HouseOfFashionProductIdRouteImport.update({
-  id: '/$productId',
-  path: '/$productId',
-  getParentRoute: () => HouseOfFashionRoute,
-} as any)
-const ContestantsSlugRoute = ContestantsSlugRouteImport.update({
-  id: '/contestants/$slug',
-  path: '/contestants/$slug',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ContestantContestantIdRoute = ContestantContestantIdRouteImport.update({
-  id: '/contestant/$contestantId',
-  path: '/contestant/$contestantId',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApplyContestIdRoute = ApplyContestIdRouteImport.update({
-  id: '/$contestId',
-  path: '/$contestId',
-  getParentRoute: () => ApplyRoute,
 } as any)
 const ApiSponsorsRoute = ApiSponsorsRouteImport.update({
   id: '/api/sponsors',
@@ -221,11 +107,6 @@ const ApiAngelsRoute = ApiAngelsRouteImport.update({
   id: '/api/angels',
   path: '/api/angels',
   getParentRoute: () => rootRouteImport,
-} as any)
-const AngelsSlugRoute = AngelsSlugRouteImport.update({
-  id: '/$slug',
-  path: '/$slug',
-  getParentRoute: () => AngelsRoute,
 } as any)
 const AdminVoteControlRoute = AdminVoteControlRouteImport.update({
   id: '/admin/vote-control',
@@ -277,74 +158,220 @@ const AdminAbuseReportsRoute = AdminAbuseReportsRouteImport.update({
   path: '/admin/abuse-reports',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AccountRoleRatingsRoute = AccountRoleRatingsRouteImport.update({
-  id: '/role-ratings',
-  path: '/role-ratings',
-  getParentRoute: () => AccountRoute,
+const ShopSearchRoute = ShopSearchRouteImport.update({
+  id: '/search',
+  path: '/search',
+  getParentRoute: () => ShopRoute,
 } as any)
-const AccountRoleJudgementsRoute = AccountRoleJudgementsRouteImport.update({
-  id: '/role-judgements',
-  path: '/role-judgements',
-  getParentRoute: () => AccountRoute,
+const ShopRegisterRoute = ShopRegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
+  getParentRoute: () => ShopRoute,
 } as any)
-const AccountRoleCastingRoute = AccountRoleCastingRouteImport.update({
-  id: '/role-casting',
-  path: '/role-casting',
-  getParentRoute: () => AccountRoute,
+const ShopLoginRoute = ShopLoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => ShopRoute,
 } as any)
-const AccountRoleApplicationsRoute = AccountRoleApplicationsRouteImport.update({
-  id: '/role-applications',
-  path: '/role-applications',
-  getParentRoute: () => AccountRoute,
+const ShopForgotPasswordRoute = ShopForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
+  getParentRoute: () => ShopRoute,
 } as any)
-const AccountProfileRoute = AccountProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
-  getParentRoute: () => AccountRoute,
+const ShopCategoriesRoute = ShopCategoriesRouteImport.update({
+  id: '/categories',
+  path: '/categories',
+  getParentRoute: () => ShopRoute,
 } as any)
-const AccountNotificationsRoute = AccountNotificationsRouteImport.update({
-  id: '/notifications',
-  path: '/notifications',
-  getParentRoute: () => AccountRoute,
+const ShopCartRoute = ShopCartRouteImport.update({
+  id: '/cart',
+  path: '/cart',
+  getParentRoute: () => ShopRoute,
 } as any)
-const AccountApplicationsRoute = AccountApplicationsRouteImport.update({
-  id: '/applications',
-  path: '/applications',
-  getParentRoute: () => AccountRoute,
+const ShopAccountRoute = ShopAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => ShopRoute,
 } as any)
+const FashionBattleRegisterRoute = FashionBattleRegisterRouteImport.update({
+  id: '/FashionBattle/register',
+  path: '/FashionBattle/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FashionBattleLoginRoute = FashionBattleLoginRouteImport.update({
+  id: '/FashionBattle/login',
+  path: '/FashionBattle/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FashionBattleLiveContestRoute =
+  FashionBattleLiveContestRouteImport.update({
+    id: '/FashionBattle/live-contest',
+    path: '/FashionBattle/live-contest',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const FashionBattleHouseOfFashionRoute =
+  FashionBattleHouseOfFashionRouteImport.update({
+    id: '/FashionBattle/house-of-fashion',
+    path: '/FashionBattle/house-of-fashion',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const FashionBattleCartRoute = FashionBattleCartRouteImport.update({
+  id: '/FashionBattle/cart',
+  path: '/FashionBattle/cart',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FashionBattleBestPhotographyRoute =
+  FashionBattleBestPhotographyRouteImport.update({
+    id: '/FashionBattle/best-photography',
+    path: '/FashionBattle/best-photography',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const FashionBattleApplyRoute = FashionBattleApplyRouteImport.update({
+  id: '/FashionBattle/apply',
+  path: '/FashionBattle/apply',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FashionBattleAngelsRoute = FashionBattleAngelsRouteImport.update({
+  id: '/FashionBattle/angels',
+  path: '/FashionBattle/angels',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FashionBattleAccountRoute = FashionBattleAccountRouteImport.update({
+  id: '/FashionBattle/account',
+  path: '/FashionBattle/account',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FashionBattleAboutRoute = FashionBattleAboutRouteImport.update({
+  id: '/FashionBattle/about',
+  path: '/FashionBattle/about',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FashionBattleApplyIndexRoute = FashionBattleApplyIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => FashionBattleApplyRoute,
+} as any)
+const FashionBattleAccountIndexRoute =
+  FashionBattleAccountIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => FashionBattleAccountRoute,
+  } as any)
 const ShopProductProductIdRoute = ShopProductProductIdRouteImport.update({
   id: '/product/$productId',
   path: '/product/$productId',
   getParentRoute: () => ShopRoute,
 } as any)
-const LiveContestCountryIdStageRoute =
-  LiveContestCountryIdStageRouteImport.update({
+const FashionBattlePhotographyPhotoIdRoute =
+  FashionBattlePhotographyPhotoIdRouteImport.update({
+    id: '/FashionBattle/photography/$photoId',
+    path: '/FashionBattle/photography/$photoId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const FashionBattleLiveContestContestIdRoute =
+  FashionBattleLiveContestContestIdRouteImport.update({
+    id: '/$contestId',
+    path: '/$contestId',
+    getParentRoute: () => FashionBattleLiveContestRoute,
+  } as any)
+const FashionBattleHouseOfFashionProductIdRoute =
+  FashionBattleHouseOfFashionProductIdRouteImport.update({
+    id: '/$productId',
+    path: '/$productId',
+    getParentRoute: () => FashionBattleHouseOfFashionRoute,
+  } as any)
+const FashionBattleContestantsSlugRoute =
+  FashionBattleContestantsSlugRouteImport.update({
+    id: '/FashionBattle/contestants/$slug',
+    path: '/FashionBattle/contestants/$slug',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const FashionBattleContestantContestantIdRoute =
+  FashionBattleContestantContestantIdRouteImport.update({
+    id: '/FashionBattle/contestant/$contestantId',
+    path: '/FashionBattle/contestant/$contestantId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const FashionBattleApplyContestIdRoute =
+  FashionBattleApplyContestIdRouteImport.update({
+    id: '/$contestId',
+    path: '/$contestId',
+    getParentRoute: () => FashionBattleApplyRoute,
+  } as any)
+const FashionBattleAngelsSlugRoute = FashionBattleAngelsSlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => FashionBattleAngelsRoute,
+} as any)
+const FashionBattleAccountRoleRatingsRoute =
+  FashionBattleAccountRoleRatingsRouteImport.update({
+    id: '/role-ratings',
+    path: '/role-ratings',
+    getParentRoute: () => FashionBattleAccountRoute,
+  } as any)
+const FashionBattleAccountRoleJudgementsRoute =
+  FashionBattleAccountRoleJudgementsRouteImport.update({
+    id: '/role-judgements',
+    path: '/role-judgements',
+    getParentRoute: () => FashionBattleAccountRoute,
+  } as any)
+const FashionBattleAccountRoleCastingRoute =
+  FashionBattleAccountRoleCastingRouteImport.update({
+    id: '/role-casting',
+    path: '/role-casting',
+    getParentRoute: () => FashionBattleAccountRoute,
+  } as any)
+const FashionBattleAccountRoleApplicationsRoute =
+  FashionBattleAccountRoleApplicationsRouteImport.update({
+    id: '/role-applications',
+    path: '/role-applications',
+    getParentRoute: () => FashionBattleAccountRoute,
+  } as any)
+const FashionBattleAccountProfileRoute =
+  FashionBattleAccountProfileRouteImport.update({
+    id: '/profile',
+    path: '/profile',
+    getParentRoute: () => FashionBattleAccountRoute,
+  } as any)
+const FashionBattleAccountNotificationsRoute =
+  FashionBattleAccountNotificationsRouteImport.update({
+    id: '/notifications',
+    path: '/notifications',
+    getParentRoute: () => FashionBattleAccountRoute,
+  } as any)
+const FashionBattleAccountApplicationsRoute =
+  FashionBattleAccountApplicationsRouteImport.update({
+    id: '/applications',
+    path: '/applications',
+    getParentRoute: () => FashionBattleAccountRoute,
+  } as any)
+const FashionBattleLiveContestCountryIdStageRoute =
+  FashionBattleLiveContestCountryIdStageRouteImport.update({
     id: '/$countryId/$stage',
     path: '/$countryId/$stage',
-    getParentRoute: () => LiveContestRoute,
+    getParentRoute: () => FashionBattleLiveContestRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/about': typeof AboutRoute
-  '/account': typeof AccountRouteWithChildren
-  '/angels': typeof AngelsRouteWithChildren
-  '/apply': typeof ApplyRouteWithChildren
-  '/best-photography': typeof BestPhotographyRoute
-  '/cart': typeof CartRoute
-  '/house-of-fashion': typeof HouseOfFashionRouteWithChildren
-  '/live-contest': typeof LiveContestRouteWithChildren
-  '/login': typeof LoginRoute
-  '/register': typeof RegisterRoute
-  '/shop': typeof ShopRouteWithChildren
+  '/': typeof ShopIndexRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/account/applications': typeof AccountApplicationsRoute
-  '/account/notifications': typeof AccountNotificationsRoute
-  '/account/profile': typeof AccountProfileRoute
-  '/account/role-applications': typeof AccountRoleApplicationsRoute
-  '/account/role-casting': typeof AccountRoleCastingRoute
-  '/account/role-judgements': typeof AccountRoleJudgementsRoute
-  '/account/role-ratings': typeof AccountRoleRatingsRoute
+  '/FashionBattle/about': typeof FashionBattleAboutRoute
+  '/FashionBattle/account': typeof FashionBattleAccountRouteWithChildren
+  '/FashionBattle/angels': typeof FashionBattleAngelsRouteWithChildren
+  '/FashionBattle/apply': typeof FashionBattleApplyRouteWithChildren
+  '/FashionBattle/best-photography': typeof FashionBattleBestPhotographyRoute
+  '/FashionBattle/cart': typeof FashionBattleCartRoute
+  '/FashionBattle/house-of-fashion': typeof FashionBattleHouseOfFashionRouteWithChildren
+  '/FashionBattle/live-contest': typeof FashionBattleLiveContestRouteWithChildren
+  '/FashionBattle/login': typeof FashionBattleLoginRoute
+  '/FashionBattle/register': typeof FashionBattleRegisterRoute
+  '/account': typeof ShopAccountRoute
+  '/cart': typeof ShopCartRoute
+  '/categories': typeof ShopCategoriesRoute
+  '/forgot-password': typeof ShopForgotPasswordRoute
+  '/login': typeof ShopLoginRoute
+  '/register': typeof ShopRegisterRoute
+  '/search': typeof ShopSearchRoute
   '/admin/abuse-reports': typeof AdminAbuseReportsRoute
   '/admin/contestants': typeof AdminContestantsRoute
   '/admin/live-contest': typeof AdminLiveContestRoute
@@ -355,47 +382,48 @@ export interface FileRoutesByFullPath {
   '/admin/top-16': typeof AdminTop16Route
   '/admin/users': typeof AdminUsersRoute
   '/admin/vote-control': typeof AdminVoteControlRoute
-  '/angels/$slug': typeof AngelsSlugRoute
   '/api/angels': typeof ApiAngelsRoute
   '/api/countries-logos': typeof ApiCountriesLogosRoute
   '/api/flags': typeof ApiFlagsRoute
   '/api/sponsors': typeof ApiSponsorsRoute
-  '/apply/$contestId': typeof ApplyContestIdRoute
-  '/contestant/$contestantId': typeof ContestantContestantIdRoute
-  '/contestants/$slug': typeof ContestantsSlugRoute
-  '/house-of-fashion/$productId': typeof HouseOfFashionProductIdRoute
-  '/live-contest/$contestId': typeof LiveContestContestIdRoute
-  '/photography/$photoId': typeof PhotographyPhotoIdRoute
-  '/shop/account': typeof ShopAccountRoute
-  '/shop/cart': typeof ShopCartRoute
-  '/shop/categories': typeof ShopCategoriesRoute
-  '/shop/login': typeof ShopLoginRoute
-  '/shop/register': typeof ShopRegisterRoute
-  '/account/': typeof AccountIndexRoute
+  '/FashionBattle/': typeof FashionBattleIndexRoute
   '/admin/': typeof AdminIndexRoute
-  '/apply/': typeof ApplyIndexRoute
-  '/shop/': typeof ShopIndexRoute
-  '/live-contest/$countryId/$stage': typeof LiveContestCountryIdStageRoute
-  '/shop/product/$productId': typeof ShopProductProductIdRoute
+  '/FashionBattle/account/applications': typeof FashionBattleAccountApplicationsRoute
+  '/FashionBattle/account/notifications': typeof FashionBattleAccountNotificationsRoute
+  '/FashionBattle/account/profile': typeof FashionBattleAccountProfileRoute
+  '/FashionBattle/account/role-applications': typeof FashionBattleAccountRoleApplicationsRoute
+  '/FashionBattle/account/role-casting': typeof FashionBattleAccountRoleCastingRoute
+  '/FashionBattle/account/role-judgements': typeof FashionBattleAccountRoleJudgementsRoute
+  '/FashionBattle/account/role-ratings': typeof FashionBattleAccountRoleRatingsRoute
+  '/FashionBattle/angels/$slug': typeof FashionBattleAngelsSlugRoute
+  '/FashionBattle/apply/$contestId': typeof FashionBattleApplyContestIdRoute
+  '/FashionBattle/contestant/$contestantId': typeof FashionBattleContestantContestantIdRoute
+  '/FashionBattle/contestants/$slug': typeof FashionBattleContestantsSlugRoute
+  '/FashionBattle/house-of-fashion/$productId': typeof FashionBattleHouseOfFashionProductIdRoute
+  '/FashionBattle/live-contest/$contestId': typeof FashionBattleLiveContestContestIdRoute
+  '/FashionBattle/photography/$photoId': typeof FashionBattlePhotographyPhotoIdRoute
+  '/product/$productId': typeof ShopProductProductIdRoute
+  '/FashionBattle/account/': typeof FashionBattleAccountIndexRoute
+  '/FashionBattle/apply/': typeof FashionBattleApplyIndexRoute
+  '/FashionBattle/live-contest/$countryId/$stage': typeof FashionBattleLiveContestCountryIdStageRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/about': typeof AboutRoute
-  '/angels': typeof AngelsRouteWithChildren
-  '/best-photography': typeof BestPhotographyRoute
-  '/cart': typeof CartRoute
-  '/house-of-fashion': typeof HouseOfFashionRouteWithChildren
-  '/live-contest': typeof LiveContestRouteWithChildren
-  '/login': typeof LoginRoute
-  '/register': typeof RegisterRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/account/applications': typeof AccountApplicationsRoute
-  '/account/notifications': typeof AccountNotificationsRoute
-  '/account/profile': typeof AccountProfileRoute
-  '/account/role-applications': typeof AccountRoleApplicationsRoute
-  '/account/role-casting': typeof AccountRoleCastingRoute
-  '/account/role-judgements': typeof AccountRoleJudgementsRoute
-  '/account/role-ratings': typeof AccountRoleRatingsRoute
+  '/FashionBattle/about': typeof FashionBattleAboutRoute
+  '/FashionBattle/angels': typeof FashionBattleAngelsRouteWithChildren
+  '/FashionBattle/best-photography': typeof FashionBattleBestPhotographyRoute
+  '/FashionBattle/cart': typeof FashionBattleCartRoute
+  '/FashionBattle/house-of-fashion': typeof FashionBattleHouseOfFashionRouteWithChildren
+  '/FashionBattle/live-contest': typeof FashionBattleLiveContestRouteWithChildren
+  '/FashionBattle/login': typeof FashionBattleLoginRoute
+  '/FashionBattle/register': typeof FashionBattleRegisterRoute
+  '/account': typeof ShopAccountRoute
+  '/cart': typeof ShopCartRoute
+  '/categories': typeof ShopCategoriesRoute
+  '/forgot-password': typeof ShopForgotPasswordRoute
+  '/login': typeof ShopLoginRoute
+  '/register': typeof ShopRegisterRoute
+  '/search': typeof ShopSearchRoute
   '/admin/abuse-reports': typeof AdminAbuseReportsRoute
   '/admin/contestants': typeof AdminContestantsRoute
   '/admin/live-contest': typeof AdminLiveContestRoute
@@ -406,51 +434,53 @@ export interface FileRoutesByTo {
   '/admin/top-16': typeof AdminTop16Route
   '/admin/users': typeof AdminUsersRoute
   '/admin/vote-control': typeof AdminVoteControlRoute
-  '/angels/$slug': typeof AngelsSlugRoute
   '/api/angels': typeof ApiAngelsRoute
   '/api/countries-logos': typeof ApiCountriesLogosRoute
   '/api/flags': typeof ApiFlagsRoute
   '/api/sponsors': typeof ApiSponsorsRoute
-  '/apply/$contestId': typeof ApplyContestIdRoute
-  '/contestant/$contestantId': typeof ContestantContestantIdRoute
-  '/contestants/$slug': typeof ContestantsSlugRoute
-  '/house-of-fashion/$productId': typeof HouseOfFashionProductIdRoute
-  '/live-contest/$contestId': typeof LiveContestContestIdRoute
-  '/photography/$photoId': typeof PhotographyPhotoIdRoute
-  '/shop/account': typeof ShopAccountRoute
-  '/shop/cart': typeof ShopCartRoute
-  '/shop/categories': typeof ShopCategoriesRoute
-  '/shop/login': typeof ShopLoginRoute
-  '/shop/register': typeof ShopRegisterRoute
-  '/account': typeof AccountIndexRoute
+  '/FashionBattle': typeof FashionBattleIndexRoute
+  '/': typeof ShopIndexRoute
   '/admin': typeof AdminIndexRoute
-  '/apply': typeof ApplyIndexRoute
-  '/shop': typeof ShopIndexRoute
-  '/live-contest/$countryId/$stage': typeof LiveContestCountryIdStageRoute
-  '/shop/product/$productId': typeof ShopProductProductIdRoute
+  '/FashionBattle/account/applications': typeof FashionBattleAccountApplicationsRoute
+  '/FashionBattle/account/notifications': typeof FashionBattleAccountNotificationsRoute
+  '/FashionBattle/account/profile': typeof FashionBattleAccountProfileRoute
+  '/FashionBattle/account/role-applications': typeof FashionBattleAccountRoleApplicationsRoute
+  '/FashionBattle/account/role-casting': typeof FashionBattleAccountRoleCastingRoute
+  '/FashionBattle/account/role-judgements': typeof FashionBattleAccountRoleJudgementsRoute
+  '/FashionBattle/account/role-ratings': typeof FashionBattleAccountRoleRatingsRoute
+  '/FashionBattle/angels/$slug': typeof FashionBattleAngelsSlugRoute
+  '/FashionBattle/apply/$contestId': typeof FashionBattleApplyContestIdRoute
+  '/FashionBattle/contestant/$contestantId': typeof FashionBattleContestantContestantIdRoute
+  '/FashionBattle/contestants/$slug': typeof FashionBattleContestantsSlugRoute
+  '/FashionBattle/house-of-fashion/$productId': typeof FashionBattleHouseOfFashionProductIdRoute
+  '/FashionBattle/live-contest/$contestId': typeof FashionBattleLiveContestContestIdRoute
+  '/FashionBattle/photography/$photoId': typeof FashionBattlePhotographyPhotoIdRoute
+  '/product/$productId': typeof ShopProductProductIdRoute
+  '/FashionBattle/account': typeof FashionBattleAccountIndexRoute
+  '/FashionBattle/apply': typeof FashionBattleApplyIndexRoute
+  '/FashionBattle/live-contest/$countryId/$stage': typeof FashionBattleLiveContestCountryIdStageRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/about': typeof AboutRoute
-  '/account': typeof AccountRouteWithChildren
-  '/angels': typeof AngelsRouteWithChildren
-  '/apply': typeof ApplyRouteWithChildren
-  '/best-photography': typeof BestPhotographyRoute
-  '/cart': typeof CartRoute
-  '/house-of-fashion': typeof HouseOfFashionRouteWithChildren
-  '/live-contest': typeof LiveContestRouteWithChildren
-  '/login': typeof LoginRoute
-  '/register': typeof RegisterRoute
-  '/shop': typeof ShopRouteWithChildren
+  '/_shop': typeof ShopRouteWithChildren
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/account/applications': typeof AccountApplicationsRoute
-  '/account/notifications': typeof AccountNotificationsRoute
-  '/account/profile': typeof AccountProfileRoute
-  '/account/role-applications': typeof AccountRoleApplicationsRoute
-  '/account/role-casting': typeof AccountRoleCastingRoute
-  '/account/role-judgements': typeof AccountRoleJudgementsRoute
-  '/account/role-ratings': typeof AccountRoleRatingsRoute
+  '/FashionBattle/about': typeof FashionBattleAboutRoute
+  '/FashionBattle/account': typeof FashionBattleAccountRouteWithChildren
+  '/FashionBattle/angels': typeof FashionBattleAngelsRouteWithChildren
+  '/FashionBattle/apply': typeof FashionBattleApplyRouteWithChildren
+  '/FashionBattle/best-photography': typeof FashionBattleBestPhotographyRoute
+  '/FashionBattle/cart': typeof FashionBattleCartRoute
+  '/FashionBattle/house-of-fashion': typeof FashionBattleHouseOfFashionRouteWithChildren
+  '/FashionBattle/live-contest': typeof FashionBattleLiveContestRouteWithChildren
+  '/FashionBattle/login': typeof FashionBattleLoginRoute
+  '/FashionBattle/register': typeof FashionBattleRegisterRoute
+  '/_shop/account': typeof ShopAccountRoute
+  '/_shop/cart': typeof ShopCartRoute
+  '/_shop/categories': typeof ShopCategoriesRoute
+  '/_shop/forgot-password': typeof ShopForgotPasswordRoute
+  '/_shop/login': typeof ShopLoginRoute
+  '/_shop/register': typeof ShopRegisterRoute
+  '/_shop/search': typeof ShopSearchRoute
   '/admin/abuse-reports': typeof AdminAbuseReportsRoute
   '/admin/contestants': typeof AdminContestantsRoute
   '/admin/live-contest': typeof AdminLiveContestRoute
@@ -461,52 +491,54 @@ export interface FileRoutesById {
   '/admin/top-16': typeof AdminTop16Route
   '/admin/users': typeof AdminUsersRoute
   '/admin/vote-control': typeof AdminVoteControlRoute
-  '/angels/$slug': typeof AngelsSlugRoute
   '/api/angels': typeof ApiAngelsRoute
   '/api/countries-logos': typeof ApiCountriesLogosRoute
   '/api/flags': typeof ApiFlagsRoute
   '/api/sponsors': typeof ApiSponsorsRoute
-  '/apply/$contestId': typeof ApplyContestIdRoute
-  '/contestant/$contestantId': typeof ContestantContestantIdRoute
-  '/contestants/$slug': typeof ContestantsSlugRoute
-  '/house-of-fashion/$productId': typeof HouseOfFashionProductIdRoute
-  '/live-contest/$contestId': typeof LiveContestContestIdRoute
-  '/photography/$photoId': typeof PhotographyPhotoIdRoute
-  '/shop/account': typeof ShopAccountRoute
-  '/shop/cart': typeof ShopCartRoute
-  '/shop/categories': typeof ShopCategoriesRoute
-  '/shop/login': typeof ShopLoginRoute
-  '/shop/register': typeof ShopRegisterRoute
-  '/account/': typeof AccountIndexRoute
+  '/FashionBattle/': typeof FashionBattleIndexRoute
+  '/_shop/': typeof ShopIndexRoute
   '/admin/': typeof AdminIndexRoute
-  '/apply/': typeof ApplyIndexRoute
-  '/shop/': typeof ShopIndexRoute
-  '/live-contest/$countryId/$stage': typeof LiveContestCountryIdStageRoute
-  '/shop/product/$productId': typeof ShopProductProductIdRoute
+  '/FashionBattle/account/applications': typeof FashionBattleAccountApplicationsRoute
+  '/FashionBattle/account/notifications': typeof FashionBattleAccountNotificationsRoute
+  '/FashionBattle/account/profile': typeof FashionBattleAccountProfileRoute
+  '/FashionBattle/account/role-applications': typeof FashionBattleAccountRoleApplicationsRoute
+  '/FashionBattle/account/role-casting': typeof FashionBattleAccountRoleCastingRoute
+  '/FashionBattle/account/role-judgements': typeof FashionBattleAccountRoleJudgementsRoute
+  '/FashionBattle/account/role-ratings': typeof FashionBattleAccountRoleRatingsRoute
+  '/FashionBattle/angels/$slug': typeof FashionBattleAngelsSlugRoute
+  '/FashionBattle/apply/$contestId': typeof FashionBattleApplyContestIdRoute
+  '/FashionBattle/contestant/$contestantId': typeof FashionBattleContestantContestantIdRoute
+  '/FashionBattle/contestants/$slug': typeof FashionBattleContestantsSlugRoute
+  '/FashionBattle/house-of-fashion/$productId': typeof FashionBattleHouseOfFashionProductIdRoute
+  '/FashionBattle/live-contest/$contestId': typeof FashionBattleLiveContestContestIdRoute
+  '/FashionBattle/photography/$photoId': typeof FashionBattlePhotographyPhotoIdRoute
+  '/_shop/product/$productId': typeof ShopProductProductIdRoute
+  '/FashionBattle/account/': typeof FashionBattleAccountIndexRoute
+  '/FashionBattle/apply/': typeof FashionBattleApplyIndexRoute
+  '/FashionBattle/live-contest/$countryId/$stage': typeof FashionBattleLiveContestCountryIdStageRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/about'
+    | '/sitemap.xml'
+    | '/FashionBattle/about'
+    | '/FashionBattle/account'
+    | '/FashionBattle/angels'
+    | '/FashionBattle/apply'
+    | '/FashionBattle/best-photography'
+    | '/FashionBattle/cart'
+    | '/FashionBattle/house-of-fashion'
+    | '/FashionBattle/live-contest'
+    | '/FashionBattle/login'
+    | '/FashionBattle/register'
     | '/account'
-    | '/angels'
-    | '/apply'
-    | '/best-photography'
     | '/cart'
-    | '/house-of-fashion'
-    | '/live-contest'
+    | '/categories'
+    | '/forgot-password'
     | '/login'
     | '/register'
-    | '/shop'
-    | '/sitemap.xml'
-    | '/account/applications'
-    | '/account/notifications'
-    | '/account/profile'
-    | '/account/role-applications'
-    | '/account/role-casting'
-    | '/account/role-judgements'
-    | '/account/role-ratings'
+    | '/search'
     | '/admin/abuse-reports'
     | '/admin/contestants'
     | '/admin/live-contest'
@@ -517,47 +549,48 @@ export interface FileRouteTypes {
     | '/admin/top-16'
     | '/admin/users'
     | '/admin/vote-control'
-    | '/angels/$slug'
     | '/api/angels'
     | '/api/countries-logos'
     | '/api/flags'
     | '/api/sponsors'
-    | '/apply/$contestId'
-    | '/contestant/$contestantId'
-    | '/contestants/$slug'
-    | '/house-of-fashion/$productId'
-    | '/live-contest/$contestId'
-    | '/photography/$photoId'
-    | '/shop/account'
-    | '/shop/cart'
-    | '/shop/categories'
-    | '/shop/login'
-    | '/shop/register'
-    | '/account/'
+    | '/FashionBattle/'
     | '/admin/'
-    | '/apply/'
-    | '/shop/'
-    | '/live-contest/$countryId/$stage'
-    | '/shop/product/$productId'
+    | '/FashionBattle/account/applications'
+    | '/FashionBattle/account/notifications'
+    | '/FashionBattle/account/profile'
+    | '/FashionBattle/account/role-applications'
+    | '/FashionBattle/account/role-casting'
+    | '/FashionBattle/account/role-judgements'
+    | '/FashionBattle/account/role-ratings'
+    | '/FashionBattle/angels/$slug'
+    | '/FashionBattle/apply/$contestId'
+    | '/FashionBattle/contestant/$contestantId'
+    | '/FashionBattle/contestants/$slug'
+    | '/FashionBattle/house-of-fashion/$productId'
+    | '/FashionBattle/live-contest/$contestId'
+    | '/FashionBattle/photography/$photoId'
+    | '/product/$productId'
+    | '/FashionBattle/account/'
+    | '/FashionBattle/apply/'
+    | '/FashionBattle/live-contest/$countryId/$stage'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
-    | '/about'
-    | '/angels'
-    | '/best-photography'
+    | '/sitemap.xml'
+    | '/FashionBattle/about'
+    | '/FashionBattle/angels'
+    | '/FashionBattle/best-photography'
+    | '/FashionBattle/cart'
+    | '/FashionBattle/house-of-fashion'
+    | '/FashionBattle/live-contest'
+    | '/FashionBattle/login'
+    | '/FashionBattle/register'
+    | '/account'
     | '/cart'
-    | '/house-of-fashion'
-    | '/live-contest'
+    | '/categories'
+    | '/forgot-password'
     | '/login'
     | '/register'
-    | '/sitemap.xml'
-    | '/account/applications'
-    | '/account/notifications'
-    | '/account/profile'
-    | '/account/role-applications'
-    | '/account/role-casting'
-    | '/account/role-judgements'
-    | '/account/role-ratings'
+    | '/search'
     | '/admin/abuse-reports'
     | '/admin/contestants'
     | '/admin/live-contest'
@@ -568,50 +601,52 @@ export interface FileRouteTypes {
     | '/admin/top-16'
     | '/admin/users'
     | '/admin/vote-control'
-    | '/angels/$slug'
     | '/api/angels'
     | '/api/countries-logos'
     | '/api/flags'
     | '/api/sponsors'
-    | '/apply/$contestId'
-    | '/contestant/$contestantId'
-    | '/contestants/$slug'
-    | '/house-of-fashion/$productId'
-    | '/live-contest/$contestId'
-    | '/photography/$photoId'
-    | '/shop/account'
-    | '/shop/cart'
-    | '/shop/categories'
-    | '/shop/login'
-    | '/shop/register'
-    | '/account'
+    | '/FashionBattle'
+    | '/'
     | '/admin'
-    | '/apply'
-    | '/shop'
-    | '/live-contest/$countryId/$stage'
-    | '/shop/product/$productId'
+    | '/FashionBattle/account/applications'
+    | '/FashionBattle/account/notifications'
+    | '/FashionBattle/account/profile'
+    | '/FashionBattle/account/role-applications'
+    | '/FashionBattle/account/role-casting'
+    | '/FashionBattle/account/role-judgements'
+    | '/FashionBattle/account/role-ratings'
+    | '/FashionBattle/angels/$slug'
+    | '/FashionBattle/apply/$contestId'
+    | '/FashionBattle/contestant/$contestantId'
+    | '/FashionBattle/contestants/$slug'
+    | '/FashionBattle/house-of-fashion/$productId'
+    | '/FashionBattle/live-contest/$contestId'
+    | '/FashionBattle/photography/$photoId'
+    | '/product/$productId'
+    | '/FashionBattle/account'
+    | '/FashionBattle/apply'
+    | '/FashionBattle/live-contest/$countryId/$stage'
   id:
     | '__root__'
-    | '/'
-    | '/about'
-    | '/account'
-    | '/angels'
-    | '/apply'
-    | '/best-photography'
-    | '/cart'
-    | '/house-of-fashion'
-    | '/live-contest'
-    | '/login'
-    | '/register'
-    | '/shop'
+    | '/_shop'
     | '/sitemap.xml'
-    | '/account/applications'
-    | '/account/notifications'
-    | '/account/profile'
-    | '/account/role-applications'
-    | '/account/role-casting'
-    | '/account/role-judgements'
-    | '/account/role-ratings'
+    | '/FashionBattle/about'
+    | '/FashionBattle/account'
+    | '/FashionBattle/angels'
+    | '/FashionBattle/apply'
+    | '/FashionBattle/best-photography'
+    | '/FashionBattle/cart'
+    | '/FashionBattle/house-of-fashion'
+    | '/FashionBattle/live-contest'
+    | '/FashionBattle/login'
+    | '/FashionBattle/register'
+    | '/_shop/account'
+    | '/_shop/cart'
+    | '/_shop/categories'
+    | '/_shop/forgot-password'
+    | '/_shop/login'
+    | '/_shop/register'
+    | '/_shop/search'
     | '/admin/abuse-reports'
     | '/admin/contestants'
     | '/admin/live-contest'
@@ -622,44 +657,46 @@ export interface FileRouteTypes {
     | '/admin/top-16'
     | '/admin/users'
     | '/admin/vote-control'
-    | '/angels/$slug'
     | '/api/angels'
     | '/api/countries-logos'
     | '/api/flags'
     | '/api/sponsors'
-    | '/apply/$contestId'
-    | '/contestant/$contestantId'
-    | '/contestants/$slug'
-    | '/house-of-fashion/$productId'
-    | '/live-contest/$contestId'
-    | '/photography/$photoId'
-    | '/shop/account'
-    | '/shop/cart'
-    | '/shop/categories'
-    | '/shop/login'
-    | '/shop/register'
-    | '/account/'
+    | '/FashionBattle/'
+    | '/_shop/'
     | '/admin/'
-    | '/apply/'
-    | '/shop/'
-    | '/live-contest/$countryId/$stage'
-    | '/shop/product/$productId'
+    | '/FashionBattle/account/applications'
+    | '/FashionBattle/account/notifications'
+    | '/FashionBattle/account/profile'
+    | '/FashionBattle/account/role-applications'
+    | '/FashionBattle/account/role-casting'
+    | '/FashionBattle/account/role-judgements'
+    | '/FashionBattle/account/role-ratings'
+    | '/FashionBattle/angels/$slug'
+    | '/FashionBattle/apply/$contestId'
+    | '/FashionBattle/contestant/$contestantId'
+    | '/FashionBattle/contestants/$slug'
+    | '/FashionBattle/house-of-fashion/$productId'
+    | '/FashionBattle/live-contest/$contestId'
+    | '/FashionBattle/photography/$photoId'
+    | '/_shop/product/$productId'
+    | '/FashionBattle/account/'
+    | '/FashionBattle/apply/'
+    | '/FashionBattle/live-contest/$countryId/$stage'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  AboutRoute: typeof AboutRoute
-  AccountRoute: typeof AccountRouteWithChildren
-  AngelsRoute: typeof AngelsRouteWithChildren
-  ApplyRoute: typeof ApplyRouteWithChildren
-  BestPhotographyRoute: typeof BestPhotographyRoute
-  CartRoute: typeof CartRoute
-  HouseOfFashionRoute: typeof HouseOfFashionRouteWithChildren
-  LiveContestRoute: typeof LiveContestRouteWithChildren
-  LoginRoute: typeof LoginRoute
-  RegisterRoute: typeof RegisterRoute
   ShopRoute: typeof ShopRouteWithChildren
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  FashionBattleAboutRoute: typeof FashionBattleAboutRoute
+  FashionBattleAccountRoute: typeof FashionBattleAccountRouteWithChildren
+  FashionBattleAngelsRoute: typeof FashionBattleAngelsRouteWithChildren
+  FashionBattleApplyRoute: typeof FashionBattleApplyRouteWithChildren
+  FashionBattleBestPhotographyRoute: typeof FashionBattleBestPhotographyRoute
+  FashionBattleCartRoute: typeof FashionBattleCartRoute
+  FashionBattleHouseOfFashionRoute: typeof FashionBattleHouseOfFashionRouteWithChildren
+  FashionBattleLiveContestRoute: typeof FashionBattleLiveContestRouteWithChildren
+  FashionBattleLoginRoute: typeof FashionBattleLoginRoute
+  FashionBattleRegisterRoute: typeof FashionBattleRegisterRoute
   AdminAbuseReportsRoute: typeof AdminAbuseReportsRoute
   AdminContestantsRoute: typeof AdminContestantsRoute
   AdminLiveContestRoute: typeof AdminLiveContestRoute
@@ -674,10 +711,11 @@ export interface RootRouteChildren {
   ApiCountriesLogosRoute: typeof ApiCountriesLogosRoute
   ApiFlagsRoute: typeof ApiFlagsRoute
   ApiSponsorsRoute: typeof ApiSponsorsRoute
-  ContestantContestantIdRoute: typeof ContestantContestantIdRoute
-  ContestantsSlugRoute: typeof ContestantsSlugRoute
-  PhotographyPhotoIdRoute: typeof PhotographyPhotoIdRoute
+  FashionBattleIndexRoute: typeof FashionBattleIndexRoute
   AdminIndexRoute: typeof AdminIndexRoute
+  FashionBattleContestantContestantIdRoute: typeof FashionBattleContestantContestantIdRoute
+  FashionBattleContestantsSlugRoute: typeof FashionBattleContestantsSlugRoute
+  FashionBattlePhotographyPhotoIdRoute: typeof FashionBattlePhotographyPhotoIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -689,103 +727,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/shop': {
-      id: '/shop'
-      path: '/shop'
-      fullPath: '/shop'
+    '/_shop': {
+      id: '/_shop'
+      path: ''
+      fullPath: '/'
       preLoaderRoute: typeof ShopRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/register': {
-      id: '/register'
-      path: '/register'
-      fullPath: '/register'
-      preLoaderRoute: typeof RegisterRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/live-contest': {
-      id: '/live-contest'
-      path: '/live-contest'
-      fullPath: '/live-contest'
-      preLoaderRoute: typeof LiveContestRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/house-of-fashion': {
-      id: '/house-of-fashion'
-      path: '/house-of-fashion'
-      fullPath: '/house-of-fashion'
-      preLoaderRoute: typeof HouseOfFashionRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/cart': {
-      id: '/cart'
-      path: '/cart'
-      fullPath: '/cart'
-      preLoaderRoute: typeof CartRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/best-photography': {
-      id: '/best-photography'
-      path: '/best-photography'
-      fullPath: '/best-photography'
-      preLoaderRoute: typeof BestPhotographyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/apply': {
-      id: '/apply'
-      path: '/apply'
-      fullPath: '/apply'
-      preLoaderRoute: typeof ApplyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/angels': {
-      id: '/angels'
-      path: '/angels'
-      fullPath: '/angels'
-      preLoaderRoute: typeof AngelsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/account': {
-      id: '/account'
-      path: '/account'
-      fullPath: '/account'
-      preLoaderRoute: typeof AccountRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/about': {
-      id: '/about'
-      path: '/about'
-      fullPath: '/about'
-      preLoaderRoute: typeof AboutRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/shop/': {
-      id: '/shop/'
-      path: '/'
-      fullPath: '/shop/'
-      preLoaderRoute: typeof ShopIndexRouteImport
-      parentRoute: typeof ShopRoute
-    }
-    '/apply/': {
-      id: '/apply/'
-      path: '/'
-      fullPath: '/apply/'
-      preLoaderRoute: typeof ApplyIndexRouteImport
-      parentRoute: typeof ApplyRoute
     }
     '/admin/': {
       id: '/admin/'
@@ -794,89 +741,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/account/': {
-      id: '/account/'
+    '/_shop/': {
+      id: '/_shop/'
       path: '/'
-      fullPath: '/account/'
-      preLoaderRoute: typeof AccountIndexRouteImport
-      parentRoute: typeof AccountRoute
-    }
-    '/shop/register': {
-      id: '/shop/register'
-      path: '/register'
-      fullPath: '/shop/register'
-      preLoaderRoute: typeof ShopRegisterRouteImport
+      fullPath: '/'
+      preLoaderRoute: typeof ShopIndexRouteImport
       parentRoute: typeof ShopRoute
     }
-    '/shop/login': {
-      id: '/shop/login'
-      path: '/login'
-      fullPath: '/shop/login'
-      preLoaderRoute: typeof ShopLoginRouteImport
-      parentRoute: typeof ShopRoute
-    }
-    '/shop/categories': {
-      id: '/shop/categories'
-      path: '/categories'
-      fullPath: '/shop/categories'
-      preLoaderRoute: typeof ShopCategoriesRouteImport
-      parentRoute: typeof ShopRoute
-    }
-    '/shop/cart': {
-      id: '/shop/cart'
-      path: '/cart'
-      fullPath: '/shop/cart'
-      preLoaderRoute: typeof ShopCartRouteImport
-      parentRoute: typeof ShopRoute
-    }
-    '/shop/account': {
-      id: '/shop/account'
-      path: '/account'
-      fullPath: '/shop/account'
-      preLoaderRoute: typeof ShopAccountRouteImport
-      parentRoute: typeof ShopRoute
-    }
-    '/photography/$photoId': {
-      id: '/photography/$photoId'
-      path: '/photography/$photoId'
-      fullPath: '/photography/$photoId'
-      preLoaderRoute: typeof PhotographyPhotoIdRouteImport
+    '/FashionBattle/': {
+      id: '/FashionBattle/'
+      path: '/FashionBattle'
+      fullPath: '/FashionBattle/'
+      preLoaderRoute: typeof FashionBattleIndexRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/live-contest/$contestId': {
-      id: '/live-contest/$contestId'
-      path: '/$contestId'
-      fullPath: '/live-contest/$contestId'
-      preLoaderRoute: typeof LiveContestContestIdRouteImport
-      parentRoute: typeof LiveContestRoute
-    }
-    '/house-of-fashion/$productId': {
-      id: '/house-of-fashion/$productId'
-      path: '/$productId'
-      fullPath: '/house-of-fashion/$productId'
-      preLoaderRoute: typeof HouseOfFashionProductIdRouteImport
-      parentRoute: typeof HouseOfFashionRoute
-    }
-    '/contestants/$slug': {
-      id: '/contestants/$slug'
-      path: '/contestants/$slug'
-      fullPath: '/contestants/$slug'
-      preLoaderRoute: typeof ContestantsSlugRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/contestant/$contestantId': {
-      id: '/contestant/$contestantId'
-      path: '/contestant/$contestantId'
-      fullPath: '/contestant/$contestantId'
-      preLoaderRoute: typeof ContestantContestantIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/apply/$contestId': {
-      id: '/apply/$contestId'
-      path: '/$contestId'
-      fullPath: '/apply/$contestId'
-      preLoaderRoute: typeof ApplyContestIdRouteImport
-      parentRoute: typeof ApplyRoute
     }
     '/api/sponsors': {
       id: '/api/sponsors'
@@ -905,13 +782,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/angels'
       preLoaderRoute: typeof ApiAngelsRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/angels/$slug': {
-      id: '/angels/$slug'
-      path: '/$slug'
-      fullPath: '/angels/$slug'
-      preLoaderRoute: typeof AngelsSlugRouteImport
-      parentRoute: typeof AngelsRoute
     }
     '/admin/vote-control': {
       id: '/admin/vote-control'
@@ -983,152 +853,262 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAbuseReportsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/account/role-ratings': {
-      id: '/account/role-ratings'
-      path: '/role-ratings'
-      fullPath: '/account/role-ratings'
-      preLoaderRoute: typeof AccountRoleRatingsRouteImport
-      parentRoute: typeof AccountRoute
+    '/_shop/search': {
+      id: '/_shop/search'
+      path: '/search'
+      fullPath: '/search'
+      preLoaderRoute: typeof ShopSearchRouteImport
+      parentRoute: typeof ShopRoute
     }
-    '/account/role-judgements': {
-      id: '/account/role-judgements'
-      path: '/role-judgements'
-      fullPath: '/account/role-judgements'
-      preLoaderRoute: typeof AccountRoleJudgementsRouteImport
-      parentRoute: typeof AccountRoute
+    '/_shop/register': {
+      id: '/_shop/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof ShopRegisterRouteImport
+      parentRoute: typeof ShopRoute
     }
-    '/account/role-casting': {
-      id: '/account/role-casting'
-      path: '/role-casting'
-      fullPath: '/account/role-casting'
-      preLoaderRoute: typeof AccountRoleCastingRouteImport
-      parentRoute: typeof AccountRoute
+    '/_shop/login': {
+      id: '/_shop/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof ShopLoginRouteImport
+      parentRoute: typeof ShopRoute
     }
-    '/account/role-applications': {
-      id: '/account/role-applications'
-      path: '/role-applications'
-      fullPath: '/account/role-applications'
-      preLoaderRoute: typeof AccountRoleApplicationsRouteImport
-      parentRoute: typeof AccountRoute
+    '/_shop/forgot-password': {
+      id: '/_shop/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ShopForgotPasswordRouteImport
+      parentRoute: typeof ShopRoute
     }
-    '/account/profile': {
-      id: '/account/profile'
-      path: '/profile'
-      fullPath: '/account/profile'
-      preLoaderRoute: typeof AccountProfileRouteImport
-      parentRoute: typeof AccountRoute
+    '/_shop/categories': {
+      id: '/_shop/categories'
+      path: '/categories'
+      fullPath: '/categories'
+      preLoaderRoute: typeof ShopCategoriesRouteImport
+      parentRoute: typeof ShopRoute
     }
-    '/account/notifications': {
-      id: '/account/notifications'
-      path: '/notifications'
-      fullPath: '/account/notifications'
-      preLoaderRoute: typeof AccountNotificationsRouteImport
-      parentRoute: typeof AccountRoute
+    '/_shop/cart': {
+      id: '/_shop/cart'
+      path: '/cart'
+      fullPath: '/cart'
+      preLoaderRoute: typeof ShopCartRouteImport
+      parentRoute: typeof ShopRoute
     }
-    '/account/applications': {
-      id: '/account/applications'
-      path: '/applications'
-      fullPath: '/account/applications'
-      preLoaderRoute: typeof AccountApplicationsRouteImport
-      parentRoute: typeof AccountRoute
+    '/_shop/account': {
+      id: '/_shop/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof ShopAccountRouteImport
+      parentRoute: typeof ShopRoute
     }
-    '/shop/product/$productId': {
-      id: '/shop/product/$productId'
+    '/FashionBattle/register': {
+      id: '/FashionBattle/register'
+      path: '/FashionBattle/register'
+      fullPath: '/FashionBattle/register'
+      preLoaderRoute: typeof FashionBattleRegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/FashionBattle/login': {
+      id: '/FashionBattle/login'
+      path: '/FashionBattle/login'
+      fullPath: '/FashionBattle/login'
+      preLoaderRoute: typeof FashionBattleLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/FashionBattle/live-contest': {
+      id: '/FashionBattle/live-contest'
+      path: '/FashionBattle/live-contest'
+      fullPath: '/FashionBattle/live-contest'
+      preLoaderRoute: typeof FashionBattleLiveContestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/FashionBattle/house-of-fashion': {
+      id: '/FashionBattle/house-of-fashion'
+      path: '/FashionBattle/house-of-fashion'
+      fullPath: '/FashionBattle/house-of-fashion'
+      preLoaderRoute: typeof FashionBattleHouseOfFashionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/FashionBattle/cart': {
+      id: '/FashionBattle/cart'
+      path: '/FashionBattle/cart'
+      fullPath: '/FashionBattle/cart'
+      preLoaderRoute: typeof FashionBattleCartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/FashionBattle/best-photography': {
+      id: '/FashionBattle/best-photography'
+      path: '/FashionBattle/best-photography'
+      fullPath: '/FashionBattle/best-photography'
+      preLoaderRoute: typeof FashionBattleBestPhotographyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/FashionBattle/apply': {
+      id: '/FashionBattle/apply'
+      path: '/FashionBattle/apply'
+      fullPath: '/FashionBattle/apply'
+      preLoaderRoute: typeof FashionBattleApplyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/FashionBattle/angels': {
+      id: '/FashionBattle/angels'
+      path: '/FashionBattle/angels'
+      fullPath: '/FashionBattle/angels'
+      preLoaderRoute: typeof FashionBattleAngelsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/FashionBattle/account': {
+      id: '/FashionBattle/account'
+      path: '/FashionBattle/account'
+      fullPath: '/FashionBattle/account'
+      preLoaderRoute: typeof FashionBattleAccountRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/FashionBattle/about': {
+      id: '/FashionBattle/about'
+      path: '/FashionBattle/about'
+      fullPath: '/FashionBattle/about'
+      preLoaderRoute: typeof FashionBattleAboutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/FashionBattle/apply/': {
+      id: '/FashionBattle/apply/'
+      path: '/'
+      fullPath: '/FashionBattle/apply/'
+      preLoaderRoute: typeof FashionBattleApplyIndexRouteImport
+      parentRoute: typeof FashionBattleApplyRoute
+    }
+    '/FashionBattle/account/': {
+      id: '/FashionBattle/account/'
+      path: '/'
+      fullPath: '/FashionBattle/account/'
+      preLoaderRoute: typeof FashionBattleAccountIndexRouteImport
+      parentRoute: typeof FashionBattleAccountRoute
+    }
+    '/_shop/product/$productId': {
+      id: '/_shop/product/$productId'
       path: '/product/$productId'
-      fullPath: '/shop/product/$productId'
+      fullPath: '/product/$productId'
       preLoaderRoute: typeof ShopProductProductIdRouteImport
       parentRoute: typeof ShopRoute
     }
-    '/live-contest/$countryId/$stage': {
-      id: '/live-contest/$countryId/$stage'
+    '/FashionBattle/photography/$photoId': {
+      id: '/FashionBattle/photography/$photoId'
+      path: '/FashionBattle/photography/$photoId'
+      fullPath: '/FashionBattle/photography/$photoId'
+      preLoaderRoute: typeof FashionBattlePhotographyPhotoIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/FashionBattle/live-contest/$contestId': {
+      id: '/FashionBattle/live-contest/$contestId'
+      path: '/$contestId'
+      fullPath: '/FashionBattle/live-contest/$contestId'
+      preLoaderRoute: typeof FashionBattleLiveContestContestIdRouteImport
+      parentRoute: typeof FashionBattleLiveContestRoute
+    }
+    '/FashionBattle/house-of-fashion/$productId': {
+      id: '/FashionBattle/house-of-fashion/$productId'
+      path: '/$productId'
+      fullPath: '/FashionBattle/house-of-fashion/$productId'
+      preLoaderRoute: typeof FashionBattleHouseOfFashionProductIdRouteImport
+      parentRoute: typeof FashionBattleHouseOfFashionRoute
+    }
+    '/FashionBattle/contestants/$slug': {
+      id: '/FashionBattle/contestants/$slug'
+      path: '/FashionBattle/contestants/$slug'
+      fullPath: '/FashionBattle/contestants/$slug'
+      preLoaderRoute: typeof FashionBattleContestantsSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/FashionBattle/contestant/$contestantId': {
+      id: '/FashionBattle/contestant/$contestantId'
+      path: '/FashionBattle/contestant/$contestantId'
+      fullPath: '/FashionBattle/contestant/$contestantId'
+      preLoaderRoute: typeof FashionBattleContestantContestantIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/FashionBattle/apply/$contestId': {
+      id: '/FashionBattle/apply/$contestId'
+      path: '/$contestId'
+      fullPath: '/FashionBattle/apply/$contestId'
+      preLoaderRoute: typeof FashionBattleApplyContestIdRouteImport
+      parentRoute: typeof FashionBattleApplyRoute
+    }
+    '/FashionBattle/angels/$slug': {
+      id: '/FashionBattle/angels/$slug'
+      path: '/$slug'
+      fullPath: '/FashionBattle/angels/$slug'
+      preLoaderRoute: typeof FashionBattleAngelsSlugRouteImport
+      parentRoute: typeof FashionBattleAngelsRoute
+    }
+    '/FashionBattle/account/role-ratings': {
+      id: '/FashionBattle/account/role-ratings'
+      path: '/role-ratings'
+      fullPath: '/FashionBattle/account/role-ratings'
+      preLoaderRoute: typeof FashionBattleAccountRoleRatingsRouteImport
+      parentRoute: typeof FashionBattleAccountRoute
+    }
+    '/FashionBattle/account/role-judgements': {
+      id: '/FashionBattle/account/role-judgements'
+      path: '/role-judgements'
+      fullPath: '/FashionBattle/account/role-judgements'
+      preLoaderRoute: typeof FashionBattleAccountRoleJudgementsRouteImport
+      parentRoute: typeof FashionBattleAccountRoute
+    }
+    '/FashionBattle/account/role-casting': {
+      id: '/FashionBattle/account/role-casting'
+      path: '/role-casting'
+      fullPath: '/FashionBattle/account/role-casting'
+      preLoaderRoute: typeof FashionBattleAccountRoleCastingRouteImport
+      parentRoute: typeof FashionBattleAccountRoute
+    }
+    '/FashionBattle/account/role-applications': {
+      id: '/FashionBattle/account/role-applications'
+      path: '/role-applications'
+      fullPath: '/FashionBattle/account/role-applications'
+      preLoaderRoute: typeof FashionBattleAccountRoleApplicationsRouteImport
+      parentRoute: typeof FashionBattleAccountRoute
+    }
+    '/FashionBattle/account/profile': {
+      id: '/FashionBattle/account/profile'
+      path: '/profile'
+      fullPath: '/FashionBattle/account/profile'
+      preLoaderRoute: typeof FashionBattleAccountProfileRouteImport
+      parentRoute: typeof FashionBattleAccountRoute
+    }
+    '/FashionBattle/account/notifications': {
+      id: '/FashionBattle/account/notifications'
+      path: '/notifications'
+      fullPath: '/FashionBattle/account/notifications'
+      preLoaderRoute: typeof FashionBattleAccountNotificationsRouteImport
+      parentRoute: typeof FashionBattleAccountRoute
+    }
+    '/FashionBattle/account/applications': {
+      id: '/FashionBattle/account/applications'
+      path: '/applications'
+      fullPath: '/FashionBattle/account/applications'
+      preLoaderRoute: typeof FashionBattleAccountApplicationsRouteImport
+      parentRoute: typeof FashionBattleAccountRoute
+    }
+    '/FashionBattle/live-contest/$countryId/$stage': {
+      id: '/FashionBattle/live-contest/$countryId/$stage'
       path: '/$countryId/$stage'
-      fullPath: '/live-contest/$countryId/$stage'
-      preLoaderRoute: typeof LiveContestCountryIdStageRouteImport
-      parentRoute: typeof LiveContestRoute
+      fullPath: '/FashionBattle/live-contest/$countryId/$stage'
+      preLoaderRoute: typeof FashionBattleLiveContestCountryIdStageRouteImport
+      parentRoute: typeof FashionBattleLiveContestRoute
     }
   }
 }
-
-interface AccountRouteChildren {
-  AccountApplicationsRoute: typeof AccountApplicationsRoute
-  AccountNotificationsRoute: typeof AccountNotificationsRoute
-  AccountProfileRoute: typeof AccountProfileRoute
-  AccountRoleApplicationsRoute: typeof AccountRoleApplicationsRoute
-  AccountRoleCastingRoute: typeof AccountRoleCastingRoute
-  AccountRoleJudgementsRoute: typeof AccountRoleJudgementsRoute
-  AccountRoleRatingsRoute: typeof AccountRoleRatingsRoute
-  AccountIndexRoute: typeof AccountIndexRoute
-}
-
-const AccountRouteChildren: AccountRouteChildren = {
-  AccountApplicationsRoute: AccountApplicationsRoute,
-  AccountNotificationsRoute: AccountNotificationsRoute,
-  AccountProfileRoute: AccountProfileRoute,
-  AccountRoleApplicationsRoute: AccountRoleApplicationsRoute,
-  AccountRoleCastingRoute: AccountRoleCastingRoute,
-  AccountRoleJudgementsRoute: AccountRoleJudgementsRoute,
-  AccountRoleRatingsRoute: AccountRoleRatingsRoute,
-  AccountIndexRoute: AccountIndexRoute,
-}
-
-const AccountRouteWithChildren =
-  AccountRoute._addFileChildren(AccountRouteChildren)
-
-interface AngelsRouteChildren {
-  AngelsSlugRoute: typeof AngelsSlugRoute
-}
-
-const AngelsRouteChildren: AngelsRouteChildren = {
-  AngelsSlugRoute: AngelsSlugRoute,
-}
-
-const AngelsRouteWithChildren =
-  AngelsRoute._addFileChildren(AngelsRouteChildren)
-
-interface ApplyRouteChildren {
-  ApplyContestIdRoute: typeof ApplyContestIdRoute
-  ApplyIndexRoute: typeof ApplyIndexRoute
-}
-
-const ApplyRouteChildren: ApplyRouteChildren = {
-  ApplyContestIdRoute: ApplyContestIdRoute,
-  ApplyIndexRoute: ApplyIndexRoute,
-}
-
-const ApplyRouteWithChildren = ApplyRoute._addFileChildren(ApplyRouteChildren)
-
-interface HouseOfFashionRouteChildren {
-  HouseOfFashionProductIdRoute: typeof HouseOfFashionProductIdRoute
-}
-
-const HouseOfFashionRouteChildren: HouseOfFashionRouteChildren = {
-  HouseOfFashionProductIdRoute: HouseOfFashionProductIdRoute,
-}
-
-const HouseOfFashionRouteWithChildren = HouseOfFashionRoute._addFileChildren(
-  HouseOfFashionRouteChildren,
-)
-
-interface LiveContestRouteChildren {
-  LiveContestContestIdRoute: typeof LiveContestContestIdRoute
-  LiveContestCountryIdStageRoute: typeof LiveContestCountryIdStageRoute
-}
-
-const LiveContestRouteChildren: LiveContestRouteChildren = {
-  LiveContestContestIdRoute: LiveContestContestIdRoute,
-  LiveContestCountryIdStageRoute: LiveContestCountryIdStageRoute,
-}
-
-const LiveContestRouteWithChildren = LiveContestRoute._addFileChildren(
-  LiveContestRouteChildren,
-)
 
 interface ShopRouteChildren {
   ShopAccountRoute: typeof ShopAccountRoute
   ShopCartRoute: typeof ShopCartRoute
   ShopCategoriesRoute: typeof ShopCategoriesRoute
+  ShopForgotPasswordRoute: typeof ShopForgotPasswordRoute
   ShopLoginRoute: typeof ShopLoginRoute
   ShopRegisterRoute: typeof ShopRegisterRoute
+  ShopSearchRoute: typeof ShopSearchRoute
   ShopIndexRoute: typeof ShopIndexRoute
   ShopProductProductIdRoute: typeof ShopProductProductIdRoute
 }
@@ -1137,28 +1117,115 @@ const ShopRouteChildren: ShopRouteChildren = {
   ShopAccountRoute: ShopAccountRoute,
   ShopCartRoute: ShopCartRoute,
   ShopCategoriesRoute: ShopCategoriesRoute,
+  ShopForgotPasswordRoute: ShopForgotPasswordRoute,
   ShopLoginRoute: ShopLoginRoute,
   ShopRegisterRoute: ShopRegisterRoute,
+  ShopSearchRoute: ShopSearchRoute,
   ShopIndexRoute: ShopIndexRoute,
   ShopProductProductIdRoute: ShopProductProductIdRoute,
 }
 
 const ShopRouteWithChildren = ShopRoute._addFileChildren(ShopRouteChildren)
 
+interface FashionBattleAccountRouteChildren {
+  FashionBattleAccountApplicationsRoute: typeof FashionBattleAccountApplicationsRoute
+  FashionBattleAccountNotificationsRoute: typeof FashionBattleAccountNotificationsRoute
+  FashionBattleAccountProfileRoute: typeof FashionBattleAccountProfileRoute
+  FashionBattleAccountRoleApplicationsRoute: typeof FashionBattleAccountRoleApplicationsRoute
+  FashionBattleAccountRoleCastingRoute: typeof FashionBattleAccountRoleCastingRoute
+  FashionBattleAccountRoleJudgementsRoute: typeof FashionBattleAccountRoleJudgementsRoute
+  FashionBattleAccountRoleRatingsRoute: typeof FashionBattleAccountRoleRatingsRoute
+  FashionBattleAccountIndexRoute: typeof FashionBattleAccountIndexRoute
+}
+
+const FashionBattleAccountRouteChildren: FashionBattleAccountRouteChildren = {
+  FashionBattleAccountApplicationsRoute: FashionBattleAccountApplicationsRoute,
+  FashionBattleAccountNotificationsRoute:
+    FashionBattleAccountNotificationsRoute,
+  FashionBattleAccountProfileRoute: FashionBattleAccountProfileRoute,
+  FashionBattleAccountRoleApplicationsRoute:
+    FashionBattleAccountRoleApplicationsRoute,
+  FashionBattleAccountRoleCastingRoute: FashionBattleAccountRoleCastingRoute,
+  FashionBattleAccountRoleJudgementsRoute:
+    FashionBattleAccountRoleJudgementsRoute,
+  FashionBattleAccountRoleRatingsRoute: FashionBattleAccountRoleRatingsRoute,
+  FashionBattleAccountIndexRoute: FashionBattleAccountIndexRoute,
+}
+
+const FashionBattleAccountRouteWithChildren =
+  FashionBattleAccountRoute._addFileChildren(FashionBattleAccountRouteChildren)
+
+interface FashionBattleAngelsRouteChildren {
+  FashionBattleAngelsSlugRoute: typeof FashionBattleAngelsSlugRoute
+}
+
+const FashionBattleAngelsRouteChildren: FashionBattleAngelsRouteChildren = {
+  FashionBattleAngelsSlugRoute: FashionBattleAngelsSlugRoute,
+}
+
+const FashionBattleAngelsRouteWithChildren =
+  FashionBattleAngelsRoute._addFileChildren(FashionBattleAngelsRouteChildren)
+
+interface FashionBattleApplyRouteChildren {
+  FashionBattleApplyContestIdRoute: typeof FashionBattleApplyContestIdRoute
+  FashionBattleApplyIndexRoute: typeof FashionBattleApplyIndexRoute
+}
+
+const FashionBattleApplyRouteChildren: FashionBattleApplyRouteChildren = {
+  FashionBattleApplyContestIdRoute: FashionBattleApplyContestIdRoute,
+  FashionBattleApplyIndexRoute: FashionBattleApplyIndexRoute,
+}
+
+const FashionBattleApplyRouteWithChildren =
+  FashionBattleApplyRoute._addFileChildren(FashionBattleApplyRouteChildren)
+
+interface FashionBattleHouseOfFashionRouteChildren {
+  FashionBattleHouseOfFashionProductIdRoute: typeof FashionBattleHouseOfFashionProductIdRoute
+}
+
+const FashionBattleHouseOfFashionRouteChildren: FashionBattleHouseOfFashionRouteChildren =
+  {
+    FashionBattleHouseOfFashionProductIdRoute:
+      FashionBattleHouseOfFashionProductIdRoute,
+  }
+
+const FashionBattleHouseOfFashionRouteWithChildren =
+  FashionBattleHouseOfFashionRoute._addFileChildren(
+    FashionBattleHouseOfFashionRouteChildren,
+  )
+
+interface FashionBattleLiveContestRouteChildren {
+  FashionBattleLiveContestContestIdRoute: typeof FashionBattleLiveContestContestIdRoute
+  FashionBattleLiveContestCountryIdStageRoute: typeof FashionBattleLiveContestCountryIdStageRoute
+}
+
+const FashionBattleLiveContestRouteChildren: FashionBattleLiveContestRouteChildren =
+  {
+    FashionBattleLiveContestContestIdRoute:
+      FashionBattleLiveContestContestIdRoute,
+    FashionBattleLiveContestCountryIdStageRoute:
+      FashionBattleLiveContestCountryIdStageRoute,
+  }
+
+const FashionBattleLiveContestRouteWithChildren =
+  FashionBattleLiveContestRoute._addFileChildren(
+    FashionBattleLiveContestRouteChildren,
+  )
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  AboutRoute: AboutRoute,
-  AccountRoute: AccountRouteWithChildren,
-  AngelsRoute: AngelsRouteWithChildren,
-  ApplyRoute: ApplyRouteWithChildren,
-  BestPhotographyRoute: BestPhotographyRoute,
-  CartRoute: CartRoute,
-  HouseOfFashionRoute: HouseOfFashionRouteWithChildren,
-  LiveContestRoute: LiveContestRouteWithChildren,
-  LoginRoute: LoginRoute,
-  RegisterRoute: RegisterRoute,
   ShopRoute: ShopRouteWithChildren,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  FashionBattleAboutRoute: FashionBattleAboutRoute,
+  FashionBattleAccountRoute: FashionBattleAccountRouteWithChildren,
+  FashionBattleAngelsRoute: FashionBattleAngelsRouteWithChildren,
+  FashionBattleApplyRoute: FashionBattleApplyRouteWithChildren,
+  FashionBattleBestPhotographyRoute: FashionBattleBestPhotographyRoute,
+  FashionBattleCartRoute: FashionBattleCartRoute,
+  FashionBattleHouseOfFashionRoute:
+    FashionBattleHouseOfFashionRouteWithChildren,
+  FashionBattleLiveContestRoute: FashionBattleLiveContestRouteWithChildren,
+  FashionBattleLoginRoute: FashionBattleLoginRoute,
+  FashionBattleRegisterRoute: FashionBattleRegisterRoute,
   AdminAbuseReportsRoute: AdminAbuseReportsRoute,
   AdminContestantsRoute: AdminContestantsRoute,
   AdminLiveContestRoute: AdminLiveContestRoute,
@@ -1173,10 +1240,12 @@ const rootRouteChildren: RootRouteChildren = {
   ApiCountriesLogosRoute: ApiCountriesLogosRoute,
   ApiFlagsRoute: ApiFlagsRoute,
   ApiSponsorsRoute: ApiSponsorsRoute,
-  ContestantContestantIdRoute: ContestantContestantIdRoute,
-  ContestantsSlugRoute: ContestantsSlugRoute,
-  PhotographyPhotoIdRoute: PhotographyPhotoIdRoute,
+  FashionBattleIndexRoute: FashionBattleIndexRoute,
   AdminIndexRoute: AdminIndexRoute,
+  FashionBattleContestantContestantIdRoute:
+    FashionBattleContestantContestantIdRoute,
+  FashionBattleContestantsSlugRoute: FashionBattleContestantsSlugRoute,
+  FashionBattlePhotographyPhotoIdRoute: FashionBattlePhotographyPhotoIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

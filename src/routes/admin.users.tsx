@@ -533,11 +533,21 @@ function UsersPage() {
                     {userAddresses.length === 0 ? (
                       <p className="text-xs text-muted-foreground italic">No addresses saved.</p>
                     ) : (
-                      userAddresses.map((addr, idx) => (
-                        <div key={idx} className="p-3 border border-border-subtle bg-surface text-xs rounded-sm">
-                          {addr}
-                        </div>
-                      ))
+                      userAddresses.map((addr, idx) => {
+                        let parsed = { name: `${viewing.firstName} ${viewing.lastName}`, address: addr, phone: viewing.phone || "" };
+                        try {
+                          if (addr.trim().startsWith("{")) {
+                            parsed = JSON.parse(addr);
+                          }
+                        } catch (e) {}
+                        return (
+                          <div key={idx} className="p-3 border border-border-subtle bg-surface text-xs rounded-sm space-y-1">
+                            <div className="font-semibold text-foreground">{parsed.name}</div>
+                            <p className="text-muted-foreground">{parsed.address}</p>
+                            {parsed.phone && <div className="text-[10px] text-accent">Phone: {parsed.phone}</div>}
+                          </div>
+                        );
+                      })
                     )}
                   </div>
                 )}

@@ -6,7 +6,7 @@
 
 @theme inline {
   --font-serif: "Playfair Display", "Cormorant Garamond", Georgia, serif;
-  --font-display: "Cormorant Garamond", "Playfair Display", Georgia, serif;
+  --font-display: "Sitka Subheading Semibold", "Sitka Subheading", Sitka, "Cormorant Garamond", Georgia, serif;
   --font-sans: "Inter", "Poppins", system-ui, sans-serif;
 
   --radius-sm: 2px;
@@ -51,6 +51,21 @@
 
   --tracking-editorial: 0.22em;
   --tracking-label: 0.32em;
+
+  --color-gold: #c8a96a;
+  --color-gold-soft: #e4cfa3;
+  --color-gold-deep: #a98a4f;
+  --color-obsidian: #0a0a0d;
+  --color-charcoal: #141419;
+  --color-bg: var(--bg);
+  --color-bg-soft: var(--bg-soft);
+  --color-ink: var(--text);
+  --color-ink-muted: var(--text-muted);
+
+  --animate-marquee: marquee 32s linear infinite;
+  --animate-float: float 7s ease-in-out infinite;
+  --animate-pulse-soft: pulse-soft 2.6s ease-in-out infinite;
+  --animate-shimmer: shimmer 2.8s linear infinite;
 }
 
 :root {
@@ -93,10 +108,23 @@
   --sidebar-accent-foreground: #f8f7f4;
   --sidebar-border: rgba(255, 255, 255, 0.08);
   --sidebar-ring: #d4af37;
-}
 
-.dark {
-  /* default is dark — kept for compatibility */
+  /* Elysia dark mode matches root */
+  --bg: #0a0a0d;
+  --bg-soft: #101015;
+  --text: #f4f2ee;
+  --text-muted: rgba(244, 242, 238, 0.6);
+  --glass-bg: rgba(255, 255, 255, 0.05);
+  --glass-bg-strong: rgba(20, 20, 26, 0.66);
+  --glass-border: rgba(255, 255, 255, 0.09);
+  --glass-highlight: rgba(255, 255, 255, 0.14);
+  --glass-shadow: 0 12px 44px -12px rgba(0, 0, 0, 0.55),
+    0 2px 10px -4px rgba(0, 0, 0, 0.4);
+  --glass-shadow-hover: 0 28px 70px -18px rgba(0, 0, 0, 0.7),
+    0 0 40px -10px rgba(200, 169, 106, 0.16);
+  --gold-glow: 0 0 36px -6px rgba(200, 169, 106, 0.35);
+  --reflect: rgba(255, 255, 255, 0.09);
+  color-scheme: dark;
 }
 
 .light {
@@ -139,6 +167,23 @@
   --sidebar-accent-foreground: #111111;
   --sidebar-border: rgba(0, 0, 0, 0.1);
   --sidebar-ring: #d4af37;
+
+  /* Elysia light mode matches .light */
+  --bg: #f7f6f3;
+  --bg-soft: #efede8;
+  --text: #17171a;
+  --text-muted: rgba(23, 23, 26, 0.62);
+  --glass-bg: rgba(255, 255, 255, 0.55);
+  --glass-bg-strong: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(23, 23, 26, 0.08);
+  --glass-highlight: rgba(255, 255, 255, 0.9);
+  --glass-shadow: 0 10px 40px -12px rgba(23, 23, 26, 0.14),
+    0 2px 10px -4px rgba(23, 23, 26, 0.06);
+  --glass-shadow-hover: 0 24px 60px -16px rgba(23, 23, 26, 0.22),
+    0 4px 16px -6px rgba(23, 23, 26, 0.1);
+  --gold-glow: 0 0 32px -6px rgba(200, 169, 106, 0.45);
+  --reflect: rgba(255, 255, 255, 0.55);
+  color-scheme: light;
 }
 
 @layer base {
@@ -259,28 +304,93 @@
   animation: shimmer 2.4s infinite;
 }
 
+/* Replace EVERY font with Sitka Subheading Semibold for an editorial feel */
+body, button, input, select, textarea, span, p, a, h1, h2, h3, h4, h5, h6, div, nav, label, footer, .font-sans, .font-serif, .font-display, .editorial-label, .editorial-eyebrow {
+  font-family: "Sitka Subheading Semibold", "Sitka Subheading", Georgia, serif !important;
+}
+
 /* Dynamic Font-Serif weights/family for Public Portal based on Theme */
 .public-layout h1,
 .public-layout h2,
 .public-layout h3,
-.public-layout .font-serif {
-  font-family: "Sitka Subheading", "Sitka Heading", Georgia, serif !important;
-}
-
-.dark .public-layout h1,
-.dark .public-layout h2,
-.dark .public-layout h3,
-.dark .public-layout .font-serif {
+.public-layout .font-serif,
+.shop-portal-layout h1,
+.shop-portal-layout h2,
+.shop-portal-layout h3,
+.shop-portal-layout .font-serif {
   font-family: "Sitka Subheading Semibold", "Sitka Subheading", Georgia, serif !important;
   font-weight: 600 !important;
 }
 
-.light .public-layout h1,
-.light .public-layout h2,
-.light .public-layout h3,
-.light .public-layout .font-serif {
-  font-family: "Sitka Subheading", Georgia, serif !important;
-  font-weight: 400 !important;
+.glass {
+  position: relative;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  backdrop-filter: blur(22px) saturate(160%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  transition: background-color 0.5s ease, border-color 0.5s ease,
+    box-shadow 0.5s ease;
+}
+
+.glass-strong {
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  backdrop-filter: blur(28px) saturate(180%);
+}
+
+.glass-edge::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    var(--glass-highlight),
+    transparent 40%,
+    transparent 60%,
+    var(--glass-highlight)
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Wishlist Button Hover Slide and Fade System */
+.wishlist-hover-btn {
+  opacity: 0 !important;
+  transform: translateY(-10px) !important;
+  pointer-events: none !important;
+  transition: all 0.3s ease-out !important;
+}
+
+.group:hover .wishlist-hover-btn,
+.wishlist-hover-btn.is-active {
+  opacity: 1 !important;
+  transform: translateY(0) !important;
+  pointer-events: auto !important;
+}
+
+.glass-reflect {
+  background-image: radial-gradient(circle 200px at var(--mx, 50%) var(--my, 50%), var(--reflect, rgba(255, 255, 255, 0.15)) 0%, transparent 80%), var(--glass-bg);
+}
+
+.gold-text {
+  background: linear-gradient(115deg, #a98a4f 0%, #e4cfa3 45%, #c8a96a 70%, #a98a4f 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 5s linear infinite;
+}
+
+.section-shell {
+  width: 100%;
+  max-width: 80rem;
+  margin-inline: auto;
+  padding-inline: clamp(1.25rem, 4vw, 3rem);
 }
 
 /* Liquid Glass System */
@@ -299,27 +409,41 @@
 }
 
 .dark .liquid-glass {
-  background: rgba(255, 255, 255, 0.08) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37) !important;
+  background: rgba(20, 20, 20, 0.6) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.5) !important;
 }
 
 .liquid-glass-card-hover {
   transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  will-change: transform;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.light .liquid-glass-card-hover {
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
 }
 .liquid-glass-card-hover:hover {
-  transform: translateY(-4px) scale(1.03);
-  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.15) !important;
+  transform: translateY(-6px) scale(1.02);
+  box-shadow: 0 20px 40px 0 rgba(0, 0, 0, 0.25) !important;
+}
+.light .liquid-glass-card-hover:hover {
+  box-shadow: 0 20px 40px 0 rgba(31, 38, 135, 0.06) !important;
 }
 
 .liquid-glass-btn {
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
   border-radius: 9999px;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
 }
 .liquid-glass-btn:hover {
   transform: scale(1.05);
+  box-shadow: 0 8px 25px rgba(212, 175, 55, 0.25);
 }
 .liquid-glass-btn:active {
   transform: scale(0.95);
@@ -344,9 +468,137 @@
 }
 .light .liquid-glass-header {
   background: rgba(255, 255, 255, 0.65) !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.7) !important;
+  border: 1px solid rgba(255, 255, 255, 0.7) !important;
 }
 .dark .liquid-glass-header {
-  background: rgba(0, 0, 0, 0.5) !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: rgba(11, 11, 12, 0.65) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
+
+/* Custom Cursor elements */
+.custom-cursor-dot {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 6px;
+  height: 6px;
+  background-color: #d4af37;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate3d(-50%, -50%, 0);
+  transition: transform 0.05s linear, width 0.3s ease, height 0.3s ease, opacity 0.3s ease, background-color 0.3s ease;
+}
+
+.custom-cursor-ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 36px;
+  height: 36px;
+  border: 1.5px solid rgba(212, 175, 55, 0.4);
+  background-color: rgba(255, 255, 255, 0.02);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9998;
+  transform: translate3d(-50%, -50%, 0);
+  transition: transform 0.08s cubic-bezier(0.25, 1, 0.5, 1), width 0.3s cubic-bezier(0.25, 1, 0.5, 1), height 0.3s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s ease, border-color 0.3s ease, background-color 0.3s ease;
+  box-shadow: 0 0 15px rgba(212,175,55,0.1);
+}
+
+.light .custom-cursor-ring {
+  border: 1.5px solid rgba(212, 175, 55, 0.55);
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+/* Glass Light Reflection / Shine Effect */
+.glass-shine-container {
+  position: relative;
+  overflow: hidden;
+}
+.glass-shine-reflection {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle 180px at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(255, 255, 255, 0.15), transparent 75%);
+  pointer-events: none;
+  z-index: 5;
+  transition: opacity 0.5s ease;
+  opacity: 0;
+}
+.glass-shine-container:hover .glass-shine-reflection {
+  opacity: 1;
+}
+.light .glass-shine-reflection {
+  background: radial-gradient(circle 180px at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(255, 255, 255, 0.55), transparent 75%);
+}
+
+/* Shop Portal Layout Scale Adjustments */
+
+/* 1. Downsize Lucide Icons only inside the shopping portal */
+.shop-portal-layout .lucide {
+  width: 1.05rem !important;
+  height: 1.05rem !important;
+}
+
+/* 2. Legible Font Scale Upgrades only inside the shopping portal */
+.shop-portal-layout .text-xs {
+  font-size: 0.8125rem !important; /* Up to 13px */
+}
+.shop-portal-layout .text-\[10px\], .shop-portal-layout .text-scale-10 {
+  font-size: 0.75rem !important; /* Up to 12px */
+}
+.shop-portal-layout .text-\[11px\], .shop-portal-layout .text-scale-11 {
+  font-size: 0.8125rem !important; /* Up to 13px */
+}
+.shop-portal-layout .text-\[9px\], .shop-portal-layout .text-scale-9 {
+  font-size: 0.6875rem !important; /* Up to 11px */
+}
+.shop-portal-layout .text-\[8px\], .shop-portal-layout .text-scale-8 {
+  font-size: 0.625rem !important; /* Up to 10px */
+}
+
+/* 3. Product Media Reduction only inside the shopping portal */
+.shop-portal-layout .product-card-image-wrap {
+  aspect-ratio: 4 / 5 !important;
+  max-height: 260px !important;
+  overflow: hidden;
+}
+
+.shop-portal-layout .product-grid-compact {
+  gap: 1.25rem !important;
+}
+
+/* 4. Adaptive Light Theme Borders Overrides only inside the shopping portal */
+.light.shop-portal-layout .border-white\/10,
+.light.shop-portal-layout .border-white\/15,
+.light.shop-portal-layout .border-white\/20,
+.light.shop-portal-layout .border-white\/5,
+.light.shop-portal-layout .border-white\/30,
+.light.shop-portal-layout .border-accent\/20,
+.light.shop-portal-layout .border-accent\/40,
+.light .shop-portal-layout .border-white\/10,
+.light .shop-portal-layout .border-white\/15,
+.light .shop-portal-layout .border-white\/20,
+.light .shop-portal-layout .border-white\/5,
+.light .shop-portal-layout .border-white\/30,
+.light .shop-portal-layout .border-accent\/20,
+.light .shop-portal-layout .border-accent\/40 {
+  border-color: var(--border) !important;
+}
+
+.light.shop-portal-layout .bg-white\/5,
+.light .shop-portal-layout .bg-white\/5 {
+  background-color: var(--surface) !important;
+}
+
+.light.shop-portal-layout .bg-black\/5,
+.light .shop-portal-layout .bg-black\/5 {
+  background-color: var(--surface-2) !important;
+}
+
+

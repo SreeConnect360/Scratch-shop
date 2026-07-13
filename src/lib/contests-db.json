@@ -12,28 +12,28 @@
     "timeline": [
       {
         "stage": "Application",
-        "start": "2026-05-21",
-        "end": "2026-05-31"
+        "start": "2026-06-14",
+        "end": "2026-06-24"
       },
       {
         "stage": "Agency",
-        "start": "2026-06-01",
-        "end": "2026-06-08"
+        "start": "2026-06-25",
+        "end": "2026-07-02"
       },
       {
         "stage": "Ratings",
-        "start": "2026-06-09",
-        "end": "2026-06-16"
+        "start": "2026-07-03",
+        "end": "2026-07-10"
       },
       {
         "stage": "Casting",
-        "start": "2026-06-17",
-        "end": "2026-06-27"
+        "start": "2026-07-11",
+        "end": "2026-07-21"
       },
       {
         "stage": "Judgement",
-        "start": "2026-06-28",
-        "end": "2026-07-05"
+        "start": "2026-07-22",
+        "end": "2026-07-29"
       }
     ],
     "featured": true,
@@ -43,7 +43,7 @@
   {
     "id": "ct2",
     "scope": "Country",
-    "country": "France",
+    "country": "Maharashtra",
     "year": 2025,
     "month": 4,
     "currentStage": "Judgement",
@@ -53,28 +53,28 @@
     "timeline": [
       {
         "stage": "Application",
-        "start": "2026-05-01",
-        "end": "2026-05-11"
+        "start": "2026-05-25",
+        "end": "2026-06-04"
       },
       {
         "stage": "Agency",
-        "start": "2026-05-12",
-        "end": "2026-05-19"
+        "start": "2026-06-05",
+        "end": "2026-06-12"
       },
       {
         "stage": "Ratings",
-        "start": "2026-05-20",
-        "end": "2026-05-27"
+        "start": "2026-06-13",
+        "end": "2026-06-20"
       },
       {
         "stage": "Casting",
-        "start": "2026-05-28",
-        "end": "2026-06-07"
+        "start": "2026-06-21",
+        "end": "2026-07-01"
       },
       {
         "stage": "Judgement",
-        "start": "2026-06-08",
-        "end": "2026-06-15"
+        "start": "2026-07-02",
+        "end": "2026-07-09"
       }
     ],
     "featured": false,
@@ -84,7 +84,7 @@
   {
     "id": "ct3",
     "scope": "Country",
-    "country": "Italy",
+    "country": "Karnataka",
     "year": 2025,
     "month": 5,
     "currentStage": "Live",
@@ -94,28 +94,28 @@
     "timeline": [
       {
         "stage": "Application",
-        "start": "2026-04-16",
-        "end": "2026-04-26"
+        "start": "2026-05-10",
+        "end": "2026-05-20"
       },
       {
         "stage": "Agency",
-        "start": "2026-04-27",
-        "end": "2026-05-04"
+        "start": "2026-05-21",
+        "end": "2026-05-28"
       },
       {
         "stage": "Ratings",
-        "start": "2026-05-05",
-        "end": "2026-05-12"
+        "start": "2026-05-29",
+        "end": "2026-06-05"
       },
       {
         "stage": "Casting",
-        "start": "2026-05-13",
-        "end": "2026-05-23"
+        "start": "2026-06-06",
+        "end": "2026-06-16"
       },
       {
         "stage": "Judgement",
-        "start": "2026-05-24",
-        "end": "2026-05-31"
+        "start": "2026-06-17",
+        "end": "2026-06-24"
       }
     ],
     "featured": true,
@@ -125,7 +125,7 @@
   {
     "id": "ct4",
     "scope": "Country",
-    "country": "Japan",
+    "country": "Delhi",
     "year": 2025,
     "month": 6,
     "currentStage": "Application",
@@ -135,28 +135,28 @@
     "timeline": [
       {
         "stage": "Application",
-        "start": "2026-06-12",
-        "end": "2026-06-22"
+        "start": "2026-07-06",
+        "end": "2026-07-16"
       },
       {
         "stage": "Agency",
-        "start": "2026-06-23",
-        "end": "2026-06-30"
+        "start": "2026-07-17",
+        "end": "2026-07-24"
       },
       {
         "stage": "Ratings",
-        "start": "2026-07-01",
-        "end": "2026-07-08"
+        "start": "2026-07-25",
+        "end": "2026-08-01"
       },
       {
         "stage": "Casting",
-        "start": "2026-07-09",
-        "end": "2026-07-19"
+        "start": "2026-08-02",
+        "end": "2026-08-12"
       },
       {
         "stage": "Judgement",
-        "start": "2026-07-20",
-        "end": "2026-07-27"
+        "start": "2026-08-13",
+        "end": "2026-08-20"
       }
     ],
     "featured": false,
@@ -166,7 +166,7 @@
   {
     "id": "ct5",
     "scope": "Country",
-    "country": "Nigeria",
+    "country": "Tamil Nadu",
     "year": 2024,
     "month": 11,
     "currentStage": "Winner",
@@ -176,28 +176,28 @@
     "timeline": [
       {
         "stage": "Application",
-        "start": "2025-12-12",
-        "end": "2025-12-22"
+        "start": "2026-01-05",
+        "end": "2026-01-15"
       },
       {
         "stage": "Agency",
-        "start": "2025-12-23",
-        "end": "2025-12-30"
+        "start": "2026-01-16",
+        "end": "2026-01-23"
       },
       {
         "stage": "Ratings",
-        "start": "2025-12-31",
-        "end": "2026-01-07"
+        "start": "2026-01-24",
+        "end": "2026-01-31"
       },
       {
         "stage": "Casting",
-        "start": "2026-01-08",
-        "end": "2026-01-18"
+        "start": "2026-02-01",
+        "end": "2026-02-11"
       },
       {
         "stage": "Judgement",
-        "start": "2026-01-19",
-        "end": "2026-01-26"
+        "start": "2026-02-12",
+        "end": "2026-02-19"
       }
     ],
     "featured": false,
@@ -207,7 +207,7 @@
   {
     "id": "ct6",
     "scope": "Country",
-    "country": "Brazil",
+    "country": "Telangana",
     "year": 2024,
     "month": 9,
     "currentStage": "Ratings",
@@ -217,28 +217,28 @@
     "timeline": [
       {
         "stage": "Application",
-        "start": "2026-03-12",
-        "end": "2026-03-22"
+        "start": "2026-04-05",
+        "end": "2026-04-15"
       },
       {
         "stage": "Agency",
-        "start": "2026-03-23",
-        "end": "2026-03-30"
+        "start": "2026-04-16",
+        "end": "2026-04-23"
       },
       {
         "stage": "Ratings",
-        "start": "2026-03-31",
-        "end": "2026-04-07"
+        "start": "2026-04-24",
+        "end": "2026-05-01"
       },
       {
         "stage": "Casting",
-        "start": "2026-04-08",
-        "end": "2026-04-18"
+        "start": "2026-05-02",
+        "end": "2026-05-12"
       },
       {
         "stage": "Judgement",
-        "start": "2026-04-19",
-        "end": "2026-04-26"
+        "start": "2026-05-13",
+        "end": "2026-05-20"
       }
     ],
     "featured": false,

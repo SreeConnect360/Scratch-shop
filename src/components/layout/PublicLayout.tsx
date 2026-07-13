@@ -39,23 +39,23 @@ const XIcon = (props: React.SVGProps<SVGSVGElement>) => (
 
 /* ─────────────────── nav config ─────────────────── */
 const MAIN_NAV = [
-  { to: "/", label: "Home" },
-  { to: "/live-contest", label: "Live Contest" },
-  { to: "/angels", label: "Angels" },
-  { to: "/best-photography", label: "Photography" },
-  { to: "/house-of-fashion", label: "House of Fashion" },
-  { to: "/about", label: "About" },
+  { to: "/FashionBattle", label: "Home" },
+  { to: "/FashionBattle/live-contest", label: "Live Contest" },
+  { to: "/FashionBattle/angels", label: "Angels" },
+  { to: "/FashionBattle/best-photography", label: "Photography" },
+  { to: "/FashionBattle/house-of-fashion", label: "House of Fashion" },
+  { to: "/FashionBattle/about", label: "About" },
 ] as const;
 
 const ACCOUNT_NAV = [
-  { to: "/account", label: "My Dashboard" },
-  { to: "/account/profile", label: "Account Information" },
-  { to: "/apply", label: "Apply To Contest" },
-  { to: "/account/applications", label: "Applications" },
-  { to: "/account/applications", label: "Ratings" },
-  { to: "/account/applications", label: "Casting Call" },
-  { to: "/account/applications", label: "Judgements" },
-  { to: "/account/notifications", label: "My Contest Status" },
+  { to: "/FashionBattle/account", label: "My Dashboard" },
+  { to: "/FashionBattle/account/profile", label: "Account Information" },
+  { to: "/FashionBattle/apply", label: "Apply To Contest" },
+  { to: "/FashionBattle/account/applications", label: "Applications" },
+  { to: "/FashionBattle/account/applications", label: "Ratings" },
+  { to: "/FashionBattle/account/applications", label: "Casting Call" },
+  { to: "/FashionBattle/account/applications", label: "Judgements" },
+  { to: "/FashionBattle/account/notifications", label: "My Contest Status" },
 ] as const;
 
 const COUNTRIES = ["Global", "France", "Italy", "Japan", "Nigeria", "Brazil", "USA"];
@@ -257,31 +257,31 @@ function AccountPanelBody({ onClose }: { onClose: () => void }) {
   if (state.user) {
     const groups: { id: string; title: string; items: { label: string; to: string }[] }[] = [
       { id: "dash", title: "My Dashboard", items: [
-        { label: "Overview", to: "/account" },
-        { label: "Notifications", to: "/account/notifications" },
+        { label: "Overview", to: "/FashionBattle/account" },
+        { label: "Notifications", to: "/FashionBattle/account/notifications" },
       ]},
       { id: "info", title: "Account Information", items: [
-        { label: "Profile", to: "/account/profile" },
+        { label: "Profile", to: "/FashionBattle/account/profile" },
       ]},
       { id: "apply", title: "Apply To Contest", items: [
-        { label: "Start Application", to: "/apply" },
+        { label: "Start Application", to: "/FashionBattle/apply" },
       ]},
       { id: "apps", title: "My Applications", items: [
-        { label: "In Progress & Submitted", to: "/account/applications" },
+        { label: "In Progress & Submitted", to: "/FashionBattle/account/applications" },
       ]},
       ...(state.user.roles.includes("Applications") ? [
-        { id: "rat-apps", title: "Applications", items: [{ label: "Process Applications", to: "/account/role-applications" }] }
+        { id: "rat-apps", title: "Applications", items: [{ label: "Process Applications", to: "/FashionBattle/account/role-applications" }] }
       ] : []),
       ...(state.user.roles.includes("Ratings") ? [
-        { id: "rat", title: "Ratings", items: [{ label: "Casting Ratings", to: "/account/role-ratings" }] }
+        { id: "rat", title: "Ratings", items: [{ label: "Casting Ratings", to: "/FashionBattle/account/role-ratings" }] }
       ] : []),
       ...(state.user.roles.includes("Casting Call") ? [
-        { id: "cast", title: "Casting Call", items: [{ label: "Invitations", to: "/account/role-casting" }] }
+        { id: "cast", title: "Casting Call", items: [{ label: "Invitations", to: "/FashionBattle/account/role-casting" }] }
       ] : []),
       ...(state.user.roles.includes("Judgements") ? [
-        { id: "judge", title: "Judgements", items: [{ label: "Judge Notes", to: "/account/role-judgements" }] }
+        { id: "judge", title: "Judgements", items: [{ label: "Judge Notes", to: "/FashionBattle/account/role-judgements" }] }
       ] : []),
-      { id: "status", title: "My Contest Status", items: [{ label: "Track Progress", to: "/account/notifications" }] },
+      { id: "status", title: "My Contest Status", items: [{ label: "Track Progress", to: "/FashionBattle/account/notifications" }] },
     ];
     return (
       <div className="px-8 py-6">
@@ -360,7 +360,7 @@ function AccountPanelBody({ onClose }: { onClose: () => void }) {
               setError("This email address is not registered. Please create an account first.");
             } else {
               onClose();
-              navigate({ to: "/account", search: { tab: "dashboard" } });
+              navigate({ to: "/FashionBattle/account", search: { tab: "dashboard" } });
             }
           } else {
             // Mandatory checks
@@ -429,7 +429,7 @@ function AccountPanelBody({ onClose }: { onClose: () => void }) {
               country,
             });
             onClose();
-            navigate({ to: "/account", search: { tab: "dashboard" } });
+            navigate({ to: "/FashionBattle/account", search: { tab: "dashboard" } });
           }
         }}
         className="space-y-5"
@@ -719,7 +719,7 @@ function FavoritesPanelBody({ onClose }: { onClose: () => void }) {
         <p className="text-xs text-muted-foreground/70 mt-3 max-w-xs mx-auto">
           Tap the heart on any contestant, photograph or fashion piece to curate your private maison.
         </p>
-        <Link to="/angels" onClick={onClose} className="inline-block mt-6 editorial-label text-accent border-b border-accent pb-0.5">
+        <Link to="/FashionBattle/angels" onClick={onClose} className="inline-block mt-6 editorial-label text-accent border-b border-accent pb-0.5">
           Explore Angels
         </Link>
       </div>
@@ -732,7 +732,7 @@ function FavoritesPanelBody({ onClose }: { onClose: () => void }) {
           <div className="editorial-label text-muted-foreground mb-3">{s.title} · {s.items.length}</div>
           <div className="grid grid-cols-3 gap-2">
             {s.items.map(id => (
-              <Link key={id} to="/angels" onClick={onClose} className="aspect-[3/4] bg-surface-2 border border-border-subtle" />
+              <Link key={id} to="/FashionBattle/angels" onClick={onClose} className="aspect-[3/4] bg-surface-2 border border-border-subtle" />
             ))}
             {s.items.length === 0 && <div className="col-span-3 text-xs text-muted-foreground/60 italic">Empty</div>}
           </div>
@@ -750,7 +750,7 @@ function CartPanelBody({ onClose }: { onClose: () => void }) {
       <div className="px-8 py-20 text-center">
         <ShoppingBag className="w-8 h-8 mx-auto text-muted-foreground/50" strokeWidth={1.2} />
         <div className="mt-4 editorial-label text-muted-foreground">Your Bag Is Empty</div>
-        <Link to="/house-of-fashion" onClick={onClose} className="inline-block mt-6 editorial-label text-accent border-b border-accent pb-0.5">
+        <Link to="/FashionBattle/house-of-fashion" onClick={onClose} className="inline-block mt-6 editorial-label text-accent border-b border-accent pb-0.5">
           Discover House of Fashion
         </Link>
       </div>
@@ -785,7 +785,7 @@ function CartPanelBody({ onClose }: { onClose: () => void }) {
           <span className="editorial-label text-muted-foreground">Subtotal</span>
           <span className="font-serif text-xl">€{total.toFixed(2)}</span>
         </div>
-        <Link to="/cart" onClick={onClose} className="block text-center bg-accent text-white py-3 editorial-label hover:bg-accent/90">
+        <Link to="/FashionBattle/cart" onClick={onClose} className="block text-center bg-accent text-white py-3 editorial-label hover:bg-accent/90">
           Checkout
         </Link>
       </div>
@@ -819,25 +819,25 @@ function ExpandedNav({ onNavigate }: { onNavigate: () => void }) {
   const handleLogout = () => {
     signOut();
     onNavigate();
-    navigate({ to: "/" });
+    navigate({ to: "/FashionBattle" });
   };
 
   const navItems = [
-    { to: "/", label: "Homepage" },
-    { to: "/live-contest", label: "Live-Contest" },
-    { to: "/angels", label: "Angels" },
-    { to: "/best-photography", label: "Best Photography" },
-    { to: "/about", label: "About Us", hasPlus: true },
+    { to: "/FashionBattle", label: "Homepage" },
+    { to: "/FashionBattle/live-contest", label: "Live-Contest" },
+    { to: "/FashionBattle/angels", label: "Angels" },
+    { to: "/FashionBattle/best-photography", label: "Best Photography" },
+    { to: "/FashionBattle/about", label: "About Us", hasPlus: true },
     ...(state.user
       ? [
-          { to: "/account", label: "My Account" },
+          { to: "/FashionBattle/account", label: "My Account" },
           { onClick: handleLogout, label: "Sign Out" },
         ]
       : [
-          { to: "/register", label: "Register" },
-          { to: "/login", label: "Sign In" },
+          { to: "/FashionBattle/register", label: "Register" },
+          { to: "/FashionBattle/login", label: "Sign In" },
         ]),
-    { to: "/apply", label: "Apply To Contest" },
+    { to: "/FashionBattle/apply", label: "Apply To Contest" },
   ];
 
   return (
@@ -899,7 +899,7 @@ function ExpandedNav({ onNavigate }: { onNavigate: () => void }) {
 
         {/* Discover House of Fashion Banner */}
         <Link
-          to="/house-of-fashion"
+          to="/FashionBattle/house-of-fashion"
           onClick={onNavigate}
           className={`py-4 text-center block hover:opacity-90 transition-opacity border-t ${
             theme === "dark" ? "bg-[#1C1C1E] border-white/5 text-white" : "bg-surface-2 border-border-subtle text-foreground"
@@ -960,7 +960,7 @@ export function PublicLayout({ children }: { children: ReactNode }) {
 
               <div className="flex flex-col gap-4 mt-2">
                 <Link
-                  to={state.user ? "/account" : "/login"}
+                  to={state.user ? "/FashionBattle/account" : "/FashionBattle/login"}
                   className={`transition-colors relative flex items-center justify-center w-10 h-10 ${
                     theme === "dark" ? "text-white hover:text-accent" : "text-foreground hover:text-accent"
                   }`}
@@ -1048,7 +1048,7 @@ export function PublicLayout({ children }: { children: ReactNode }) {
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              <Link to="/" onClick={() => setExpanded(false)} className="block mt-6">
+              <Link to="/FashionBattle" onClick={() => setExpanded(false)} className="block mt-6">
                 <BrandLogo className="w-36 h-auto" />
               </Link>
               <div className={`mt-4 uppercase text-[12px] md:text-[13px] tracking-[0.25em] font-serif text-center ${theme === "dark" ? "text-white/90" : "text-foreground/90"}`}>
@@ -1089,19 +1089,19 @@ export function PublicLayout({ children }: { children: ReactNode }) {
           <div>
             <div className="editorial-label text-muted-foreground mb-4">Explore</div>
             <ul className="space-y-2 text-sm">
-              <li><Link to="/angels" className="hover:text-accent">Angels</Link></li>
-              <li><Link to="/live-contest" className="hover:text-accent">Live Contest</Link></li>
-              <li><Link to="/best-photography" className="hover:text-accent">Photography</Link></li>
-              <li><Link to="/house-of-fashion" className="hover:text-accent">House of Fashion</Link></li>
+              <li><Link to="/FashionBattle/angels" className="hover:text-accent">Angels</Link></li>
+              <li><Link to="/FashionBattle/live-contest" className="hover:text-accent">Live Contest</Link></li>
+              <li><Link to="/FashionBattle/best-photography" className="hover:text-accent">Photography</Link></li>
+              <li><Link to="/FashionBattle/house-of-fashion" className="hover:text-accent">House of Fashion</Link></li>
             </ul>
           </div>
           <div>
             <div className="editorial-label text-muted-foreground mb-4">House</div>
             <ul className="space-y-2 text-sm">
-              <li><Link to="/about" className="hover:text-accent">About</Link></li>
-              <li><Link to="/apply" className="hover:text-accent">Apply</Link></li>
-              <li><Link to="/login" className="hover:text-accent">Sign In</Link></li>
-              <li><Link to="/account" search={{ tab: "dashboard" }} className="hover:text-accent">My Account</Link></li>
+              <li><Link to="/FashionBattle/about" className="hover:text-accent">About</Link></li>
+              <li><Link to="/FashionBattle/apply" className="hover:text-accent">Apply</Link></li>
+              <li><Link to="/FashionBattle/login" className="hover:text-accent">Sign In</Link></li>
+              <li><Link to="/FashionBattle/account" search={{ tab: "dashboard" }} className="hover:text-accent">My Account</Link></li>
             </ul>
           </div>
         </div>
@@ -1113,7 +1113,7 @@ export function PublicLayout({ children }: { children: ReactNode }) {
       
       {/* Mobile Bottom Navigation Bar */}
       <div className="lg:hidden fixed bottom-6 left-4 right-4 h-16 z-50 liquid-glass flex items-center justify-around px-4 shadow-2xl rounded-full">
-        <Link to="/shop" className="flex flex-col items-center justify-center text-muted-foreground hover:text-accent transition-colors">
+        <Link to="/" className="flex flex-col items-center justify-center text-muted-foreground hover:text-accent transition-colors">
           <Menu className="w-5 h-5" />
           <span className="text-[8px] uppercase tracking-widest mt-1">Shop</span>
         </Link>
@@ -1122,7 +1122,7 @@ export function PublicLayout({ children }: { children: ReactNode }) {
           {favCount > 0 && <span className="absolute -top-1.5 -right-1.5 bg-accent text-white text-[8px] w-3.5 h-3.5 rounded-full flex items-center justify-center">{favCount}</span>}
           <span className="text-[8px] uppercase tracking-widest mt-1">Wishlist</span>
         </button>
-        <Link to="/account" search={{ tab: "dashboard" }} className="flex flex-col items-center justify-center text-muted-foreground hover:text-accent transition-colors">
+        <Link to="/FashionBattle/account" search={{ tab: "dashboard" }} className="flex flex-col items-center justify-center text-muted-foreground hover:text-accent transition-colors">
           <User className="w-5 h-5" />
           <span className="text-[8px] uppercase tracking-widest mt-1">Account</span>
         </Link>

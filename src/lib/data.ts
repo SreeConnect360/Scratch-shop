@@ -145,12 +145,19 @@ export type Product = {
   price: string;
   image: string;
   tag?: string;
-  gender: "Men" | "Women";
+  gender: "Men" | "Women" | "Unisex";
   category: "Shirts" | "T-Shirts" | "Tops" | "Bottoms" | "Accessories" | "Couture";
   sku?: string;
   sizes?: string[];
   stockPerSize?: Record<string, number>;
   originalPrice?: string;
+  status?: string;
+  discount?: number;
+  discountLimitBuyers?: number;
+  discountExpiryDate?: string;
+  discountBuyersCount?: number;
+  productInfo?: string;
+  visibility?: string;
 };
 
 export const PRODUCTS: Product[] = [
@@ -192,7 +199,7 @@ export type PlatformUser = {
   id: string;
   firstName: string;
   lastName: string;
-  gender: "Female" | "Male" | "Other";
+  gender: "Female" | "Male" | "Other" | "";
   dob: string;
   age: number;
   country: string;
