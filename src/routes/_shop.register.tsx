@@ -245,6 +245,31 @@ function ShopRegisterPage() {
   const handleGoogleSignup = () => {
     setError(null);
     setIsGoogleLoading(true);
+    if (!import.meta.env.VITE_GOOGLE_CLIENT_ID) {
+      setTimeout(() => {
+        const mockEmail = "testuser@gmail.com";
+        const existing = state.users.find(
+          (u) => u.email.toLowerCase() === mockEmail.toLowerCase()
+        );
+        if (existing) {
+          signIn(mockEmail);
+        } else {
+          registerUser({
+            firstName: "GoogleTest",
+            lastName: "User",
+            email: mockEmail,
+            phone: "",
+            dob: "",
+            gender: "",
+            country: "",
+          });
+        }
+        toast.success("Registered and Signed in with Mock Google Account (Test Mode).");
+        navigate({ to: "/" });
+        setIsGoogleLoading(false);
+      }, 800);
+      return;
+    }
     googleLogin();
   };
 

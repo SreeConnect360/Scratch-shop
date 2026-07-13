@@ -143,7 +143,7 @@ import { Toaster } from "@/components/ui/sonner";
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "100000000000-placeholder.apps.googleusercontent.com";
   return (
     <QueryClientProvider client={queryClient}>
       <GoogleOAuthProvider clientId={googleClientId}>

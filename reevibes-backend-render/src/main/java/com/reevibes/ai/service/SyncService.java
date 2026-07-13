@@ -5,13 +5,13 @@ import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 public class SyncService {
-    private final AtomicLong globalVersion = new AtomicLong(System.currentTimeMillis());
+    private final AtomicLong version = new AtomicLong(System.currentTimeMillis());
 
     public long getVersion() {
-        return globalVersion.get();
+        return version.get();
     }
 
     public void bumpVersion() {
-        globalVersion.set(System.currentTimeMillis());
+        version.set(System.currentTimeMillis());
     }
 }

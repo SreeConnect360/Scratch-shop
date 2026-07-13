@@ -37,5 +37,9 @@ dist-ssr
 target/
 **/target/
 
+# Environment files
+.env
+
+
 
 

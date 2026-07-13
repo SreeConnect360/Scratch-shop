@@ -125,7 +125,7 @@ public class DatabaseSeeder implements CommandLineRunner {
     @Transactional
     public void seedCoupons() {
         if (couponRepository.count() == 0) {
-            ShopCoupon c1 = new ShopCoupon("FESTIVE20", new BigDecimal("20"), "percentage", "2026-12-31", 100, "All", true, 0);
+            ShopCoupon c1 = new ShopCoupon("MAISONVIP", new BigDecimal("25"), "percentage", "2026-12-31", 100, "All", true, 0);
             ShopCoupon c2 = new ShopCoupon("REEVIBES10", new BigDecimal("10"), "percentage", "2026-12-31", 200, "All", true, 0);
             couponRepository.saveAll(List.of(c1, c2));
         }
