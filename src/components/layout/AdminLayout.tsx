@@ -110,6 +110,95 @@ export function AdminLayout({ title, eyebrow, actions, children }: {
   const search: any = useRouterState({ select: (s) => s.location.search });
   const activeTab = search.tab || "overview";
 
+  const [adminAuth, setAdminAuth] = useState(() => {
+    if (typeof window !== "undefined") {
+      return sessionStorage.getItem("admin_authenticated") === "true";
+    }
+    return false;
+  });
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (email === "sreeconnect360@gmail.com" && password === "SreeSri@2007") {
+      sessionStorage.setItem("admin_authenticated", "true");
+      setAdminAuth(true);
+      setError("");
+    } else {
+      setError("Invalid administrative credentials.");
+    }
+  };
+
+  if (!adminAuth) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 relative overflow-hidden">
+        {/* Abstract background graphics */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-20">
+          <div className="absolute -top-1/4 -right-1/4 w-[600px] h-[600px] rounded-full bg-accent blur-[120px] animate-pulse" />
+          <div className="absolute -bottom-1/4 -left-1/4 w-[600px] h-[600px] rounded-full bg-primary blur-[120px] animate-pulse" />
+        </div>
+
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="w-full max-w-md bg-surface-2 border border-border-subtle p-8 rounded-2xl liquid-glass shadow-2xl relative z-10"
+        >
+          <div className="flex flex-col items-center text-center mb-8">
+            <BrandLogo className="w-40 h-auto mb-4" />
+            <div className="editorial-label text-accent font-medium tracking-widest text-xs uppercase">Operations Studio</div>
+            <h2 className="font-serif text-3xl mt-3 text-foreground">Sign In</h2>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-6">
+            {error && (
+              <motion.div 
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                className="p-3.5 bg-destructive/10 border border-destructive/20 text-destructive text-sm rounded-lg"
+              >
+                {error}
+              </motion.div>
+            )}
+
+            <div className="space-y-2">
+              <label className="text-xs uppercase tracking-wider text-muted-foreground block font-medium">Email Address</label>
+              <input 
+                type="email" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="sreeconnect360@gmail.com"
+                className="w-full px-4 py-3 bg-surface-3 border border-border-subtle rounded-lg focus:outline-none focus:border-accent text-sm transition-all"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs uppercase tracking-wider text-muted-foreground block font-medium">Password</label>
+              <input 
+                type="password" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full px-4 py-3 bg-surface-3 border border-border-subtle rounded-lg focus:outline-none focus:border-accent text-sm transition-all"
+                required
+              />
+            </div>
+
+            <button 
+              type="submit"
+              className="w-full py-3.5 bg-accent hover:bg-accent/90 text-accent-foreground font-serif tracking-wider rounded-lg transition-all shadow-lg shadow-accent/20"
+            >
+              Enter Studio
+            </button>
+          </form>
+        </motion.div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <aside className="hidden lg:flex fixed inset-y-0 left-0 w-60 flex-col border-r border-border-subtle liquid-glass rounded-none z-40">
