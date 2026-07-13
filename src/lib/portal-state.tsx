@@ -3,7 +3,7 @@
 // Admin writes propagate instantly to public reads (and vice versa) because
 // every page reads from the same single React context.
 
-import { createContext, useContext, useEffect, useMemo, useState, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, useCallback, useRef, type ReactNode } from "react";
 import { NOTIFICATIONS_SEED, SEED_COMMENTS, type CommentItem } from "./portal-data";
 import { BACKEND_URL } from "./config";
 import {
@@ -598,10 +598,20 @@ const PortalContext = createContext<Ctx | null>(null);
 export function PortalProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<PortalState>(DEFAULT);
   const [hydrated, setHydrated] = useState(false);
+  const localVersionRef = useRef<number>(0);
 
   // Fetch dynamic database vendors, products, buckets, and customers from PostgreSQL backend
-  const fetchBackendState = useCallback(async () => {
+  const fetchBackendState = useCallback(async (force?: boolean) => {
     try {
+      // 0. Check Sync Version
+      const versionRes = await fetch(`${BACKEND_URL}/api/sync/version`);
+      if (versionRes.ok) {
+        const { version } = await versionRes.json();
+        if (version && version === localVersionRef.current && !force) {
+          return;
+        }
+        localVersionRef.current = version;
+      }
       // 1. Fetch Vendors
       const vendorsRes = await fetch(`${BACKEND_URL}/api/vendors`);
       let mappedVendors = DEFAULT_VENDORS;
@@ -804,6 +814,14 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     };
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
+  }, [fetchBackendState]);
+
+  // Poll backend sync version every 3 seconds for real-time synchronization
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchBackendState();
+    }, 3000);
+    return () => clearInterval(interval);
   }, [fetchBackendState]);
 
   useEffect(() => { if (hydrated) save(state); }, [state, hydrated]);
