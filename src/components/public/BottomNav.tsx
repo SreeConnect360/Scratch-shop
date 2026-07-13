@@ -82,7 +82,7 @@ export default function BottomNav({ setSearchOpen }: BottomNavProps) {
               {...linkProps}
               aria-label={count ? `${item.label}, ${count} items` : item.label}
               className={cn(
-                "relative flex min-h-[52px] min-w-[52px] flex-col items-center justify-center gap-0.5 rounded-2xl px-2 transition-colors duration-300",
+                "relative flex min-h-[52px] min-w-[52px] flex-col items-center justify-center rounded-2xl px-2 transition-colors duration-300",
                 isActive ? "text-gold" : "text-ink-muted"
               )}
             >
@@ -103,9 +103,6 @@ export default function BottomNav({ setSearchOpen }: BottomNavProps) {
                     {count}
                   </motion.span>
                 )}
-              </span>
-              <span className="text-[9px] tracking-[0.08em] uppercase font-semibold">
-                {item.label}
               </span>
               {isActive && (
                 <motion.span

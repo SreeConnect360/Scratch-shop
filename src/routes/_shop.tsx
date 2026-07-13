@@ -537,12 +537,12 @@ function ShopLayout() {
                 onClick={() => setSearchOpen(true)}
                 whileHover={{ scale: 1.12, rotate: 4 }}
                 whileTap={{ scale: 0.9 }}
-                className="relative flex h-10 w-10 items-center justify-center rounded-full text-ink-muted transition-colors duration-300 hover:text-ink cursor-pointer"
+                className="relative hidden xl:flex h-10 w-10 items-center justify-center rounded-full text-ink-muted transition-colors duration-300 hover:text-ink cursor-pointer"
               >
                 <Search size={18} strokeWidth={1.8} />
               </motion.button>
 
-              <Link to="/account" search={{ tab: "wishlist" as any }}>
+              <Link to="/account" search={{ tab: "wishlist" as any }} className="hidden xl:block">
                 <motion.button
                   type="button"
                   whileHover={{ scale: 1.12, rotate: 4 }}
@@ -553,7 +553,7 @@ function ShopLayout() {
                 </motion.button>
               </Link>
 
-              <Link to="/cart">
+              <Link to="/cart" className="hidden xl:block">
                 <motion.button
                   type="button"
                   whileHover={{ scale: 1.12, rotate: 4 }}
@@ -576,7 +576,7 @@ function ShopLayout() {
               </Link>
 
               {(!layout || !layout.navigation || !layout.navigation.visibleItems || layout.navigation.visibleItems.includes("Account")) && (
-                <div className="relative group py-2">
+                <div className="relative group py-2 hidden xl:block">
                   <Link to="/account" search={{ tab: "profile" }}>
                     <motion.button
                       type="button"
@@ -613,7 +613,7 @@ function ShopLayout() {
                 </div>
               )}
 
-              <div ref={notifRef} className="relative group py-2" onMouseEnter={markNotificationsRead}>
+              <div ref={notifRef} className="relative group py-2 hidden xl:block" onMouseEnter={markNotificationsRead}>
                 <motion.button
                   type="button"
                   whileHover={{ scale: 1.12, rotate: 4 }}
@@ -669,7 +669,7 @@ function ShopLayout() {
                 onClick={toggleTheme}
                 whileHover={{ scale: 1.1, rotate: 8 }}
                 whileTap={{ scale: 0.88 }}
-                className="relative ml-1 flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-[var(--glass-border)] bg-gold/5 text-gold transition-colors duration-300 hover:bg-gold/15 cursor-pointer"
+                className="relative ml-1 hidden xl:flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-[var(--glass-border)] bg-gold/5 text-gold transition-colors duration-300 hover:bg-gold/15 cursor-pointer"
               >
                 <AnimatePresence mode="wait" initial={false}>
                   <motion.span
@@ -714,73 +714,56 @@ function ShopLayout() {
                 transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
                 className="glass glass-strong absolute left-3 right-3 top-full mt-2 rounded-2xl p-3 xl:hidden border border-white/10 z-[200] shadow-2xl"
               >
-                <ul role="list" className="grid grid-cols-2 gap-1">
-                  {layout?.navigation?.itemsOrder ? (
-                    layout.navigation.itemsOrder.map((item: string) => {
-                      const isVisible = layout?.navigation?.visibleItems?.includes(item);
-                      if (!isVisible || item === "Logo" || ["Search", "Wishlist", "Account", "Cart"].includes(item)) return null;
-
-                      if (item === "Men") return null;
-
-                      if (item === "Women") {
-                        return (
-                          <li key={item}>
-                            <Link
-                              to="/categories"
-                              onClick={() => setMobileOpen(false)}
-                              className="w-full rounded-xl px-4 py-3 text-left text-sm tracking-wide transition-colors text-ink-muted hover:bg-gold/5 hover:text-ink block"
-                            >
-                              Fashion
-                            </Link>
-                          </li>
-                        );
-                      }
-
-                      if (item === "Collections") {
-                        return (
-                          <li key={item}>
-                            <Link
-                              to="/categories"
-                              search={{ view: "collections" } as any}
-                              onClick={() => setMobileOpen(false)}
-                              className="w-full rounded-xl px-4 py-3 text-left text-sm tracking-wide transition-colors text-ink-muted hover:bg-gold/5 hover:text-ink block"
-                            >
-                              Collections
-                            </Link>
-                          </li>
-                        );
-                      }
-
-                      let linkSearch: any = {};
-                      if (item === "New Arrivals") linkSearch = { tag: "New" };
-                      else if (item === "Trending") linkSearch = { tag: "Trending" };
-
-                      return (
-                        <li key={item}>
-                          <Link
-                            to="/categories"
-                            search={linkSearch}
-                            onClick={() => setMobileOpen(false)}
-                            className="w-full rounded-xl px-4 py-3 text-left text-sm tracking-wide transition-colors text-ink-muted hover:bg-gold/5 hover:text-ink block"
-                          >
-                            {item === "New Arrivals" ? "New" : item}
-                          </Link>
-                        </li>
-                      );
-                    })
-                  ) : (
-                    <>
-                      <li>
-                        <Link to="/" onClick={() => setMobileOpen(false)} className="w-full rounded-xl px-4 py-3 text-left text-sm tracking-wide transition-colors text-ink hover:bg-gold/10 block">Shop</Link>
-                      </li>
-                      <li>
-                        <Link to="/categories" onClick={() => setMobileOpen(false)} className="w-full rounded-xl px-4 py-3 text-left text-sm tracking-wide transition-colors text-ink-muted hover:bg-gold/5 hover:text-ink block">Collections</Link>
-                      </li>
-                      <li>
-                        <Link to="/FashionBattle/live-contest" onClick={() => setMobileOpen(false)} className="w-full rounded-xl px-4 py-3 text-left text-sm tracking-wide transition-colors text-ink-muted hover:bg-gold/5 hover:text-ink block">Contests</Link>
-                      </li>
-                    </>
-                  )}
+                <ul role="list" className="flex flex-col gap-1">
+                  <li>
+                    <Link
+                      to="/categories"
+                      onClick={() => setMobileOpen(false)}
+                      className="w-full rounded-xl px-4 py-3 text-left text-sm tracking-wide font-semibold transition-colors text-ink-muted hover:bg-gold/5 hover:text-ink block cursor-pointer"
+                    >
+                      Fashion
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      to="/categories"
+                      search={{ tag: "New" } as any}
+                      onClick={() => setMobileOpen(false)}
+                      className="w-full rounded-xl px-4 py-3 text-left text-sm tracking-wide font-semibold transition-colors text-ink-muted hover:bg-gold/5 hover:text-ink block cursor-pointer"
+                    >
+                      New
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      to="/categories"
+                      search={{ tag: "Trending" } as any}
+                      onClick={() => setMobileOpen(false)}
+                      className="w-full rounded-xl px-4 py-3 text-left text-sm tracking-wide font-semibold transition-colors text-ink-muted hover:bg-gold/5 hover:text-ink block cursor-pointer"
+                    >
+                      Trending
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      to="/categories"
+                      search={{ view: "collections" } as any}
+                      onClick={() => setMobileOpen(false)}
+                      className="w-full rounded-xl px-4 py-3 text-left text-sm tracking-wide font-semibold transition-colors text-ink-muted hover:bg-gold/5 hover:text-ink block cursor-pointer"
+                    >
+                      Collections
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      to="/account"
+                      search={{ tab: "profile" } as any}
+                      onClick={() => setMobileOpen(false)}
+                      className="w-full rounded-xl px-4 py-3 text-left text-sm tracking-wide font-semibold transition-colors text-ink-muted hover:bg-gold/5 hover:text-ink block cursor-pointer"
+                    >
+                      Dashboards
+                    </Link>
+                  </li>
                 </ul>
               </motion.div>
             )}
@@ -793,7 +776,7 @@ function ShopLayout() {
         </main>
 
         {/* Luxury Footer */}
-        {(!layout || layout.footer.enabled) ? (
+        {(!layout || layout.footer?.enabled !== false) ? (
           <footer className="relative z-10 pb-16 pt-8 max-w-7xl mx-auto w-full px-3 sm:px-5">
             <div className="glass glass-reflect glass-edge rounded-[2rem] px-7 py-10 sm:px-10 lg:px-14 border border-white/10 shadow-[var(--glass-shadow)]">
               <div className="grid gap-10 sm:grid-cols-2 md:grid-cols-3">

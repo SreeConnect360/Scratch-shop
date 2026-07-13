@@ -1113,23 +1113,19 @@ export function PublicLayout({ children }: { children: ReactNode }) {
       
       {/* Mobile Bottom Navigation Bar */}
       <div className="lg:hidden fixed bottom-6 left-4 right-4 h-16 z-50 liquid-glass flex items-center justify-around px-4 shadow-2xl rounded-full">
-        <Link to="/" className="flex flex-col items-center justify-center text-muted-foreground hover:text-accent transition-colors">
+        <Link to="/" className="flex flex-col items-center justify-center text-muted-foreground hover:text-accent transition-colors cursor-pointer">
           <Menu className="w-5 h-5" />
-          <span className="text-[8px] uppercase tracking-widest mt-1">Shop</span>
         </Link>
-        <button onClick={() => setPanel("favorites")} className={`flex flex-col items-center justify-center transition-colors relative ${panel === "favorites" ? "text-accent" : "text-muted-foreground"}`}>
+        <button onClick={() => setPanel("favorites")} className={`flex flex-col items-center justify-center transition-colors relative cursor-pointer ${panel === "favorites" ? "text-accent" : "text-muted-foreground"}`}>
           <Heart className="w-5 h-5" />
           {favCount > 0 && <span className="absolute -top-1.5 -right-1.5 bg-accent text-white text-[8px] w-3.5 h-3.5 rounded-full flex items-center justify-center">{favCount}</span>}
-          <span className="text-[8px] uppercase tracking-widest mt-1">Wishlist</span>
         </button>
-        <Link to="/FashionBattle/account" search={{ tab: "dashboard" }} className="flex flex-col items-center justify-center text-muted-foreground hover:text-accent transition-colors">
+        <Link to="/FashionBattle/account" search={{ tab: "dashboard" }} className="flex flex-col items-center justify-center text-muted-foreground hover:text-accent transition-colors cursor-pointer">
           <User className="w-5 h-5" />
-          <span className="text-[8px] uppercase tracking-widest mt-1">Account</span>
         </Link>
-        <button onClick={() => setPanel("cart")} className={`flex flex-col items-center justify-center transition-colors relative ${panel === "cart" ? "text-accent" : "text-muted-foreground"}`}>
+        <button onClick={() => setPanel("cart")} className={`flex flex-col items-center justify-center transition-colors relative cursor-pointer ${panel === "cart" ? "text-accent" : "text-muted-foreground"}`}>
           <ShoppingBag className="w-5 h-5" />
           {count > 0 && <span className="absolute -top-1.5 -right-1.5 bg-accent text-white text-[8px] w-3.5 h-3.5 rounded-full flex items-center justify-center">{count}</span>}
-          <span className="text-[8px] uppercase tracking-widest mt-1">Cart</span>
         </button>
       </div>
     </div>
