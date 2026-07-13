@@ -30,6 +30,11 @@ public class DatabaseSeeder implements CommandLineRunner {
     private final VendorSyncService vendorSyncService;
     private final ProductBucketRepository productBucketRepository;
     private final PlatformUserRepository platformUserRepository;
+    private final HomepageLayoutRepository homepageLayoutRepository;
+    private final ShopOrderRepository orderRepository;
+    private final ReturnRequestRepository returnRequestRepository;
+    private final ShopCouponRepository couponRepository;
+    private final ProductReviewRepository reviewRepository;
 
     @Override
     @Transactional
@@ -40,6 +45,11 @@ public class DatabaseSeeder implements CommandLineRunner {
         seedVendor();
         seedBuckets();
         seedPlatformUsers();
+        seedHomepageLayout();
+        seedCoupons();
+        seedOrders();
+        seedReturns();
+        seedReviews();
         triggerInitialSync();
     }
 
@@ -81,6 +91,67 @@ public class DatabaseSeeder implements CommandLineRunner {
                 PlatformUser user = new PlatformUser(id, fn, ln, email, phone, country, dob, gender, status, roles);
                 platformUserRepository.save(user);
             }
+        }
+    }
+
+    @Transactional
+    public void seedHomepageLayout() {
+        if (homepageLayoutRepository.count() == 0) {
+            String defaultLayout = "{\"sectionOrder\":[\"announcement\",\"hero\",\"features\",\"buckets\",\"featured\",\"curated\",\"trending\",\"photography\",\"footer\"],\"announcement\":{\"text\":\"Complimentary Shipping on all Maison orders above ₹1,00,000\"},\"hero\":{\"title\":\"Luxury Redefined\",\"subtitle\":\"Season 03 Collection Out Now\"}}";
+            HomepageLayout pub = new HomepageLayout("published", defaultLayout);
+            HomepageLayout draft = new HomepageLayout("draft", defaultLayout);
+            homepageLayoutRepository.saveAll(List.of(pub, draft));
+        }
+    }
+
+    @Transactional
+    public void seedCoupons() {
+        if (couponRepository.count() == 0) {
+            ShopCoupon c1 = new ShopCoupon("FESTIVE20", new BigDecimal("20"), "percentage", "2026-12-31", 100, "All", true, 0);
+            ShopCoupon c2 = new ShopCoupon("REEVIBES10", new BigDecimal("10"), "percentage", "2026-12-31", 200, "All", true, 0);
+            couponRepository.saveAll(List.of(c1, c2));
+        }
+    }
+
+    @Transactional
+    public void seedOrders() {
+        if (orderRepository.count() == 0) {
+            String items1 = "[{\"productId\":\"pr2\",\"name\":\"Cashmere Cape\",\"house\":\"Atelier Reine\",\"price\":\"₹1,50,000\",\"image\":\"https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=1200&h=1600&q=80\",\"qty\":1,\"selectedSize\":\"M\"}]";
+            ShopOrder o1 = new ShopOrder("ORD-9481", "USR-1000", LocalDateTime.now().minusDays(30), items1, new BigDecimal("150000"), "Shipped", "123, Luxury Lane, Indiranagar, Bangalore - 560038", "Paid", null);
+
+            String items2 = "[{\"productId\":\"pr1\",\"name\":\"Silk Slip — Noir\",\"house\":\"Maison Lumière\",\"price\":\"₹85,000\",\"image\":\"https://images.unsplash.com/photo-1485518882345-15568b007407?auto=format&fit=crop&w=1200&h=1600&q=80\",\"qty\":1,\"selectedSize\":\"S\"}]";
+            ShopOrder o2 = new ShopOrder("ORD-9500", "USR-1000", LocalDateTime.now().minusDays(4), items2, new BigDecimal("85000"), "Processing", "123, Luxury Lane, Indiranagar, Bangalore - 560038", "Paid", null);
+
+            orderRepository.saveAll(List.of(o1, o2));
+        }
+    }
+
+    @Transactional
+    public void seedReturns() {
+        if (returnRequestRepository.count() == 0) {
+            ReturnRequest r1 = new ReturnRequest();
+            r1.setId("RET-101");
+            r1.setOrderId("ORD-9481");
+            r1.setProductId("pr2");
+            r1.setProductName("Cashmere Cape");
+            r1.setCustomerId("USR-1000");
+            r1.setCustomerName("Léa Dubois");
+            r1.setReason("Size Issue");
+            r1.setComment("The cape size is too large around the shoulders.");
+            r1.setImages("https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=400&h=300&q=80");
+            r1.setStatus("Pending");
+            r1.setRefundAmount(new BigDecimal("150000"));
+            returnRequestRepository.save(r1);
+        }
+    }
+
+    @Transactional
+    public void seedReviews() {
+        if (reviewRepository.count() == 0) {
+            ProductReview r1 = new ProductReview("rev1", "pr1", "Aditi Rao", 5, "Absolutely stunning dress! Fits perfectly and the silk material feels incredibly premium.", "", "", "2026-06-14", "Approved");
+            ProductReview r2 = new ProductReview("rev2", "pr1", "Priya Sharma", 4, "Beautiful design, though it was slightly loose around the waist. High quality styling.", "", "", "2026-06-12", "Approved");
+            ProductReview r3 = new ProductReview("rev3", "pr2", "Deepika Patel", 5, "Warm, luxurious, and elegant. Exceeded all my expectations.", "", "", "2026-06-15", "Approved");
+            reviewRepository.saveAll(List.of(r1, r2, r3));
         }
     }
 

@@ -670,13 +670,106 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         }
       }
 
+      // 5. Fetch Homepage Layout
+      const layoutsRes = await fetch(`${BACKEND_URL}/api/homepage-layout`);
+      let mappedPubLayout = DEFAULT_HOMEPAGE_LAYOUT;
+      let mappedDraftLayout = DEFAULT_HOMEPAGE_LAYOUT;
+      if (layoutsRes.ok) {
+        const dbLayouts = await layoutsRes.json();
+        const pub = dbLayouts.find((l: any) => l.id === "published");
+        const draft = dbLayouts.find((l: any) => l.id === "draft");
+        if (pub) {
+          try { mappedPubLayout = JSON.parse(pub.layoutJson); } catch(e) {}
+        }
+        if (draft) {
+          try { mappedDraftLayout = JSON.parse(draft.layoutJson); } catch(e) {}
+        }
+      }
+
+      // 6. Fetch Orders
+      const ordersRes = await fetch(`${BACKEND_URL}/api/orders`);
+      let mappedOrders: Record<string, any[]> = {};
+      if (ordersRes.ok) {
+        const dbOrders = await ordersRes.json();
+        dbOrders.forEach((o: any) => {
+          let items = [];
+          try { items = JSON.parse(o.itemsJson); } catch(e) {}
+          let refundDetails = undefined;
+          if (o.refundDetailsJson) {
+            try { refundDetails = JSON.parse(o.refundDetailsJson); } catch(e) {}
+          }
+          if (!mappedOrders[o.userId]) mappedOrders[o.userId] = [];
+          mappedOrders[o.userId].push({
+            id: o.id,
+            date: o.orderDate,
+            items,
+            total: Number(o.total),
+            status: o.status,
+            address: o.address,
+            paymentStatus: o.paymentStatus,
+            refundDetails
+          });
+        });
+      }
+
+      // 7. Fetch Returns
+      const returnsRes = await fetch(`${BACKEND_URL}/api/returns`);
+      let mappedReturns = [];
+      if (returnsRes.ok) {
+        const dbReturns = await returnsRes.json();
+        mappedReturns = dbReturns.map((r: any) => ({
+          ...r,
+          refundAmount: Number(r.refundAmount),
+          images: r.images ? r.images.split(",") : [],
+          videos: r.videos ? r.videos.split(",") : []
+        }));
+      }
+
+      // 8. Fetch Coupons
+      const couponsRes = await fetch(`${BACKEND_URL}/api/coupons`);
+      let mappedCoupons = [];
+      if (couponsRes.ok) {
+        const dbCoupons = await couponsRes.json();
+        mappedCoupons = dbCoupons.map((c: any) => ({
+          ...c,
+          discount: Number(c.discount),
+          usedCount: c.usedCount || 0
+        }));
+      }
+
+      // 9. Fetch Reviews
+      const reviewsRes = await fetch(`${BACKEND_URL}/api/reviews`);
+      let mappedReviews: Record<string, any[]> = {};
+      if (reviewsRes.ok) {
+        const dbReviews = await reviewsRes.json();
+        dbReviews.forEach((r: any) => {
+          if (!mappedReviews[r.productId]) mappedReviews[r.productId] = [];
+          mappedReviews[r.productId].push({
+            id: r.id,
+            userName: r.userName,
+            rating: r.rating,
+            comment: r.comment,
+            date: r.reviewDate,
+            status: r.status,
+            images: r.images ? r.images.split(",") : [],
+            videos: r.videos ? r.videos.split(",") : []
+          });
+        });
+      }
+
       setState(s => {
         return {
           ...s,
           vendors: mappedVendors,
           products: mappedProducts,
           buckets: mappedBuckets,
-          users: mappedCustomers
+          users: mappedCustomers,
+          homepageLayout: mappedPubLayout,
+          homepageLayoutDraft: mappedDraftLayout,
+          orders: mappedOrders,
+          returns: mappedReturns,
+          coupons: mappedCoupons,
+          productReviews: mappedReviews
         };
       });
     } catch (err) {
@@ -1044,8 +1137,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       const next = list.includes(productId) ? list.filter(id => id !== productId) : [...list, productId];
       return { ...s, wishlist: { ...s.wishlist, [userId]: next } };
     }),
-    createOrder: (userId, order) => setState(s => {
-      const list = s.orders[userId] ?? [];
+    createOrder: (userId, order) => {
       const orderId = `ORD-${Math.floor(1000 + Math.random() * 9000)}`;
       const newOrder = {
         id: orderId,
@@ -1057,99 +1149,138 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         paymentStatus: "Paid" as const
       };
 
-      const nextCoupons = order.appliedCoupon
-        ? (s.coupons || []).map(c =>
-            c.code === order.appliedCoupon?.toUpperCase()
-              ? { ...c, usedCount: (c.usedCount || 0) + 1 }
-              : c
-          )
-        : s.coupons;
+      fetch(`${BACKEND_URL}/api/orders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: orderId,
+          userId,
+          itemsJson: JSON.stringify(order.items),
+          total: order.total,
+          status: "Processing",
+          address: order.address,
+          paymentStatus: "Paid"
+        })
+      }).catch(err => console.error("Failed to sync new order to backend:", err));
 
-      const orderItemKeys = new Set((order.items || []).map(item => `${item.productId}-${item.selectedSize || "M"}`));
-      const nextShopCart = (s.shopCart || []).filter(item => !orderItemKeys.has(`${item.productId}-${item.selectedSize || "M"}`));
+      setState(s => {
+        const list = s.orders[userId] ?? [];
+        const nextCoupons = order.appliedCoupon
+          ? (s.coupons || []).map(c =>
+              c.code === order.appliedCoupon?.toUpperCase()
+                ? { ...c, usedCount: (c.usedCount || 0) + 1 }
+                : c
+            )
+          : s.coupons;
 
-      // Revert price if buyer limit is reached, and decrement stock for the purchased size
-      const nextProducts = (s.products || []).map(p => {
-        const orderItem = order.items.find(item => String(item.productId) === String(p.id));
-        if (orderItem) {
-          const size = orderItem.selectedSize || "M";
-          const updatedStock = { ...(p.stockPerSize || {}) };
-          if (updatedStock[size] !== undefined) {
-            updatedStock[size] = Math.max(0, updatedStock[size] - orderItem.qty);
+        const orderItemKeys = new Set((order.items || []).map(item => `${item.productId}-${item.selectedSize || "M"}`));
+        const nextShopCart = (s.shopCart || []).filter(item => !orderItemKeys.has(`${item.productId}-${item.selectedSize || "M"}`));
+
+        const nextProducts = (s.products || []).map(p => {
+          const orderItem = order.items.find(item => String(item.productId) === String(p.id));
+          if (orderItem) {
+            const size = orderItem.selectedSize || "M";
+            const updatedStock = { ...(p.stockPerSize || {}) };
+            if (updatedStock[size] !== undefined) {
+              updatedStock[size] = Math.max(0, updatedStock[size] - orderItem.qty);
+            }
+
+            let updatedPrice = p.price;
+            let updatedDiscount = p.discount;
+            let updatedLimit = p.discountLimitBuyers;
+            let updatedExpiry = p.discountExpiryDate;
+
+            const currentCount = p.discountBuyersCount || 0;
+            const nextCount = currentCount + orderItem.qty;
+
+            if (p.discountLimitBuyers && nextCount >= p.discountLimitBuyers) {
+              updatedPrice = p.originalPrice || p.price;
+              updatedDiscount = 0;
+              updatedLimit = undefined;
+              updatedExpiry = undefined;
+            }
+
+            return {
+              ...p,
+              stockPerSize: updatedStock,
+              discountBuyersCount: p.discountLimitBuyers ? nextCount : currentCount,
+              price: updatedPrice,
+              discount: updatedDiscount,
+              discountLimitBuyers: updatedLimit,
+              discountExpiryDate: updatedExpiry
+            };
           }
+          return p;
+        });
 
-          let updatedPrice = p.price;
-          let updatedDiscount = p.discount;
-          let updatedLimit = p.discountLimitBuyers;
-          let updatedExpiry = p.discountExpiryDate;
-
-          const currentCount = p.discountBuyersCount || 0;
-          const nextCount = currentCount + orderItem.qty;
-
-          if (p.discountLimitBuyers && nextCount >= p.discountLimitBuyers) {
-            updatedPrice = p.originalPrice || p.price;
-            updatedDiscount = 0;
-            updatedLimit = undefined;
-            updatedExpiry = undefined;
-          }
-
-          return {
-            ...p,
-            stockPerSize: updatedStock,
-            discountBuyersCount: p.discountLimitBuyers ? nextCount : currentCount,
-            price: updatedPrice,
-            discount: updatedDiscount,
-            discountLimitBuyers: updatedLimit,
-            discountExpiryDate: updatedExpiry
-          };
-        }
-        return p;
+        return {
+          ...s,
+          orders: { ...s.orders, [userId]: [newOrder, ...list] },
+          products: nextProducts,
+          coupons: nextCoupons,
+          cart: [],
+          shopCart: nextShopCart,
+          notifications: [
+            { id: `n-${Date.now()}`, icon: "order", title: "Order Placed Successfully", body: `Your order ${orderId} for ₹${order.total.toLocaleString()} has been placed.`, time: "now", unread: true },
+            ...s.notifications
+          ]
+        };
+      });
+    },
+    updateOrderStatus: (userId, orderId, status) => {
+      setState(s => {
+        const list = s.orders[userId] ?? [];
+        const next = list.map(o => o.id === orderId ? { ...o, status } : o);
+        return {
+          ...s,
+          orders: { ...s.orders, [userId]: next },
+          notifications: [
+            { id: `n-${Date.now()}`, icon: "order", title: "Order Status Updated", body: `Order ${orderId} status changed to ${status}.`, time: "now", unread: true },
+            ...s.notifications
+          ]
+        };
       });
 
-      return {
-        ...s,
-        orders: { ...s.orders, [userId]: [newOrder, ...list] },
-        products: nextProducts,
-        coupons: nextCoupons,
-        cart: [], // clear cart on successful order
-        shopCart: nextShopCart,
-        notifications: [
-          { id: `n-${Date.now()}`, icon: "order", title: "Order Placed Successfully", body: `Your order ${orderId} for ₹${order.total.toLocaleString()} has been placed.`, time: "now", unread: true },
-          ...s.notifications
-        ]
+      fetch(`${BACKEND_URL}/api/orders/${orderId}/status`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status })
+      }).catch(err => console.error("Failed to sync order status update to backend:", err));
+    },
+    addCoupon: (coupon) => {
+      const upperCode = coupon.code.toUpperCase();
+      const newCoupon = {
+        code: upperCode,
+        discount: coupon.discount,
+        type: coupon.type ?? "percentage",
+        expiryDate: coupon.expiryDate ?? "2026-12-31",
+        usageLimit: coupon.usageLimit ?? 100,
+        userEligibility: coupon.userEligibility ?? "All",
+        active: true
       };
-    }),
-    updateOrderStatus: (userId, orderId, status) => setState(s => {
-      const list = s.orders[userId] ?? [];
-      const next = list.map(o => o.id === orderId ? { ...o, status } : o);
-      return {
-        ...s,
-        orders: { ...s.orders, [userId]: next },
-        notifications: [
-          { id: `n-${Date.now()}`, icon: "order", title: "Order Status Updated", body: `Order ${orderId} status changed to ${status}.`, time: "now", unread: true },
-          ...s.notifications
-        ]
-      };
-    }),
-    addCoupon: (coupon) => setState(s => {
-      if (s.coupons.some(c => c.code === coupon.code.toUpperCase())) return s;
-      return {
-        ...s,
-        coupons: [
-          ...s.coupons,
-          {
-            code: coupon.code.toUpperCase(),
-            discount: coupon.discount,
-            type: coupon.type ?? "percentage",
-            expiryDate: coupon.expiryDate ?? "2026-12-31",
-            usageLimit: coupon.usageLimit ?? 100,
-            userEligibility: coupon.userEligibility ?? "All",
-            active: true
-          }
-        ]
-      };
-    }),
-    removeCoupon: (code) => setState(s => ({ ...s, coupons: s.coupons.filter(c => c.code !== code) })),
+
+      setState(s => {
+        if (s.coupons.some(c => c.code === upperCode)) return s;
+        return {
+          ...s,
+          coupons: [...s.coupons, newCoupon]
+        };
+      });
+
+      fetch(`${BACKEND_URL}/api/coupons`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newCoupon)
+      }).catch(err => console.error("Failed to sync new coupon to backend:", err));
+    },
+    removeCoupon: (code) => {
+      const upperCode = code.toUpperCase();
+      setState(s => ({ ...s, coupons: s.coupons.filter(c => c.code !== upperCode) }));
+
+      fetch(`${BACKEND_URL}/api/coupons/${upperCode}`, {
+        method: "DELETE"
+      }).catch(err => console.error("Failed to sync coupon deletion to backend:", err));
+    },
 
     setAdminMode: (mode) => setState(s => ({ ...s, adminMode: mode })),
     createProduct: (p) => {
@@ -1203,175 +1334,272 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         }).catch(err => console.error("Failed to sync product deletion to backend:", err));
       }
     },
-    requestReturn: (req) => setState(s => {
+    requestReturn: (req) => {
       const returnId = `RET-${Math.floor(100 + Math.random() * 900)}`;
-      const newReturn: ReturnRequest = {
+      const newReturn = {
         id: returnId,
         ...req,
         status: "Return Requested"
       };
-      return {
+
+      setState(s => ({
         ...s,
         returns: [newReturn, ...s.returns],
         notifications: [
           { id: `n-${Date.now()}`, icon: "refund", title: "Return Request Created", body: `Return request ${returnId} for order ${req.orderId} submitted.`, time: "now", unread: true },
           ...s.notifications
         ]
-      };
-    }),
-    approveReturn: (returnId) => setState(s => {
-      const req = s.returns.find(r => r.id === returnId);
-      if (!req) return s;
-      
-      const updatedReturns = s.returns.map(r => r.id === returnId ? {
-        ...r,
-        status: "Refund Completed",
-        refundTransactionId: `pay_razor_${Math.random().toString(36).substring(2, 11)}`,
-        refundDate: new Date().toISOString().slice(0, 10),
-        expectedCreditDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
-      } : r);
+      }));
 
-      let updatedWallets = s.wallets;
-      if (req.refundMethod === "ReeVibes Wallet" || req.refundMethod === "Store Credit") {
-        const userWallet = s.wallets[req.customerId] ?? 0;
-        updatedWallets = { ...s.wallets, [req.customerId]: userWallet + req.refundAmount };
-      }
+      fetch(`${BACKEND_URL}/api/returns`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: returnId,
+          orderId: req.orderId,
+          productId: req.productId,
+          productName: req.productName,
+          customerId: req.customerId,
+          customerName: req.customerName,
+          reason: req.reason,
+          comment: req.comment,
+          images: req.images ? req.images.join(",") : "",
+          videos: req.videos ? req.videos.join(",") : "",
+          status: "Return Requested",
+          refundAmount: req.refundAmount,
+          selectedSize: req.selectedSize,
+          qty: req.qty,
+          refundMethod: req.refundMethod
+        })
+      }).catch(err => console.error("Failed to sync new return request to backend:", err));
+    },
+    approveReturn: (returnId) => {
+      let req: any;
+      let nextRefundTxId = `pay_razor_${Math.random().toString(36).substring(2, 11)}`;
+      let nextRefundDate = new Date().toISOString().slice(0, 10);
+      let nextExpectedCreditDate = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-      const userOrders = s.orders[req.customerId] ?? [];
-      const updatedOrders = userOrders.map(o => {
-        if (o.id === req.orderId) {
-          return {
-            ...o,
+      setState(s => {
+        req = s.returns.find(r => r.id === returnId);
+        if (!req) return s;
+
+        const updatedReturns = s.returns.map(r => r.id === returnId ? {
+          ...r,
+          status: "Refund Completed",
+          refundTransactionId: nextRefundTxId,
+          refundDate: nextRefundDate,
+          expectedCreditDate: nextExpectedCreditDate
+        } : r);
+
+        let updatedWallets = s.wallets;
+        if (req.refundMethod === "ReeVibes Wallet" || req.refundMethod === "Store Credit") {
+          const userWallet = s.wallets[req.customerId] ?? 0;
+          updatedWallets = { ...s.wallets, [req.customerId]: userWallet + req.refundAmount };
+        }
+
+        const userOrders = s.orders[req.customerId] ?? [];
+        const updatedOrders = userOrders.map(o => {
+          if (o.id === req.orderId) {
+            return {
+              ...o,
+              status: "Returned",
+              paymentStatus: "Refunded" as const,
+              refundDetails: {
+                status: "Refund Completed",
+                amount: req.refundAmount,
+                transactionId: nextRefundTxId,
+                date: nextRefundDate
+              }
+            };
+          }
+          return o;
+        });
+
+        fetch(`${BACKEND_URL}/api/returns/${returnId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            status: "Refund Completed",
+            refundTransactionId: nextRefundTxId,
+            refundDate: nextRefundDate,
+            expectedCreditDate: nextExpectedCreditDate
+          })
+        }).catch(err => console.error("Failed to sync approved return status:", err));
+
+        fetch(`${BACKEND_URL}/api/orders/${req.orderId}/refund`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
             status: "Returned",
-            paymentStatus: "Refunded" as const,
-            refundDetails: {
+            paymentStatus: "Refunded",
+            refundDetailsJson: JSON.stringify({
               status: "Refund Completed",
               amount: req.refundAmount,
-              transactionId: `pay_razor_${Math.random().toString(36).substring(2, 11)}`,
-              date: new Date().toISOString().slice(0, 10)
-            }
-          };
-        }
-        return o;
+              transactionId: nextRefundTxId,
+              date: nextRefundDate
+            })
+          })
+        }).catch(err => console.error("Failed to sync order refund status:", err));
+
+        return {
+          ...s,
+          returns: updatedReturns,
+          wallets: updatedWallets,
+          orders: { ...s.orders, [req.customerId]: updatedOrders },
+          notifications: [
+            { id: `n-${Date.now()}`, icon: "wallet", title: "Refund Issued", body: `Refund of ₹${req.refundAmount.toLocaleString()} credited successfully.`, time: "now", unread: true },
+            ...s.notifications
+          ]
+        };
+      });
+    },
+    rejectReturn: (returnId, rejectionReason) => {
+      let req: any;
+      setState(s => {
+        req = s.returns.find(r => r.id === returnId);
+        if (!req) return s;
+
+        const updatedReturns = s.returns.map(r => r.id === returnId ? {
+          ...r,
+          status: "Rejected",
+          rejectionReason: rejectionReason || "Insufficient evidence"
+        } : r);
+
+        fetch(`${BACKEND_URL}/api/returns/${returnId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            status: "Rejected",
+            rejectionReason: rejectionReason || "Insufficient evidence"
+          })
+        }).catch(err => console.error("Failed to sync rejected return status:", err));
+
+        return {
+          ...s,
+          returns: updatedReturns,
+          notifications: [
+            { id: `n-${Date.now()}`, icon: "refund", title: "Return Request Rejected", body: `Return request ${returnId} for order ${req.orderId} was rejected. Reason: ${rejectionReason || "Insufficient evidence"}.`, time: "now", unread: true },
+            ...s.notifications
+          ]
+        };
+      });
+    },
+    updateReturnDetails: (returnId, patch) => {
+      setState(s => {
+        const nextList = s.returns.map(r => r.id === returnId ? { ...r, ...patch } : r);
+        return { ...s, returns: nextList };
       });
 
-      return {
-        ...s,
-        returns: updatedReturns,
-        wallets: updatedWallets,
-        orders: { ...s.orders, [req.customerId]: updatedOrders },
-        notifications: [
-          { id: `n-${Date.now()}`, icon: "wallet", title: "Refund Issued", body: `Refund of ₹${req.refundAmount.toLocaleString()} credited successfully.`, time: "now", unread: true },
-          ...s.notifications
-        ]
-      };
-    }),
-    rejectReturn: (returnId, rejectionReason) => setState(s => {
-      const req = s.returns.find(r => r.id === returnId);
-      if (!req) return s;
-      const updatedReturns = s.returns.map(r => r.id === returnId ? { ...r, status: "Rejected", rejectionReason: rejectionReason || "Insufficient evidence" } : r);
-      return {
-        ...s,
-        returns: updatedReturns,
-        notifications: [
-          { id: `n-${Date.now()}`, icon: "refund", title: "Return Request Rejected", body: `Return request ${returnId} for order ${req.orderId} was rejected. Reason: ${rejectionReason || "Insufficient evidence"}.`, time: "now", unread: true },
-          ...s.notifications
-        ]
-      };
-    }),
-    updateReturnDetails: (returnId, patch) => setState(s => {
-      const nextList = s.returns.map(r => r.id === returnId ? { ...r, ...patch } : r);
-      return { ...s, returns: nextList };
-    }),
-    suspendCustomer: (id) => {
-      setState(s => ({
-        ...s,
-        users: s.users.map(u => u.id === id ? { ...u, status: "Suspended" as const } : u)
-      }));
-
-      fetch(`${BACKEND_URL}/api/customers/${id}`, {
+      fetch(`${BACKEND_URL}/api/returns/${returnId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "Suspended" })
-      }).catch(err => console.error("Failed to sync customer suspension to backend:", err));
+        body: JSON.stringify(patch)
+      }).catch(err => console.error("Failed to sync return details patch:", err));
     },
-    reactivateCustomer: (id) => {
-      setState(s => ({
-        ...s,
-        users: s.users.map(u => u.id === id ? { ...u, status: "Active" as const } : u)
-      }));
+    moderateReview: (productId, reviewId, action) => {
+      const nextStatus = action === "approve" ? "Approved" : "Hidden";
+      setState(s => {
+        const productRevs = s.productReviews[productId] ?? [];
+        const updated = productRevs.map(r => r.id === reviewId ? { ...r, status: nextStatus as any } : r);
+        return { ...s, productReviews: { ...s.productReviews, [productId]: updated } };
+      });
 
-      fetch(`${BACKEND_URL}/api/customers/${id}`, {
+      fetch(`${BACKEND_URL}/api/reviews/${reviewId}/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "Active" })
-      }).catch(err => console.error("Failed to sync customer reactivation to backend:", err));
+        body: JSON.stringify({ status: nextStatus })
+      }).catch(err => console.error("Failed to sync review moderation to backend:", err));
     },
-    addWalletCredit: (userId, amount) => setState(s => {
-      const bal = s.wallets[userId] ?? 0;
-      return {
-        ...s,
-        wallets: { ...s.wallets, [userId]: bal + amount },
-        notifications: [
-          { id: `n-${Date.now()}`, icon: "wallet", title: "Wallet Credit Added", body: `₹${amount.toLocaleString()} has been added to your wallet.`, time: "now", unread: true },
-          ...s.notifications
-        ]
-      };
-    }),
-    moderateReview: (productId, reviewId, action) => setState(s => {
-      const productRevs = s.productReviews[productId] ?? [];
-      const updated = productRevs.map(r => r.id === reviewId ? { ...r, status: action === "approve" ? ("Approved" as const) : ("Hidden" as const) } : r);
-      return { ...s, productReviews: { ...s.productReviews, [productId]: updated } };
-    }),
-    addReview: (productId, r) => setState(s => {
-      const productRevs = s.productReviews[productId] ?? [];
-      const newReview: ProductReview = {
-        id: `rev-${Date.now()}`,
+    addReview: (productId, r) => {
+      const reviewId = `rev-${Date.now()}`;
+      const reviewDate = new Date().toISOString().slice(0, 10);
+      const newReview: any = {
+        id: reviewId,
         userName: r.userName,
         rating: r.rating,
         comment: r.comment,
         images: r.images,
         videos: r.videos,
-        date: new Date().toISOString().slice(0, 10),
+        date: reviewDate,
         status: "Approved"
       };
-      return {
-        ...s,
-        productReviews: { ...s.productReviews, [productId]: [newReview, ...productRevs] }
-      };
-    }),
-    updateHomepageLayout: (layout) => setState(s => {
-      const next = {
-        ...s,
-        homepageLayout: { ...s.homepageLayout, ...layout }
-      };
-      save(next);
-      return next;
-    }),
-    updateHomepageLayoutDraft: (layout) => setState(s => {
-      const next = {
-        ...s,
-        homepageLayoutDraft: { ...s.homepageLayoutDraft, ...layout }
-      };
-      save(next);
-      return next;
-    }),
-    publishHomepageLayout: () => setState(s => {
-      const next = {
-        ...s,
-        homepageLayout: { ...s.homepageLayoutDraft }
-      };
-      save(next);
-      return next;
-    }),
-    revertHomepageLayout: () => setState(s => {
-      const next = {
-        ...s,
-        homepageLayoutDraft: { ...s.homepageLayout }
-      };
-      save(next);
-      return next;
-    }),
+
+      setState(s => {
+        const productRevs = s.productReviews[productId] ?? [];
+        return {
+          ...s,
+          productReviews: { ...s.productReviews, [productId]: [newReview, ...productRevs] }
+        };
+      });
+
+      fetch(`${BACKEND_URL}/api/reviews`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: reviewId,
+          productId,
+          userName: r.userName,
+          rating: r.rating,
+          comment: r.comment,
+          images: r.images ? r.images.join(",") : "",
+          videos: r.videos ? r.videos.join(",") : "",
+          reviewDate,
+          status: "Approved"
+        })
+      }).catch(err => console.error("Failed to sync review to backend:", err));
+    },
+    updateHomepageLayout: (layout) => {
+      let nextLayout: any;
+      setState(s => {
+        nextLayout = { ...s.homepageLayout, ...layout };
+        const next = { ...s, homepageLayout: nextLayout };
+        save(next);
+        return next;
+      });
+      fetch(`${BACKEND_URL}/api/homepage-layout/published`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ layoutJson: JSON.stringify(nextLayout) })
+      }).catch(err => console.error("Failed to sync published homepage layout:", err));
+    },
+    updateHomepageLayoutDraft: (layout) => {
+      let nextLayout: any;
+      setState(s => {
+        nextLayout = { ...s.homepageLayoutDraft, ...layout };
+        const next = { ...s, homepageLayoutDraft: nextLayout };
+        save(next);
+        return next;
+      });
+      fetch(`${BACKEND_URL}/api/homepage-layout/draft`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ layoutJson: JSON.stringify(nextLayout) })
+      }).catch(err => console.error("Failed to sync draft homepage layout:", err));
+    },
+    publishHomepageLayout: () => {
+      setState(s => {
+        const next = { ...s, homepageLayout: { ...s.homepageLayoutDraft } };
+        save(next);
+        fetch(`${BACKEND_URL}/api/homepage-layout/published`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ layoutJson: JSON.stringify(s.homepageLayoutDraft) })
+        }).catch(err => console.error("Failed to publish homepage layout:", err));
+        return next;
+      });
+    },
+    revertHomepageLayout: () => {
+      setState(s => {
+        const next = { ...s, homepageLayoutDraft: { ...s.homepageLayout } };
+        save(next);
+        fetch(`${BACKEND_URL}/api/homepage-layout/draft`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ layoutJson: JSON.stringify(s.homepageLayout) })
+        }).catch(err => console.error("Failed to revert homepage layout:", err));
+        return next;
+      });
+    },
     createBucket: (name, productIds, starProductId) => {
       const id = `bkt-${Date.now()}`;
       const newBucket: Bucket = { id, name, productIds, starProductId, hidden: false };

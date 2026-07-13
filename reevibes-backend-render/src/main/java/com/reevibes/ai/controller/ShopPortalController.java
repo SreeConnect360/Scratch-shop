@@ -1,26 +1,31 @@
 package com.reevibes.ai.controller;
 
-import com.reevibes.ai.model.ProductBucket;
-import com.reevibes.ai.model.PlatformUser;
-import com.reevibes.ai.repository.ProductBucketRepository;
-import com.reevibes.ai.repository.PlatformUserRepository;
+import com.reevibes.ai.model.*;
+import com.reevibes.ai.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
- 
- @RestController
- @RequestMapping("/api")
- @CrossOrigin(origins = {"http://localhost:5173", "https://reevibes.com"})
- @RequiredArgsConstructor
- @SuppressWarnings({"null", "unchecked"})
- public class ShopPortalController {
+
+@RestController
+@RequestMapping("/api")
+@CrossOrigin(origins = {"http://localhost:5173", "https://reevibes.com"})
+@RequiredArgsConstructor
+@SuppressWarnings({"null", "unchecked"})
+public class ShopPortalController {
 
     private final ProductBucketRepository bucketRepository;
     private final PlatformUserRepository userRepository;
+    private final HomepageLayoutRepository homepageLayoutRepository;
+    private final ShopOrderRepository orderRepository;
+    private final ReturnRequestRepository returnRequestRepository;
+    private final ShopCouponRepository couponRepository;
+    private final ProductReviewRepository reviewRepository;
 
     // --- BUCKETS ---
     @GetMapping("/buckets")
@@ -111,5 +116,138 @@ import java.util.Map;
     public ResponseEntity<?> deleteCustomer(@PathVariable String id) {
         userRepository.deleteById(id);
         return ResponseEntity.ok(Map.of("message", "Customer deleted successfully"));
+    }
+
+    // --- HOMEPAGE LAYOUT ---
+    @GetMapping("/homepage-layout")
+    public ResponseEntity<List<HomepageLayout>> getHomepageLayouts() {
+        return ResponseEntity.ok(homepageLayoutRepository.findAll());
+    }
+
+    @PutMapping("/homepage-layout/{id}")
+    @Transactional
+    public ResponseEntity<HomepageLayout> updateHomepageLayout(@PathVariable String id, @RequestBody Map<String, Object> body) {
+        HomepageLayout layout = homepageLayoutRepository.findById(id)
+                .orElseGet(() -> {
+                    HomepageLayout l = new HomepageLayout();
+                    l.setId(id);
+                    return l;
+                });
+        layout.setLayoutJson((String) body.get("layoutJson"));
+        return ResponseEntity.ok(homepageLayoutRepository.save(layout));
+    }
+
+    // --- ORDERS TRACKER ---
+    @GetMapping("/orders")
+    public ResponseEntity<List<ShopOrder>> getOrders() {
+        return ResponseEntity.ok(orderRepository.findAll());
+    }
+
+    @PostMapping("/orders")
+    @Transactional
+    public ResponseEntity<ShopOrder> createOrder(@RequestBody ShopOrder order) {
+        if (order.getId() == null || order.getId().isEmpty()) {
+            order.setId("ORD-" + (int)(1000 + Math.random() * 9000));
+        }
+        order.setOrderDate(LocalDateTime.now());
+        return ResponseEntity.ok(orderRepository.save(order));
+    }
+
+    @PutMapping("/orders/{id}/status")
+    @Transactional
+    public ResponseEntity<ShopOrder> updateOrderStatus(@PathVariable String id, @RequestBody Map<String, Object> body) {
+        ShopOrder order = orderRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found: " + id));
+        order.setStatus((String) body.get("status"));
+        return ResponseEntity.ok(orderRepository.save(order));
+    }
+
+    @PutMapping("/orders/{id}/refund")
+    @Transactional
+    public ResponseEntity<ShopOrder> updateOrderRefund(@PathVariable String id, @RequestBody Map<String, Object> body) {
+        ShopOrder order = orderRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found: " + id));
+        if (body.containsKey("status")) order.setStatus((String) body.get("status"));
+        if (body.containsKey("paymentStatus")) order.setPaymentStatus((String) body.get("paymentStatus"));
+        if (body.containsKey("refundDetailsJson")) order.setRefundDetailsJson((String) body.get("refundDetailsJson"));
+        return ResponseEntity.ok(orderRepository.save(order));
+    }
+
+    // --- RETURNS & REFUNDS ---
+    @GetMapping("/returns")
+    public ResponseEntity<List<ReturnRequest>> getReturns() {
+        return ResponseEntity.ok(returnRequestRepository.findAll());
+    }
+
+    @PostMapping("/returns")
+    @Transactional
+    public ResponseEntity<ReturnRequest> createReturn(@RequestBody ReturnRequest request) {
+        if (request.getId() == null || request.getId().isEmpty()) {
+            request.setId("RET-" + (int)(100 + Math.random() * 900));
+        }
+        return ResponseEntity.ok(returnRequestRepository.save(request));
+    }
+
+    @PutMapping("/returns/{id}")
+    @Transactional
+    public ResponseEntity<ReturnRequest> updateReturn(@PathVariable String id, @RequestBody Map<String, Object> body) {
+        ReturnRequest req = returnRequestRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Return not found: " + id));
+
+        if (body.containsKey("status")) req.setStatus((String) body.get("status"));
+        if (body.containsKey("refundTransactionId")) req.setRefundTransactionId((String) body.get("refundTransactionId"));
+        if (body.containsKey("refundDate")) req.setRefundDate((String) body.get("refundDate"));
+        if (body.containsKey("rejectionReason")) req.setRejectionReason((String) body.get("rejectionReason"));
+        if (body.containsKey("expectedCreditDate")) req.setExpectedCreditDate((String) body.get("expectedCreditDate"));
+        if (body.containsKey("pickupDate")) req.setPickupDate((String) body.get("pickupDate"));
+
+        return ResponseEntity.ok(returnRequestRepository.save(req));
+    }
+
+    // --- COUPONS MANAGER ---
+    @GetMapping("/coupons")
+    public ResponseEntity<List<ShopCoupon>> getCoupons() {
+        return ResponseEntity.ok(couponRepository.findAll());
+    }
+
+    @PostMapping("/coupons")
+    @Transactional
+    public ResponseEntity<ShopCoupon> createCoupon(@RequestBody ShopCoupon coupon) {
+        coupon.setCode(coupon.getCode().toUpperCase());
+        return ResponseEntity.ok(couponRepository.save(coupon));
+    }
+
+    @DeleteMapping("/coupons/{code}")
+    @Transactional
+    public ResponseEntity<?> deleteCoupon(@PathVariable String code) {
+        couponRepository.deleteById(code.toUpperCase());
+        return ResponseEntity.ok(Map.of("message", "Coupon deleted successfully"));
+    }
+
+    // --- REVIEWS MODERATOR ---
+    @GetMapping("/reviews")
+    public ResponseEntity<List<ProductReview>> getReviews() {
+        return ResponseEntity.ok(reviewRepository.findAll());
+    }
+
+    @PostMapping("/reviews")
+    @Transactional
+    public ResponseEntity<ProductReview> createReview(@RequestBody ProductReview review) {
+        if (review.getId() == null || review.getId().isEmpty()) {
+            review.setId("rev-" + System.currentTimeMillis());
+        }
+        if (review.getReviewDate() == null || review.getReviewDate().isEmpty()) {
+            review.setReviewDate(new java.text.SimpleDateFormat("yyyy-MM-dd").format(new java.util.Date()));
+        }
+        return ResponseEntity.ok(reviewRepository.save(review));
+    }
+
+    @PutMapping("/reviews/{id}/status")
+    @Transactional
+    public ResponseEntity<ProductReview> updateReviewStatus(@PathVariable String id, @RequestBody Map<String, Object> body) {
+        ProductReview review = reviewRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Review not found: " + id));
+        review.setStatus((String) body.get("status"));
+        return ResponseEntity.ok(reviewRepository.save(review));
     }
 }
