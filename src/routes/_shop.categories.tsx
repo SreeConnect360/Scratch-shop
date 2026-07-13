@@ -696,11 +696,7 @@ function CategoryProductCard({
             type="button"
             onClick={handleWishlistClick}
             whileTap={{ scale: 0.8 }}
-            className={`glass glass-strong absolute right-3 top-3 z-50 flex h-10 w-10 items-center justify-center rounded-full cursor-pointer transition-all duration-300 ease-out ${
-              isWishlisted
-                ? "opacity-100 translate-y-0 pointer-events-auto"
-                : "opacity-0 translate-y-[-10px] pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto"
-            }`}
+            className="glass glass-strong absolute right-3 top-3 z-50 flex h-10 w-10 items-center justify-center rounded-full cursor-pointer transition-all duration-300 ease-out opacity-100 translate-y-0 pointer-events-auto shadow-[0_0_20px_-2px_rgba(200,169,106,0.4)]"
           >
             <motion.span
               key={String(isWishlisted)}
@@ -720,8 +716,8 @@ function CategoryProductCard({
             </motion.span>
           </motion.button>
 
-          {/* Add to Bag slides up */}
-          <div className="absolute inset-x-3 bottom-3 translate-y-[120%] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:translate-y-0 group-focus-within:translate-y-0 z-10">
+          {/* Add to Bag slides up - desktop only */}
+          <div className="absolute inset-x-3 bottom-3 translate-y-[120%] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:translate-y-0 group-focus-within:translate-y-0 z-10 hidden md:block">
             <button
               type="button"
               onClick={handleAddToCartClick}
@@ -783,6 +779,15 @@ function CategoryProductCard({
               </div>
             </div>
           </div>
+          {/* add to bag — mobile/tablet: always visible, no hover needed */}
+          <button
+            type="button"
+            onClick={handleAddToCartClick}
+            className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-full bg-gradient-to-br from-gold-soft via-gold to-gold-deep py-2.5 text-[11px] font-semibold tracking-[0.2em] uppercase text-obsidian shadow-[0_10px_28px_-8px_rgba(200,169,106,0.6)] transition-[box-shadow,filter] duration-300 hover:shadow-[0_14px_38px_-8px_rgba(200,169,106,0.8)] hover:brightness-105 md:hidden mt-2"
+          >
+            <ShoppingBag size={14} strokeWidth={2} />
+            Add to Bag
+          </button>
         </div>
       </div>
     </FadeUp>

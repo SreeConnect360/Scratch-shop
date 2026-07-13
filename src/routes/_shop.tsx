@@ -8,6 +8,7 @@ import AssistantLauncher from "@/components/ai-assistant/AssistantLauncher";
 import { motion, useMotionValue, useSpring, AnimatePresence } from "framer-motion";
 import SearchOverlay from "@/components/public/SearchOverlay";
 import Particles from "@/components/public/Particles";
+import BottomNav from "@/components/public/BottomNav";
 import { useTheme } from "@/hooks/use-theme";
 import { cn } from "@/lib/utils";
 
@@ -430,6 +431,7 @@ function ShopLayout() {
         )}
 
         <Particles />
+        <BottomNav setSearchOpen={setSearchOpen} />
         <SearchOverlay isOpen={searchOpen} onClose={() => setSearchOpen(false)} products={products} />
 
         {/* Premium Floating Liquid Glass Header */}

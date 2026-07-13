@@ -259,8 +259,8 @@ function ProductCard({ product, idx, isRelated = false, isWishlisted, onWishlist
             </>
           )}
 
-          {/* Add to Bag slides up inside image */}
-          <div className="absolute inset-x-3 bottom-3 translate-y-[120%] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:translate-y-0 group-focus-within:translate-y-0 z-10">
+          {/* Add to Bag slides up inside image - desktop only */}
+          <div className="absolute inset-x-3 bottom-3 translate-y-[120%] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:translate-y-0 group-focus-within:translate-y-0 z-10 hidden md:block">
             <button
               type="button"
               onClick={(e) => onAddToCart(product, e)}
