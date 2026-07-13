@@ -140,7 +140,7 @@ export default function Particles({ count = 38 }: { count?: number }) {
     <canvas
       ref={canvasRef}
       aria-hidden="true"
-      className="pointer-events-none fixed inset-0 z-[1]"
+      className="pointer-events-none fixed inset-0 z-[-1]"
     />
   );
 }
