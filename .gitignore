@@ -33,4 +33,9 @@ dist-ssr
 .agents/
 .netlify/
 
+# Build and target directories
+target/
+**/target/
+
+
 

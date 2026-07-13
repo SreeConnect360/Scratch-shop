@@ -3,6 +3,7 @@ package com.reevibes.ai.controller;
 import com.reevibes.ai.model.User;
 import com.reevibes.ai.model.EmailOtp;
 import com.reevibes.ai.repository.UserRepository;
+import com.reevibes.ai.repository.PlatformUserRepository;
 import com.reevibes.ai.repository.EmailOtpRepository;
 import com.reevibes.ai.service.EmailService;
 import org.mindrot.jbcrypt.BCrypt;
@@ -21,6 +22,9 @@ public class AuthController {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private PlatformUserRepository platformUserRepository;
 
     @Autowired
     private EmailOtpRepository emailOtpRepository;
@@ -153,7 +157,27 @@ public class AuthController {
         user.setEmailVerified(true);
         user.setCreatedAt(LocalDateTime.now());
 
-        userRepository.save(user);
+        User savedUser = userRepository.save(user);
+
+        // Auto-create a corresponding PlatformUser
+        try {
+            com.reevibes.ai.model.PlatformUser pu = new com.reevibes.ai.model.PlatformUser();
+            pu.setId("USR-" + savedUser.getId());
+            String fullName = savedUser.getName();
+            String[] parts = fullName.split("\\s+", 2);
+            pu.setFirstName(parts[0]);
+            pu.setLastName(parts.length > 1 ? parts[1] : "");
+            pu.setEmail(savedUser.getEmail());
+            pu.setPhone("");
+            pu.setCountry("");
+            pu.setDob("");
+            pu.setGender("");
+            pu.setStatus("Active");
+            pu.setRoles("General");
+            platformUserRepository.save(pu);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
         try {
             emailService.sendWelcomeEmail(email, name);
@@ -161,7 +185,14 @@ public class AuthController {
             e.printStackTrace();
         }
 
-        return ResponseEntity.ok(Map.of("message", "Account registered successfully", "user", Map.of("name", user.getName(), "email", user.getEmail())));
+        return ResponseEntity.ok(Map.of(
+            "message", "Account registered successfully",
+            "user", Map.of(
+                "id", savedUser.getId().toString(),
+                "name", savedUser.getName(),
+                "email", savedUser.getEmail()
+            )
+        ));
     }
 
     @PostMapping("/signin")

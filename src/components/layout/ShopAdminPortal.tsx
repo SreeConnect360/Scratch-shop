@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { usePortal, useCartTotal } from "@/lib/portal-state";
+import { Link } from "@tanstack/react-router";
 import {
   ShoppingBag, Truck, RefreshCw, Users, Ticket, Star, Store, BarChart3,
   Sparkles, LayoutGrid, Plus, Edit2, Trash2, Check, X, ShieldAlert,
@@ -89,7 +90,24 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any | null>(null);
   const [selectedCustomerDetails, setSelectedCustomerDetails] = useState<any | null>(null);
+  const [dossierTab, setDossierTab] = useState<"details" | "wishlist" | "cart" | "orders">("details");
   const [selectedOrderDetails, setSelectedOrderDetails] = useState<any | null>(null);
+  const [editStatus, setEditStatus] = useState("");
+  const [editPaymentStatus, setEditPaymentStatus] = useState("");
+  const [editTrackingNum, setEditTrackingNum] = useState("");
+  const [editCourier, setEditCourier] = useState("");
+  const [editEstDelivery, setEditEstDelivery] = useState("");
+
+  useEffect(() => {
+    if (selectedOrderDetails) {
+      setEditStatus(selectedOrderDetails.status || "Processing");
+      setEditPaymentStatus(selectedOrderDetails.paymentStatus || "Paid");
+      setEditTrackingNum(selectedOrderDetails.trackingNumber || "");
+      setEditCourier(selectedOrderDetails.courierPartner || "");
+      setEditEstDelivery(selectedOrderDetails.estimatedDeliveryDate || "");
+    }
+  }, [selectedOrderDetails]);
+
   const [selectedReturnDetails, setSelectedReturnDetails] = useState<any | null>(null);
   const [selectedProductPreview, setSelectedProductPreview] = useState<any | null>(null);
   const [rejectionModalReturnId, setRejectionModalReturnId] = useState<string | null>(null);
@@ -885,7 +903,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
       {/* Selected Customer Details Modal */}
       {selectedCustomerDetails && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="liquid-glass max-w-2xl w-full p-6 md:p-8 space-y-6 shadow-2xl animate-in zoom-in-95 duration-200 overflow-y-auto max-h-[90vh]">
+          <div className="liquid-glass max-w-3xl w-full p-6 md:p-8 space-y-6 shadow-2xl animate-in zoom-in-95 duration-200 overflow-y-auto max-h-[90vh]">
             <div className="flex justify-between items-center border-b border-white/10 pb-4">
               <div className="flex items-center gap-2">
                 <Users className="w-5 h-5 text-accent" />
@@ -896,64 +914,186 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
               </button>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-6 text-xs leading-relaxed">
-              <div className="space-y-3">
-                <h4 className="font-bold text-accent uppercase tracking-wider text-[10px]">Account Identity</h4>
-                <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">ID:</span><span className="col-span-2 font-mono">{selectedCustomerDetails.id}</span></div>
-                <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">Name:</span><span className="col-span-2 font-semibold">{selectedCustomerDetails.firstName} {selectedCustomerDetails.lastName}</span></div>
-                <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">Email:</span><span className="col-span-2">{selectedCustomerDetails.email}</span></div>
-                <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">Phone:</span><span className="col-span-2">{selectedCustomerDetails.phone || "—"}</span></div>
-                <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">Registered:</span><span className="col-span-2">{selectedCustomerDetails.registeredAt}</span></div>
-              </div>
-
-              <div className="space-y-3">
-                <h4 className="font-bold text-accent uppercase tracking-wider text-[10px]">Styling Parameters</h4>
-                <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">Gender:</span><span className="col-span-2">{selectedCustomerDetails.gender || "—"}</span></div>
-                <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">DOB:</span><span className="col-span-2">{selectedCustomerDetails.dob || "—"}</span></div>
-                <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">Country:</span><span className="col-span-2">{selectedCustomerDetails.country || "—"}</span></div>
-                <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">Status:</span><span className="col-span-2"><StatusChip status={selectedCustomerDetails.status} tone={selectedCustomerDetails.status === "Active" ? "success" : "danger"} /></span></div>
-                <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">Wallet:</span><span className="col-span-2 font-semibold text-accent">₹{(state.wallets[selectedCustomerDetails.id] ?? 0).toLocaleString()}</span></div>
-              </div>
+            {/* Premium Tab Bar */}
+            <div className="flex border-b border-white/10 gap-4 text-xs font-semibold">
+              {(["details", "wishlist", "cart", "orders"] as const).map(tabKey => (
+                <button
+                  key={tabKey}
+                  onClick={() => setDossierTab(tabKey)}
+                  className={`pb-3 border-b-2 capitalize transition-colors cursor-pointer ${
+                    dossierTab === tabKey ? "border-accent text-accent" : "border-transparent text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {tabKey === "orders" ? "Ordered Items" : tabKey}
+                </button>
+              ))}
             </div>
 
-            {/* Saved Addresses */}
-            <div className="space-y-2 text-xs">
-              <h4 className="font-bold text-accent uppercase tracking-wider text-[10px]">Saved Shipping Destinations</h4>
-              {(state.addresses[selectedCustomerDetails.id] ?? []).length === 0 ? (
-                <p className="text-muted-foreground italic">No addresses saved.</p>
-              ) : (
-                <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
-                  {(state.addresses[selectedCustomerDetails.id] ?? []).map((addr: string, i: number) => (
-                    <li key={i}>{addr}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            {/* Dossier Tabs Content */}
+            {dossierTab === "details" && (
+              <div className="space-y-6 animate-in fade-in duration-200">
+                <div className="grid md:grid-cols-2 gap-6 text-xs leading-relaxed">
+                  <div className="space-y-3">
+                    <h4 className="font-bold text-accent uppercase tracking-wider text-[10px]">Account Identity</h4>
+                    <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">ID:</span><span className="col-span-2 font-mono">{selectedCustomerDetails.id}</span></div>
+                    <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">Name:</span><span className="col-span-2 font-semibold">{selectedCustomerDetails.firstName} {selectedCustomerDetails.lastName}</span></div>
+                    <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">Email:</span><span className="col-span-2">{selectedCustomerDetails.email}</span></div>
+                    <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">Phone:</span><span className="col-span-2">{selectedCustomerDetails.phone || "—"}</span></div>
+                    <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">Registered:</span><span className="col-span-2">{selectedCustomerDetails.registeredAt || "—"}</span></div>
+                    <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">Last Login:</span><span className="col-span-2">{selectedCustomerDetails.lastLogin || "—"}</span></div>
+                  </div>
 
-            {/* Orders Summary */}
-            <div className="space-y-2 text-xs">
-              <h4 className="font-bold text-accent uppercase tracking-wider text-[10px]">Order History</h4>
-              {(state.orders[selectedCustomerDetails.id] ?? []).length === 0 ? (
-                <p className="text-muted-foreground italic">No orders placed yet.</p>
-              ) : (
-                <div className="space-y-2 max-h-40 overflow-y-auto pr-2 divide-y divide-white/5">
-                  {(state.orders[selectedCustomerDetails.id] ?? []).map((ord: any) => (
-                    <div key={ord.id} className="pt-2 flex justify-between items-center text-xs">
-                      <div>
-                        <div className="font-semibold font-mono">{ord.id} · {ord.date}</div>
-                        <div className="text-[10px] text-muted-foreground">
-                          {ord.items.map((it: any) => `${it.name} (${it.selectedSize}) x${it.qty}`).join(", ")}
+                  <div className="space-y-3">
+                    <h4 className="font-bold text-accent uppercase tracking-wider text-[10px]">Styling Parameters</h4>
+                    <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">Gender:</span><span className="col-span-2">{selectedCustomerDetails.gender || "—"}</span></div>
+                    <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">DOB:</span><span className="col-span-2">{selectedCustomerDetails.dob || "—"}</span></div>
+                    <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">Country:</span><span className="col-span-2">{selectedCustomerDetails.country || "—"}</span></div>
+                    <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">Status:</span><span className="col-span-2"><StatusChip status={selectedCustomerDetails.status} tone={selectedCustomerDetails.status === "Active" ? "success" : "danger"} /></span></div>
+                    <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">Wallet:</span><span className="col-span-2 font-semibold text-accent">₹{(state.wallets[selectedCustomerDetails.id] ?? 0).toLocaleString()}</span></div>
+                  </div>
+                </div>
+
+                {/* Saved Addresses */}
+                <div className="space-y-2 text-xs">
+                  <h4 className="font-bold text-accent uppercase tracking-wider text-[10px]">Saved Shipping Destinations</h4>
+                  {(state.addresses[selectedCustomerDetails.id] ?? []).length === 0 ? (
+                    <p className="text-muted-foreground italic">No addresses saved.</p>
+                  ) : (
+                    <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
+                      {(state.addresses[selectedCustomerDetails.id] ?? []).map((addr: string, i: number) => (
+                        <li key={i}>{addr}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {dossierTab === "wishlist" && (
+              <div className="space-y-4 animate-in fade-in duration-200">
+                <h4 className="font-bold text-accent uppercase tracking-wider text-[10px] pb-2 border-b border-white/10">Active Wishlist Items</h4>
+                {(state.shopWishlist[selectedCustomerDetails.id] ?? []).length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">No items saved in wishlist.</p>
+                ) : (
+                  <div className="grid gap-3 max-h-80 overflow-y-auto pr-2">
+                    {(state.shopWishlist[selectedCustomerDetails.id] ?? []).map(productId => {
+                      const p = state.products.find(x => x.id === productId);
+                      const inStock = p ? true : false;
+                      return (
+                        <div key={productId} className="flex items-center justify-between border-b border-white/5 pb-2 text-xs">
+                          <div className="flex items-center gap-3">
+                            <img src={p?.image || "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=80&h=80&fit=crop"} alt={p?.name} className="w-10 h-10 object-cover bg-white/5 rounded" />
+                            <div>
+                              <div className="font-semibold text-white">{p?.name || `Product #${productId}`}</div>
+                              <div className="text-[10px] text-muted-foreground">{p?.house || "Maison Curation"}</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-6">
+                            <span className="text-muted-foreground">Added: {selectedCustomerDetails.registeredAt || "Today"}</span>
+                            <span className={`font-semibold ${inStock ? "text-emerald-400" : "text-rose-400"}`}>
+                              {inStock ? "In Stock" : "Unavailable"}
+                            </span>
+                            <span className="font-serif font-bold text-accent">{p?.price || "—"}</span>
+                            <Link to="/product/$productId" params={{ productId }} className="text-[10px] uppercase font-bold text-accent border border-accent/30 hover:border-accent px-3 py-1 rounded-full">
+                              View Product
+                            </Link>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {dossierTab === "cart" && (
+              <div className="space-y-4 animate-in fade-in duration-200">
+                <h4 className="font-bold text-accent uppercase tracking-wider text-[10px] pb-2 border-b border-white/10">Current Shopping Cart</h4>
+                {(selectedCustomerDetails.cart || []).length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">Shopping cart is empty.</p>
+                ) : (
+                  <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
+                    {(selectedCustomerDetails.cart || []).map((item: any, i: number) => {
+                      const itemPrice = Number(String(item.price).replace(/[^0-9.]/g, "")) || 0;
+                      const totalAmount = itemPrice * item.qty;
+                      return (
+                        <div key={i} className="flex items-center justify-between border-b border-white/5 pb-2 text-xs">
+                          <div className="flex items-center gap-3">
+                            <img src={item.image || "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=80&h=80&fit=crop"} alt={item.name} className="w-10 h-10 object-cover bg-white/5 rounded" />
+                            <div>
+                              <div className="font-semibold text-white">{item.name}</div>
+                              <div className="text-[10px] text-muted-foreground">
+                                Size: {item.selectedSize || "M"} · House: {item.house || "Maison"}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-6">
+                            <span className="text-muted-foreground">Qty: {item.qty}</span>
+                            <span className="font-serif text-muted-foreground">{item.price}</span>
+                            <span className="font-serif font-bold text-accent">₹{totalAmount.toLocaleString()}</span>
+                            <Link to="/product/$productId" params={{ productId: item.productId }} className="text-[10px] uppercase font-bold text-accent border border-accent/30 hover:border-accent px-3 py-1 rounded-full">
+                              View Product
+                            </Link>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {dossierTab === "orders" && (
+              <div className="space-y-4 animate-in fade-in duration-200">
+                <h4 className="font-bold text-accent uppercase tracking-wider text-[10px] pb-2 border-b border-white/10">Ordered Items Curation</h4>
+                {(state.orders[selectedCustomerDetails.id] ?? []).length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">No orders placed yet.</p>
+                ) : (
+                  <div className="space-y-4 max-h-80 overflow-y-auto pr-2 divide-y divide-white/5">
+                    {(state.orders[selectedCustomerDetails.id] ?? []).map((ord: any) => (
+                      <div key={ord.id} className="pt-3 first:pt-0 space-y-2 text-xs">
+                        <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                          <div>
+                            <span className="font-bold font-mono text-white">{ord.id}</span>
+                            <span className="text-[10px] text-muted-foreground ml-3">{formatOrderDateTime(ord.date)}</span>
+                          </div>
+                          <div className="flex gap-2">
+                            <StatusChip status={ord.status} tone={ord.status === "Delivered" ? "success" : ord.status === "Processing" ? "warn" : "accent"} />
+                            <StatusChip status={ord.paymentStatus} tone={ord.paymentStatus === "Paid" ? "success" : "warn"} />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          {ord.items.map((item: any, idx: number) => {
+                            const priceVal = Number(String(item.price).replace(/[^0-9.]/g, "")) || 0;
+                            return (
+                              <div key={idx} className="flex justify-between items-center">
+                                <div className="flex items-center gap-2">
+                                  <img src={item.image} alt={item.name} className="w-8 h-8 object-cover rounded bg-white/5" />
+                                  <div>
+                                    <div className="font-medium text-white">{item.name}</div>
+                                    <div className="text-[10px] text-muted-foreground">Size: {item.selectedSize || "—"} · Qty: {item.qty}</div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                  <span className="font-serif font-bold text-accent">₹{(priceVal * item.qty).toLocaleString()}</span>
+                                  <Link to="/product/$productId" params={{ productId: item.productId }} className="text-[9px] uppercase font-bold text-accent/80 hover:text-accent">
+                                    View
+                                  </Link>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground bg-white/5 p-2 rounded">
+                          <div><span className="font-semibold text-white">Shipping Address:</span> {ord.address}</div>
+                          <div className="mt-1"><span className="font-semibold text-white">Tracking Details:</span> TRK-{ord.id.replace("ORD-", "")} (Delhivery Express)</div>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className="font-bold text-accent">₹{ord.total.toLocaleString()}</div>
-                        <div className="text-[10px] text-muted-foreground">{ord.status}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="flex justify-end pt-4 border-t border-white/10">
               <AdminButton variant="outline" onClick={() => setSelectedCustomerDetails(null)}>Close dossier</AdminButton>
@@ -965,7 +1105,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
       {/* Selected Order Details Modal */}
       {selectedOrderDetails && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="liquid-glass max-w-xl w-full p-6 md:p-8 space-y-6 shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="liquid-glass max-w-2xl w-full p-6 md:p-8 space-y-6 shadow-2xl animate-in zoom-in-95 duration-200 overflow-y-auto max-h-[90vh]">
             <div className="flex justify-between items-center border-b border-white/10 pb-4">
               <div className="flex items-center gap-2">
                 <Truck className="w-5 h-5 text-accent" />
@@ -977,42 +1117,127 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
             </div>
 
             <div className="space-y-4 text-xs leading-relaxed">
-              <div className="grid grid-cols-3 border-b border-white/5 pb-2">
-                <span className="text-muted-foreground font-semibold">Order ID:</span>
-                <span className="col-span-2 font-mono font-bold text-accent">{selectedOrderDetails.id}</span>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h4 className="font-bold text-accent uppercase tracking-wider text-[10px] mb-2">Order Core Specs</h4>
+                  <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground font-semibold">ID:</span><span className="col-span-2 font-mono font-bold text-accent">{selectedOrderDetails.id}</span></div>
+                  <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground font-semibold">Date/Time:</span><span className="col-span-2">{formatOrderDateTime(selectedOrderDetails.date)}</span></div>
+                  <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground font-semibold">Address:</span><span className="col-span-2 leading-normal">{selectedOrderDetails.address}</span></div>
+                  <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground font-semibold">Total Amount:</span><span className="col-span-2 font-serif font-bold text-accent">₹{selectedOrderDetails.total.toLocaleString()}</span></div>
+                </div>
+                
+                <div>
+                  <h4 className="font-bold text-accent uppercase tracking-wider text-[10px] mb-2">Razorpay Gateway Info</h4>
+                  {selectedOrderDetails.razorpayPaymentId ? (
+                    <>
+                      <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">Payment ID:</span><span className="col-span-2 font-mono text-white break-all">{selectedOrderDetails.razorpayPaymentId}</span></div>
+                      <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">Order ID:</span><span className="col-span-2 font-mono text-white break-all">{selectedOrderDetails.razorpayOrderId}</span></div>
+                      <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">Method:</span><span className="col-span-2 text-white">{selectedOrderDetails.paymentMethod}</span></div>
+                      <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">Currency:</span><span className="col-span-2 text-white font-mono">{selectedOrderDetails.currency}</span></div>
+                    </>
+                  ) : (
+                    <p className="text-muted-foreground italic">No Razorpay payment metadata present (Local Wallet Pay / Custom).</p>
+                  )}
+                </div>
               </div>
-              <div className="grid grid-cols-3 border-b border-white/5 pb-2">
-                <span className="text-muted-foreground font-semibold">Order Date & Time:</span>
-                <span className="col-span-2 font-semibold">{formatOrderDateTime(selectedOrderDetails.date)}</span>
-              </div>
-              <div className="grid grid-cols-3 border-b border-white/5 pb-2">
-                <span className="text-muted-foreground font-semibold">Customer ID:</span>
-                <span className="col-span-2">
-                  <button
+
+              {/* Order Status & Delivery Management form */}
+              <div className="border border-white/10 rounded-2xl p-4 bg-white/5 space-y-4">
+                <h4 className="font-bold text-accent uppercase tracking-wider text-[10px]">Curation Shipment Management</h4>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Order Status</label>
+                    <select
+                      value={editStatus}
+                      onChange={e => setEditStatus(e.target.value)}
+                      className="w-full bg-surface border border-white/10 p-2 text-xs text-foreground rounded-lg outline-none focus:border-accent"
+                    >
+                      <option value="Order Placed">Order Placed</option>
+                      <option value="Order Confirmed">Order Confirmed</option>
+                      <option value="Preparing Order">Preparing Order</option>
+                      <option value="Packed">Packed</option>
+                      <option value="Ready for Dispatch">Ready for Dispatch</option>
+                      <option value="Shipped">Shipped</option>
+                      <option value="In Transit">In Transit</option>
+                      <option value="Out for Delivery">Out for Delivery</option>
+                      <option value="Delivering Today">Delivering Today</option>
+                      <option value="Delivered">Delivered</option>
+                      <option value="Cancelled">Cancelled</option>
+                      <option value="Returned">Returned</option>
+                      <option value="Refunded">Refunded</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Payment Status</label>
+                    <select
+                      value={editPaymentStatus}
+                      onChange={e => setEditPaymentStatus(e.target.value)}
+                      className="w-full bg-surface border border-white/10 p-2 text-xs text-foreground rounded-lg outline-none focus:border-accent"
+                    >
+                      <option value="Pending">Pending</option>
+                      <option value="Processing">Processing</option>
+                      <option value="Paid">Paid</option>
+                      <option value="Failed">Failed</option>
+                      <option value="Cancelled">Cancelled</option>
+                      <option value="Refunded">Refunded</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Tracking ID</label>
+                    <input
+                      type="text"
+                      value={editTrackingNum}
+                      onChange={e => setEditTrackingNum(e.target.value)}
+                      placeholder="e.g. TRK-98319"
+                      className="w-full bg-surface border border-white/10 p-2 text-xs text-foreground rounded-lg outline-none focus:border-accent font-mono"
+                    />
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Courier Partner</label>
+                    <input
+                      type="text"
+                      value={editCourier}
+                      onChange={e => setEditCourier(e.target.value)}
+                      placeholder="e.g. Delhivery Express"
+                      className="w-full bg-surface border border-white/10 p-2 text-xs text-foreground rounded-lg outline-none focus:border-accent"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Est. Delivery Date</label>
+                    <input
+                      type="text"
+                      value={editEstDelivery}
+                      onChange={e => setEditEstDelivery(e.target.value)}
+                      placeholder="e.g. July 20, 2026"
+                      className="w-full bg-surface border border-white/10 p-2 text-xs text-foreground rounded-lg outline-none focus:border-accent"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <AdminButton
+                    variant="accent"
                     onClick={() => {
-                      const cust = state.users.find(u => u.id === selectedOrderDetails.userId);
-                      if (cust) {
-                        setSelectedCustomerDetails(cust);
-                        setSelectedOrderDetails(null);
-                      }
+                      updateOrderStatus(selectedOrderDetails.userId, selectedOrderDetails.id, editStatus, {
+                        paymentStatus: editPaymentStatus,
+                        trackingNumber: editTrackingNum || null,
+                        courierPartner: editCourier || null,
+                        estimatedDeliveryDate: editEstDelivery || null
+                      });
+                      toast.success("Order status and shipment details successfully updated.");
+                      setSelectedOrderDetails(null);
                     }}
-                    className="font-mono font-bold text-accent hover:underline text-left cursor-pointer"
                   >
-                    {selectedOrderDetails.userId}
-                  </button>
-                </span>
-              </div>
-              <div className="grid grid-cols-3 border-b border-white/5 pb-2">
-                <span className="text-muted-foreground font-semibold">Customer Name:</span>
-                <span className="col-span-2">{selectedOrderDetails.customerName}</span>
-              </div>
-              <div className="grid grid-cols-3 border-b border-white/5 pb-2">
-                <span className="text-muted-foreground font-semibold">Delivery Address:</span>
-                <span className="col-span-2 leading-normal">{selectedOrderDetails.address}</span>
-              </div>
-              <div className="grid grid-cols-3 border-b border-white/5 pb-2">
-                <span className="text-muted-foreground font-semibold">Payment / Total:</span>
-                <span className="col-span-2 font-serif font-bold text-accent">₹{selectedOrderDetails.total.toLocaleString()} ({selectedOrderDetails.paymentStatus || "Paid"})</span>
+                    Save Curation Details
+                  </AdminButton>
+                </div>
               </div>
               
               <div className="space-y-2 pt-2">
@@ -4839,7 +5064,7 @@ Fit: Regular Fit"
                     <tr key={c.id} className="hover:bg-surface-2/40">
                       <td className="py-4">
                         <button
-                          onClick={() => setSelectedCustomerDetails(c)}
+                          onClick={() => { setSelectedCustomerDetails(c); setDossierTab("details"); }}
                           className="font-mono text-xs text-accent hover:underline text-left cursor-pointer"
                         >
                           {c.id}

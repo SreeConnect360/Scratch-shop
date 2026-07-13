@@ -39,4 +39,31 @@ public class ShopOrder {
 
     @Column(name = "refund_details_json", columnDefinition = "TEXT")
     private String refundDetailsJson; // serialized refund details
+
+    @Column(name = "razorpay_payment_id", length = 100)
+    private String razorpayPaymentId;
+
+    @Column(name = "razorpay_order_id", length = 100)
+    private String razorpayOrderId;
+
+    @Column(name = "razorpay_signature", length = 200)
+    private String razorpaySignature;
+
+    @Column(length = 20)
+    private String currency = "INR";
+
+    @Column(name = "payment_method", length = 50)
+    private String paymentMethod = "Razorpay Gateway";
+
+    @Column(name = "transaction_date")
+    private LocalDateTime transactionDate;
+
+    @Column(name = "tracking_number", length = 100)
+    private String trackingNumber;
+
+    @Column(name = "courier_partner", length = 100)
+    private String courierPartner;
+
+    @Column(name = "estimated_delivery_date", length = 50)
+    private String estimatedDeliveryDate;
 }

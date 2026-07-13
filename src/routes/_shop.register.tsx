@@ -178,6 +178,7 @@ function ShopRegisterPage() {
 
       // Set user session locally
       signUp({
+        id: "USR-" + data.user.id,
         email,
         firstName: fullName.split(" ")[0],
         lastName: fullName.split(" ").slice(1).join(" "),

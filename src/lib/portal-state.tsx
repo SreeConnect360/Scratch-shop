@@ -552,8 +552,8 @@ type Ctx = {
   updateAddress: (userId: string, index: number, address: string) => void;
   setMajorAddress: (userId: string, address: string) => void;
   toggleWishlist: (userId: string, productId: string) => void;
-  createOrder: (userId: string, order: { items: CartItem[]; total: number; address: string; appliedCoupon?: string }) => void;
-  updateOrderStatus: (userId: string, orderId: string, status: string) => void;
+  createOrder: (userId: string, order: { items: CartItem[]; total: number; address: string; appliedCoupon?: string; paymentStatus?: string; razorpayPaymentId?: string; razorpayOrderId?: string; razorpaySignature?: string }) => void;
+  updateOrderStatus: (userId: string, orderId: string, status: string, patch?: any) => void;
   addCoupon: (coupon: { code: string; discount: number; type?: "fixed" | "percentage" | "wallet"; expiryDate?: string; usageLimit?: number; userEligibility?: string }) => void;
   removeCoupon: (code: string) => void;
 
@@ -662,21 +662,43 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       // 4. Fetch Customers
       const customersRes = await fetch(`${BACKEND_URL}/api/customers`);
       let mappedCustomers = PLATFORM_USERS;
+      let extraAddresses: Record<string, string[]> = {};
+      let extraWishlists: Record<string, string[]> = {};
+      let dbCustomers: any[] = [];
       if (customersRes.ok) {
-        const dbCustomers = await customersRes.json();
+        dbCustomers = await customersRes.json();
         if (dbCustomers && dbCustomers.length > 0) {
-          mappedCustomers = dbCustomers.map((u: any) => ({
-            id: u.id,
-            firstName: u.firstName,
-            lastName: u.lastName,
-            email: u.email,
-            phone: u.phone || undefined,
-            country: u.country || undefined,
-            dob: u.dob || undefined,
-            gender: u.gender || undefined,
-            status: u.status || "Active",
-            roles: u.roles ? u.roles.split(",") : ["General"]
-          }));
+          mappedCustomers = dbCustomers.map((u: any) => {
+            let parsedAddrs: string[] = [];
+            try { if (u.addresses) parsedAddrs = JSON.parse(u.addresses); } catch(e) {}
+            let parsedWish: string[] = [];
+            try { if (u.wishlist) parsedWish = JSON.parse(u.wishlist); } catch(e) {}
+            let parsedCart: CartItem[] = [];
+            try { if (u.cart) parsedCart = JSON.parse(u.cart); } catch(e) {}
+
+            extraAddresses[u.id] = parsedAddrs;
+            extraWishlists[u.id] = parsedWish;
+
+            return {
+              id: u.id,
+              firstName: u.firstName,
+              lastName: u.lastName,
+              email: u.email,
+              phone: u.phone || "",
+              country: u.country || "",
+              dob: u.dob || "",
+              gender: (u.gender as any) || "",
+              status: (u.status as any) || "Active",
+              roles: u.roles ? u.roles.split(",") as any[] : ["General"],
+              addresses: parsedAddrs,
+              wishlist: parsedWish,
+              cart: parsedCart,
+              lastLogin: u.lastLogin || undefined,
+              age: 25,
+              avatar: "",
+              registeredAt: "2026-07-13"
+            };
+          });
         }
       }
 
@@ -717,7 +739,16 @@ export function PortalProvider({ children }: { children: ReactNode }) {
             status: o.status,
             address: o.address,
             paymentStatus: o.paymentStatus,
-            refundDetails
+            refundDetails,
+            razorpayPaymentId: o.razorpayPaymentId || undefined,
+            razorpayOrderId: o.razorpayOrderId || undefined,
+            razorpaySignature: o.razorpaySignature || undefined,
+            currency: o.currency || "INR",
+            paymentMethod: o.paymentMethod || "Razorpay Gateway",
+            transactionDate: o.transactionDate || undefined,
+            trackingNumber: o.trackingNumber || undefined,
+            courierPartner: o.courierPartner || undefined,
+            estimatedDeliveryDate: o.estimatedDeliveryDate || undefined
           });
         });
       }
@@ -768,12 +799,23 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       }
 
       setState(s => {
+        const currentUser = s.user;
+        let nextShopCart = s.shopCart;
+        if (currentUser) {
+          const match = dbCustomers?.find((u: any) => u.id === currentUser.id);
+          if (match && match.cart) {
+            try { nextShopCart = JSON.parse(match.cart); } catch(e) {}
+          }
+        }
         return {
           ...s,
           vendors: mappedVendors,
           products: mappedProducts,
           buckets: mappedBuckets,
           users: mappedCustomers,
+          addresses: { ...s.addresses, ...extraAddresses },
+          shopWishlist: { ...s.shopWishlist, ...extraWishlists },
+          shopCart: nextShopCart,
           homepageLayout: mappedPubLayout,
           homepageLayoutDraft: mappedDraftLayout,
           orders: mappedOrders,
@@ -833,6 +875,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     signIn: (email, name) => {
       const match = state.users.find(u => u.email.toLowerCase() === email.toLowerCase());
       if (match) {
+        const lastLoginTime = new Date().toLocaleString();
         setState(s => {
           const next = {
             ...s,
@@ -845,6 +888,11 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           save(next);
           return next;
         });
+        fetch(`${BACKEND_URL}/api/customers/${match.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ lastLogin: lastLoginTime })
+        }).catch(err => console.error("Failed to sync last login:", err));
         return true;
       }
       return false;
@@ -852,6 +900,14 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     signUp: (u) => setState(s => {
       const next = { ...s, user: { id: `usr-${Date.now()}`, roles: ["General"], ...u } as PortalUser };
       save(next);
+      if (u.id) {
+        const lastLoginTime = new Date().toLocaleString();
+        fetch(`${BACKEND_URL}/api/customers/${u.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ lastLogin: lastLoginTime })
+        }).catch(err => console.error("Failed to sync last login:", err));
+      }
       return next;
     }),
     signOut: () => setState(s => {
@@ -933,6 +989,13 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         roles: ["General"],
         status: "Active",
       };
+      
+      fetch(`${BACKEND_URL}/api/customers`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newUser)
+      }).catch(err => console.error("Failed to register customer on backend:", err));
+
       setState(s => {
         const isAdmin = s.user?.roles?.includes("Admin");
         const next = {
@@ -1017,27 +1080,40 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     })),
 
     /* ───── admin actions ───── */
-    updateUser: (id, patch) => setState(s => {
-      const nextUsers = s.users.map(u => u.id === id ? { ...u, ...patch } : u);
-      const isSelf = s.user?.id === id;
-      const updatedMatch = nextUsers.find(u => u.id === id);
-      return {
-        ...s,
-        users: nextUsers,
-        user: isSelf && updatedMatch ? {
-          id: updatedMatch.id,
-          firstName: updatedMatch.firstName,
-          lastName: updatedMatch.lastName,
-          email: updatedMatch.email,
-          phone: updatedMatch.phone,
-          country: updatedMatch.country,
-          dob: updatedMatch.dob,
-          avatar: updatedMatch.avatar,
-          roles: updatedMatch.roles,
-        } : s.user,
-      };
-    }),
-    deleteUser: (id) => setState(s => ({ ...s, users: s.users.filter(u => u.id !== id) })),
+    updateUser: (id, patch) => {
+      setState(s => {
+        const nextUsers = s.users.map(u => u.id === id ? { ...u, ...patch } : u);
+        const isSelf = s.user?.id === id;
+        const updatedMatch = nextUsers.find(u => u.id === id);
+        return {
+          ...s,
+          users: nextUsers,
+          user: isSelf && updatedMatch ? {
+            id: updatedMatch.id,
+            firstName: updatedMatch.firstName,
+            lastName: updatedMatch.lastName,
+            email: updatedMatch.email,
+            phone: updatedMatch.phone,
+            country: updatedMatch.country,
+            dob: updatedMatch.dob,
+            avatar: updatedMatch.avatar,
+            roles: updatedMatch.roles,
+          } : s.user,
+        };
+      });
+
+      fetch(`${BACKEND_URL}/api/customers/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch)
+      }).catch(err => console.error("Failed to sync customer details update to backend:", err));
+    },
+    deleteUser: (id) => {
+      setState(s => ({ ...s, users: s.users.filter(u => u.id !== id) }));
+      fetch(`${BACKEND_URL}/api/customers/${id}`, {
+        method: "DELETE"
+      }).catch(err => console.error("Failed to delete customer on backend:", err));
+    },
     setUserRoles: (id, roles) => setState(s => {
       const nextUsers = s.users.map(u => u.id === id ? { ...u, roles } : u);
       const isSelf = s.user?.id === id;
@@ -1102,13 +1178,18 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     addAddress: (userId, address) => setState(s => {
       const list = s.addresses[userId] ?? [];
       const nextMajorAddresses = { ...s.majorAddresses };
-      // Auto set first address as major
       if (list.length === 0) {
         nextMajorAddresses[userId] = address;
       }
+      const nextList = [...list, address];
+      fetch(`${BACKEND_URL}/api/customers/${userId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ addresses: JSON.stringify(nextList) })
+      }).catch(err => console.error("Failed to sync addAddress:", err));
       return {
         ...s,
-        addresses: { ...s.addresses, [userId]: [...list, address] },
+        addresses: { ...s.addresses, [userId]: nextList },
         majorAddresses: nextMajorAddresses
       };
     }),
@@ -1125,6 +1206,11 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           delete nextMajorAddresses[userId];
         }
       }
+      fetch(`${BACKEND_URL}/api/customers/${userId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ addresses: JSON.stringify(nextList) })
+      }).catch(err => console.error("Failed to sync removeAddress:", err));
       return {
         ...s,
         addresses: { ...s.addresses, [userId]: nextList },
@@ -1140,6 +1226,11 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       if (major === oldAddr) {
         nextMajorAddresses[userId] = address;
       }
+      fetch(`${BACKEND_URL}/api/customers/${userId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ addresses: JSON.stringify(nextList) })
+      }).catch(err => console.error("Failed to sync updateAddress:", err));
       return {
         ...s,
         addresses: { ...s.addresses, [userId]: nextList },
@@ -1164,7 +1255,16 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         total: order.total,
         status: "Processing",
         address: order.address,
-        paymentStatus: "Paid" as const
+        paymentStatus: order.paymentStatus || "Paid",
+        razorpayPaymentId: order.razorpayPaymentId || undefined,
+        razorpayOrderId: order.razorpayOrderId || undefined,
+        razorpaySignature: order.razorpaySignature || undefined,
+        currency: "INR",
+        paymentMethod: "Razorpay Gateway",
+        transactionDate: new Date().toISOString(),
+        trackingNumber: undefined,
+        courierPartner: undefined,
+        estimatedDeliveryDate: undefined
       };
 
       fetch(`${BACKEND_URL}/api/orders`, {
@@ -1177,7 +1277,13 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           total: order.total,
           status: "Processing",
           address: order.address,
-          paymentStatus: "Paid"
+          paymentStatus: order.paymentStatus || "Paid",
+          razorpayPaymentId: order.razorpayPaymentId || null,
+          razorpayOrderId: order.razorpayOrderId || null,
+          razorpaySignature: order.razorpaySignature || null,
+          currency: "INR",
+          paymentMethod: "Razorpay Gateway",
+          transactionDate: new Date().toISOString()
         })
       }).catch(err => console.error("Failed to sync new order to backend:", err));
 
@@ -1245,10 +1351,10 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         };
       });
     },
-    updateOrderStatus: (userId, orderId, status) => {
+    updateOrderStatus: (userId, orderId, status, patch) => {
       setState(s => {
         const list = s.orders[userId] ?? [];
-        const next = list.map(o => o.id === orderId ? { ...o, status } : o);
+        const next = list.map(o => o.id === orderId ? { ...o, status, ...patch } : o);
         return {
           ...s,
           orders: { ...s.orders, [userId]: next },
@@ -1262,7 +1368,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       fetch(`${BACKEND_URL}/api/orders/${orderId}/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status })
+        body: JSON.stringify({ status, ...patch })
       }).catch(err => console.error("Failed to sync order status update to backend:", err));
     },
     addCoupon: (coupon) => {
@@ -1727,7 +1833,13 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       } else {
         shopCart = [...cartList, { ...item, qty }];
       }
-      // Increment shop cart additions trending log
+      if (s.user) {
+        fetch(`${BACKEND_URL}/api/customers/${s.user.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cart: JSON.stringify(shopCart) })
+        }).catch(err => console.error("Failed to sync addToShopCart:", err));
+      }
       const currentAdditions = s.productCartAdditions[item.productId] ?? 0;
       return {
         ...s,
@@ -1735,14 +1847,35 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         productCartAdditions: { ...s.productCartAdditions, [item.productId]: currentAdditions + qty }
       };
     }),
-    removeFromShopCart: (id, size) => setState(s => ({
-      ...s,
-      shopCart: (s.shopCart || []).filter(c => size ? !(c.productId === id && c.selectedSize === size) : c.productId !== id)
-    })),
-    clearShopCart: () => setState(s => ({ ...s, shopCart: [] })),
+    removeFromShopCart: (id, size) => setState(s => {
+      const shopCart = (s.shopCart || []).filter(c => size ? !(c.productId === id && c.selectedSize === size) : c.productId !== id);
+      if (s.user) {
+        fetch(`${BACKEND_URL}/api/customers/${s.user.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cart: JSON.stringify(shopCart) })
+        }).catch(err => console.error("Failed to sync removeFromShopCart:", err));
+      }
+      return { ...s, shopCart };
+    }),
+    clearShopCart: () => setState(s => {
+      if (s.user) {
+        fetch(`${BACKEND_URL}/api/customers/${s.user.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cart: "[]" })
+        }).catch(err => console.error("Failed to sync clearShopCart:", err));
+      }
+      return { ...s, shopCart: [] };
+    }),
     toggleShopWishlist: (userId, productId) => setState(s => {
       const list = s.shopWishlist[userId] ?? [];
       const next = list.includes(productId) ? list.filter(id => id !== productId) : [...list, productId];
+      fetch(`${BACKEND_URL}/api/customers/${userId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ wishlist: JSON.stringify(next) })
+      }).catch(err => console.error("Failed to sync toggleShopWishlist:", err));
       return { ...s, shopWishlist: { ...s.shopWishlist, [userId]: next } };
     }),
     recordProductView: (productId) => setState(s => {
@@ -1756,11 +1889,25 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       const shopCart = (s.shopCart || []).map(c =>
         (c.productId === productId && c.selectedSize === selectedSize) ? { ...c, qty } : c
       );
+      if (s.user) {
+        fetch(`${BACKEND_URL}/api/customers/${s.user.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cart: JSON.stringify(shopCart) })
+        }).catch(err => console.error("Failed to sync updateShopCartQty:", err));
+      }
       return { ...s, shopCart };
     }),
     restoreToShopCart: (item) => setState(s => {
       const exists = (s.shopCart || []).some(c => c.productId === item.productId && c.selectedSize === item.selectedSize);
       const shopCart = exists ? (s.shopCart || []) : [...(s.shopCart || []), item];
+      if (s.user) {
+        fetch(`${BACKEND_URL}/api/customers/${s.user.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cart: JSON.stringify(shopCart) })
+        }).catch(err => console.error("Failed to sync restoreToShopCart:", err));
+      }
       return { ...s, shopCart };
     })
   }), [state]);

@@ -639,17 +639,112 @@ export function ShopCart() {
       }
       // Deduct wallet balance (adding negative credit)
       addWalletCredit(user.id, -finalTotal);
+
+      createOrder(user.id, {
+        items: checkoutItems,
+        total: finalTotal,
+        address: selectedAddressText,
+        appliedCoupon: appliedCoupon || undefined,
+        paymentStatus: "Paid"
+      });
+
+      toast.success("Thank you! Your order has been placed successfully.");
+      navigate({ to: "/account", search: { tab: "orders" } as any });
+      return;
     }
 
-    createOrder(user.id, {
-      items: checkoutItems,
-      total: finalTotal,
-      address: selectedAddressText,
-      appliedCoupon: appliedCoupon || undefined,
-    });
+    // Razorpay Integration Flow
+    const loadingToast = toast.loading("Initializing payment gateway...");
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:8081";
 
-    toast.success("Thank you! Your order has been placed successfully.");
-    navigate({ to: "/account", search: { tab: "orders" } as any });
+    fetch(`${backendUrl}/api/create-order`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        amount: Math.round(finalTotal * 100), // paise
+        currency: "INR"
+      })
+    })
+      .then(async (res) => {
+        toast.dismiss(loadingToast);
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.error || "Failed to initialize payment.");
+        }
+        return res.json();
+      })
+      .then((data) => {
+        const keyId = import.meta.env.VITE_VITE_RAZORPAY_KEY_ID || import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_test_TD5IJ7If16ZHbr";
+        
+        const options = {
+          key: keyId,
+          amount: data.amount,
+          currency: data.currency,
+          name: "ReeVibes",
+          description: "Curated Fashion Statement Pieces",
+          image: "https://reevibes.com/favicon.png",
+          order_id: data.order_id,
+          handler: function (response: any) {
+            const verifyingToast = toast.loading("Verifying payment transaction...");
+            fetch(`${backendUrl}/api/verify-payment`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_signature: response.razorpay_signature
+              })
+            })
+              .then(async (verifyRes) => {
+                toast.dismiss(verifyingToast);
+                if (!verifyRes.ok) {
+                  throw new Error("Payment signature verification failed.");
+                }
+                return verifyRes.json();
+              })
+              .then(() => {
+                createOrder(user.id, {
+                  items: checkoutItems,
+                  total: finalTotal,
+                  address: selectedAddressText,
+                  appliedCoupon: appliedCoupon || undefined,
+                  paymentStatus: "Paid",
+                  razorpayPaymentId: response.razorpay_payment_id,
+                  razorpayOrderId: response.razorpay_order_id,
+                  razorpaySignature: response.razorpay_signature
+                });
+                toast.success("Payment verified! Your order has been placed successfully.");
+                navigate({ to: "/account", search: { tab: "orders" } as any });
+              })
+              .catch((err) => {
+                toast.error(`Verification Failed: ${err.message}`);
+              });
+          },
+          prefill: {
+            name: `${user.firstName} ${user.lastName}`,
+            email: user.email,
+            contact: user.phone || ""
+          },
+          theme: {
+            color: "#D4AF37"
+          },
+          modal: {
+            ondismiss: function () {
+              toast.error("Payment checkout window cancelled.");
+            }
+          }
+        };
+
+        const rzp = new (window as any).Razorpay(options);
+        rzp.on("payment.failed", function (response: any) {
+          toast.error(`Payment Failed: ${response.error.description}`);
+        });
+        rzp.open();
+      })
+      .catch((err) => {
+        toast.dismiss(loadingToast);
+        toast.error(`Checkout Error: ${err.message}`);
+      });
   };
 
   if (cartItems.length === 0 && checkoutStep === "cart") {

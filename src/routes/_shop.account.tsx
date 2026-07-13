@@ -1123,6 +1123,88 @@ function ShopDashboard() {
                             </div>
                           ))}
                         </div>
+
+                        {/* Courier and Shipment Tracker details */}
+                        <div className="bg-white/[0.03] border border-white/5 rounded-2xl p-4 space-y-3.5 text-xs text-muted-foreground leading-relaxed">
+                          <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-white/5 text-[11px]">
+                            <div>
+                              <span className="font-semibold text-white uppercase tracking-wider text-[9px] block">Courier Partner</span>
+                              <span className="text-accent font-medium">{order.courierPartner || "Delhivery Express"}</span>
+                            </div>
+                            <div>
+                              <span className="font-semibold text-white uppercase tracking-wider text-[9px] block text-right md:text-left">Tracking ID</span>
+                              <span className="font-mono text-white">{order.trackingNumber || `TRK-${order.id.replace("ORD-", "")}`}</span>
+                            </div>
+                            <div>
+                              <span className="font-semibold text-white uppercase tracking-wider text-[9px] block text-right">Est. Delivery Date</span>
+                              <span className="text-white font-medium">{order.estimatedDeliveryDate || "July 24, 2026"}</span>
+                            </div>
+                          </div>
+
+                          {/* Visual Delivery Status Progress Timeline */}
+                          <div className="py-2">
+                            <span className="font-bold text-white uppercase tracking-widest text-[8px] block mb-3">Live Curation Transit Roadmap</span>
+                            {(() => {
+                              const steps = ["Order Placed", "Preparing Order", "Shipped", "In Transit", "Delivered"];
+                              const status = order.status || "Order Placed";
+                              
+                              // Helper to determine active index
+                              let activeIdx = 0;
+                              if (status.includes("Confirmed") || status.includes("Accept") || status.includes("Prepare") || status.includes("Pack")) {
+                                activeIdx = 1;
+                              } else if (status.includes("Ship") || status.includes("Ready")) {
+                                activeIdx = 2;
+                              } else if (status.includes("Transit") || status.includes("Delivery") || status.includes("Today")) {
+                                activeIdx = 3;
+                              } else if (status.includes("Deliver")) {
+                                activeIdx = 4;
+                              }
+                              
+                              return (
+                                <div className="relative flex items-center justify-between w-full mt-4 pb-1.5">
+                                  {/* Progress Line Bar */}
+                                  <div className="absolute left-0 right-0 top-1.5 h-0.5 bg-white/10 -z-10" />
+                                  <div
+                                    className="absolute left-0 top-1.5 h-0.5 bg-accent transition-all duration-500 -z-10"
+                                    style={{ width: `${(activeIdx / (steps.length - 1)) * 100}%` }}
+                                  />
+                                  
+                                  {steps.map((st, sIdx) => {
+                                    const isCompleted = sIdx <= activeIdx;
+                                    const isActive = sIdx === activeIdx;
+                                    return (
+                                      <div key={sIdx} className="flex flex-col items-center">
+                                        <div
+                                          className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center transition-all ${
+                                            isCompleted
+                                              ? "bg-accent border-accent shadow-[0_0_8px_rgba(212,175,55,0.6)]"
+                                              : "bg-zinc-950 border-white/20"
+                                          }`}
+                                        >
+                                          {isCompleted && (
+                                            <div className="w-1 h-1 rounded-full bg-white" />
+                                          )}
+                                        </div>
+                                        <span
+                                          className={`text-[8px] uppercase tracking-wider mt-2.5 font-bold transition-colors ${
+                                            isActive
+                                              ? "text-accent"
+                                              : isCompleted
+                                              ? "text-white"
+                                              : "text-muted-foreground"
+                                          }`}
+                                        >
+                                          {st}
+                                        </span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        </div>
+
                         <div className="flex justify-between items-center pt-2 border-t border-white/10 text-xs">
                           <span className="text-muted-foreground">Total Paid:</span>
                           <span className="font-bold text-accent">₹{order.total.toLocaleString()}</span>

@@ -21,12 +21,19 @@ public class ShopPortalController {
 
     private final ProductBucketRepository bucketRepository;
     private final PlatformUserRepository userRepository;
+    private final UserRepository authUserRepository;
     private final HomepageLayoutRepository homepageLayoutRepository;
     private final ShopOrderRepository orderRepository;
     private final ReturnRequestRepository returnRequestRepository;
     private final ShopCouponRepository couponRepository;
     private final ProductReviewRepository reviewRepository;
     private final SyncService syncService;
+
+    @org.springframework.beans.factory.annotation.Value("${razorpay.key.id}")
+    private String razorpayKeyId;
+
+    @org.springframework.beans.factory.annotation.Value("${razorpay.key.secret}")
+    private String razorpayKeySecret;
 
     @GetMapping("/sync/version")
     public ResponseEntity<Map<String, Object>> getSyncVersion() {
@@ -83,13 +90,62 @@ public class ShopPortalController {
 
     // --- CUSTOMERS / PLATFORM USERS ---
     @GetMapping("/customers")
+    @Transactional
     public ResponseEntity<List<PlatformUser>> getCustomers() {
-        return ResponseEntity.ok(userRepository.findAll());
+        List<User> authUsers = authUserRepository.findAll();
+        List<PlatformUser> result = new java.util.ArrayList<>();
+        List<PlatformUser> platformUsers = userRepository.findAll();
+        
+        // Clean up platform users that are not registered users (e.g. demo users)
+        for (PlatformUser pu : platformUsers) {
+            boolean isRegistered = authUsers.stream()
+                .anyMatch(au -> au.getEmail().equalsIgnoreCase(pu.getEmail()));
+            if (!isRegistered) {
+                userRepository.delete(pu);
+            }
+        }
+        
+        // Ensure every registered user has a PlatformUser record and align ID to USR-{id}
+        for (User au : authUsers) {
+            String targetId = "USR-" + au.getId();
+            PlatformUser pu = userRepository.findByEmailIgnoreCase(au.getEmail()).orElse(null);
+            
+            if (pu == null) {
+                pu = new PlatformUser();
+                pu.setId(targetId);
+                String fullName = au.getName();
+                String[] parts = fullName.split("\\s+", 2);
+                pu.setFirstName(parts[0]);
+                pu.setLastName(parts.length > 1 ? parts[1] : "");
+                pu.setEmail(au.getEmail().toLowerCase());
+                pu.setPhone("");
+                pu.setCountry("");
+                pu.setDob("");
+                pu.setGender("");
+                pu.setStatus("Active");
+                pu.setRoles("General");
+                pu = userRepository.save(pu);
+            } else {
+                // If ID is not aligned, align it
+                if (!pu.getId().equals(targetId)) {
+                    userRepository.delete(pu);
+                    pu.setId(targetId);
+                    pu = userRepository.save(pu);
+                }
+            }
+            result.add(pu);
+        }
+        
+        return ResponseEntity.ok(result);
     }
 
     @PostMapping("/customers")
     @Transactional
     public ResponseEntity<PlatformUser> createCustomer(@RequestBody PlatformUser user) {
+        PlatformUser existing = userRepository.findByEmailIgnoreCase(user.getEmail()).orElse(null);
+        if (existing != null) {
+            return ResponseEntity.ok(existing);
+        }
         if (user.getId() == null || user.getId().isEmpty()) {
             user.setId("USR-" + System.currentTimeMillis());
         }
@@ -101,8 +157,13 @@ public class ShopPortalController {
     @PutMapping("/customers/{id}")
     @Transactional
     public ResponseEntity<PlatformUser> updateCustomer(@PathVariable String id, @RequestBody Map<String, Object> body) {
-        PlatformUser user = userRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Customer not found: " + id));
+        PlatformUser user = userRepository.findById(id).orElse(null);
+        if (user == null && body.containsKey("email")) {
+            user = userRepository.findByEmailIgnoreCase((String) body.get("email")).orElse(null);
+        }
+        if (user == null) {
+            throw new IllegalArgumentException("Customer not found: " + id);
+        }
 
         if (body.containsKey("firstName")) user.setFirstName((String) body.get("firstName"));
         if (body.containsKey("lastName")) user.setLastName((String) body.get("lastName"));
@@ -112,6 +173,10 @@ public class ShopPortalController {
         if (body.containsKey("dob")) user.setDob((String) body.get("dob"));
         if (body.containsKey("gender")) user.setGender((String) body.get("gender"));
         if (body.containsKey("status")) user.setStatus((String) body.get("status"));
+        if (body.containsKey("addresses")) user.setAddresses((String) body.get("addresses"));
+        if (body.containsKey("wishlist")) user.setWishlist((String) body.get("wishlist"));
+        if (body.containsKey("cart")) user.setCart((String) body.get("cart"));
+        if (body.containsKey("lastLogin")) user.setLastLogin((String) body.get("lastLogin"));
         if (body.containsKey("roles")) {
             Object rolesVal = body.get("roles");
             if (rolesVal instanceof List) {
@@ -178,7 +243,11 @@ public class ShopPortalController {
     public ResponseEntity<ShopOrder> updateOrderStatus(@PathVariable String id, @RequestBody Map<String, Object> body) {
         ShopOrder order = orderRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found: " + id));
-        order.setStatus((String) body.get("status"));
+        if (body.containsKey("status")) order.setStatus((String) body.get("status"));
+        if (body.containsKey("paymentStatus")) order.setPaymentStatus((String) body.get("paymentStatus"));
+        if (body.containsKey("trackingNumber")) order.setTrackingNumber((String) body.get("trackingNumber"));
+        if (body.containsKey("courierPartner")) order.setCourierPartner((String) body.get("courierPartner"));
+        if (body.containsKey("estimatedDeliveryDate")) order.setEstimatedDeliveryDate((String) body.get("estimatedDeliveryDate"));
         ShopOrder saved = orderRepository.save(order);
         syncService.bumpVersion();
         return ResponseEntity.ok(saved);
@@ -195,6 +264,94 @@ public class ShopPortalController {
         ShopOrder saved = orderRepository.save(order);
         syncService.bumpVersion();
         return ResponseEntity.ok(saved);
+    }
+
+    @PostMapping("/create-order")
+    public ResponseEntity<?> createRazorpayOrder(@RequestBody Map<String, Object> body) {
+        try {
+            Object amountObj = body.get("amount");
+            if (amountObj == null) {
+                return ResponseEntity.status(org.springframework.http.HttpStatus.BAD_REQUEST)
+                        .body(Map.of("error", "Amount is required"));
+            }
+            long amount = ((Number) amountObj).longValue();
+            if (amount < 100) {
+                return ResponseEntity.status(org.springframework.http.HttpStatus.BAD_REQUEST)
+                        .body(Map.of("error", "Minimum amount must be 100 paise (1 INR)"));
+            }
+            String currency = (String) body.getOrDefault("currency", "INR");
+            String receipt = (String) body.getOrDefault("receipt", "rec_" + System.currentTimeMillis());
+
+            String auth = razorpayKeyId + ":" + razorpayKeySecret;
+            String encodedAuth = java.util.Base64.getEncoder().encodeToString(auth.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+            headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
+            headers.set("Authorization", "Basic " + encodedAuth);
+
+            Map<String, Object> requestBody = new java.util.HashMap<>();
+            requestBody.put("amount", amount);
+            requestBody.put("currency", currency);
+            requestBody.put("receipt", receipt);
+
+            org.springframework.http.HttpEntity<Map<String, Object>> entity = new org.springframework.http.HttpEntity<>(requestBody, headers);
+            org.springframework.web.client.RestTemplate restTemplate = new org.springframework.web.client.RestTemplate();
+            
+            ResponseEntity<?> response = restTemplate.postForEntity("https://api.razorpay.com/v1/orders", entity, Map.class);
+            if (response.getStatusCode() == org.springframework.http.HttpStatus.CREATED || response.getStatusCode() == org.springframework.http.HttpStatus.OK) {
+                Map<?, ?> responseBody = (Map<?, ?>) response.getBody();
+                return ResponseEntity.ok(Map.of(
+                    "order_id", responseBody.get("id"),
+                    "amount", responseBody.get("amount"),
+                    "currency", responseBody.get("currency")
+                ));
+            } else {
+                return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(Map.of("error", "Failed to create order on Razorpay"));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/verify-payment")
+    public ResponseEntity<?> verifyPayment(@RequestBody Map<String, String> body) {
+        String paymentId = body.get("razorpay_payment_id");
+        String orderId = body.get("razorpay_order_id");
+        String signature = body.get("razorpay_signature");
+
+        if (paymentId == null || orderId == null || signature == null) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "Missing required fields"));
+        }
+
+        try {
+            String data = orderId + "|" + paymentId;
+            javax.crypto.Mac sha256_HMAC = javax.crypto.Mac.getInstance("HmacSHA256");
+            javax.crypto.spec.SecretKeySpec secret_key = new javax.crypto.spec.SecretKeySpec(razorpayKeySecret.getBytes(java.nio.charset.StandardCharsets.UTF_8), "HmacSHA256");
+            sha256_HMAC.init(secret_key);
+            
+            byte[] hash = sha256_HMAC.doFinal(data.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hash) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) hexString.append('0');
+                hexString.append(hex);
+            }
+            
+            String generatedSignature = hexString.toString();
+            if (generatedSignature.equals(signature)) {
+                return ResponseEntity.ok(Map.of("status", "success", "message", "Payment verified successfully"));
+            } else {
+                return ResponseEntity.status(org.springframework.http.HttpStatus.BAD_REQUEST)
+                        .body(Map.of("status", "failure", "message", "Signature mismatch"));
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
     }
 
     // --- RETURNS & REFUNDS ---

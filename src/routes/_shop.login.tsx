@@ -47,6 +47,7 @@ function ShopLoginPage() {
 
       // Log in locally in portal context state
       signUp({
+        id: "USR-" + data.user.id,
         email: data.user.email,
         firstName: data.user.name,
         lastName: "",

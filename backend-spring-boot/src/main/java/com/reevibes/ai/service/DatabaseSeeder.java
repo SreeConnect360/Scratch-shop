@@ -37,16 +37,32 @@ public class DatabaseSeeder implements CommandLineRunner {
     private final ReturnRequestRepository returnRequestRepository;
     private final ShopCouponRepository couponRepository;
     private final ProductReviewRepository reviewRepository;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     @Override
     @Transactional
     public void run(String... args) throws Exception {
+        // Execute DDL dynamically to ensure Supabase database schema is aligned
+        jdbcTemplate.execute("ALTER TABLE platform_users ADD COLUMN IF NOT EXISTS addresses TEXT;");
+        jdbcTemplate.execute("ALTER TABLE platform_users ADD COLUMN IF NOT EXISTS wishlist TEXT;");
+        jdbcTemplate.execute("ALTER TABLE platform_users ADD COLUMN IF NOT EXISTS cart TEXT;");
+        jdbcTemplate.execute("ALTER TABLE platform_users ADD COLUMN IF NOT EXISTS last_login VARCHAR(50);");
+        jdbcTemplate.execute("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS razorpay_payment_id VARCHAR(100);");
+        jdbcTemplate.execute("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS razorpay_order_id VARCHAR(100);");
+        jdbcTemplate.execute("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS razorpay_signature VARCHAR(200);");
+        jdbcTemplate.execute("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS currency VARCHAR(20);");
+        jdbcTemplate.execute("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS payment_method VARCHAR(50);");
+        jdbcTemplate.execute("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS transaction_date TIMESTAMP;");
+        jdbcTemplate.execute("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS tracking_number VARCHAR(100);");
+        jdbcTemplate.execute("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS courier_partner VARCHAR(100);");
+        jdbcTemplate.execute("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS estimated_delivery_date VARCHAR(50);");
+
         if (intentRepository.count() == 0) {
             seedIntents();
         }
         seedVendor();
         seedBuckets();
-        seedPlatformUsers();
+        // seedPlatformUsers();
         seedHomepageLayout();
         seedCoupons();
         seedOrders();
@@ -90,7 +106,7 @@ public class DatabaseSeeder implements CommandLineRunner {
                 if (i == 21) roles += ",Applications,Ratings";
                 if (i == 22) roles += ",Casting Call,Judgements";
 
-                PlatformUser user = new PlatformUser(id, fn, ln, email, phone, country, dob, gender, status, roles);
+                PlatformUser user = new PlatformUser(id, fn, ln, email, phone, country, dob, gender, status, roles, null, null, null, null);
                 platformUserRepository.save(user);
             }
         }
@@ -109,7 +125,7 @@ public class DatabaseSeeder implements CommandLineRunner {
     @Transactional
     public void seedCoupons() {
         if (couponRepository.count() == 0) {
-            ShopCoupon c1 = new ShopCoupon("FESTIVE20", new BigDecimal("20"), "percentage", "2026-12-31", 100, "All", true, 0);
+            ShopCoupon c1 = new ShopCoupon("MAISONVIP", new BigDecimal("25"), "percentage", "2026-12-31", 100, "All", true, 0);
             ShopCoupon c2 = new ShopCoupon("REEVIBES10", new BigDecimal("10"), "percentage", "2026-12-31", 200, "All", true, 0);
             couponRepository.saveAll(List.of(c1, c2));
         }
@@ -119,10 +135,10 @@ public class DatabaseSeeder implements CommandLineRunner {
     public void seedOrders() {
         if (orderRepository.count() == 0) {
             String items1 = "[{\"productId\":\"pr2\",\"name\":\"Cashmere Cape\",\"house\":\"Atelier Reine\",\"price\":\"₹1,50,000\",\"image\":\"https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=1200&h=1600&q=80\",\"qty\":1,\"selectedSize\":\"M\"}]";
-            ShopOrder o1 = new ShopOrder("ORD-9481", "USR-1000", LocalDateTime.now().minusDays(30), items1, new BigDecimal("150000"), "Shipped", "123, Luxury Lane, Indiranagar, Bangalore - 560038", "Paid", null);
+            ShopOrder o1 = new ShopOrder("ORD-9481", "USR-1000", LocalDateTime.now().minusDays(30), items1, new BigDecimal("150000"), "Shipped", "123, Luxury Lane, Indiranagar, Bangalore - 560038", "Paid", null, null, null, null, "INR", "Razorpay Gateway", null, null, null, null);
 
             String items2 = "[{\"productId\":\"pr1\",\"name\":\"Silk Slip — Noir\",\"house\":\"Maison Lumière\",\"price\":\"₹85,000\",\"image\":\"https://images.unsplash.com/photo-1485518882345-15568b007407?auto=format&fit=crop&w=1200&h=1600&q=80\",\"qty\":1,\"selectedSize\":\"S\"}]";
-            ShopOrder o2 = new ShopOrder("ORD-9500", "USR-1000", LocalDateTime.now().minusDays(4), items2, new BigDecimal("85000"), "Processing", "123, Luxury Lane, Indiranagar, Bangalore - 560038", "Paid", null);
+            ShopOrder o2 = new ShopOrder("ORD-9500", "USR-1000", LocalDateTime.now().minusDays(4), items2, new BigDecimal("85000"), "Processing", "123, Luxury Lane, Indiranagar, Bangalore - 560038", "Paid", null, null, null, null, "INR", "Razorpay Gateway", null, null, null, null);
 
             orderRepository.saveAll(List.of(o1, o2));
         }

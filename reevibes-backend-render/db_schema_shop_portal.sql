@@ -10,7 +10,11 @@ CREATE TABLE IF NOT EXISTS platform_users (
     dob VARCHAR(20),
     gender VARCHAR(10),
     status VARCHAR(20) DEFAULT 'Active',
-    roles VARCHAR(255) DEFAULT 'CUSTOMER'
+    roles VARCHAR(255) DEFAULT 'CUSTOMER',
+    addresses TEXT,
+    wishlist TEXT,
+    cart TEXT,
+    last_login VARCHAR(50)
 );
 
 CREATE TABLE IF NOT EXISTS product_buckets (
@@ -81,5 +85,14 @@ CREATE TABLE IF NOT EXISTS shop_orders (
     status VARCHAR(50) NOT NULL,
     address TEXT NOT NULL,
     payment_status VARCHAR(50) NOT NULL,
-    refund_details_json TEXT
+    refund_details_json TEXT,
+    razorpay_payment_id VARCHAR(100),
+    razorpay_order_id VARCHAR(100),
+    razorpay_signature VARCHAR(200),
+    currency VARCHAR(20) DEFAULT 'INR',
+    payment_method VARCHAR(50) DEFAULT 'Razorpay Gateway',
+    transaction_date TIMESTAMP,
+    tracking_number VARCHAR(100),
+    courier_partner VARCHAR(100),
+    estimated_delivery_date VARCHAR(50)
 );

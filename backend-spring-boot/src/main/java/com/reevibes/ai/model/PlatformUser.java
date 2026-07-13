@@ -40,4 +40,16 @@ public class PlatformUser {
 
     @Column(length = 255)
     private String roles = "CUSTOMER";
+
+    @Column(columnDefinition = "TEXT")
+    private String addresses;
+
+    @Column(columnDefinition = "TEXT")
+    private String wishlist;
+
+    @Column(columnDefinition = "TEXT")
+    private String cart;
+
+    @Column(name = "last_login", length = 50)
+    private String lastLogin;
 }
