@@ -1496,6 +1496,41 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify(patch)
       }).catch(err => console.error("Failed to sync return details patch:", err));
     },
+    suspendCustomer: (id) => {
+      setState(s => ({
+        ...s,
+        users: s.users.map(u => u.id === id ? { ...u, status: "Suspended" as const } : u)
+      }));
+
+      fetch(`${BACKEND_URL}/api/customers/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "Suspended" })
+      }).catch(err => console.error("Failed to sync customer suspension to backend:", err));
+    },
+    reactivateCustomer: (id) => {
+      setState(s => ({
+        ...s,
+        users: s.users.map(u => u.id === id ? { ...u, status: "Active" as const } : u)
+      }));
+
+      fetch(`${BACKEND_URL}/api/customers/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "Active" })
+      }).catch(err => console.error("Failed to sync customer reactivation to backend:", err));
+    },
+    addWalletCredit: (userId, amount) => setState(s => {
+      const bal = s.wallets[userId] ?? 0;
+      return {
+        ...s,
+        wallets: { ...s.wallets, [userId]: bal + amount },
+        notifications: [
+          { id: `n-${Date.now()}`, icon: "wallet", title: "Wallet Credit Added", body: `₹${amount.toLocaleString()} has been added to your wallet.`, time: "now", unread: true },
+          ...s.notifications
+        ]
+      };
+    }),
     moderateReview: (productId, reviewId, action) => {
       const nextStatus = action === "approve" ? "Approved" : "Hidden";
       setState(s => {

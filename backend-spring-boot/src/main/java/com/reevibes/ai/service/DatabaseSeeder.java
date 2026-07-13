@@ -12,6 +12,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.reevibes.ai.model.*;
 import com.reevibes.ai.repository.*;
 import java.util.List;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Component
 @RequiredArgsConstructor
