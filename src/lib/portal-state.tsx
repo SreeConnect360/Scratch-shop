@@ -599,8 +599,8 @@ export function PortalProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<PortalState>(DEFAULT);
   const [hydrated, setHydrated] = useState(false);
 
-  // Fetch dynamic database vendors and products from PostgreSQL backend
-  const fetchBackendVendorsAndProducts = useCallback(async () => {
+  // Fetch dynamic database vendors, products, buckets, and customers from PostgreSQL backend
+  const fetchBackendState = useCallback(async () => {
     try {
       // 1. Fetch Vendors
       const vendorsRes = await fetch(`${BACKEND_URL}/api/vendors`);
@@ -622,28 +622,63 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 
       // 2. Fetch Products
       const res = await fetch(`${BACKEND_URL}/api/vendors/products`);
+      let mappedProducts = PRODUCTS;
       if (res.ok) {
         const dbProducts = await res.json();
-        const mapped = dbProducts.map((p: any) => ({
+        mappedProducts = dbProducts.map((p: any) => ({
           ...p,
           id: String(p.id),
           house: p.house || p.brand || "Maison Curation",
           price: typeof p.price === "number" ? `₹${p.price.toLocaleString("en-IN")}` : (p.price?.toString().startsWith("₹") ? p.price : `₹${p.price}`),
         }));
-        
-         setState(s => {
-          const existingIds = new Set(mapped.map((p: any) => p.id));
-          const currentProductIds = new Set(s.products.map(p => p.id));
-          const filteredDefault = PRODUCTS.filter(p => !existingIds.has(String(p.id)) && currentProductIds.has(p.id));
-          return {
-            ...s,
-            vendors: mappedVendors,
-            products: [...filteredDefault, ...mapped]
-          };
-        });
-      } else {
-        setState(s => ({ ...s, vendors: mappedVendors }));
       }
+
+      // 3. Fetch Buckets
+      const bucketsRes = await fetch(`${BACKEND_URL}/api/buckets`);
+      let mappedBuckets = DEFAULT_BUCKETS;
+      if (bucketsRes.ok) {
+        const dbBuckets = await bucketsRes.json();
+        if (dbBuckets && dbBuckets.length > 0) {
+          mappedBuckets = dbBuckets.map((b: any) => ({
+            id: b.id,
+            name: b.name,
+            productIds: b.productIds ? b.productIds.split(",") : [],
+            starProductId: b.starProductId || undefined,
+            hidden: b.hidden ?? false
+          }));
+        }
+      }
+
+      // 4. Fetch Customers
+      const customersRes = await fetch(`${BACKEND_URL}/api/customers`);
+      let mappedCustomers = PLATFORM_USERS;
+      if (customersRes.ok) {
+        const dbCustomers = await customersRes.json();
+        if (dbCustomers && dbCustomers.length > 0) {
+          mappedCustomers = dbCustomers.map((u: any) => ({
+            id: u.id,
+            firstName: u.firstName,
+            lastName: u.lastName,
+            email: u.email,
+            phone: u.phone || undefined,
+            country: u.country || undefined,
+            dob: u.dob || undefined,
+            gender: u.gender || undefined,
+            status: u.status || "Active",
+            roles: u.roles ? u.roles.split(",") : ["General"]
+          }));
+        }
+      }
+
+      setState(s => {
+        return {
+          ...s,
+          vendors: mappedVendors,
+          products: mappedProducts,
+          buckets: mappedBuckets,
+          users: mappedCustomers
+        };
+      });
     } catch (err) {
       console.warn("Backend offline. Fallback to offline store data.", err);
     }
@@ -667,7 +702,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     setState(loadedState);
     setHydrated(true);
 
-    fetchBackendVendorsAndProducts();
+    fetchBackendState();
 
     const handleStorage = (e: StorageEvent) => {
       if (e.key && e.key.startsWith("reevibes:")) {
@@ -676,13 +711,13 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     };
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
-  }, [fetchBackendVendorsAndProducts]);
+  }, [fetchBackendState]);
 
   useEffect(() => { if (hydrated) save(state); }, [state, hydrated]);
 
   const api = useMemo<Ctx>(() => ({
     state,
-    reloadProducts: fetchBackendVendorsAndProducts,
+    reloadProducts: fetchBackendState,
 
     signIn: (email, name) => {
       const match = state.users.find(u => u.email.toLowerCase() === email.toLowerCase());
@@ -1117,14 +1152,28 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     removeCoupon: (code) => setState(s => ({ ...s, coupons: s.coupons.filter(c => c.code !== code) })),
 
     setAdminMode: (mode) => setState(s => ({ ...s, adminMode: mode })),
-    createProduct: (p) => setState(s => {
-      const id = `pr-${Date.now()}`;
+    createProduct: (p) => {
+      const id = `vnd-${Date.now()}-catalog`;
       const newProduct: Product = {
         id,
         ...p
       };
-      return { ...s, products: [newProduct, ...s.products] };
-    }),
+      setState(s => ({ ...s, products: [newProduct, ...s.products] }));
+      
+      const cleaned = { ...p, id };
+      if (cleaned.price !== undefined) {
+        cleaned.price = cleaned.price.toString().replace(/[^0-9.]/g, "") as any;
+      }
+      if (cleaned.originalPrice !== undefined) {
+        cleaned.originalPrice = cleaned.originalPrice.toString().replace(/[^0-9.]/g, "") as any;
+      }
+      
+      fetch(`${BACKEND_URL}/api/vendors/products`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(cleaned)
+      }).catch(err => console.error("Failed to sync new product to backend:", err));
+    },
     updateProduct: (id, patch) => {
       setState(s => ({
         ...s,
@@ -1234,14 +1283,30 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       const nextList = s.returns.map(r => r.id === returnId ? { ...r, ...patch } : r);
       return { ...s, returns: nextList };
     }),
-    suspendCustomer: (id) => setState(s => ({
-      ...s,
-      users: s.users.map(u => u.id === id ? { ...u, status: "Suspended" as const } : u)
-    })),
-    reactivateCustomer: (id) => setState(s => ({
-      ...s,
-      users: s.users.map(u => u.id === id ? { ...u, status: "Active" as const } : u)
-    })),
+    suspendCustomer: (id) => {
+      setState(s => ({
+        ...s,
+        users: s.users.map(u => u.id === id ? { ...u, status: "Suspended" as const } : u)
+      }));
+
+      fetch(`${BACKEND_URL}/api/customers/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "Suspended" })
+      }).catch(err => console.error("Failed to sync customer suspension to backend:", err));
+    },
+    reactivateCustomer: (id) => {
+      setState(s => ({
+        ...s,
+        users: s.users.map(u => u.id === id ? { ...u, status: "Active" as const } : u)
+      }));
+
+      fetch(`${BACKEND_URL}/api/customers/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "Active" })
+      }).catch(err => console.error("Failed to sync customer reactivation to backend:", err));
+    },
     addWalletCredit: (userId, amount) => setState(s => {
       const bal = s.wallets[userId] ?? 0;
       return {
@@ -1307,23 +1372,51 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       save(next);
       return next;
     }),
-    createBucket: (name, productIds, starProductId) => setState(s => {
-      const newBucket: Bucket = {
-        id: `bkt-${Date.now()}`,
-        name,
-        productIds,
-        starProductId
-      };
-      return { ...s, buckets: [...(s.buckets || []), newBucket] };
-    }),
-    updateBucket: (id, patch) => setState(s => {
-      const next = (s.buckets || []).map(b => b.id === id ? { ...b, ...patch } : b);
-      return { ...s, buckets: next };
-    }),
-    deleteBucket: (id) => setState(s => ({
-      ...s,
-      buckets: (s.buckets || []).filter(b => b.id !== id)
-    })),
+    createBucket: (name, productIds, starProductId) => {
+      const id = `bkt-${Date.now()}`;
+      const newBucket: Bucket = { id, name, productIds, starProductId, hidden: false };
+      setState(s => ({ ...s, buckets: [...(s.buckets || []), newBucket] }));
+
+      fetch(`${BACKEND_URL}/api/buckets`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id,
+          name,
+          productIds: productIds.join(","),
+          starProductId,
+          hidden: false
+        })
+      }).catch(err => console.error("Failed to sync new bucket to backend:", err));
+    },
+    updateBucket: (id, patch) => {
+      setState(s => {
+        const next = (s.buckets || []).map(b => b.id === id ? { ...b, ...patch } : b);
+        return { ...s, buckets: next };
+      });
+
+      const bodyPatch: any = {};
+      if (patch.name !== undefined) bodyPatch.name = patch.name;
+      if (patch.productIds !== undefined) bodyPatch.productIds = patch.productIds.join(",");
+      if (patch.starProductId !== undefined) bodyPatch.starProductId = patch.starProductId;
+      if (patch.hidden !== undefined) bodyPatch.hidden = patch.hidden;
+
+      fetch(`${BACKEND_URL}/api/buckets/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(bodyPatch)
+      }).catch(err => console.error("Failed to sync bucket update to backend:", err));
+    },
+    deleteBucket: (id) => {
+      setState(s => ({
+        ...s,
+        buckets: (s.buckets || []).filter(b => b.id !== id)
+      }));
+
+      fetch(`${BACKEND_URL}/api/buckets/${id}`, {
+        method: "DELETE"
+      }).catch(err => console.error("Failed to sync bucket deletion to backend:", err));
+    },
     reorderBuckets: (buckets) => setState(s => ({
       ...s,
       buckets

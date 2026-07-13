@@ -212,12 +212,23 @@ export function AdminLayout({ title, eyebrow, actions, children }: {
         <div className="px-6 editorial-label text-muted-foreground/50 mb-3">Modules</div>
         <nav className="flex-1 overflow-y-auto"><NavList /></nav>
         <div className="px-6 py-5 border-t border-border-subtle">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-surface-3 flex items-center justify-center text-xs">LD</div>
-            <div>
-              <div className="text-xs">Léa Dubois</div>
-              <div className="text-[10px] text-muted-foreground">Main Admin</div>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-surface-3 flex items-center justify-center text-xs">LD</div>
+              <div>
+                <div className="text-xs">Léa Dubois</div>
+                <div className="text-[10px] text-muted-foreground">Main Admin</div>
+              </div>
             </div>
+            <button 
+              onClick={() => {
+                sessionStorage.removeItem("admin_authenticated");
+                window.location.reload();
+              }}
+              className="text-[10px] uppercase tracking-wider text-muted-foreground hover:text-accent font-medium transition-all"
+            >
+              Exit
+            </button>
           </div>
         </div>
       </aside>

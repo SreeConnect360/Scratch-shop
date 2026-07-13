@@ -480,6 +480,79 @@ public class VendorController {
         return ResponseEntity.ok(p);
     }
 
+    @PostMapping("/products")
+    @Transactional
+    public ResponseEntity<?> createProductDetail(@RequestBody Map<String, Object> body) {
+        String id = body.containsKey("id") ? (String) body.get("id") : "pr-" + System.currentTimeMillis();
+        VendorProduct p = new VendorProduct();
+        p.setId(id);
+        p.setVendorId(body.containsKey("vendorId") ? (String) body.get("vendorId") : "manual");
+        p.setExternalId(body.containsKey("externalId") ? (String) body.get("externalId") : java.util.UUID.randomUUID().toString());
+        p.setInCatalog(true);
+        
+        if (body.containsKey("name")) p.setName((String) body.get("name"));
+        if (body.containsKey("description")) p.setDescription((String) body.get("description"));
+        if (body.containsKey("category")) p.setCategory((String) body.get("category"));
+        if (body.containsKey("brand")) p.setBrand((String) body.get("brand"));
+        if (body.containsKey("material")) p.setMaterial((String) body.get("material"));
+        if (body.containsKey("fabric")) p.setFabric((String) body.get("fabric"));
+        if (body.containsKey("gender")) p.setGender((String) body.get("gender"));
+        if (body.containsKey("type")) p.setType((String) body.get("type"));
+        if (body.containsKey("price")) p.setPrice(new BigDecimal(body.get("price").toString()));
+        if (body.containsKey("discount")) p.setDiscount(new BigDecimal(body.get("discount").toString()));
+        p.setStatus(body.containsKey("status") ? (String) body.get("status") : "PUBLISHED");
+        p.setVisibility(body.containsKey("visibility") ? (String) body.get("visibility") : "VISIBLE");
+        if (body.containsKey("sku")) p.setSku((String) body.get("sku"));
+        if (body.containsKey("tag")) p.setTag((String) body.get("tag"));
+        if (body.containsKey("tags")) {
+            Object tagsVal = body.get("tags");
+            if (tagsVal instanceof List) {
+                p.setTags(String.join(",", (List<String>) tagsVal));
+            } else if (tagsVal != null) {
+                p.setTags(tagsVal.toString());
+            }
+        }
+        if (body.containsKey("collections")) p.setCollections((String) body.get("collections"));
+        p.setIsFeatured(body.containsKey("isFeatured") ? (Boolean) body.get("isFeatured") : false);
+        p.setIsNewArrival(body.containsKey("isNewArrival") ? (Boolean) body.get("isNewArrival") : false);
+        p.setIsTrending(body.containsKey("isTrending") ? (Boolean) body.get("isTrending") : false);
+        p.setIsRecommended(body.containsKey("isRecommended") ? (Boolean) body.get("isRecommended") : false);
+        p.setLastSync(LocalDateTime.now());
+        
+        vendorProductRepository.save(p);
+
+        // Images
+        if (body.containsKey("images")) {
+            List<String> list = (List<String>) body.get("images");
+            for (int i = 0; i < list.size(); i++) {
+                VendorProductImage img = new VendorProductImage();
+                img.setProductId(p.getId());
+                img.setImageUrl(list.get(i));
+                img.setPosition(i);
+                vendorProductImageRepository.save(img);
+            }
+        }
+
+        // Stock/Sizes
+        if (body.containsKey("stockPerSize")) {
+            Map<String, Object> map = (Map<String, Object>) body.get("stockPerSize");
+            for (Map.Entry<String, Object> entry : map.entrySet()) {
+                VendorProductSize sz = new VendorProductSize();
+                sz.setProductId(p.getId());
+                sz.setSizeName(entry.getKey());
+                vendorProductSizeRepository.save(sz);
+
+                VendorProductStock st = new VendorProductStock();
+                st.setProductId(p.getId());
+                st.setSizeName(entry.getKey());
+                st.setAvailableStock(Integer.parseInt(entry.getValue().toString()));
+                vendorProductStockRepository.save(st);
+            }
+        }
+
+        return ResponseEntity.ok(p);
+    }
+
     @DeleteMapping("/products/{id}")
     @Transactional
     public ResponseEntity<?> deleteProduct(@PathVariable String id) {
