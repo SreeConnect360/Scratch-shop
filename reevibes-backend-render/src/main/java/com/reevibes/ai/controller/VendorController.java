@@ -3,6 +3,7 @@ package com.reevibes.ai.controller;
 import com.reevibes.ai.model.*;
 import com.reevibes.ai.repository.*;
 import com.reevibes.ai.service.VendorSyncService;
+import com.reevibes.ai.service.SyncService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,6 +34,7 @@ public class VendorController {
     private final VendorSyncHistoryRepository vendorSyncHistoryRepository;
     private final VendorProductVersionRepository vendorProductVersionRepository;
     private final VendorSyncService vendorSyncService;
+    private final SyncService syncService;
 
     // --- VENDORS REST ---
 
@@ -99,6 +101,7 @@ public class VendorController {
         conn.setSyncFrequency("MANUAL");
         vendorConnectionRepository.save(conn);
 
+        syncService.bumpVersion();
         return ResponseEntity.ok(saved);
     }
 
@@ -107,6 +110,7 @@ public class VendorController {
     public ResponseEntity<?> deleteVendor(@PathVariable String id) {
         vendorRepository.deleteById(id);
         // Cascades should clean up connection, products, etc.
+        syncService.bumpVersion();
         return ResponseEntity.ok(Map.of("message", "Vendor successfully deleted."));
     }
 
@@ -125,6 +129,7 @@ public class VendorController {
     }
 
     @PostMapping("/{id}/connection")
+    @Transactional
     public ResponseEntity<?> saveConnection(@PathVariable String id, @RequestBody VendorConnection incoming) {
         VendorConnection conn = vendorConnectionRepository.findByVendorId(id)
                 .orElseGet(() -> {
@@ -136,6 +141,7 @@ public class VendorController {
         conn.setSyncFrequency(incoming.getSyncFrequency());
         conn.setApiKey(incoming.getApiKey());
         VendorConnection saved = vendorConnectionRepository.save(conn);
+        syncService.bumpVersion();
         return ResponseEntity.ok(saved);
     }
 
@@ -143,6 +149,7 @@ public class VendorController {
     public ResponseEntity<?> triggerSync(@PathVariable String id) {
         try {
             VendorSyncHistory history = vendorSyncService.syncCatalog(id);
+            syncService.bumpVersion();
             return ResponseEntity.ok(history);
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
@@ -339,6 +346,7 @@ public class VendorController {
             }
         }
 
+        syncService.bumpVersion();
         return ResponseEntity.ok(Map.of("message", "Successfully imported products", "imported", importedProducts));
     }
 
@@ -477,6 +485,7 @@ public class VendorController {
             }
         }
 
+        syncService.bumpVersion();
         return ResponseEntity.ok(p);
     }
 
@@ -550,6 +559,7 @@ public class VendorController {
             }
         }
 
+        syncService.bumpVersion();
         return ResponseEntity.ok(p);
     }
 
@@ -557,6 +567,7 @@ public class VendorController {
     @Transactional
     public ResponseEntity<?> deleteProduct(@PathVariable String id) {
         vendorProductRepository.deleteById(id);
+        syncService.bumpVersion();
         return ResponseEntity.ok(Map.of("message", "Product deleted successfully"));
     }
 
@@ -612,6 +623,7 @@ public class VendorController {
             }
         }
 
+        syncService.bumpVersion();
         return ResponseEntity.ok(p);
     }
 
@@ -629,6 +641,7 @@ public class VendorController {
                 break;
             case "DELETE":
                 vendorProductRepository.deleteAll(products);
+                syncService.bumpVersion();
                 return ResponseEntity.ok(Map.of("message", "Bulk deleted successfully."));
             case "CATEGORY":
                 products.forEach(p -> p.setCategory(request.getValue()));
@@ -643,6 +656,7 @@ public class VendorController {
         }
 
         vendorProductRepository.saveAll(products);
+        syncService.bumpVersion();
         return ResponseEntity.ok(Map.of("message", "Bulk action executed successfully."));
     }
 
@@ -662,6 +676,7 @@ public class VendorController {
 
         products.forEach(p -> p.setCategory(request.getTarget()));
         vendorProductRepository.saveAll(products);
+        syncService.bumpVersion();
         return ResponseEntity.ok(Map.of("message", "Categories merged successfully."));
     }
 
@@ -674,6 +689,7 @@ public class VendorController {
 
         products.forEach(p -> p.setCategory(request.getNewName()));
         vendorProductRepository.saveAll(products);
+        syncService.bumpVersion();
         return ResponseEntity.ok(Map.of("message", "Category renamed successfully."));
     }
 

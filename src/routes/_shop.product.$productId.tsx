@@ -163,10 +163,21 @@ function ProductDetail() {
     order.items.some(item => item.productId === productId)
   );
 
-  // Find product in catalog
+  // Find product in catalog (support friendly slugs, SKUs, and IDs)
   const products = state.products || [];
-  const product = products.find((p) => p.id === productId);
+  const product = products.find((p) => 
+    p.id === productId || 
+    p.id.replace("-catalog", "") === productId || 
+    (p.name && p.name.toLowerCase().replace(/[^a-z0-9]+/g, "-") === productId) ||
+    (p.sku && p.sku.toLowerCase() === productId.toLowerCase())
+  );
   const isPublished = product && (!product.status || product.status === "PUBLISHED" || product.status === "published");
+
+  useEffect(() => {
+    if (product) {
+      document.title = `${product.name} — ReeVibes`;
+    }
+  }, [product]);
 
   if (!product || !isPublished) {
     return (

@@ -28,10 +28,14 @@ import { Route as AdminOpenContestRouteImport } from './routes/admin.open-contes
 import { Route as AdminLiveContestRouteImport } from './routes/admin.live-contest'
 import { Route as AdminContestantsRouteImport } from './routes/admin.contestants'
 import { Route as AdminAbuseReportsRouteImport } from './routes/admin.abuse-reports'
+import { Route as ShopWishlistRouteImport } from './routes/_shop.wishlist'
+import { Route as ShopShopRouteImport } from './routes/_shop.shop'
 import { Route as ShopSearchRouteImport } from './routes/_shop.search'
 import { Route as ShopRegisterRouteImport } from './routes/_shop.register'
+import { Route as ShopOrdersRouteImport } from './routes/_shop.orders'
 import { Route as ShopLoginRouteImport } from './routes/_shop.login'
 import { Route as ShopForgotPasswordRouteImport } from './routes/_shop.forgot-password'
+import { Route as ShopCheckoutRouteImport } from './routes/_shop.checkout'
 import { Route as ShopCategoriesRouteImport } from './routes/_shop.categories'
 import { Route as ShopCartRouteImport } from './routes/_shop.cart'
 import { Route as ShopAccountRouteImport } from './routes/_shop.account'
@@ -48,6 +52,8 @@ import { Route as FashionBattleAboutRouteImport } from './routes/FashionBattle.a
 import { Route as FashionBattleApplyIndexRouteImport } from './routes/FashionBattle.apply.index'
 import { Route as FashionBattleAccountIndexRouteImport } from './routes/FashionBattle.account.index'
 import { Route as ShopProductProductIdRouteImport } from './routes/_shop.product.$productId'
+import { Route as ShopCategoryCategorySlugRouteImport } from './routes/_shop.category.$categorySlug'
+import { Route as ShopBrandBrandSlugRouteImport } from './routes/_shop.brand.$brandSlug'
 import { Route as FashionBattlePhotographyPhotoIdRouteImport } from './routes/FashionBattle.photography.$photoId'
 import { Route as FashionBattleLiveContestContestIdRouteImport } from './routes/FashionBattle.live-contest.$contestId'
 import { Route as FashionBattleHouseOfFashionProductIdRouteImport } from './routes/FashionBattle.house-of-fashion.$productId'
@@ -158,6 +164,16 @@ const AdminAbuseReportsRoute = AdminAbuseReportsRouteImport.update({
   path: '/admin/abuse-reports',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ShopWishlistRoute = ShopWishlistRouteImport.update({
+  id: '/wishlist',
+  path: '/wishlist',
+  getParentRoute: () => ShopRoute,
+} as any)
+const ShopShopRoute = ShopShopRouteImport.update({
+  id: '/shop',
+  path: '/shop',
+  getParentRoute: () => ShopRoute,
+} as any)
 const ShopSearchRoute = ShopSearchRouteImport.update({
   id: '/search',
   path: '/search',
@@ -168,6 +184,11 @@ const ShopRegisterRoute = ShopRegisterRouteImport.update({
   path: '/register',
   getParentRoute: () => ShopRoute,
 } as any)
+const ShopOrdersRoute = ShopOrdersRouteImport.update({
+  id: '/orders',
+  path: '/orders',
+  getParentRoute: () => ShopRoute,
+} as any)
 const ShopLoginRoute = ShopLoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -176,6 +197,11 @@ const ShopLoginRoute = ShopLoginRouteImport.update({
 const ShopForgotPasswordRoute = ShopForgotPasswordRouteImport.update({
   id: '/forgot-password',
   path: '/forgot-password',
+  getParentRoute: () => ShopRoute,
+} as any)
+const ShopCheckoutRoute = ShopCheckoutRouteImport.update({
+  id: '/checkout',
+  path: '/checkout',
   getParentRoute: () => ShopRoute,
 } as any)
 const ShopCategoriesRoute = ShopCategoriesRouteImport.update({
@@ -260,6 +286,17 @@ const FashionBattleAccountIndexRoute =
 const ShopProductProductIdRoute = ShopProductProductIdRouteImport.update({
   id: '/product/$productId',
   path: '/product/$productId',
+  getParentRoute: () => ShopRoute,
+} as any)
+const ShopCategoryCategorySlugRoute =
+  ShopCategoryCategorySlugRouteImport.update({
+    id: '/category/$categorySlug',
+    path: '/category/$categorySlug',
+    getParentRoute: () => ShopRoute,
+  } as any)
+const ShopBrandBrandSlugRoute = ShopBrandBrandSlugRouteImport.update({
+  id: '/brand/$brandSlug',
+  path: '/brand/$brandSlug',
   getParentRoute: () => ShopRoute,
 } as any)
 const FashionBattlePhotographyPhotoIdRoute =
@@ -368,10 +405,14 @@ export interface FileRoutesByFullPath {
   '/account': typeof ShopAccountRoute
   '/cart': typeof ShopCartRoute
   '/categories': typeof ShopCategoriesRoute
+  '/checkout': typeof ShopCheckoutRoute
   '/forgot-password': typeof ShopForgotPasswordRoute
   '/login': typeof ShopLoginRoute
+  '/orders': typeof ShopOrdersRoute
   '/register': typeof ShopRegisterRoute
   '/search': typeof ShopSearchRoute
+  '/shop': typeof ShopShopRoute
+  '/wishlist': typeof ShopWishlistRoute
   '/admin/abuse-reports': typeof AdminAbuseReportsRoute
   '/admin/contestants': typeof AdminContestantsRoute
   '/admin/live-contest': typeof AdminLiveContestRoute
@@ -402,6 +443,8 @@ export interface FileRoutesByFullPath {
   '/FashionBattle/house-of-fashion/$productId': typeof FashionBattleHouseOfFashionProductIdRoute
   '/FashionBattle/live-contest/$contestId': typeof FashionBattleLiveContestContestIdRoute
   '/FashionBattle/photography/$photoId': typeof FashionBattlePhotographyPhotoIdRoute
+  '/brand/$brandSlug': typeof ShopBrandBrandSlugRoute
+  '/category/$categorySlug': typeof ShopCategoryCategorySlugRoute
   '/product/$productId': typeof ShopProductProductIdRoute
   '/FashionBattle/account/': typeof FashionBattleAccountIndexRoute
   '/FashionBattle/apply/': typeof FashionBattleApplyIndexRoute
@@ -420,10 +463,14 @@ export interface FileRoutesByTo {
   '/account': typeof ShopAccountRoute
   '/cart': typeof ShopCartRoute
   '/categories': typeof ShopCategoriesRoute
+  '/checkout': typeof ShopCheckoutRoute
   '/forgot-password': typeof ShopForgotPasswordRoute
   '/login': typeof ShopLoginRoute
+  '/orders': typeof ShopOrdersRoute
   '/register': typeof ShopRegisterRoute
   '/search': typeof ShopSearchRoute
+  '/shop': typeof ShopShopRoute
+  '/wishlist': typeof ShopWishlistRoute
   '/admin/abuse-reports': typeof AdminAbuseReportsRoute
   '/admin/contestants': typeof AdminContestantsRoute
   '/admin/live-contest': typeof AdminLiveContestRoute
@@ -455,6 +502,8 @@ export interface FileRoutesByTo {
   '/FashionBattle/house-of-fashion/$productId': typeof FashionBattleHouseOfFashionProductIdRoute
   '/FashionBattle/live-contest/$contestId': typeof FashionBattleLiveContestContestIdRoute
   '/FashionBattle/photography/$photoId': typeof FashionBattlePhotographyPhotoIdRoute
+  '/brand/$brandSlug': typeof ShopBrandBrandSlugRoute
+  '/category/$categorySlug': typeof ShopCategoryCategorySlugRoute
   '/product/$productId': typeof ShopProductProductIdRoute
   '/FashionBattle/account': typeof FashionBattleAccountIndexRoute
   '/FashionBattle/apply': typeof FashionBattleApplyIndexRoute
@@ -477,10 +526,14 @@ export interface FileRoutesById {
   '/_shop/account': typeof ShopAccountRoute
   '/_shop/cart': typeof ShopCartRoute
   '/_shop/categories': typeof ShopCategoriesRoute
+  '/_shop/checkout': typeof ShopCheckoutRoute
   '/_shop/forgot-password': typeof ShopForgotPasswordRoute
   '/_shop/login': typeof ShopLoginRoute
+  '/_shop/orders': typeof ShopOrdersRoute
   '/_shop/register': typeof ShopRegisterRoute
   '/_shop/search': typeof ShopSearchRoute
+  '/_shop/shop': typeof ShopShopRoute
+  '/_shop/wishlist': typeof ShopWishlistRoute
   '/admin/abuse-reports': typeof AdminAbuseReportsRoute
   '/admin/contestants': typeof AdminContestantsRoute
   '/admin/live-contest': typeof AdminLiveContestRoute
@@ -512,6 +565,8 @@ export interface FileRoutesById {
   '/FashionBattle/house-of-fashion/$productId': typeof FashionBattleHouseOfFashionProductIdRoute
   '/FashionBattle/live-contest/$contestId': typeof FashionBattleLiveContestContestIdRoute
   '/FashionBattle/photography/$photoId': typeof FashionBattlePhotographyPhotoIdRoute
+  '/_shop/brand/$brandSlug': typeof ShopBrandBrandSlugRoute
+  '/_shop/category/$categorySlug': typeof ShopCategoryCategorySlugRoute
   '/_shop/product/$productId': typeof ShopProductProductIdRoute
   '/FashionBattle/account/': typeof FashionBattleAccountIndexRoute
   '/FashionBattle/apply/': typeof FashionBattleApplyIndexRoute
@@ -535,10 +590,14 @@ export interface FileRouteTypes {
     | '/account'
     | '/cart'
     | '/categories'
+    | '/checkout'
     | '/forgot-password'
     | '/login'
+    | '/orders'
     | '/register'
     | '/search'
+    | '/shop'
+    | '/wishlist'
     | '/admin/abuse-reports'
     | '/admin/contestants'
     | '/admin/live-contest'
@@ -569,6 +628,8 @@ export interface FileRouteTypes {
     | '/FashionBattle/house-of-fashion/$productId'
     | '/FashionBattle/live-contest/$contestId'
     | '/FashionBattle/photography/$photoId'
+    | '/brand/$brandSlug'
+    | '/category/$categorySlug'
     | '/product/$productId'
     | '/FashionBattle/account/'
     | '/FashionBattle/apply/'
@@ -587,10 +648,14 @@ export interface FileRouteTypes {
     | '/account'
     | '/cart'
     | '/categories'
+    | '/checkout'
     | '/forgot-password'
     | '/login'
+    | '/orders'
     | '/register'
     | '/search'
+    | '/shop'
+    | '/wishlist'
     | '/admin/abuse-reports'
     | '/admin/contestants'
     | '/admin/live-contest'
@@ -622,6 +687,8 @@ export interface FileRouteTypes {
     | '/FashionBattle/house-of-fashion/$productId'
     | '/FashionBattle/live-contest/$contestId'
     | '/FashionBattle/photography/$photoId'
+    | '/brand/$brandSlug'
+    | '/category/$categorySlug'
     | '/product/$productId'
     | '/FashionBattle/account'
     | '/FashionBattle/apply'
@@ -643,10 +710,14 @@ export interface FileRouteTypes {
     | '/_shop/account'
     | '/_shop/cart'
     | '/_shop/categories'
+    | '/_shop/checkout'
     | '/_shop/forgot-password'
     | '/_shop/login'
+    | '/_shop/orders'
     | '/_shop/register'
     | '/_shop/search'
+    | '/_shop/shop'
+    | '/_shop/wishlist'
     | '/admin/abuse-reports'
     | '/admin/contestants'
     | '/admin/live-contest'
@@ -678,6 +749,8 @@ export interface FileRouteTypes {
     | '/FashionBattle/house-of-fashion/$productId'
     | '/FashionBattle/live-contest/$contestId'
     | '/FashionBattle/photography/$photoId'
+    | '/_shop/brand/$brandSlug'
+    | '/_shop/category/$categorySlug'
     | '/_shop/product/$productId'
     | '/FashionBattle/account/'
     | '/FashionBattle/apply/'
@@ -853,6 +926,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAbuseReportsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_shop/wishlist': {
+      id: '/_shop/wishlist'
+      path: '/wishlist'
+      fullPath: '/wishlist'
+      preLoaderRoute: typeof ShopWishlistRouteImport
+      parentRoute: typeof ShopRoute
+    }
+    '/_shop/shop': {
+      id: '/_shop/shop'
+      path: '/shop'
+      fullPath: '/shop'
+      preLoaderRoute: typeof ShopShopRouteImport
+      parentRoute: typeof ShopRoute
+    }
     '/_shop/search': {
       id: '/_shop/search'
       path: '/search'
@@ -867,6 +954,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShopRegisterRouteImport
       parentRoute: typeof ShopRoute
     }
+    '/_shop/orders': {
+      id: '/_shop/orders'
+      path: '/orders'
+      fullPath: '/orders'
+      preLoaderRoute: typeof ShopOrdersRouteImport
+      parentRoute: typeof ShopRoute
+    }
     '/_shop/login': {
       id: '/_shop/login'
       path: '/login'
@@ -879,6 +973,13 @@ declare module '@tanstack/react-router' {
       path: '/forgot-password'
       fullPath: '/forgot-password'
       preLoaderRoute: typeof ShopForgotPasswordRouteImport
+      parentRoute: typeof ShopRoute
+    }
+    '/_shop/checkout': {
+      id: '/_shop/checkout'
+      path: '/checkout'
+      fullPath: '/checkout'
+      preLoaderRoute: typeof ShopCheckoutRouteImport
       parentRoute: typeof ShopRoute
     }
     '/_shop/categories': {
@@ -993,6 +1094,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShopProductProductIdRouteImport
       parentRoute: typeof ShopRoute
     }
+    '/_shop/category/$categorySlug': {
+      id: '/_shop/category/$categorySlug'
+      path: '/category/$categorySlug'
+      fullPath: '/category/$categorySlug'
+      preLoaderRoute: typeof ShopCategoryCategorySlugRouteImport
+      parentRoute: typeof ShopRoute
+    }
+    '/_shop/brand/$brandSlug': {
+      id: '/_shop/brand/$brandSlug'
+      path: '/brand/$brandSlug'
+      fullPath: '/brand/$brandSlug'
+      preLoaderRoute: typeof ShopBrandBrandSlugRouteImport
+      parentRoute: typeof ShopRoute
+    }
     '/FashionBattle/photography/$photoId': {
       id: '/FashionBattle/photography/$photoId'
       path: '/FashionBattle/photography/$photoId'
@@ -1105,11 +1220,17 @@ interface ShopRouteChildren {
   ShopAccountRoute: typeof ShopAccountRoute
   ShopCartRoute: typeof ShopCartRoute
   ShopCategoriesRoute: typeof ShopCategoriesRoute
+  ShopCheckoutRoute: typeof ShopCheckoutRoute
   ShopForgotPasswordRoute: typeof ShopForgotPasswordRoute
   ShopLoginRoute: typeof ShopLoginRoute
+  ShopOrdersRoute: typeof ShopOrdersRoute
   ShopRegisterRoute: typeof ShopRegisterRoute
   ShopSearchRoute: typeof ShopSearchRoute
+  ShopShopRoute: typeof ShopShopRoute
+  ShopWishlistRoute: typeof ShopWishlistRoute
   ShopIndexRoute: typeof ShopIndexRoute
+  ShopBrandBrandSlugRoute: typeof ShopBrandBrandSlugRoute
+  ShopCategoryCategorySlugRoute: typeof ShopCategoryCategorySlugRoute
   ShopProductProductIdRoute: typeof ShopProductProductIdRoute
 }
 
@@ -1117,11 +1238,17 @@ const ShopRouteChildren: ShopRouteChildren = {
   ShopAccountRoute: ShopAccountRoute,
   ShopCartRoute: ShopCartRoute,
   ShopCategoriesRoute: ShopCategoriesRoute,
+  ShopCheckoutRoute: ShopCheckoutRoute,
   ShopForgotPasswordRoute: ShopForgotPasswordRoute,
   ShopLoginRoute: ShopLoginRoute,
+  ShopOrdersRoute: ShopOrdersRoute,
   ShopRegisterRoute: ShopRegisterRoute,
   ShopSearchRoute: ShopSearchRoute,
+  ShopShopRoute: ShopShopRoute,
+  ShopWishlistRoute: ShopWishlistRoute,
   ShopIndexRoute: ShopIndexRoute,
+  ShopBrandBrandSlugRoute: ShopBrandBrandSlugRoute,
+  ShopCategoryCategorySlugRoute: ShopCategoryCategorySlugRoute,
   ShopProductProductIdRoute: ShopProductProductIdRoute,
 }
 
@@ -1250,13 +1377,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

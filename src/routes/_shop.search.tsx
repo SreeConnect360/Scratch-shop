@@ -387,7 +387,7 @@ function SearchResultsPage() {
   if (keywords.length > 0) {
     products.forEach((p: any) => {
       let score = 0;
-      keywords.forEach(kw => {
+      keywords.forEach((kw: string) => {
         const name = (p.name || "").toLowerCase();
         const house = (p.house || "").toLowerCase();
         const category = (p.category || "").toLowerCase();

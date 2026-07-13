@@ -285,7 +285,7 @@ function CategoriesPage() {
       const keywords = remainingQuery.toLowerCase().split(/\s+/);
       const nameLower = (p.name || "").toLowerCase();
       const houseLower = (p.house || "").toLowerCase();
-      const matches = keywords.every(kw => nameLower.includes(kw) || houseLower.includes(kw));
+      const matches = keywords.every((kw: string) => nameLower.includes(kw) || houseLower.includes(kw));
       if (!matches) return false;
     }
 

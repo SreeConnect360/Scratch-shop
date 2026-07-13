@@ -2,6 +2,7 @@ package com.reevibes.ai.controller;
 
 import com.reevibes.ai.model.*;
 import com.reevibes.ai.repository.*;
+import com.reevibes.ai.service.SyncService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -25,6 +26,12 @@ public class ShopPortalController {
     private final ReturnRequestRepository returnRequestRepository;
     private final ShopCouponRepository couponRepository;
     private final ProductReviewRepository reviewRepository;
+    private final SyncService syncService;
+
+    @GetMapping("/sync/version")
+    public ResponseEntity<Map<String, Object>> getSyncVersion() {
+        return ResponseEntity.ok(Map.of("version", syncService.getVersion()));
+    }
 
     // --- BUCKETS ---
     @GetMapping("/buckets")
@@ -38,7 +45,9 @@ public class ShopPortalController {
         if (bucket.getId() == null || bucket.getId().isEmpty()) {
             bucket.setId("bkt-" + System.currentTimeMillis());
         }
-        return ResponseEntity.ok(bucketRepository.save(bucket));
+        ProductBucket saved = bucketRepository.save(bucket);
+        syncService.bumpVersion();
+        return ResponseEntity.ok(saved);
     }
 
     @PutMapping("/buckets/{id}")
@@ -59,13 +68,16 @@ public class ShopPortalController {
         if (body.containsKey("starProductId")) bucket.setStarProductId((String) body.get("starProductId"));
         if (body.containsKey("hidden")) bucket.setHidden((Boolean) body.get("hidden"));
 
-        return ResponseEntity.ok(bucketRepository.save(bucket));
+        ProductBucket saved = bucketRepository.save(bucket);
+        syncService.bumpVersion();
+        return ResponseEntity.ok(saved);
     }
 
     @DeleteMapping("/buckets/{id}")
     @Transactional
     public ResponseEntity<?> deleteBucket(@PathVariable String id) {
         bucketRepository.deleteById(id);
+        syncService.bumpVersion();
         return ResponseEntity.ok(Map.of("message", "Bucket deleted successfully"));
     }
 
@@ -81,7 +93,9 @@ public class ShopPortalController {
         if (user.getId() == null || user.getId().isEmpty()) {
             user.setId("USR-" + System.currentTimeMillis());
         }
-        return ResponseEntity.ok(userRepository.save(user));
+        PlatformUser saved = userRepository.save(user);
+        syncService.bumpVersion();
+        return ResponseEntity.ok(saved);
     }
 
     @PutMapping("/customers/{id}")
@@ -107,13 +121,16 @@ public class ShopPortalController {
             }
         }
 
-        return ResponseEntity.ok(userRepository.save(user));
+        PlatformUser saved = userRepository.save(user);
+        syncService.bumpVersion();
+        return ResponseEntity.ok(saved);
     }
 
     @DeleteMapping("/customers/{id}")
     @Transactional
     public ResponseEntity<?> deleteCustomer(@PathVariable String id) {
         userRepository.deleteById(id);
+        syncService.bumpVersion();
         return ResponseEntity.ok(Map.of("message", "Customer deleted successfully"));
     }
 
@@ -133,7 +150,9 @@ public class ShopPortalController {
                     return l;
                 });
         layout.setLayoutJson((String) body.get("layoutJson"));
-        return ResponseEntity.ok(homepageLayoutRepository.save(layout));
+        HomepageLayout saved = homepageLayoutRepository.save(layout);
+        syncService.bumpVersion();
+        return ResponseEntity.ok(saved);
     }
 
     // --- ORDERS TRACKER ---
@@ -149,7 +168,9 @@ public class ShopPortalController {
             order.setId("ORD-" + (int)(1000 + Math.random() * 9000));
         }
         order.setOrderDate(LocalDateTime.now());
-        return ResponseEntity.ok(orderRepository.save(order));
+        ShopOrder saved = orderRepository.save(order);
+        syncService.bumpVersion();
+        return ResponseEntity.ok(saved);
     }
 
     @PutMapping("/orders/{id}/status")
@@ -158,7 +179,9 @@ public class ShopPortalController {
         ShopOrder order = orderRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found: " + id));
         order.setStatus((String) body.get("status"));
-        return ResponseEntity.ok(orderRepository.save(order));
+        ShopOrder saved = orderRepository.save(order);
+        syncService.bumpVersion();
+        return ResponseEntity.ok(saved);
     }
 
     @PutMapping("/orders/{id}/refund")
@@ -169,7 +192,9 @@ public class ShopPortalController {
         if (body.containsKey("status")) order.setStatus((String) body.get("status"));
         if (body.containsKey("paymentStatus")) order.setPaymentStatus((String) body.get("paymentStatus"));
         if (body.containsKey("refundDetailsJson")) order.setRefundDetailsJson((String) body.get("refundDetailsJson"));
-        return ResponseEntity.ok(orderRepository.save(order));
+        ShopOrder saved = orderRepository.save(order);
+        syncService.bumpVersion();
+        return ResponseEntity.ok(saved);
     }
 
     // --- RETURNS & REFUNDS ---
@@ -184,7 +209,9 @@ public class ShopPortalController {
         if (request.getId() == null || request.getId().isEmpty()) {
             request.setId("RET-" + (int)(100 + Math.random() * 900));
         }
-        return ResponseEntity.ok(returnRequestRepository.save(request));
+        ReturnRequest saved = returnRequestRepository.save(request);
+        syncService.bumpVersion();
+        return ResponseEntity.ok(saved);
     }
 
     @PutMapping("/returns/{id}")
@@ -200,7 +227,9 @@ public class ShopPortalController {
         if (body.containsKey("expectedCreditDate")) req.setExpectedCreditDate((String) body.get("expectedCreditDate"));
         if (body.containsKey("pickupDate")) req.setPickupDate((String) body.get("pickupDate"));
 
-        return ResponseEntity.ok(returnRequestRepository.save(req));
+        ReturnRequest saved = returnRequestRepository.save(req);
+        syncService.bumpVersion();
+        return ResponseEntity.ok(saved);
     }
 
     // --- COUPONS MANAGER ---
@@ -213,13 +242,16 @@ public class ShopPortalController {
     @Transactional
     public ResponseEntity<ShopCoupon> createCoupon(@RequestBody ShopCoupon coupon) {
         coupon.setCode(coupon.getCode().toUpperCase());
-        return ResponseEntity.ok(couponRepository.save(coupon));
+        ShopCoupon saved = couponRepository.save(coupon);
+        syncService.bumpVersion();
+        return ResponseEntity.ok(saved);
     }
 
     @DeleteMapping("/coupons/{code}")
     @Transactional
     public ResponseEntity<?> deleteCoupon(@PathVariable String code) {
         couponRepository.deleteById(code.toUpperCase());
+        syncService.bumpVersion();
         return ResponseEntity.ok(Map.of("message", "Coupon deleted successfully"));
     }
 
@@ -238,7 +270,9 @@ public class ShopPortalController {
         if (review.getReviewDate() == null || review.getReviewDate().isEmpty()) {
             review.setReviewDate(new java.text.SimpleDateFormat("yyyy-MM-dd").format(new java.util.Date()));
         }
-        return ResponseEntity.ok(reviewRepository.save(review));
+        ProductReview saved = reviewRepository.save(review);
+        syncService.bumpVersion();
+        return ResponseEntity.ok(saved);
     }
 
     @PutMapping("/reviews/{id}/status")
@@ -247,6 +281,8 @@ public class ShopPortalController {
         ProductReview review = reviewRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Review not found: " + id));
         review.setStatus((String) body.get("status"));
-        return ResponseEntity.ok(reviewRepository.save(review));
+        ProductReview saved = reviewRepository.save(review);
+        syncService.bumpVersion();
+        return ResponseEntity.ok(saved);
     }
 }
