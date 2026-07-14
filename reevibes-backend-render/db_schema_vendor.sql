@@ -110,7 +110,7 @@ CREATE TABLE IF NOT EXISTS vendor_product_versions (
 
 -- Seed initial vendor
 INSERT INTO vendors (id, company_name, contact_person, email, phone, revenue, active, logo_url)
-VALUES ('blankapparel', 'Blank Apparel India', 'Prakash Kumar', 'wholesale@blankapparel.in', '+91 9999911111', 0.00, TRUE, 'https://blankapparel.in/cdn/shop/files/favicon.png')
+VALUES ('blankapparel', 'Blank Apparel India', 'Prakash Kumar', 'wholesale@blankapparel.in', '+91 9999911111', 0.00, TRUE, 'https://res.cloudinary.com/ihbgxvyo/image/upload/f_auto,q_auto/favicon_turcbu')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO vendor_connections (vendor_id, sync_url, sync_frequency, connection_status, last_sync_time)

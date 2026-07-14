@@ -22,7 +22,7 @@ export default function VendorDashboard() {
     contactPerson: "",
     email: "",
     phone: "",
-    logoUrl: "https://blankapparel.in/cdn/shop/files/favicon.png"
+    logoUrl: "https://res.cloudinary.com/ihbgxvyo/image/upload/f_auto,q_auto/favicon_turcbu"
   });
 
   // Selected Vendor & Details state
@@ -180,7 +180,7 @@ export default function VendorDashboard() {
         contactPerson: "",
         email: "",
         phone: "",
-        logoUrl: "https://blankapparel.in/cdn/shop/files/favicon.png"
+        logoUrl: "https://res.cloudinary.com/ihbgxvyo/image/upload/f_auto,q_auto/favicon_turcbu"
       });
       loadVendors();
     } catch (err: any) {

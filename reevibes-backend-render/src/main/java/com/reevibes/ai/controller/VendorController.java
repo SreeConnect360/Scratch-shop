@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/vendors")
-@CrossOrigin(origins = {"http://localhost:5173", "https://reevibes.com"})
+@CrossOrigin(origins = "*", allowedHeaders = "*")
 @RequiredArgsConstructor
 @Slf4j
 @SuppressWarnings({"null", "unchecked"})

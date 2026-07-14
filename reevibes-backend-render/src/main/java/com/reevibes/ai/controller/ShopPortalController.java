@@ -16,7 +16,7 @@ import java.util.regex.Matcher;
 
 @RestController
 @RequestMapping("/api")
-@CrossOrigin(origins = {"http://localhost:5173", "https://reevibes.com"})
+@CrossOrigin(origins = "*", allowedHeaders = "*")
 @RequiredArgsConstructor
 @SuppressWarnings({"null", "unchecked"})
 public class ShopPortalController {

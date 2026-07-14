@@ -223,7 +223,7 @@ public class DatabaseSeeder implements CommandLineRunner {
             vendor.setContactPerson("Prakash Kumar");
             vendor.setEmail("wholesale@blankapparel.in");
             vendor.setPhone("+91 9999911111");
-            vendor.setLogoUrl("https://blankapparel.in/cdn/shop/files/favicon.png");
+            vendor.setLogoUrl("https://res.cloudinary.com/ihbgxvyo/image/upload/f_auto,q_auto/favicon_turcbu");
             vendor.setRevenue(java.math.BigDecimal.ZERO);
             vendor.setActive(true);
             vendorRepository.save(vendor);
