@@ -127,7 +127,8 @@ public class ShiprocketService {
             List<?> itemsList = objectMapper.readValue(order.getItemsJson(), List.class);
             for (Object itemObj : itemsList) {
                 if (itemObj instanceof Map) {
-                    Map<?, ?> itemMap = (Map<?, ?>) itemObj;
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> itemMap = (Map<String, Object>) itemObj;
                     Map<String, Object> orderItem = new HashMap<>();
                     orderItem.put("name", itemMap.getOrDefault("name", "Fashion Piece"));
                     orderItem.put("sku", itemMap.getOrDefault("productId", "SKU-" + System.currentTimeMillis()));
