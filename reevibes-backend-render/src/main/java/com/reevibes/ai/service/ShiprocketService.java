@@ -19,6 +19,7 @@ import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
+@SuppressWarnings({"null", "unchecked", "rawtypes"})
 public class ShiprocketService {
 
     private final PlatformUserRepository userRepository;
@@ -54,13 +55,16 @@ public class ShiprocketService {
             HttpEntity<Map<String, String>> entity = new HttpEntity<>(requestBody, headers);
             ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
 
-            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                String token = (String) response.getBody().get("token");
-                if (token != null) {
-                    cachedToken = token;
-                    // Token is usually valid for 10 days, we set expiry to 9 days to be safe
-                    tokenExpiryTime = System.currentTimeMillis() + (9 * 24 * 60 * 60 * 1000L);
-                    return token;
+            if (response.getStatusCode().is2xxSuccessful()) {
+                Map body = response.getBody();
+                if (body != null) {
+                    String token = (String) body.get("token");
+                    if (token != null) {
+                        cachedToken = token;
+                        // Token is usually valid for 10 days, we set expiry to 9 days to be safe
+                        tokenExpiryTime = System.currentTimeMillis() + (9 * 24 * 60 * 60 * 1000L);
+                        return token;
+                    }
                 }
             }
         } catch (Exception e) {
@@ -80,7 +84,11 @@ public class ShiprocketService {
         }
 
         try {
-            PlatformUser user = userRepository.findById(order.getUserId()).orElse(null);
+            String userId = order.getUserId();
+            PlatformUser user = null;
+            if (userId != null) {
+                user = userRepository.findById(userId).orElse(null);
+            }
             
             // Parse shipping details
             String billingName = "Customer";
@@ -124,14 +132,13 @@ public class ShiprocketService {
             // Parse items json
             List<Map<String, Object>> orderItems = new ArrayList<>();
             try {
-            List<?> itemsList = objectMapper.readValue(order.getItemsJson(), List.class);
-            for (Object itemObj : itemsList) {
-                if (itemObj instanceof Map) {
-                    @SuppressWarnings("unchecked")
-                    Map<String, Object> itemMap = (Map<String, Object>) itemObj;
-                    Map<String, Object> orderItem = new HashMap<>();
-                    orderItem.put("name", itemMap.getOrDefault("name", "Fashion Piece"));
-                    orderItem.put("sku", itemMap.getOrDefault("productId", "SKU-" + System.currentTimeMillis()));
+                List<?> itemsList = objectMapper.readValue(order.getItemsJson(), List.class);
+                for (Object itemObj : itemsList) {
+                    if (itemObj instanceof Map) {
+                        Map<String, Object> itemMap = (Map<String, Object>) itemObj;
+                        Map<String, Object> orderItem = new HashMap<>();
+                        orderItem.put("name", itemMap.getOrDefault("name", "Fashion Piece"));
+                        orderItem.put("sku", itemMap.getOrDefault("productId", "SKU-" + System.currentTimeMillis()));
                         
                         Object qtyVal = itemMap.get("qty");
                         int units = qtyVal instanceof Number ? ((Number) qtyVal).intValue() : 1;
@@ -196,17 +203,19 @@ public class ShiprocketService {
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
             ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
 
-            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+            if (response.getStatusCode().is2xxSuccessful()) {
                 Map body = response.getBody();
-                System.out.println("Shiprocket order created successfully: " + body);
-                Map<String, String> res = new HashMap<>();
-                if (body.containsKey("order_id")) {
-                    res.put("order_id", String.valueOf(body.get("order_id")));
+                if (body != null) {
+                    System.out.println("Shiprocket order created successfully: " + body);
+                    Map<String, String> res = new HashMap<>();
+                    if (body.containsKey("order_id")) {
+                        res.put("order_id", String.valueOf(body.get("order_id")));
+                    }
+                    if (body.containsKey("shipment_id")) {
+                        res.put("shipment_id", String.valueOf(body.get("shipment_id")));
+                    }
+                    return res;
                 }
-                if (body.containsKey("shipment_id")) {
-                    res.put("shipment_id", String.valueOf(body.get("shipment_id")));
-                }
-                return res;
             } else {
                 System.err.println("Failed to create Shiprocket order: " + response.getStatusCode() + " - " + response.getBody());
             }
@@ -219,7 +228,7 @@ public class ShiprocketService {
     /**
      * Gets available couriers, delivery ETA, cost, and ratings for serviceability.
      */
-    public Map getCourierQuotes(String destinationPincode) {
+    public Map<String, Object> getCourierQuotes(String destinationPincode) {
         String token = getAuthToken();
         if (token == null) return Collections.emptyMap();
 
@@ -236,7 +245,7 @@ public class ShiprocketService {
             ResponseEntity<Map> response = restTemplate.exchange(url, org.springframework.http.HttpMethod.GET, entity, Map.class);
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                return response.getBody();
+                return (Map<String, Object>) response.getBody();
             }
         } catch (Exception e) {
             System.err.println("Exception fetching courier quotes: " + e.getMessage());
@@ -247,7 +256,7 @@ public class ShiprocketService {
     /**
      * Assigns the courier and generates the AWB number for a shipment.
      */
-    public Map assignAWB(String shipmentId, String courierId) {
+    public Map<String, Object> assignAWB(String shipmentId, String courierId) {
         String token = getAuthToken();
         if (token == null) return Collections.emptyMap();
 
@@ -265,7 +274,7 @@ public class ShiprocketService {
             ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                return response.getBody();
+                return (Map<String, Object>) response.getBody();
             }
         } catch (Exception e) {
             System.err.println("Exception assigning AWB: " + e.getMessage());
@@ -276,7 +285,7 @@ public class ShiprocketService {
     /**
      * Schedules the pickup for a shipment.
      */
-    public Map schedulePickup(String shipmentId, String pickupDate) {
+    public Map<String, Object> schedulePickup(String shipmentId, String pickupDate) {
         String token = getAuthToken();
         if (token == null) return Collections.emptyMap();
 
@@ -294,7 +303,7 @@ public class ShiprocketService {
             ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                return response.getBody();
+                return (Map<String, Object>) response.getBody();
             }
         } catch (Exception e) {
             System.err.println("Exception scheduling pickup: " + e.getMessage());
