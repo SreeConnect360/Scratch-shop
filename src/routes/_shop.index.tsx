@@ -614,7 +614,7 @@ function ShopHome() {
         return (
           <section key={sectionId} className="max-w-7xl mx-auto px-3 sm:px-5">
             <FadeUp>
-              <div className="relative aspect-[21/9] min-h-[300px] overflow-hidden bg-zinc-950 group rounded-3xl border border-border-subtle">
+              <div className="relative aspect-[16/10] lg:aspect-[21/9] min-h-[220px] sm:min-h-[300px] overflow-hidden bg-zinc-950 group rounded-3xl border border-border-subtle">
                 <img src={camp.image} className="absolute inset-0 w-full h-full object-cover opacity-70 transition-transform duration-700 group-hover:scale-105" alt="" />
                 <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/50 to-transparent" />
                 <div className="absolute inset-0 p-8 md:p-12 flex flex-col justify-center space-y-4 max-w-xl">
@@ -638,7 +638,7 @@ function ShopHome() {
         return (
           <section key={sectionId} className="max-w-7xl mx-auto px-3 sm:px-5 space-y-8">
             <FadeUp>
-              <div className="relative aspect-[3/1] min-h-[220px] rounded-3xl overflow-hidden bg-zinc-950 border border-white/10 shadow-xl">
+              <div className="relative aspect-[16/10] lg:aspect-[3/1] min-h-[160px] sm:min-h-[220px] rounded-3xl overflow-hidden bg-zinc-950 border border-white/10 shadow-xl">
                 <img src={colData.coverImage} className="absolute inset-0 w-full h-full object-cover opacity-60" alt="" />
                 <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px] flex items-center justify-center">
                   <h2 className="font-serif text-3xl md:text-5xl italic tracking-widest text-white uppercase font-bold">{colData.collectionId}</h2>
@@ -997,7 +997,7 @@ function ShopHome() {
           return (
             <section key={sectionId} className="max-w-7xl mx-auto px-6 lg:px-16 space-y-8">
               <FadeUp>
-                <div className="relative aspect-[21/9] min-h-[220px] rounded-3xl overflow-hidden bg-zinc-950 border border-white/10 shadow-xl">
+                <div className="relative aspect-[16/10] lg:aspect-[21/9] min-h-[160px] sm:min-h-[220px] rounded-3xl overflow-hidden bg-zinc-950 border border-white/10 shadow-xl">
                   <img src={thumbnail} className="absolute inset-0 w-full h-full object-cover opacity-60" alt="" />
                   <div className="absolute inset-0 bg-black/40 flex flex-col justify-center p-8 md:p-12">
                     <p className="text-[10px] uppercase tracking-[0.2em] text-accent font-bold">Curated Set Selection</p>
@@ -1220,7 +1220,7 @@ function RotatableBanner({ banner, sectionId }: { banner: any; sectionId: string
   return (
     <section key={sectionId} className="max-w-7xl mx-auto px-6 lg:px-16 relative">
       <FadeUp>
-        <div className="relative aspect-[21/9] min-h-[260px] overflow-hidden bg-zinc-950 group rounded-3xl border border-border-subtle">
+        <div className="relative aspect-[16/10] lg:aspect-[21/9] min-h-[180px] sm:min-h-[260px] overflow-hidden bg-zinc-950 group rounded-3xl border border-border-subtle">
           <Link
             to={currentSlide.redirectUrl || "/shop"}
             className="absolute inset-0 block w-full h-full z-20"

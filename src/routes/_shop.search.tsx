@@ -512,7 +512,7 @@ function SearchResultsPage() {
       {/* Product Lists */}
       <div className="space-y-12">
         {mainProducts.length > 0 && (
-          <div className="space-y-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6">
             {mainProducts.map((product, idx) => (
               <ProductCard 
                 key={product.id}
@@ -535,7 +535,7 @@ function SearchResultsPage() {
                 You might also be interested in these matching styles
               </p>
             </div>
-            <div className="space-y-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6">
               {relatedProducts.map((product, idx) => (
                 <ProductCard 
                   key={product.id}
