@@ -148,6 +148,19 @@ export type PortalState = {
     address: string;
     paymentStatus: "Paid" | "Refunded" | "Pending";
     refundDetails?: { status: string; amount: number; transactionId: string; date: string };
+    trackingNumber?: string;
+    courierPartner?: string;
+    estimatedDeliveryDate?: string;
+    scansJson?: string;
+    deliveryDate?: string;
+    shiprocketOrderId?: string;
+    shiprocketShipmentId?: string;
+    razorpayPaymentId?: string;
+    razorpayOrderId?: string;
+    razorpaySignature?: string;
+    currency?: string;
+    paymentMethod?: string;
+    transactionDate?: string;
   }>>;
   coupons: ShopCoupon[];
   products: Product[];
@@ -554,6 +567,10 @@ type Ctx = {
   toggleWishlist: (userId: string, productId: string) => void;
   createOrder: (userId: string, order: { items: CartItem[]; total: number; address: string; appliedCoupon?: string; paymentStatus?: string; razorpayPaymentId?: string; razorpayOrderId?: string; razorpaySignature?: string }) => void;
   updateOrderStatus: (userId: string, orderId: string, status: string, patch?: any) => void;
+  acceptOrder: (userId: string, orderId: string) => Promise<any>;
+  fetchCourierQuotes: (orderId: string) => Promise<any>;
+  assignAWB: (userId: string, orderId: string, courierId: string, courierName: string) => Promise<any>;
+  schedulePickup: (userId: string, orderId: string, pickupDate: string) => Promise<any>;
   addCoupon: (coupon: { code: string; discount: number; type?: "fixed" | "percentage" | "wallet"; expiryDate?: string; usageLimit?: number; userEligibility?: string }) => void;
   removeCoupon: (code: string) => void;
 
@@ -738,7 +755,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
             total: Number(o.total),
             status: o.status,
             address: o.address,
-            paymentStatus: o.paymentStatus,
+            paymentStatus: o.paymentStatus as any,
             refundDetails,
             razorpayPaymentId: o.razorpayPaymentId || undefined,
             razorpayOrderId: o.razorpayOrderId || undefined,
@@ -748,7 +765,11 @@ export function PortalProvider({ children }: { children: ReactNode }) {
             transactionDate: o.transactionDate || undefined,
             trackingNumber: o.trackingNumber || undefined,
             courierPartner: o.courierPartner || undefined,
-            estimatedDeliveryDate: o.estimatedDeliveryDate || undefined
+            estimatedDeliveryDate: o.estimatedDeliveryDate || undefined,
+            scansJson: o.scansJson || undefined,
+            deliveryDate: o.deliveryDate || undefined,
+            shiprocketOrderId: o.shiprocketOrderId || undefined,
+            shiprocketShipmentId: o.shiprocketShipmentId || undefined
           });
         });
       }
@@ -1255,7 +1276,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         total: order.total,
         status: "Processing",
         address: order.address,
-        paymentStatus: order.paymentStatus || "Paid",
+        paymentStatus: (order.paymentStatus || "Paid") as any,
         razorpayPaymentId: order.razorpayPaymentId || undefined,
         razorpayOrderId: order.razorpayOrderId || undefined,
         razorpaySignature: order.razorpaySignature || undefined,
@@ -1370,6 +1391,85 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status, ...patch })
       }).catch(err => console.error("Failed to sync order status update to backend:", err));
+    },
+    acceptOrder: async (userId, orderId) => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/orders/${orderId}/accept`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" }
+        });
+        if (res.ok) {
+          const updatedOrder = await res.json();
+          setState(s => {
+            const list = s.orders[userId] ?? [];
+            const next = list.map(o => o.id === orderId ? updatedOrder : o);
+            return {
+              ...s,
+              orders: { ...s.orders, [userId]: next }
+            };
+          });
+          return updatedOrder;
+        }
+      } catch (err) {
+        console.error("Failed to accept order:", err);
+      }
+    },
+    fetchCourierQuotes: async (orderId) => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/orders/${orderId}/serviceability`);
+        if (res.ok) {
+          return await res.json();
+        }
+      } catch (err) {
+        console.error("Failed to fetch serviceability quotes:", err);
+      }
+      return null;
+    },
+    assignAWB: async (userId, orderId, courierId, courierName) => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/orders/${orderId}/assign-awb`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ courier_id: courierId, courier_name: courierName })
+        });
+        if (res.ok) {
+          const updatedOrder = await res.json();
+          setState(s => {
+            const list = s.orders[userId] ?? [];
+            const next = list.map(o => o.id === orderId ? updatedOrder : o);
+            return {
+              ...s,
+              orders: { ...s.orders, [userId]: next }
+            };
+          });
+          return updatedOrder;
+        }
+      } catch (err) {
+        console.error("Failed to assign AWB:", err);
+      }
+    },
+    schedulePickup: async (userId, orderId, pickupDate) => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/orders/${orderId}/schedule-pickup`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pickup_date: pickupDate })
+        });
+        if (res.ok) {
+          const updatedOrder = await res.json();
+          setState(s => {
+            const list = s.orders[userId] ?? [];
+            const next = list.map(o => o.id === orderId ? updatedOrder : o);
+            return {
+              ...s,
+              orders: { ...s.orders, [userId]: next }
+            };
+          });
+          return updatedOrder;
+        }
+      } catch (err) {
+        console.error("Failed to schedule pickup:", err);
+      }
     },
     addCoupon: (coupon) => {
       const upperCode = coupon.code.toUpperCase();

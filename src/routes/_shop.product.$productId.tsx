@@ -290,8 +290,32 @@ function ProductDetail() {
   };
 
   const handlePincodeCheck = () => {
-    if (/^\d{6}$/.test(pincode.trim())) {
-      setDeliveryEstimation("Estimated Delivery: 2-3 Business Days via Shiprocket Express");
+    const pin = pincode.trim();
+    if (/^\d{6}$/.test(pin)) {
+      const firstDigit = pin[0];
+      let days = 3;
+      if (firstDigit === '5') {
+        days = 2; // Southern region (AP, Telangana, Karnataka)
+      } else if (firstDigit === '6') {
+        days = 3; // Deep South (TN, Kerala)
+      } else if (['1', '2', '3', '4', '7', '8'].includes(firstDigit)) {
+        days = 4; // Northern, Western, Eastern regions
+      } else {
+        days = 6; // Far regions/NE/Military
+      }
+      
+      const deliveryDate = new Date();
+      deliveryDate.setDate(deliveryDate.getDate() + days);
+      
+      // If delivery lands on a Sunday, push to Monday
+      if (deliveryDate.getDay() === 0) {
+        deliveryDate.setDate(deliveryDate.getDate() + 1);
+      }
+      
+      const options: Intl.DateTimeFormatOptions = { weekday: 'long', month: 'long', day: 'numeric' };
+      const dateStr = deliveryDate.toLocaleDateString('en-IN', options);
+      
+      setDeliveryEstimation(`Estimated Delivery: ${dateStr} via Shiprocket Express`);
     } else {
       setDeliveryEstimation("Please enter a valid 6-digit Pincode.");
     }
@@ -1380,11 +1404,10 @@ function RelatedProductCard({
           type="button"
           onClick={handleWishlistClick}
           whileTap={{ scale: 0.8 }}
-          className={`glass glass-strong absolute right-3 top-3 z-50 flex h-10 w-10 items-center justify-center rounded-full cursor-pointer transition-all duration-300 ease-out ${
-            isFavorite
-              ? "opacity-100 translate-y-0 pointer-events-auto"
-              : "opacity-0 translate-y-[-10px] pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto"
-          }`}
+          className={cn(
+            "glass glass-strong absolute right-2 top-2 z-[3] flex h-9 w-9 items-center justify-center rounded-full transition-shadow duration-300 sm:right-3 sm:top-3 sm:h-11 sm:w-11",
+            isFavorite && "shadow-[0_0_20px_-2px_rgba(200,169,106,0.6)]"
+          )}
         >
           <motion.span
             key={String(isFavorite)}
@@ -1394,7 +1417,7 @@ function RelatedProductCard({
             className="flex"
           >
             <Heart
-              size={16}
+              size={15}
               strokeWidth={1.8}
               className={cn(
                 "transition-colors duration-300",
@@ -1470,6 +1493,15 @@ function RelatedProductCard({
             </div>
           </div>
         </div>
+        {/* add to bag — mobile/tablet: always visible, no hover needed */}
+        <button
+          type="button"
+          onClick={handleAddToCartClick}
+          className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-full bg-gradient-to-br from-gold-soft via-gold to-gold-deep py-2.5 text-[11px] font-semibold tracking-[0.2em] uppercase text-obsidian shadow-[0_10px_28px_-8px_rgba(200,169,106,0.6)] transition-[box-shadow,filter] duration-300 hover:shadow-[0_14px_38px_-8px_rgba(200,169,106,0.8)] hover:brightness-105 md:hidden mt-2 cursor-pointer"
+        >
+          <ShoppingBag size={14} strokeWidth={2} />
+          Add to Bag
+        </button>
       </div>
     </div>
   );

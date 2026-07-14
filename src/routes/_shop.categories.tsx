@@ -696,7 +696,10 @@ function CategoryProductCard({
             type="button"
             onClick={handleWishlistClick}
             whileTap={{ scale: 0.8 }}
-            className="glass glass-strong absolute right-3 top-3 z-50 flex h-10 w-10 items-center justify-center rounded-full cursor-pointer transition-all duration-300 ease-out opacity-100 translate-y-0 pointer-events-auto shadow-[0_0_20px_-2px_rgba(200,169,106,0.4)]"
+            className={cn(
+              "glass glass-strong absolute right-2 top-2 z-[3] flex h-9 w-9 items-center justify-center rounded-full transition-shadow duration-300 sm:right-3 sm:top-3 sm:h-11 sm:w-11",
+              isWishlisted && "shadow-[0_0_20px_-2px_rgba(200,169,106,0.6)]"
+            )}
           >
             <motion.span
               key={String(isWishlisted)}
@@ -706,7 +709,7 @@ function CategoryProductCard({
               className="flex"
             >
               <Heart
-                size={16}
+                size={15}
                 strokeWidth={1.8}
                 className={cn(
                   "transition-colors duration-300",

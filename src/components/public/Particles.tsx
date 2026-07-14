@@ -78,10 +78,11 @@ export default function Particles({ count = 38 }: { count?: number }) {
     const tick = () => {
       t += 0.005;
 
-      // theme-aware color (checked per frame — cheap classList lookup)
+      // theme-aware color (checked per frame — cheap classList lookup);
+      // light mode uses a rich antique gold, boosted so it reads on ivory
       const dark = document.documentElement.classList.contains("dark");
-      const rgb = dark ? "200, 169, 106" : "150, 118, 62";
-      const alphaBoost = dark ? 1 : 1.35;
+      const rgb = dark ? "200, 169, 106" : "169, 138, 79";
+      const alphaBoost = dark ? 1 : 1.7;
 
       // ease the parallax anchor toward the cursor
       if (mouse.x > -999) {
@@ -120,7 +121,7 @@ export default function Particles({ count = 38 }: { count?: number }) {
 
         ctx.beginPath();
         ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(${rgb}, ${Math.min(0.55, d.a * alphaBoost)})`;
+        ctx.fillStyle = `rgba(${rgb}, ${Math.min(0.65, d.a * alphaBoost)})`;
         ctx.fill();
       }
       raf = requestAnimationFrame(tick);
@@ -140,7 +141,7 @@ export default function Particles({ count = 38 }: { count?: number }) {
     <canvas
       ref={canvasRef}
       aria-hidden="true"
-      className="pointer-events-none fixed inset-0 z-[1]"
+      className="pointer-events-none fixed inset-0 z-0"
     />
   );
 }

@@ -66,4 +66,16 @@ public class ShopOrder {
 
     @Column(name = "estimated_delivery_date", length = 50)
     private String estimatedDeliveryDate;
+
+    @Column(name = "scans_json", columnDefinition = "TEXT")
+    private String scansJson;
+
+    @Column(name = "delivery_date")
+    private LocalDateTime deliveryDate;
+
+    @Column(name = "shiprocket_order_id", length = 100)
+    private String shiprocketOrderId;
+
+    @Column(name = "shiprocket_shipment_id", length = 100)
+    private String shiprocketShipmentId;
 }

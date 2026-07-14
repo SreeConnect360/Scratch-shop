@@ -69,45 +69,45 @@
 }
 
 :root {
-  --background: #0b0b0c;
-  --foreground: #f8f7f4;
-  --surface: #151515;
-  --surface-2: #1e1e1f;
-  --surface-3: #2a2a2c;
+  --background: #0a0a0d;
+  --foreground: #f4f2ee;
+  --surface: #101015;
+  --surface-2: #141419;
+  --surface-3: #1a1a24;
 
-  --card: #151515;
-  --card-foreground: #f8f7f4;
-  --popover: #151515;
-  --popover-foreground: #f8f7f4;
+  --card: #101015;
+  --card-foreground: #f4f2ee;
+  --popover: #101015;
+  --popover-foreground: #f4f2ee;
 
-  --primary: #d4af37;
-  --primary-foreground: #111111;
-  --secondary: #1e1e1f;
-  --secondary-foreground: #f8f7f4;
-  --muted: #1e1e1f;
-  --muted-foreground: #a1a1a5;
+  --primary: #c8a96a;
+  --primary-foreground: #0a0a0d;
+  --secondary: #141419;
+  --secondary-foreground: #f4f2ee;
+  --muted: #141419;
+  --muted-foreground: rgba(244, 242, 238, 0.6);
 
-  --accent: #d4af37;
-  --accent-foreground: #111111;
-  --accent-rose: #e6c65c;
-  --accent-blush: #f4e2a1;
+  --accent: #c8a96a;
+  --accent-foreground: #0a0a0d;
+  --accent-rose: #e4cfa3;
+  --accent-blush: #e4cfa3;
 
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
 
-  --border: rgba(255, 255, 255, 0.1);
+  --border: rgba(255, 255, 255, 0.09);
   --border-subtle: rgba(255, 255, 255, 0.05);
-  --input: rgba(255, 255, 255, 0.15);
-  --ring: #d4af37;
+  --input: rgba(255, 255, 255, 0.14);
+  --ring: #c8a96a;
 
-  --sidebar: #0b0b0c;
-  --sidebar-foreground: #f8f7f4;
-  --sidebar-primary: #d4af37;
-  --sidebar-primary-foreground: #111111;
-  --sidebar-accent: #1e1e1f;
-  --sidebar-accent-foreground: #f8f7f4;
-  --sidebar-border: rgba(255, 255, 255, 0.08);
-  --sidebar-ring: #d4af37;
+  --sidebar: #0a0a0d;
+  --sidebar-foreground: #f4f2ee;
+  --sidebar-primary: #c8a96a;
+  --sidebar-primary-foreground: #0a0a0d;
+  --sidebar-accent: #141419;
+  --sidebar-accent-foreground: #f4f2ee;
+  --sidebar-border: rgba(255, 255, 255, 0.09);
+  --sidebar-ring: #c8a96a;
 
   /* Elysia dark mode matches root */
   --bg: #0a0a0d;
@@ -128,61 +128,61 @@
 }
 
 .light {
-  --background: #f8f7f4;
-  --foreground: #111111;
-  --surface: #f0eee9;
-  --surface-2: #e5e1d8;
-  --surface-3: #dad4c8;
+  --background: #faf9f7;
+  --foreground: #1b1712;
+  --surface: #f1efeb;
+  --surface-2: #e9e6df;
+  --surface-3: #dfdaca;
 
   --card: #ffffff;
-  --card-foreground: #111111;
+  --card-foreground: #1b1712;
   --popover: #ffffff;
-  --popover-foreground: #111111;
+  --popover-foreground: #1b1712;
 
-  --primary: #d4af37;
-  --primary-foreground: #ffffff;
-  --secondary: #e5e1d8;
-  --secondary-foreground: #111111;
-  --muted: #e5e1d8;
-  --muted-foreground: #706d64;
+  --primary: #c8a96a;
+  --primary-foreground: #1b1712;
+  --secondary: #f1efeb;
+  --secondary-foreground: #1b1712;
+  --muted: #f1efeb;
+  --muted-foreground: rgba(27, 23, 18, 0.66);
 
-  --accent: #d4af37;
-  --accent-foreground: #ffffff;
-  --accent-rose: #e6c65c;
-  --accent-blush: #f4e2a1;
+  --accent: #c8a96a;
+  --accent-foreground: #1b1712;
+  --accent-rose: #a98a4f;
+  --accent-blush: #a98a4f;
 
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
 
-  --border: rgba(0, 0, 0, 0.12);
-  --border-subtle: rgba(0, 0, 0, 0.07);
-  --input: rgba(0, 0, 0, 0.18);
-  --ring: #d4af37;
+  --border: rgba(27, 23, 18, 0.09);
+  --border-subtle: rgba(27, 23, 18, 0.05);
+  --input: rgba(27, 23, 18, 0.14);
+  --ring: #c8a96a;
 
-  --sidebar: #f0eee9;
-  --sidebar-foreground: #111111;
-  --sidebar-primary: #d4af37;
+  --sidebar: #f1efeb;
+  --sidebar-foreground: #1b1712;
+  --sidebar-primary: #c8a96a;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #e5e1d8;
-  --sidebar-accent-foreground: #111111;
-  --sidebar-border: rgba(0, 0, 0, 0.1);
-  --sidebar-ring: #d4af37;
+  --sidebar-accent: #e9e6df;
+  --sidebar-accent-foreground: #1b1712;
+  --sidebar-border: rgba(27, 23, 18, 0.09);
+  --sidebar-ring: #c8a96a;
 
   /* Elysia light mode matches .light */
-  --bg: #f7f6f3;
-  --bg-soft: #efede8;
-  --text: #17171a;
-  --text-muted: rgba(23, 23, 26, 0.62);
-  --glass-bg: rgba(255, 255, 255, 0.55);
-  --glass-bg-strong: rgba(255, 255, 255, 0.72);
-  --glass-border: rgba(23, 23, 26, 0.08);
-  --glass-highlight: rgba(255, 255, 255, 0.9);
-  --glass-shadow: 0 10px 40px -12px rgba(23, 23, 26, 0.14),
-    0 2px 10px -4px rgba(23, 23, 26, 0.06);
-  --glass-shadow-hover: 0 24px 60px -16px rgba(23, 23, 26, 0.22),
-    0 4px 16px -6px rgba(23, 23, 26, 0.1);
-  --gold-glow: 0 0 32px -6px rgba(200, 169, 106, 0.45);
-  --reflect: rgba(255, 255, 255, 0.55);
+  --bg: #faf9f7;
+  --bg-soft: #f1efeb;
+  --text: #1b1712;
+  --text-muted: rgba(27, 23, 18, 0.66);
+  --glass-bg: rgba(255, 255, 255, 0.82);
+  --glass-bg-strong: rgba(255, 255, 255, 0.95);
+  --glass-border: rgba(27, 23, 18, 0.09);
+  --glass-highlight: rgba(255, 255, 255, 1);
+  --glass-shadow: 0 1px 2px rgba(27, 23, 18, 0.04),
+    0 10px 32px -12px rgba(27, 23, 18, 0.12);
+  --glass-shadow-hover: 0 2px 6px rgba(27, 23, 18, 0.05),
+    0 24px 56px -16px rgba(27, 23, 18, 0.2);
+  --gold-glow: 0 0 28px -6px rgba(138, 109, 51, 0.35);
+  --reflect: rgba(255, 255, 255, 0.9);
   color-scheme: light;
 }
 
@@ -603,4 +603,316 @@ body, button, input, select, textarea, span, p, a, h1, h2, h3, h4, h5, h6, div, 
   background-color: var(--surface-2) !important;
 }
 
+/* ============================================================
+   ÉLYSIA — Keyframes & Parallax Styles from ReeDesign
+   ============================================================ */
 
+/* ---------- light-mode readability overrides ---------- */
+html:not(.dark) .text-gold {
+  color: #7d6432 !important;
+}
+html:not(.dark) .text-ink-muted {
+  color: rgba(27, 23, 18, 0.66) !important;
+}
+html:not(.dark) .bg-gold\/10 {
+  background-color: rgba(138, 109, 51, 0.12) !important;
+}
+html:not(.dark) .bg-gold\/5,
+html:not(.dark) .bg-gold\/8 {
+  background-color: rgba(138, 109, 51, 0.08) !important;
+}
+html:not(.dark) .border-gold\/25,
+html:not(.dark) .border-gold\/30 {
+  border-color: rgba(138, 109, 51, 0.35) !important;
+}
+html:not(.dark) .gold-text {
+  background-image: linear-gradient(
+    115deg,
+    #6f5828 0%,
+    #a98a4f 45%,
+    #8a6d33 70%,
+    #6f5828 100%
+  ) !important;
+}
+html:not(.dark) .fill-gold {
+  fill: #a98a4f !important;
+}
+
+/* ---------- keyframes ---------- */
+@keyframes marquee {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -12px, 0);
+  }
+}
+
+@keyframes pulse-soft {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(200, 169, 106, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(200, 169, 106, 0);
+  }
+}
+
+@keyframes shimmer {
+  to {
+    background-position: 200% center;
+  }
+}
+
+@keyframes hero-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* 3D Cube animations */
+@keyframes left {
+  100% {
+    margin-left: -54000px;
+  }
+}
+
+@keyframes back {
+  100% {
+    margin-left: -54870px;
+  }
+}
+
+@keyframes right {
+  100% {
+    margin-left: -55740px;
+  }
+}
+
+@keyframes filter-animation {
+  0%,
+  100% {
+    filter: hue-rotate(0deg);
+  }
+  50% {
+    filter: hue-rotate(100deg);
+  }
+}
+
+@keyframes zoom-in {
+  0% {
+    transform: scale(1);
+  }
+  100% {
+    transform: scale(2.5);
+  }
+}
+
+@keyframes blur {
+  0% {
+    filter: blur(0px);
+  }
+  100% {
+    filter: blur(3px);
+  }
+}
+
+@keyframes brightness {
+  0% {
+    filter: brightness(1) contrast(1);
+  }
+  100% {
+    filter: brightness(0.8) contrast(1.3);
+  }
+}
+
+@keyframes text-glow {
+  0%,
+  100% {
+    text-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
+  }
+  50% {
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+  }
+}
+
+@keyframes cube-spin {
+  from {
+    transform: rotateX(-8deg) rotateY(0deg);
+  }
+  to {
+    transform: rotateX(-8deg) rotateY(360deg);
+  }
+}
+
+.hero-section {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.hero-section > .container {
+  width: 100%;
+  max-width: none;
+  display: flex;
+  justify-content: center;
+  overflow: visible;
+}
+
+.hero-section .content {
+  position: relative;
+  transform-origin: center top;
+  will-change: transform;
+}
+
+.hero-section .container-full {
+  position: relative;
+  width: 1000px;
+  height: 562px;
+  overflow: hidden;
+  border-radius: 28px;
+  box-shadow: var(--glass-shadow);
+  isolation: isolate;
+  border: 1px solid var(--glass-border);
+}
+
+.hero-section .animated.hue {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at 50% 100%,
+    rgba(200, 169, 106, 0.22),
+    transparent 60%
+  );
+  mix-blend-mode: screen;
+  animation: filter-animation 24s ease-in-out infinite;
+}
+
+.hero-section .backgroundImage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+  animation: zoom-in 45s ease-in-out infinite alternate,
+    brightness 18s ease-in-out infinite alternate;
+}
+
+.hero-section .boyImage {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  height: 88%;
+  object-fit: contain;
+  z-index: 2;
+  animation: blur 14s ease-in-out infinite alternate;
+}
+
+.hero-section .container-full > .container,
+.hero-section .container-reflect {
+  position: absolute;
+  left: 50%;
+  top: 34%;
+  width: 870px;
+  height: 130px;
+  margin-left: -435px;
+  perspective: 1400px;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.hero-section .cube {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  animation: cube-spin 80s linear infinite;
+}
+
+.hero-section .face {
+  position: absolute;
+  width: 870px;
+  height: 130px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(1px);
+}
+
+.hero-section .face.front {
+  transform: translateZ(435px);
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.05);
+}
+.hero-section .face.back {
+  transform: rotateY(180deg) translateZ(435px);
+}
+.hero-section .face.left {
+  transform: rotateY(-90deg) translateZ(435px);
+}
+.hero-section .face.right {
+  transform: rotateY(90deg) translateZ(435px);
+}
+.hero-section .face.top {
+  height: 870px;
+  transform: rotateX(90deg) translateZ(65px);
+  background: linear-gradient(rgba(255, 255, 255, 0.05), transparent 30%);
+  border: none;
+}
+.hero-section .face.bottom {
+  height: 870px;
+  transform: rotateX(-90deg) translateZ(65px);
+  background: linear-gradient(transparent 70%, rgba(255, 255, 255, 0.05));
+  border: none;
+}
+
+.hero-section .face.text p {
+  margin: 0;
+  width: 60000px;
+  white-space: nowrap;
+  font-family: var(--font-display);
+  font-size: 96px;
+  line-height: 130px;
+  color: rgba(255, 255, 255, 0.85);
+  animation: text-glow 6s ease-in-out infinite;
+  will-change: margin-left;
+}
+
+.hero-section .face.left.text p {
+  animation: left 700s linear infinite, text-glow 6s ease-in-out infinite;
+}
+.hero-section .face.back.text p {
+  animation: back 700s linear infinite, text-glow 6s ease-in-out infinite;
+}
+.hero-section .face.right.text p {
+  animation: right 700s linear infinite, text-glow 6s ease-in-out infinite;
+}
+
+.hero-section .face.text p span {
+  color: var(--color-gold-soft);
+  text-shadow: 0 0 24px rgba(200, 169, 106, 0.55);
+}
+
+.hero-section .container-reflect {
+  top: calc(34% + 140px);
+  transform: scaleY(-1);
+  opacity: 0.28;
+  mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.9), transparent 75%);
+}

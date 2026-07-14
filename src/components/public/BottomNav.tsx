@@ -46,10 +46,16 @@ export default function BottomNav({ setSearchOpen }: BottomNavProps) {
   return (
     <nav
       aria-label="Mobile navigation"
-      className="fixed inset-x-3 bottom-3 z-[90] md:hidden"
-      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      className="glass glass-strong fixed inset-x-0 bottom-0 z-[90] border-x-0 border-b-0 md:hidden w-full border-t border-white/10 rounded-none shadow-[0_-8px_32px_rgba(0,0,0,0.15)]"
+      style={{
+        paddingBottom: "env(safe-area-inset-bottom)",
+        position: "fixed",
+        bottom: 0,
+        left: 0,
+        right: 0
+      }}
     >
-      <div className="glass glass-strong glass-edge flex items-end justify-between rounded-[1.6rem] px-2 py-1.5 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.15)]">
+      <div className="flex items-end justify-between px-2 py-1.5">
         {items.map((item) => {
           const isSearch = item.key === "search";
           const isActive = active === item.key;

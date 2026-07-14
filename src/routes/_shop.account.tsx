@@ -1072,47 +1072,60 @@ function ShopDashboard() {
                                           
                                           <div className="flex items-center gap-3 ml-auto">
                                             <span className="font-semibold font-mono text-xs text-foreground">{v.price}</span>
-                                            {order.status === "Delivered" && (
-                                              <div className="flex gap-1.5">
-                                                <button
-                                                  onClick={() => {
-                                                    setReviewFormItem({ productId: groupedItem.productId, orderId: order.id });
-                                                    setReviewText("");
-                                                    setReviewRating(5);
-                                                  }}
-                                                  className="bg-white/5 hover:bg-white/10 border border-white/10 text-[9px] uppercase font-bold tracking-wider px-2 py-1 rounded-full transition-all"
-                                                >
-                                                  Review
-                                                </button>
-                                                {!hasBeenReturned ? (
-                                                  <button
-                                                    onClick={() => {
-                                                      setReturnFormItem({
-                                                        orderId: order.id,
-                                                        productId: groupedItem.productId,
-                                                        productName: groupedItem.name,
-                                                        price: v.price,
-                                                        selectedSize: v.size,
-                                                        qty: v.qty
-                                                      });
-                                                      setReturnStep(1);
-                                                      setReturnReason("Product arrived damaged");
-                                                      setReturnDesc("");
-                                                      setReturnPhotos([]);
-                                                      setReturnVideo("");
-                                                      setReturnRefundMethod("Original Payment Method");
-                                                    }}
-                                                    className="bg-accent/20 hover:bg-accent hover:text-white border border-accent/20 text-[9px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full text-accent transition-colors cursor-pointer"
-                                                  >
-                                                    Return
-                                                  </button>
-                                                ) : (
+                                            {(() => {
+                                              const hasBeenReturned = state.returns?.some(
+                                                r => r.orderId === order.id && r.productId === groupedItem.productId && r.selectedSize === v.size
+                                              );
+                                              if (hasBeenReturned) {
+                                                return (
                                                   <span className="text-[8px] uppercase tracking-wider text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
                                                     Returned
                                                   </span>
-                                                )}
-                                              </div>
-                                            )}
+                                                );
+                                              }
+                                              
+                                              if (order.status === "Delivered") {
+                                                const delDate = order.deliveryDate || order.date;
+                                                const deliveredTime = new Date(delDate).getTime();
+                                                const sevenDaysInMs = 7 * 24 * 60 * 60 * 1000;
+                                                const isWithinSevenDays = (Date.now() - deliveredTime) < sevenDaysInMs;
+                                                
+                                                if (isWithinSevenDays) {
+                                                  return (
+                                                    <div className="flex gap-1.5">
+                                                      <button
+                                                        onClick={() => {
+                                                          setReviewFormItem({ productId: groupedItem.productId, orderId: order.id });
+                                                          setReviewText("");
+                                                          setReviewRating(5);
+                                                        }}
+                                                        className="bg-white/5 hover:bg-white/10 border border-white/10 text-[9px] uppercase font-bold tracking-wider px-2 py-1 rounded-full transition-all"
+                                                      >
+                                                        Review
+                                                      </button>
+                                                      <button
+                                                        onClick={() => {
+                                                          setReturnFormItem({
+                                                            orderId: order.id,
+                                                            productId: groupedItem.productId,
+                                                            productName: groupedItem.name,
+                                                            price: v.price,
+                                                            selectedSize: v.size,
+                                                            qty: v.qty
+                                                          });
+                                                          setReturnReason("Product arrived damaged");
+                                                          setReturnDesc("");
+                                                        }}
+                                                        className="bg-accent/20 hover:bg-accent hover:text-white border border-accent/20 text-[9px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full text-accent transition-colors cursor-pointer"
+                                                      >
+                                                        Return
+                                                      </button>
+                                                    </div>
+                                                  );
+                                                }
+                                              }
+                                              return null;
+                                            })()}
                                           </div>
                                         </div>
                                       );
@@ -1161,49 +1174,75 @@ function ShopDashboard() {
                               }
                               
                               return (
-                                <div className="relative flex items-center justify-between w-full mt-4 pb-1.5">
-                                  {/* Progress Line Bar */}
-                                  <div className="absolute left-0 right-0 top-1.5 h-0.5 bg-white/10 -z-10" />
-                                  <div
-                                    className="absolute left-0 top-1.5 h-0.5 bg-accent transition-all duration-500 -z-10"
-                                    style={{ width: `${(activeIdx / (steps.length - 1)) * 100}%` }}
-                                  />
-                                  
-                                  {steps.map((st, sIdx) => {
-                                    const isCompleted = sIdx <= activeIdx;
-                                    const isActive = sIdx === activeIdx;
-                                    return (
-                                      <div key={sIdx} className="flex flex-col items-center">
-                                        <div
-                                          className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center transition-all ${
-                                            isCompleted
-                                              ? "bg-accent border-accent shadow-[0_0_8px_rgba(212,175,55,0.6)]"
-                                              : "bg-zinc-950 border-white/20"
-                                          }`}
-                                        >
-                                          {isCompleted && (
-                                            <div className="w-1 h-1 rounded-full bg-white" />
-                                          )}
+                                <>
+                                  <div className="relative flex items-center justify-between w-full mt-4 pb-1.5">
+                                    {/* Progress Line Bar */}
+                                    <div className="absolute left-0 right-0 top-1.5 h-0.5 bg-white/10 -z-10" />
+                                    <div
+                                      className="absolute left-0 top-1.5 h-0.5 bg-accent transition-all duration-500 -z-10"
+                                      style={{ width: `${(activeIdx / (steps.length - 1)) * 100}%` }}
+                                    />
+                                    
+                                    {steps.map((st, sIdx) => {
+                                      const isCompleted = sIdx <= activeIdx;
+                                      const isActive = sIdx === activeIdx;
+                                      return (
+                                        <div key={sIdx} className="flex flex-col items-center">
+                                          <div
+                                            className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center transition-all ${
+                                              isCompleted
+                                                ? "bg-accent border-accent shadow-[0_0_8px_rgba(212,175,55,0.6)]"
+                                                : "bg-zinc-950 border-white/20"
+                                            }`}
+                                          >
+                                            {isCompleted && (
+                                              <div className="w-1 h-1 rounded-full bg-white" />
+                                            )}
+                                          </div>
+                                          <span
+                                            className={`text-[8px] uppercase tracking-wider mt-2.5 font-bold transition-colors ${
+                                              isActive
+                                                ? "text-accent"
+                                                : isCompleted
+                                                ? "text-white"
+                                                : "text-muted-foreground"
+                                            }`}
+                                          >
+                                            {st}
+                                          </span>
                                         </div>
-                                        <span
-                                          className={`text-[8px] uppercase tracking-wider mt-2.5 font-bold transition-colors ${
-                                            isActive
-                                              ? "text-accent"
-                                              : isCompleted
-                                              ? "text-white"
-                                              : "text-muted-foreground"
-                                          }`}
-                                        >
-                                          {st}
-                                        </span>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
+                                      );
+                                    })}
+                                  </div>
+                                  {order.scansJson && (() => {
+                                    try {
+                                      const scans = JSON.parse(order.scansJson);
+                                      if (Array.isArray(scans) && scans.length > 0) {
+                                        return (
+                                          <div className="mt-4 pt-4 border-t border-white/5 space-y-2.5">
+                                            <span className="font-bold text-white uppercase tracking-widest text-[8px] block">Live Tracking History</span>
+                                            <div className="space-y-2 pl-2 border-l border-white/10 max-h-36 overflow-y-auto">
+                                              {scans.map((scan: any, idx: number) => (
+                                                <div key={idx} className="relative pl-3 text-[10px] leading-relaxed">
+                                                  <div className="absolute left-[-4px] top-1.5 w-1.5 h-1.5 rounded-full bg-accent" />
+                                                  <div className="font-semibold text-white">{scan.activity}</div>
+                                                  <div className="text-[9px] text-muted-foreground">{scan.date} · {scan.location}</div>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        );
+                                      }
+                                    } catch (e) {
+                                      console.error("Failed to parse user scansJson", e);
+                                    }
+                                    return null;
+                                  })()}
+                                </>
                               );
                             })()}
-                          </div>
                         </div>
+                      </div>
 
                         <div className="flex justify-between items-center pt-2 border-t border-white/10 text-xs">
                           <span className="text-muted-foreground">Total Paid:</span>
@@ -1274,13 +1313,13 @@ function ShopDashboard() {
                 </div>
               )}
 
-              {/* 4-Step Return Form Wizard Modal */}
+              {/* Simplified Return Form Modal */}
               {returnFormItem && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
                   <div className="liquid-glass max-w-lg w-full p-6 md:p-8 space-y-6 shadow-2xl animate-in zoom-in-95 duration-200">
                     <div className="flex justify-between items-center border-b border-white/10 pb-4">
                       <div>
-                        <span className="text-[10px] uppercase tracking-widest text-accent font-bold">Maison Returns desk</span>
+                        <span className="text-[10px] uppercase tracking-widest text-accent font-bold">Maison Returns Desk</span>
                         <h3 className="font-serif text-xl mt-1">Return: {returnFormItem.productName}</h3>
                       </div>
                       <button onClick={() => setReturnFormItem(null)} className="text-muted-foreground hover:text-foreground">
@@ -1288,189 +1327,73 @@ function ShopDashboard() {
                       </button>
                     </div>
 
-                    {/* Step Indicators */}
-                    <div className="grid grid-cols-3 gap-2 text-center text-[9px] uppercase tracking-widest font-bold text-muted-foreground pb-2 border-b border-white/5">
-                      <span className={returnStep >= 1 ? "text-accent" : ""}>Step 1: Details</span>
-                      <span className={returnStep >= 2 ? "text-accent" : ""}>Step 2: Evidence</span>
-                      <span className={returnStep >= 3 ? "text-accent" : ""}>Step 3: Refund</span>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="block text-xs text-muted-foreground uppercase tracking-wider font-semibold">Return Reason</label>
+                        <select
+                          value={returnReason}
+                          onChange={e => setReturnReason(e.target.value)}
+                          className="w-full bg-zinc-900 border border-white/10 p-3 rounded-xl text-xs outline-none text-white focus:border-accent"
+                        >
+                          <option value="Product arrived damaged">Product arrived damaged</option>
+                          <option value="Wrong item delivered">Wrong item delivered</option>
+                          <option value="Wrong size delivered">Wrong size delivered</option>
+                          <option value="Too small">Too small</option>
+                          <option value="Too large">Too large</option>
+                          <option value="Product color different from website">Product color different from website</option>
+                          <option value="Poor quality material">Poor quality material</option>
+                          <option value="No longer needed">No longer needed</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <label className="block text-xs text-muted-foreground uppercase tracking-wider font-semibold">Comments (Optional)</label>
+                          <span className="text-[10px] font-mono text-muted-foreground">{returnDesc.length} / 500 characters</span>
+                        </div>
+                        <textarea
+                          maxLength={500}
+                          placeholder="Please explain the issue or provide details..."
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl p-3 text-xs outline-none focus:border-accent h-24 text-white resize-none"
+                          value={returnDesc}
+                          onChange={e => setReturnDesc(e.target.value)}
+                        />
+                      </div>
                     </div>
 
-                    <div className="space-y-4 min-h-[160px]">
-                      {/* Step 1: Select Reason & Description */}
-                      {returnStep === 1 && (
-                        <div className="space-y-4">
-                          <div className="space-y-2">
-                            <label className="block text-xs text-muted-foreground uppercase tracking-wider font-semibold">Select Return Reason</label>
-                            <select
-                              value={returnReason}
-                              onChange={e => setReturnReason(e.target.value)}
-                              className="w-full bg-zinc-900 border border-white/10 p-3 rounded-xl text-xs outline-none text-white focus:border-accent"
-                            >
-                              <option value="Product arrived damaged">Product arrived damaged</option>
-                              <option value="Wrong item delivered">Wrong item delivered</option>
-                              <option value="Wrong size delivered">Wrong size delivered</option>
-                              <option value="Too small">Too small</option>
-                              <option value="Too large">Too large</option>
-                              <option value="Product color different from website">Product color different from website</option>
-                              <option value="Poor quality material">Poor quality material</option>
-                              <option value="No longer needed">No longer needed</option>
-                              <option value="Other">Other</option>
-                            </select>
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <div className="flex justify-between items-center">
-                              <label className="block text-xs text-muted-foreground uppercase tracking-wider font-semibold">Description (Optional)</label>
-                              <span className="text-[10px] font-mono text-muted-foreground">{returnDesc.length} / 500 characters</span>
-                            </div>
-                            <textarea
-                              maxLength={500}
-                              placeholder="Please explain the issue in detail..."
-                              className="w-full bg-white/5 border border-white/10 rounded-2xl p-3 text-xs outline-none focus:border-accent h-24 text-white resize-none"
-                              value={returnDesc}
-                              onChange={e => setReturnDesc(e.target.value)}
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Step 2: Evidence uploads */}
-                      {returnStep === 2 && (
-                        <div className="space-y-4">
-                          <div className="space-y-2">
-                            <label className="block text-xs text-muted-foreground uppercase tracking-wider font-semibold">Evidence photos (up to 5 - Optional)</label>
-                            <div className="flex gap-2 flex-wrap items-center">
-                              {returnPhotos.map((pUrl, idx) => (
-                                <div key={idx} className="relative w-12 h-16 border border-white/10 rounded-lg overflow-hidden bg-zinc-900">
-                                  <img src={pUrl} className="w-full h-full object-cover" />
-                                  <button
-                                    onClick={() => setReturnPhotos(prev => prev.filter((_, i) => i !== idx))}
-                                    className="absolute inset-0 bg-black/60 flex items-center justify-center text-rose-400 hover:text-rose-500 transition-opacity opacity-0 hover:opacity-100"
-                                  >
-                                    <X className="w-4 h-4" />
-                                  </button>
-                                </div>
-                              ))}
-                              {returnPhotos.length < 5 && (
-                                <button
-                                  onClick={() => {
-                                    setReturnFileLoading(true);
-                                    setTimeout(() => {
-                                      const mockPhotos = [
-                                        "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=150&h=200&q=80",
-                                        "https://images.unsplash.com/photo-1496360166961-10a51d5f367a?auto=format&fit=crop&w=150&h=200&q=80",
-                                        "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=150&h=200&q=80",
-                                        "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=150&h=200&q=80"
-                                      ];
-                                      const randomMock = mockPhotos[Math.floor(Math.random() * mockPhotos.length)];
-                                      setReturnPhotos(prev => [...prev, randomMock]);
-                                      setReturnFileLoading(false);
-                                      toast.success("Simulated image evidence added successfully.");
-                                    }, 800);
-                                  }}
-                                  className="w-12 h-16 border-2 border-dashed border-white/20 hover:border-accent hover:bg-white/5 rounded-lg flex items-center justify-center text-muted-foreground text-xs transition-all"
-                                >
-                                  {returnFileLoading ? "..." : "+"}
-                                </button>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="space-y-2">
-                            <label className="block text-xs text-muted-foreground uppercase tracking-wider font-semibold">Evidence Video (1 video max - Optional)</label>
-                            {returnVideo ? (
-                              <div className="p-3 bg-white/5 border border-white/10 rounded-xl flex items-center justify-between">
-                                <span className="text-[10px] text-accent font-mono truncate max-w-[200px]">{returnVideo}</span>
-                                <button onClick={() => setReturnVideo("")} className="text-rose-400 hover:text-rose-500">Remove</button>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => {
-                                  setReturnVideo(`curation_evidence_${Date.now()}.mp4`);
-                                  toast.success("Simulated video evidence added successfully.");
-                                }}
-                                className="w-full py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-bold text-foreground text-center"
-                              >
-                                Simulate Video Evidence Upload
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Step 3: Refund Method */}
-                      {returnStep === 3 && (
-                        <div className="space-y-4">
-                          <label className="block text-xs text-muted-foreground uppercase tracking-wider font-semibold">Choose Refund Settlement Method</label>
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            {[
-                              "Original Payment Method",
-                              "ReeVibes Wallet",
-                              "Exchange Product",
-                              "Store Credit"
-                            ].map((method) => (
-                              <button
-                                key={method}
-                                type="button"
-                                onClick={() => setReturnRefundMethod(method)}
-                                className={`p-4 border rounded-xl text-xs font-bold uppercase tracking-wider transition-all text-center ${
-                                  returnRefundMethod === method
-                                    ? "border-accent bg-accent/15 text-white"
-                                    : "border-white/10 bg-white/5 text-muted-foreground hover:text-white"
-                                }`}
-                              >
-                                {method}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Step Navigation Controls */}
-                    <div className="flex gap-2 pt-4 border-t border-white/10">
-                      {returnStep > 1 && (
-                        <button
-                          onClick={() => setReturnStep(prev => prev - 1)}
-                          className="bg-white/10 hover:bg-white/20 border border-white/15 px-5 py-2.5 rounded-full text-xs text-foreground font-semibold flex items-center gap-1.5 transition-colors"
-                        >
-                          <ArrowLeft className="w-4 h-4" /> Back
-                        </button>
-                      )}
-                      {returnStep < 3 ? (
-                        <button
-                          onClick={() => setReturnStep(prev => prev + 1)}
-                          className="flex-1 bg-white text-black py-2.5 rounded-full text-xs font-bold uppercase tracking-widest hover:bg-neutral-200 transition-all text-center"
-                        >
-                          Continue
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => {
-                            requestReturn({
-                              orderId: returnFormItem.orderId,
-                              productId: returnFormItem.productId,
-                              productName: returnFormItem.productName,
-                              customerId: user.id,
-                              customerName: `${user.firstName} ${user.lastName}`,
-                              reason: returnReason,
-                              comment: returnDesc.trim(),
-                              images: returnPhotos,
-                              videos: returnVideo ? [returnVideo] : [],
-                              refundAmount: Number(String(returnFormItem.price).replace(/[^0-9.]/g, "")) * returnFormItem.qty,
-                              selectedSize: returnFormItem.selectedSize,
-                              qty: returnFormItem.qty,
-                              refundMethod: returnRefundMethod
-                            });
-                            toast.success("Return request logged with Maison operations team!");
-                            setReturnFormItem(null);
-                            navigate({ to: "/account", search: { tab: "returns" } });
-                          }}
-                          className="flex-1 bg-gradient-to-r from-accent to-accent-rose text-white hover:shadow-[0_0_20px_rgba(212,175,55,0.4)] py-2.5 rounded-full text-xs font-bold uppercase tracking-widest transition-transform hover:scale-105 active:scale-95"
-                        >
-                          Submit Return Request
-                        </button>
-                      )}
+                    <div className="flex gap-3 pt-4 border-t border-white/10">
+                      <button
+                        onClick={() => setReturnFormItem(null)}
+                        className="flex-1 bg-white/10 hover:bg-white/20 border border-white/15 py-2.5 rounded-full text-xs text-foreground font-semibold transition-colors uppercase tracking-wider"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => {
+                          requestReturn({
+                            orderId: returnFormItem.orderId,
+                            productId: returnFormItem.productId,
+                            productName: returnFormItem.productName,
+                            customerId: user.id,
+                            customerName: `${user.firstName} ${user.lastName}`,
+                            reason: returnReason,
+                            comment: returnDesc.trim(),
+                            images: [],
+                            videos: [],
+                            refundAmount: Number(String(returnFormItem.price).replace(/[^0-9.]/g, "")) * returnFormItem.qty,
+                            selectedSize: returnFormItem.selectedSize,
+                            qty: returnFormItem.qty,
+                            refundMethod: "Original Payment Method"
+                          });
+                          toast.success("Return request logged with Maison operations team!");
+                          setReturnFormItem(null);
+                          navigate({ to: "/account", search: { tab: "returns" } });
+                        }}
+                        className="flex-1 bg-gradient-to-r from-accent to-accent-rose text-white hover:shadow-[0_0_20px_rgba(212,175,55,0.4)] py-2.5 rounded-full text-xs font-bold uppercase tracking-widest transition-transform hover:scale-105 active:scale-95"
+                      >
+                        Submit Return Request
+                      </button>
                     </div>
                   </div>
                 </div>

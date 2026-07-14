@@ -12,7 +12,13 @@ import {
 import { motion, useSpring, AnimatePresence } from "framer-motion";
 import { SplineScene } from "@/components/ui/splite";
 import MagneticButton from "@/components/ui/MagneticButton";
-import { cn } from "@/lib/utils";
+import { cn, prefersReducedMotion } from "@/lib/utils";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+
+if (typeof window !== "undefined") {
+  gsap.registerPlugin(ScrollTrigger);
+}
 
 export const Route = createFileRoute("/_shop/")({
   head: () => ({
@@ -75,17 +81,25 @@ function ShopHome() {
 
   // Active Hero Slide Index
   const [activeHeroIdx, setActiveHeroIdx] = useState(0);
+  const [hoveringHero, setHoveringHero] = useState(false);
+  const [heroCycle, setHeroCycle] = useState(0);
 
-  // Automatic slideshow for Hero Banners (rotates every 5 seconds)
-  useEffect(() => {
-    const banners = layout.hero?.banners;
-    if (banners && banners.length > 1) {
-      const slideInterval = setInterval(() => {
-        setActiveHeroIdx((prev) => (prev + 1) % banners.length);
-      }, 5000);
-      return () => clearInterval(slideInterval);
+  const goHero = useCallback(
+    (dir: number, bannersLength: number) => {
+      setActiveHeroIdx((prev) => (prev + dir + bannersLength) % bannersLength);
+    },
+    []
+  );
+
+  const onHeroProgressEnd = useCallback(() => {
+    const banners = layout.hero?.banners || [];
+    if (banners.length <= 1) return;
+    if (document.hidden) {
+      setHeroCycle((c) => c + 1);
+    } else {
+      goHero(1, banners.length);
     }
-  }, [layout.hero?.banners]);
+  }, [goHero, layout.hero?.banners]);
 
   // Live Purchase Alert Simulation
   const [activeFeedIdx, setActiveFeedIdx] = useState(0);
@@ -175,6 +189,25 @@ function ShopHome() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  const brandStoryRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (prefersReducedMotion() || !brandStoryRef.current) return;
+    const ctx = gsap.context(() => {
+      gsap.to(".story-img", {
+        yPercent: -10,
+        ease: "none",
+        scrollTrigger: {
+          trigger: brandStoryRef.current,
+          start: "top bottom",
+          end: "bottom top",
+          scrub: 0.8,
+        },
+      });
+    }, brandStoryRef);
+    return () => ctx.revert();
+  }, []);
+
   const scrollToSection = (id: string) => {
     const el = document.getElementById(id);
     if (el) {
@@ -226,7 +259,7 @@ function ShopHome() {
             id="hero"
             key={sectionId}
             aria-label="Featured stories"
-            className="relative flex min-h-[75svh] flex-col items-center justify-center overflow-hidden pb-14 pt-6"
+            className="relative flex flex-col items-center justify-center overflow-hidden pb-14 pt-5 md:min-h-[88svh]"
           >
             {/* ambient gold light */}
             <div
@@ -239,7 +272,9 @@ function ShopHome() {
                 role="region"
                 aria-roledescription="carousel"
                 aria-label="Seasonal highlights"
-                className="glass glass-edge group relative h-[55svh] min-h-[26rem] w-full overflow-hidden rounded-[1.8rem] sm:h-[62svh]"
+                onMouseEnter={() => setHoveringHero(true)}
+                onMouseLeave={() => setHoveringHero(false)}
+                className="glass glass-edge group relative aspect-[16/10] max-h-[calc(100svh-10rem)] w-full overflow-hidden rounded-[1.2rem] sm:rounded-[1.8rem] lg:aspect-[21/9]"
               >
                 <AnimatePresence mode="sync">
                   <motion.div
@@ -247,7 +282,7 @@ function ShopHome() {
                     initial={{ opacity: 0, scale: 1.04 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0 }}
-                    transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                    transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
                     className="absolute inset-0"
                   >
                     {currentBanner.type === "Video Banner" && currentBanner.videoUrl ? (
@@ -259,7 +294,7 @@ function ShopHome() {
                         playsInline
                         initial={{ scale: 1 }}
                         animate={{ scale: 1.08 }}
-                        transition={{ duration: 6, ease: "linear" }}
+                        transition={{ duration: 6.2, ease: "linear" }}
                         className="h-full w-full object-cover"
                       />
                     ) : (
@@ -268,7 +303,7 @@ function ShopHome() {
                         alt={currentBanner.title}
                         initial={{ scale: 1 }}
                         animate={{ scale: 1.08 }}
-                        transition={{ duration: 6, ease: "linear" }}
+                        transition={{ duration: 6.2, ease: "linear" }}
                         className="h-full w-full object-cover"
                       />
                     )}
@@ -324,7 +359,7 @@ function ShopHome() {
                 <button
                   type="button"
                   aria-label="Previous banner"
-                  onClick={() => setActiveHeroIdx((prev) => (prev === 0 ? heroData.banners.length - 1 : prev - 1))}
+                  onClick={() => goHero(-1, heroData.banners.length)}
                   className="glass absolute left-4 top-1/2 z-30 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full text-white opacity-0 transition-all duration-300 hover:border-gold/40 hover:text-gold-soft group-hover:opacity-100 focus-visible:opacity-100 sm:flex cursor-pointer"
                   style={{ position: "absolute", left: "1rem" }}
                 >
@@ -333,7 +368,7 @@ function ShopHome() {
                 <button
                   type="button"
                   aria-label="Next banner"
-                  onClick={() => setActiveHeroIdx((prev) => (prev + 1) % heroData.banners.length)}
+                  onClick={() => goHero(1, heroData.banners.length)}
                   className="glass absolute right-4 top-1/2 z-30 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full text-white opacity-0 transition-all duration-300 hover:border-gold/40 hover:text-gold-soft group-hover:opacity-100 focus-visible:opacity-100 sm:flex cursor-pointer"
                   style={{ position: "absolute", right: "1rem" }}
                 >
@@ -347,24 +382,42 @@ function ShopHome() {
                     role="tablist"
                     aria-label="Choose banner"
                   >
-                    {heroData.banners.map((_: any, idx: number) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        role="tab"
-                        aria-selected={idx === activeHeroIdx}
-                        onClick={() => setActiveHeroIdx(idx)}
-                        className="group/dot relative flex h-6 items-center cursor-pointer"
-                      >
-                        <span
-                          className={`block h-1.5 rounded-full transition-all duration-500 ${
-                            idx === activeHeroIdx
-                              ? "w-8 bg-gold shadow-[0_0_12px_rgba(200,169,106,0.7)]"
-                              : "w-1.5 bg-white/40 group-hover/dot:bg-white/70"
-                          }`}
-                        />
-                      </button>
-                    ))}
+                    {heroData.banners.map((_: any, idx: number) => {
+                      const isActive = idx === activeHeroIdx;
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          role="tab"
+                          aria-selected={isActive}
+                          onClick={() => {
+                            setActiveHeroIdx(idx);
+                            setHeroCycle((c) => c + 1);
+                          }}
+                          className="group/dot relative flex h-6 items-center cursor-pointer"
+                        >
+                          <span
+                            className={`block h-1.5 overflow-hidden rounded-full transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                              isActive
+                                ? "w-9 bg-white/25 shadow-[0_0_12px_rgba(200,169,106,0.45)]"
+                                : "w-1.5 bg-white/40 opacity-80 group-hover/dot:bg-white/70 group-hover/dot:opacity-100"
+                            }`}
+                          >
+                            {isActive && (
+                              <span
+                                key={`${idx}-${heroCycle}`}
+                                onAnimationEnd={onHeroProgressEnd}
+                                className="block h-full w-full origin-left rounded-full bg-gradient-to-r from-gold-deep via-gold to-gold-soft"
+                                style={{
+                                  animation: `hero-progress 5200ms linear forwards`,
+                                  animationPlayState: hoveringHero ? "paused" : "running",
+                                }}
+                              />
+                            )}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -764,7 +817,7 @@ function ShopHome() {
       case "brandStory":
         const story = layout.brandStory;
         return (
-          <section key={sectionId} id="brand-story" className="relative py-16 md:py-20">
+          <section key={sectionId} ref={brandStoryRef} id="brand-story" className="relative py-16 md:py-20">
             <div className="section-shell grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
               {/* imagery */}
               <motion.div
@@ -772,14 +825,31 @@ function ShopHome() {
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true, margin: "-80px" }}
                 transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-                className="relative grid grid-cols-2 gap-4"
+                className="relative"
               >
                 <div className="glass overflow-hidden rounded-3xl border border-white/10">
-                  <img src={story.image1} className="aspect-[3/4] object-cover transition-transform duration-700 hover:scale-105" alt="" />
+                  <div className="relative aspect-[4/5] overflow-hidden sm:aspect-[5/4] lg:aspect-[4/5]">
+                    <img
+                      src={story.image1 || "https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?q=80&w=1000&auto=format&fit=crop"}
+                      className="story-img h-[112%] w-full object-cover"
+                      alt="Inside the maison atelier"
+                      loading="lazy"
+                    />
+                  </div>
                 </div>
-                <div className="glass overflow-hidden rounded-3xl border border-white/10 mt-8">
-                  <img src={story.image2} className="aspect-[3/4] object-cover transition-transform duration-700 hover:scale-105" alt="" />
-                </div>
+                {/* floating glass caption */}
+                <motion.figure
+                  animate={{ y: [0, -10, 0] }}
+                  transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+                  className="glass glass-strong glass-edge absolute -bottom-6 -right-3 max-w-[15rem] rounded-2xl p-4 sm:-right-6 motion-reduce:animate-none z-10"
+                >
+                  <p className="text-[10px] tracking-[0.26em] uppercase text-gold font-bold">
+                    Maison ReeVibes
+                  </p>
+                  <p className="mt-1 text-[11px] leading-snug text-ink">
+                    Every seam placed by hand, every fabric traced to origin.
+                  </p>
+                </motion.figure>
               </motion.div>
 
               {/* story text */}
@@ -792,12 +862,31 @@ function ShopHome() {
               >
                 <p className="mb-3 flex items-center gap-3 text-[11px] tracking-[0.3em] uppercase text-gold">
                   <span className="h-px w-8 bg-gold/50" aria-hidden="true" />
-                  Maison ReeVibes
+                  The Maison
                 </p>
                 <h2 className="text-balance text-3xl leading-[1.15] text-ink sm:text-4xl lg:text-[2.6rem]">
                   Quiet luxury, <span className="gold-text">loudly crafted.</span>
                 </h2>
                 <p className="text-[15px] leading-relaxed text-ink-muted">{story.text}</p>
+                
+                <dl className="grid grid-cols-3 gap-3 pt-2">
+                  {[
+                    { value: "2026", label: "Maison founded" },
+                    { value: "42", label: "Ateliers worldwide" },
+                    { value: "100%", label: "Ethically sourced" },
+                  ].map((s) => (
+                    <div
+                      key={s.label}
+                      className="glass glass-edge rounded-2xl p-4 text-center border border-white/5"
+                    >
+                      <dt className="order-2 mt-1 block text-[9px] leading-tight tracking-[0.12em] uppercase text-ink-muted font-semibold">
+                        {s.label}
+                      </dt>
+                      <dd className="text-xl text-gold sm:text-2xl font-bold">{s.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+
                 <div className="pt-4">
                   <Link to="/categories">
                     <MagneticButton variant="glass">
@@ -1305,19 +1394,20 @@ function ProductCard({
         setIsHovered(false);
         handleLeave();
       }}
-      className="group glass glass-reflect glass-edge relative overflow-hidden rounded-3xl transition-[transform,box-shadow] duration-500 ease-out will-change-transform hover:shadow-[var(--glass-shadow-hover)] flex flex-col justify-between h-full cursor-pointer"
+      className="group glass glass-reflect glass-edge relative flex h-full flex-col overflow-hidden rounded-3xl transition-[transform,box-shadow] duration-500 ease-out will-change-transform hover:shadow-[var(--glass-shadow-hover)] cursor-pointer"
       style={{ transformStyle: "preserve-3d" }}
     >
       {/* image */}
-      <div className="relative aspect-[4/5] overflow-hidden bg-charcoal/5">
+      <div className="relative aspect-[4/5] shrink-0 overflow-hidden bg-charcoal/5">
         <Link to="/product/$productId" params={{ productId: p.id }} className="block w-full h-full">
           <img
             src={gallery[activeImgIdx]}
             alt={p.name}
+            loading="lazy"
             className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.07]"
           />
         </Link>
-        <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+        <div className="pointer-events-none absolute inset-0 hidden bg-gradient-to-t from-black/35 via-transparent to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100 md:block" />
 
         {displayPct > 0 && (
           <span className="glass-strong glass absolute left-3 top-3 rounded-full px-3 py-1 text-[10px] tracking-[0.18em] uppercase text-ink z-10">
@@ -1364,7 +1454,10 @@ function ProductCard({
           type="button"
           onClick={handleWishlistClick}
           whileTap={{ scale: 0.8 }}
-          className="glass glass-strong absolute right-3 top-3 z-50 flex h-10 w-10 items-center justify-center rounded-full cursor-pointer transition-all duration-300 ease-out opacity-100 translate-y-0 pointer-events-auto shadow-[0_0_20px_-2px_rgba(200,169,106,0.4)]"
+          className={cn(
+            "glass glass-strong absolute right-2 top-2 z-30 flex h-9 w-9 items-center justify-center rounded-full transition-shadow duration-300 sm:right-3 sm:top-3 sm:h-11 sm:w-11 cursor-pointer",
+            isFavorite && "shadow-[0_0_20px_-2px_rgba(200,169,106,0.6)]"
+          )}
         >
           <motion.span
             key={String(isFavorite)}
@@ -1374,7 +1467,7 @@ function ProductCard({
             className="flex"
           >
             <Heart
-              size={16}
+              size={15}
               strokeWidth={1.8}
               className={cn(
                 "transition-colors duration-300",
@@ -1385,11 +1478,11 @@ function ProductCard({
         </motion.button>
 
         {/* Add to Bag slides up - desktop only */}
-        <div className="absolute inset-x-3 bottom-3 translate-y-[120%] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:translate-y-0 group-focus-within:translate-y-0 z-10 hidden md:block">
+        <div className="absolute inset-x-3 bottom-3 z-10 hidden translate-y-[130%] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:translate-y-0 group-focus-within:translate-y-0 md:block">
           <button
             type="button"
             onClick={handleAddToCartClick}
-            className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-full bg-gradient-to-br from-gold-soft via-gold to-gold-deep py-2.5 text-[11px] font-semibold tracking-[0.2em] uppercase text-obsidian shadow-[0_10px_28px_-8px_rgba(200,169,106,0.6)] transition-[box-shadow,filter] duration-300 hover:shadow-[0_14px_38px_-8px_rgba(200,169,106,0.8)] hover:brightness-105"
+            className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-full bg-gradient-to-br from-gold-soft via-gold to-gold-deep py-2.5 text-[11px] font-semibold tracking-[0.2em] uppercase text-obsidian shadow-[0_10px_28px_-8px_rgba(200,169,106,0.6)] transition-[box-shadow,filter,transform] duration-300 hover:shadow-[0_14px_38px_-8px_rgba(200,169,106,0.8)] hover:brightness-105 active:scale-[0.97] cursor-pointer"
           >
             <ShoppingBag size={14} strokeWidth={2} />
             Add to Bag
@@ -1398,62 +1491,73 @@ function ProductCard({
       </div>
 
       {/* details */}
-      <div className="relative z-[2] flex flex-col justify-between p-5 bg-black/25 flex-1 space-y-4">
-        <div>
-          <div className="editorial-label text-muted-foreground text-[9px]">{p.house}</div>
-          <Link
-            to="/product/$productId"
-            params={{ productId: p.id }}
-            className="hover:text-accent transition-colors block mt-1"
-            onMouseEnter={() => setIsTitleHovered(true)}
-            onMouseLeave={() => setIsTitleHovered(false)}
-          >
-            <h3 className="truncate font-serif text-sm font-medium text-ink leading-tight">{p.name}</h3>
-          </Link>
-
-          <div className="flex gap-2 items-center mt-2">
-            <span className="text-base font-bold text-accent">{displayFinalPrice}</span>
+      <div className="relative z-[2] flex flex-1 flex-col gap-2 p-2.5 sm:gap-3 sm:p-4 bg-black/25">
+        <div className="flex flex-1 items-start justify-between gap-2 sm:gap-2.5">
+          <div className="min-w-0">
+            <Link
+              to="/product/$productId"
+              params={{ productId: p.id }}
+              className="hover:text-accent transition-colors block"
+              onMouseEnter={() => setIsTitleHovered(true)}
+              onMouseLeave={() => setIsTitleHovered(false)}
+            >
+              <h3 className="truncate text-[13px] text-ink sm:text-[15px] font-sans font-medium leading-tight">
+                {p.name}
+              </h3>
+            </Link>
+            <p className="mt-0.5 flex items-center gap-1 text-[11px] text-ink-muted sm:text-xs">
+              <Star size={11} className="fill-gold text-gold" />
+              {(p.rating || 4.8).toFixed(1)}
+            </p>
+          </div>
+          <div className="shrink-0 text-right">
+            <span className="block text-[13px] text-gold sm:text-[15px] font-bold">
+              {displayFinalPrice}
+            </span>
             {hasDiscount && (
-              <span className="text-xs line-through text-muted-foreground">{displayOrigPrice}</span>
+              <span className="block text-[11px] text-ink-muted line-through sm:text-xs">
+                {displayOrigPrice}
+              </span>
             )}
           </div>
+        </div>
 
-          {/* Sizes Row */}
-          <div className={`transition-all duration-300 overflow-hidden ${isTitleHovered ? "h-6 opacity-100 mt-1.5" : "h-0 opacity-0"}`}>
-            <div className="flex items-center gap-1.5 w-full">
-              <span className="text-[9px] uppercase tracking-widest text-muted-foreground shrink-0">Sizes:</span>
-              <div className="overflow-hidden w-full relative">
-                <style>{`
-                  @keyframes marquee-pingpong {
-                    0%, 15% { transform: translateX(0%); }
-                    85%, 100% { transform: translateX(-45%); }
-                  }
-                `}</style>
-                <div
-                  className="flex gap-1.5"
-                  style={
-                    isTitleHovered && (p.sizes || ["S", "M", "L", "XL"]).length > 3
-                      ? { animation: 'marquee-pingpong 4s ease-in-out infinite alternate', animationDelay: '1s', width: 'max-content' }
-                      : { width: 'max-content' }
-                  }
-                >
-                  {(p.sizes || ["S", "M", "L", "XL"]).map((sz: string, idx: number) => (
-                    <span key={sz + "-" + idx} className="text-[9px] font-bold bg-white/10 px-2 py-0.5 rounded border border-white/5 text-foreground whitespace-nowrap">
-                      {sz}
-                    </span>
-                  ))}
-                </div>
+        {/* Sizes Row */}
+        <div className={`transition-all duration-300 overflow-hidden ${isTitleHovered ? "h-6 opacity-100 mt-1" : "h-0 opacity-0"}`}>
+          <div className="flex items-center gap-1.5 w-full">
+            <span className="text-[9px] uppercase tracking-widest text-muted-foreground shrink-0 font-bold">Sizes:</span>
+            <div className="overflow-hidden w-full relative">
+              <style>{`
+                @keyframes marquee-pingpong {
+                  0%, 15% { transform: translateX(0%); }
+                  85%, 100% { transform: translateX(-45%); }
+                }
+              `}</style>
+              <div
+                className="flex gap-1.5"
+                style={
+                  isTitleHovered && (p.sizes || ["S", "M", "L", "XL"]).length > 3
+                    ? { animation: 'marquee-pingpong 4s ease-in-out infinite alternate', animationDelay: '1s', width: 'max-content' }
+                    : { width: 'max-content' }
+                }
+              >
+                {(p.sizes || ["S", "M", "L", "XL"]).map((sz: string, idx: number) => (
+                  <span key={sz + "-" + idx} className="text-[9px] font-bold bg-white/10 px-2 py-0.5 rounded border border-white/5 text-foreground whitespace-nowrap">
+                    {sz}
+                  </span>
+                ))}
               </div>
             </div>
           </div>
         </div>
+
         {/* add to bag — mobile/tablet: always visible, no hover needed */}
         <button
           type="button"
           onClick={handleAddToCartClick}
-          className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-full bg-gradient-to-br from-gold-soft via-gold to-gold-deep py-2.5 text-[11px] font-semibold tracking-[0.2em] uppercase text-obsidian shadow-[0_10px_28px_-8px_rgba(200,169,106,0.6)] transition-[box-shadow,filter] duration-300 hover:shadow-[0_14px_38px_-8px_rgba(200,169,106,0.8)] hover:brightness-105 md:hidden mt-2"
+          className="flex min-h-[38px] w-full items-center justify-center gap-2 rounded-full bg-gradient-to-br from-gold-soft via-gold to-gold-deep py-2 text-[10px] tracking-[0.16em] sm:min-h-[44px] sm:py-2.5 sm:text-[11px] sm:tracking-[0.2em] md:hidden cursor-pointer shadow-[0_10px_28px_-8px_rgba(200,169,106,0.6)] transition-[box-shadow,filter,transform] duration-300 hover:shadow-[0_14px_38px_-8px_rgba(200,169,106,0.8)] hover:brightness-105 active:scale-[0.97]"
         >
-          <ShoppingBag size={14} strokeWidth={2} />
+          <ShoppingBag size={13} strokeWidth={2} />
           Add to Bag
         </button>
       </div>

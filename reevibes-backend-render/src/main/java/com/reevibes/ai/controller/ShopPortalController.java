@@ -11,6 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 
 @RestController
 @RequestMapping("/api")
@@ -28,6 +30,7 @@ public class ShopPortalController {
     private final ShopCouponRepository couponRepository;
     private final ProductReviewRepository reviewRepository;
     private final SyncService syncService;
+    private final com.reevibes.ai.service.ShiprocketService shiprocketService;
 
     @org.springframework.beans.factory.annotation.Value("${razorpay.key.id}")
     private String razorpayKeyId;
@@ -233,6 +236,120 @@ public class ShopPortalController {
             order.setId("ORD-" + (int)(1000 + Math.random() * 9000));
         }
         order.setOrderDate(LocalDateTime.now());
+        order.setStatus("Pending Approval");
+        ShopOrder saved = orderRepository.save(order);
+        syncService.bumpVersion();
+        return ResponseEntity.ok(saved);
+    }
+
+    @PostMapping("/orders/{id}/accept")
+    @Transactional
+    public ResponseEntity<ShopOrder> acceptOrder(@PathVariable String id) {
+        ShopOrder order = orderRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found: " + id));
+        order.setStatus("Accepted");
+        
+        try {
+            Map<String, String> srDetails = shiprocketService.createShiprocketOrder(order);
+            if (srDetails != null) {
+                if (srDetails.containsKey("order_id")) order.setShiprocketOrderId(srDetails.get("order_id"));
+                if (srDetails.containsKey("shipment_id")) order.setShiprocketShipmentId(srDetails.get("shipment_id"));
+            }
+        } catch (Exception e) {
+            System.err.println("Failed to create Shiprocket shipment on accept: " + e.getMessage());
+        }
+
+        ShopOrder saved = orderRepository.save(order);
+        syncService.bumpVersion();
+        return ResponseEntity.ok(saved);
+    }
+
+    @GetMapping("/orders/{id}/serviceability")
+    public ResponseEntity<Map> getOrderServiceability(@PathVariable String id) {
+        ShopOrder order = orderRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found: " + id));
+        
+        // Find destination pincode from address
+        String rawAddress = order.getAddress() != null ? order.getAddress() : "";
+        String pincode = "560038"; // fallback
+        Pattern pinPattern = Pattern.compile("\\b\\d{6}\\b");
+        Matcher matcher = pinPattern.matcher(rawAddress);
+        if (matcher.find()) {
+            pincode = matcher.group();
+        }
+
+        Map quotes = shiprocketService.getCourierQuotes(pincode);
+        return ResponseEntity.ok(quotes);
+    }
+
+    @PostMapping("/orders/{id}/assign-awb")
+    @Transactional
+    public ResponseEntity<ShopOrder> assignAWB(@PathVariable String id, @RequestBody Map<String, Object> body) {
+        ShopOrder order = orderRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found: " + id));
+        
+        String courierId = String.valueOf(body.get("courier_id"));
+        String shipmentId = order.getShiprocketShipmentId();
+        if (shipmentId == null || shipmentId.isEmpty()) {
+            throw new IllegalStateException("No Shiprocket shipment ID associated with this order");
+        }
+
+        Map res = shiprocketService.assignAWB(shipmentId, courierId);
+        String awbCode = null;
+        String courierName = null;
+        try {
+            if (res != null && res.containsKey("response")) {
+                Map responseMap = (Map) res.get("response");
+                if (responseMap != null && responseMap.containsKey("data")) {
+                    Map dataMap = (Map) responseMap.get("data");
+                    if (dataMap != null) {
+                        if (dataMap.containsKey("awb_code")) awbCode = String.valueOf(dataMap.get("awb_code"));
+                        if (dataMap.containsKey("courier_name")) courierName = String.valueOf(dataMap.get("courier_name"));
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Failed to parse AWB response: " + e.getMessage());
+        }
+
+        if (awbCode != null && !awbCode.isEmpty()) {
+            order.setTrackingNumber(awbCode);
+        } else {
+            // fallback generated tracking number if API fails or mock response
+            order.setTrackingNumber("SRT" + (int)(100000 + Math.random() * 900000));
+        }
+
+        if (courierName != null && !courierName.isEmpty()) {
+            order.setCourierPartner(courierName);
+        } else if (body.containsKey("courier_name")) {
+            order.setCourierPartner(String.valueOf(body.get("courier_name")));
+        }
+
+        order.setStatus("Ready to Ship");
+        ShopOrder saved = orderRepository.save(order);
+        syncService.bumpVersion();
+        return ResponseEntity.ok(saved);
+    }
+
+    @PostMapping("/orders/{id}/schedule-pickup")
+    @Transactional
+    public ResponseEntity<ShopOrder> schedulePickup(@PathVariable String id, @RequestBody Map<String, Object> body) {
+        ShopOrder order = orderRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found: " + id));
+        
+        String pickupDate = String.valueOf(body.getOrDefault("pickup_date", 
+                new java.text.SimpleDateFormat("yyyy-MM-dd").format(new java.util.Date())));
+        String shipmentId = order.getShiprocketShipmentId();
+
+        if (shipmentId != null && !shipmentId.isEmpty()) {
+            try {
+                shiprocketService.schedulePickup(shipmentId, pickupDate);
+            } catch (Exception e) {
+                System.err.println("Failed to call generate pickup: " + e.getMessage());
+            }
+        }
+
+        order.setStatus("Pickup Scheduled");
         ShopOrder saved = orderRepository.save(order);
         syncService.bumpVersion();
         return ResponseEntity.ok(saved);
@@ -243,7 +360,13 @@ public class ShopPortalController {
     public ResponseEntity<ShopOrder> updateOrderStatus(@PathVariable String id, @RequestBody Map<String, Object> body) {
         ShopOrder order = orderRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found: " + id));
-        if (body.containsKey("status")) order.setStatus((String) body.get("status"));
+        if (body.containsKey("status")) {
+            String newStatus = (String) body.get("status");
+            order.setStatus(newStatus);
+            if ("Delivered".equalsIgnoreCase(newStatus)) {
+                order.setDeliveryDate(java.time.LocalDateTime.now());
+            }
+        }
         if (body.containsKey("paymentStatus")) order.setPaymentStatus((String) body.get("paymentStatus"));
         if (body.containsKey("trackingNumber")) order.setTrackingNumber((String) body.get("trackingNumber"));
         if (body.containsKey("courierPartner")) order.setCourierPartner((String) body.get("courierPartner"));
@@ -441,5 +564,90 @@ public class ShopPortalController {
         ProductReview saved = reviewRepository.save(review);
         syncService.bumpVersion();
         return ResponseEntity.ok(saved);
+    }
+
+    // --- SHIPROCKET WEBHOOKS & TRACKER ---
+    @PostMapping("/shiprocket/webhook")
+    @Transactional
+    public ResponseEntity<?> handleShiprocketWebhook(@RequestBody Map<String, Object> payload) {
+        System.out.println("Received Shiprocket Webhook: " + payload);
+        
+        String orderId = null;
+        if (payload.containsKey("channel_order_id") && payload.get("channel_order_id") != null) {
+            orderId = String.valueOf(payload.get("channel_order_id")).trim();
+        }
+        if (orderId == null || orderId.isEmpty()) {
+            if (payload.containsKey("order_id") && payload.get("order_id") != null) {
+                orderId = String.valueOf(payload.get("order_id")).trim();
+            }
+        }
+        
+        if (orderId == null || orderId.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Order ID missing in payload"));
+        }
+        
+        // Find order
+        final String searchId = orderId;
+        ShopOrder order = orderRepository.findById(searchId)
+                .orElse(null);
+                
+        // Fallback: search by tracking number (awb)
+        if (order == null && payload.containsKey("awb")) {
+            String awb = String.valueOf(payload.get("awb")).trim();
+            if (!awb.isEmpty()) {
+                order = orderRepository.findAll().stream()
+                        .filter(o -> awb.equals(o.getTrackingNumber()))
+                        .findFirst()
+                        .orElse(null);
+            }
+        }
+        
+        if (order == null) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Order not found with ID: " + searchId));
+        }
+        
+        // Update order status fields
+        String status = null;
+        if (payload.containsKey("shipment_status")) {
+            status = String.valueOf(payload.get("shipment_status"));
+        } else if (payload.containsKey("current_status")) {
+            status = String.valueOf(payload.get("current_status"));
+        }
+        if (status != null) {
+            order.setStatus(status);
+            if ("Delivered".equalsIgnoreCase(status)) {
+                order.setDeliveryDate(java.time.LocalDateTime.now());
+            }
+        }
+        
+        if (payload.containsKey("awb")) {
+            order.setTrackingNumber(String.valueOf(payload.get("awb")));
+        }
+        
+        if (payload.containsKey("courier_name")) {
+            order.setCourierPartner(String.valueOf(payload.get("courier_name")));
+        } else if (payload.containsKey("courier_partner")) {
+            order.setCourierPartner(String.valueOf(payload.get("courier_partner")));
+        }
+        
+        if (payload.containsKey("etd")) {
+            order.setEstimatedDeliveryDate(String.valueOf(payload.get("etd")));
+        }
+        
+        if (payload.containsKey("scans")) {
+            try {
+                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                String scansJsonStr = mapper.writeValueAsString(payload.get("scans"));
+                order.setScansJson(scansJsonStr);
+            } catch (Exception e) {
+                System.err.println("Failed to serialize scans: " + e.getMessage());
+            }
+        }
+        
+        ShopOrder saved = orderRepository.save(order);
+        syncService.bumpVersion();
+        
+        return ResponseEntity.ok(Map.of("message", "Order updated successfully", "orderId", saved.getId(), "status", saved.getStatus()));
     }
 }

@@ -241,6 +241,33 @@ function ProductCard({ product, idx, isRelated = false, isWishlisted, onWishlist
             </span>
           )}
 
+          <motion.button
+            type="button"
+            onClick={(e) => onWishlist(product, e)}
+            whileTap={{ scale: 0.8 }}
+            className={cn(
+              "glass glass-strong absolute right-2 top-2 z-[3] flex h-9 w-9 items-center justify-center rounded-full transition-shadow duration-300 sm:right-3 sm:top-3 sm:h-11 sm:w-11",
+              isWishlisted && "shadow-[0_0_20px_-2px_rgba(200,169,106,0.6)]"
+            )}
+          >
+            <motion.span
+              key={String(isWishlisted)}
+              initial={{ scale: 0.4 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", stiffness: 480, damping: 15 }}
+              className="flex"
+            >
+              <Heart
+                size={15}
+                strokeWidth={1.8}
+                className={cn(
+                  "transition-colors duration-300",
+                  isWishlisted ? "fill-gold text-gold" : "text-ink"
+                )}
+              />
+            </motion.span>
+          </motion.button>
+
           {/* Left/Right Navigation on Hover if more than 1 image */}
           {images.length > 1 && isImageHovered && (
             <>
@@ -336,17 +363,6 @@ function ProductCard({ product, idx, isRelated = false, isWishlisted, onWishlist
 
             {/* Actions */}
             <div className="flex items-center gap-3 w-full sm:w-auto justify-center">
-              <button
-                onClick={(e) => onWishlist(product, e)}
-                className={`p-3 rounded-full border transition-all duration-300 hover:scale-105 cursor-pointer ${
-                  isWishlisted
-                    ? "bg-rose-500/10 border-rose-500/30 text-rose-500"
-                    : "border-foreground/10 hover:border-accent/40 text-foreground hover:text-accent"
-                }`}
-              >
-                <Heart className="w-4 h-4" fill={isWishlisted ? "currentColor" : "none"} />
-              </button>
-
               <button
                 onClick={(e) => onAddToCart(product, e)}
                 className="flex items-center justify-center gap-2 rounded-full bg-gradient-to-br from-gold-soft via-gold to-gold-deep px-6 py-3 text-xs font-semibold tracking-[0.2em] uppercase text-obsidian shadow-[0_10px_28px_-8px_rgba(200,169,106,0.6)] transition-[box-shadow,filter] duration-300 hover:shadow-[0_14px_38px_-8px_rgba(200,169,106,0.8)] hover:brightness-105 cursor-pointer"

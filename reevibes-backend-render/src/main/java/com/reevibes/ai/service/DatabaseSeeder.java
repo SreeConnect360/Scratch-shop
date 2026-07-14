@@ -56,6 +56,10 @@ public class DatabaseSeeder implements CommandLineRunner {
         jdbcTemplate.execute("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS tracking_number VARCHAR(100);");
         jdbcTemplate.execute("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS courier_partner VARCHAR(100);");
         jdbcTemplate.execute("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS estimated_delivery_date VARCHAR(50);");
+        jdbcTemplate.execute("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS scans_json TEXT;");
+        jdbcTemplate.execute("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS delivery_date TIMESTAMP;");
+        jdbcTemplate.execute("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS shiprocket_order_id VARCHAR(100);");
+        jdbcTemplate.execute("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS shiprocket_shipment_id VARCHAR(100);");
 
         if (intentRepository.count() == 0) {
             seedIntents();
@@ -135,10 +139,30 @@ public class DatabaseSeeder implements CommandLineRunner {
     public void seedOrders() {
         if (orderRepository.count() == 0) {
             String items1 = "[{\"productId\":\"pr2\",\"name\":\"Cashmere Cape\",\"house\":\"Atelier Reine\",\"price\":\"₹1,50,000\",\"image\":\"https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=1200&h=1600&q=80\",\"qty\":1,\"selectedSize\":\"M\"}]";
-            ShopOrder o1 = new ShopOrder("ORD-9481", "USR-1000", LocalDateTime.now().minusDays(30), items1, new BigDecimal("150000"), "Shipped", "123, Luxury Lane, Indiranagar, Bangalore - 560038", "Paid", null, null, null, null, "INR", "Razorpay Gateway", null, null, null, null);
+            ShopOrder o1 = new ShopOrder();
+            o1.setId("ORD-9481");
+            o1.setUserId("USR-1000");
+            o1.setOrderDate(LocalDateTime.now().minusDays(30));
+            o1.setItemsJson(items1);
+            o1.setTotal(new BigDecimal("150000"));
+            o1.setStatus("Shipped");
+            o1.setAddress("123, Luxury Lane, Indiranagar, Bangalore - 560038");
+            o1.setPaymentStatus("Paid");
+            o1.setCurrency("INR");
+            o1.setPaymentMethod("Razorpay Gateway");
 
             String items2 = "[{\"productId\":\"pr1\",\"name\":\"Silk Slip — Noir\",\"house\":\"Maison Lumière\",\"price\":\"₹85,000\",\"image\":\"https://images.unsplash.com/photo-1485518882345-15568b007407?auto=format&fit=crop&w=1200&h=1600&q=80\",\"qty\":1,\"selectedSize\":\"S\"}]";
-            ShopOrder o2 = new ShopOrder("ORD-9500", "USR-1000", LocalDateTime.now().minusDays(4), items2, new BigDecimal("85000"), "Processing", "123, Luxury Lane, Indiranagar, Bangalore - 560038", "Paid", null, null, null, null, "INR", "Razorpay Gateway", null, null, null, null);
+            ShopOrder o2 = new ShopOrder();
+            o2.setId("ORD-9500");
+            o2.setUserId("USR-1000");
+            o2.setOrderDate(LocalDateTime.now().minusDays(4));
+            o2.setItemsJson(items2);
+            o2.setTotal(new BigDecimal("85000"));
+            o2.setStatus("Processing");
+            o2.setAddress("123, Luxury Lane, Indiranagar, Bangalore - 560038");
+            o2.setPaymentStatus("Paid");
+            o2.setCurrency("INR");
+            o2.setPaymentMethod("Razorpay Gateway");
 
             orderRepository.saveAll(List.of(o1, o2));
         }

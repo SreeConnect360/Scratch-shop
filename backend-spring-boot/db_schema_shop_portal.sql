@@ -94,5 +94,9 @@ CREATE TABLE IF NOT EXISTS shop_orders (
     transaction_date TIMESTAMP,
     tracking_number VARCHAR(100),
     courier_partner VARCHAR(100),
-    estimated_delivery_date VARCHAR(50)
+    estimated_delivery_date VARCHAR(50),
+    scans_json TEXT,
+    delivery_date TIMESTAMP,
+    shiprocket_order_id VARCHAR(100),
+    shiprocket_shipment_id VARCHAR(100)
 );

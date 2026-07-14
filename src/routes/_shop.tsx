@@ -434,16 +434,16 @@ function ShopLayout() {
         <BottomNav setSearchOpen={setSearchOpen} />
         <SearchOverlay isOpen={searchOpen} onClose={() => setSearchOpen(false)} products={products} />
 
-        {/* Premium Floating Liquid Glass Header */}
+        {/* Premium Full-Width Liquid Glass Header (flush top, left, right) */}
         <div className={cn(
-          "sticky top-3 z-50 px-3 sm:px-5 transition-all duration-500 ease-in-out",
+          "sticky top-0 z-50 transition-all duration-500 ease-in-out w-full",
           isProductPage && !showNavbar && "-translate-y-28 opacity-0 pointer-events-none"
         )}>
           <header
             ref={barRef}
             onMouseMove={onBarMove}
             className={cn(
-              "glass glass-reflect glass-edge mx-auto flex max-w-7xl items-center justify-between gap-2 rounded-2xl px-4 py-2.5 transition-shadow duration-500 sm:px-6 h-20 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.15)]",
+              "glass glass-reflect mx-auto flex w-full max-w-[96rem] items-center justify-between gap-2 px-4 py-2.5 transition-shadow duration-500 sm:px-6 h-20 border-x-0 border-t-0 border-b border-white/10",
               scrolled && "glass-strong shadow-[var(--glass-shadow-hover)]"
             )}
           >
@@ -451,13 +451,13 @@ function ShopLayout() {
             <div className="flex items-center gap-10 z-10">
               {layout?.navigation?.visibleItems?.includes("Logo") !== false && (
                 <Link to="/" className="block transition-transform shrink-0 text-xl tracking-[0.3em] text-ink font-serif hover:opacity-90">
-                  R<span className="gold-text">EEVIBES</span>
+                  S<span className="gold-text">REEVIBES</span>
                   <div className="text-[7px] uppercase tracking-[0.25em] text-muted-foreground mt-1">House of Fashion</div>
                 </Link>
               )}
 
               {/* desktop links */}
-              <ul className="hidden items-center gap-0.5 xl:flex" role="list">
+              <ul className="hidden items-center gap-0.5 md:flex" role="list">
                 {layout?.navigation?.itemsOrder ? (
                   layout.navigation.itemsOrder.map((item: string) => {
                     const isVisible = layout?.navigation?.visibleItems?.includes(item);
@@ -472,7 +472,18 @@ function ShopLayout() {
                             to="/categories"
                             className="relative rounded-full px-3 py-1.5 text-[12.5px] tracking-[0.08em] font-semibold text-ink-muted hover:text-ink transition-colors duration-300"
                           >
-                            Fashion
+                            {({ isActive }) => (
+                              <>
+                                {isActive && (
+                                  <motion.span
+                                    layoutId="nav-active"
+                                    transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                                    className="absolute inset-0 rounded-full border border-gold/25 bg-gold/10 shadow-[0_0_18px_-4px_rgba(200,169,106,0.4)]"
+                                  />
+                                )}
+                                <span className="relative">Fashion</span>
+                              </>
+                            )}
                           </Link>
                         </li>
                       );
@@ -486,7 +497,18 @@ function ShopLayout() {
                             search={{ view: "collections" } as any}
                             className="relative rounded-full px-3 py-1.5 text-[12.5px] tracking-[0.08em] font-semibold text-ink-muted hover:text-ink transition-colors duration-300"
                           >
-                            Collections
+                            {({ isActive }) => (
+                              <>
+                                {isActive && (
+                                  <motion.span
+                                    layoutId="nav-active"
+                                    transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                                    className="absolute inset-0 rounded-full border border-gold/25 bg-gold/10 shadow-[0_0_18px_-4px_rgba(200,169,106,0.4)]"
+                                  />
+                                )}
+                                <span className="relative">Collections</span>
+                              </>
+                            )}
                           </Link>
                         </li>
                       );
@@ -496,6 +518,8 @@ function ShopLayout() {
                     if (item === "New Arrivals") linkSearch = { tag: "New" };
                     else if (item === "Trending") linkSearch = { tag: "Trending" };
 
+                    const label = item === "New Arrivals" ? "New" : item;
+
                     return (
                       <li key={item} className="relative">
                         <Link
@@ -503,7 +527,18 @@ function ShopLayout() {
                           search={linkSearch}
                           className="relative rounded-full px-3 py-1.5 text-[12.5px] tracking-[0.08em] font-semibold text-ink-muted hover:text-ink transition-colors duration-300"
                         >
-                          {item === "New Arrivals" ? "New" : item}
+                          {({ isActive }) => (
+                            <>
+                              {isActive && (
+                                <motion.span
+                                  layoutId="nav-active"
+                                  transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                                  className="absolute inset-0 rounded-full border border-gold/25 bg-gold/10 shadow-[0_0_18px_-4px_rgba(200,169,106,0.4)]"
+                                />
+                              )}
+                              <span className="relative">{label}</span>
+                            </>
+                          )}
                         </Link>
                       </li>
                     );
@@ -512,17 +547,50 @@ function ShopLayout() {
                   <>
                     <li className="relative">
                       <Link to="/" className="relative rounded-full px-3 py-1.5 text-[12.5px] tracking-[0.08em] font-semibold text-ink hover:text-ink transition-colors">
-                        Shop
+                        {({ isActive }) => (
+                          <>
+                            {isActive && (
+                              <motion.span
+                                layoutId="nav-active"
+                                transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                                className="absolute inset-0 rounded-full border border-gold/25 bg-gold/10 shadow-[0_0_18px_-4px_rgba(200,169,106,0.4)]"
+                              />
+                            )}
+                            <span className="relative">Shop</span>
+                          </>
+                        )}
                       </Link>
                     </li>
                     <li className="relative">
                       <Link to="/categories" className="relative rounded-full px-3 py-1.5 text-[12.5px] tracking-[0.08em] font-semibold text-ink-muted hover:text-ink transition-colors">
-                        Collections
+                        {({ isActive }) => (
+                          <>
+                            {isActive && (
+                              <motion.span
+                                layoutId="nav-active"
+                                transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                                className="absolute inset-0 rounded-full border border-gold/25 bg-gold/10 shadow-[0_0_18px_-4px_rgba(200,169,106,0.4)]"
+                              />
+                            )}
+                            <span className="relative">Collections</span>
+                          </>
+                        )}
                       </Link>
                     </li>
                     <li className="relative">
                       <Link to="/FashionBattle/live-contest" className="relative rounded-full px-3 py-1.5 text-[12.5px] tracking-[0.08em] font-semibold text-ink-muted hover:text-ink transition-colors">
-                        Contests
+                        {({ isActive }) => (
+                          <>
+                            {isActive && (
+                              <motion.span
+                                layoutId="nav-active"
+                                transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                                className="absolute inset-0 rounded-full border border-gold/25 bg-gold/10 shadow-[0_0_18px_-4px_rgba(200,169,106,0.4)]"
+                              />
+                            )}
+                            <span className="relative">Contests</span>
+                          </>
+                        )}
                       </Link>
                     </li>
                   </>
@@ -537,12 +605,12 @@ function ShopLayout() {
                 onClick={() => setSearchOpen(true)}
                 whileHover={{ scale: 1.12, rotate: 4 }}
                 whileTap={{ scale: 0.9 }}
-                className="relative hidden xl:flex h-10 w-10 items-center justify-center rounded-full text-ink-muted transition-colors duration-300 hover:text-ink cursor-pointer"
+                className="relative hidden md:flex h-10 w-10 items-center justify-center rounded-full text-ink-muted transition-colors duration-300 hover:text-ink cursor-pointer"
               >
                 <Search size={18} strokeWidth={1.8} />
               </motion.button>
 
-              <Link to="/account" search={{ tab: "wishlist" as any }} className="hidden xl:block">
+              <Link to="/account" search={{ tab: "wishlist" as any }} className="hidden md:block">
                 <motion.button
                   type="button"
                   whileHover={{ scale: 1.12, rotate: 4 }}
@@ -553,7 +621,7 @@ function ShopLayout() {
                 </motion.button>
               </Link>
 
-              <Link to="/cart" className="hidden xl:block">
+              <Link to="/cart" className="hidden md:block">
                 <motion.button
                   type="button"
                   whileHover={{ scale: 1.12, rotate: 4 }}
@@ -576,7 +644,7 @@ function ShopLayout() {
               </Link>
 
               {(!layout || !layout.navigation || !layout.navigation.visibleItems || layout.navigation.visibleItems.includes("Account")) && (
-                <div className="relative group py-2 hidden xl:block">
+                <div className="relative group py-2 hidden md:block">
                   <Link to="/account" search={{ tab: "profile" }}>
                     <motion.button
                       type="button"
@@ -613,7 +681,7 @@ function ShopLayout() {
                 </div>
               )}
 
-              <div ref={notifRef} className="relative group py-2 hidden xl:block" onMouseEnter={markNotificationsRead}>
+              <div ref={notifRef} className="relative group py-2 hidden md:block" onMouseEnter={markNotificationsRead}>
                 <motion.button
                   type="button"
                   whileHover={{ scale: 1.12, rotate: 4 }}
@@ -669,7 +737,7 @@ function ShopLayout() {
                 onClick={toggleTheme}
                 whileHover={{ scale: 1.1, rotate: 8 }}
                 whileTap={{ scale: 0.88 }}
-                className="relative ml-1 hidden xl:flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-[var(--glass-border)] bg-gold/5 text-gold transition-colors duration-300 hover:bg-gold/15 cursor-pointer"
+                className="relative ml-1 hidden md:flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-[var(--glass-border)] bg-gold/5 text-gold transition-colors duration-300 hover:bg-gold/15 cursor-pointer"
               >
                 <AnimatePresence mode="wait" initial={false}>
                   <motion.span
@@ -690,7 +758,7 @@ function ShopLayout() {
               </motion.button>
 
               {/* Mobile Drawer Trigger */}
-              <span className="xl:hidden">
+              <span className="md:hidden">
                 <motion.button
                   type="button"
                   onClick={() => setMobileOpen((v) => !v)}
@@ -712,7 +780,7 @@ function ShopLayout() {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -12, scale: 0.98 }}
                 transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                className="glass glass-strong absolute left-3 right-3 top-full mt-2 rounded-2xl p-3 xl:hidden border border-white/10 z-[200] shadow-2xl"
+                className="glass glass-strong absolute left-3 right-3 top-full mt-2 rounded-2xl p-3 md:hidden border border-white/10 z-[200] shadow-2xl"
               >
                 <ul role="list" className="flex flex-col gap-1">
                   <li>
