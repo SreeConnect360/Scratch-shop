@@ -158,7 +158,7 @@ public class EmailService {
                 "<body>" +
                 "  <div class='container'>" +
                 "    <div class='logo'>" +
-                "      <img src='https://blankapparel.in/cdn/shop/files/favicon.png' alt='ReeVibes Logo'>" +
+                "      <img src='https://res.cloudinary.com/ihbgxvyo/image/upload/f_auto,q_auto/favicon_turcbu' alt='ReeVibes Logo'>" +
                 "    </div>" +
                 "    <div class='title'>Email Verification</div>" +
                 "    <div class='body-text'>" +
@@ -208,8 +208,8 @@ public class EmailService {
                 "<body>" +
                 "  <div class='container'>" +
                 "    <div class='header'>" +
-                "      <div class='logo'>" +
-                "        <img src='https://blankapparel.in/cdn/shop/files/favicon.png' alt='ReeVibes Logo'>" +
+                "      <div class='logo'>\n" +
+                "        <img src='https://res.cloudinary.com/ihbgxvyo/image/upload/f_auto,q_auto/favicon_turcbu' alt='ReeVibes Logo'>\n" +
                 "      </div>" +
                 "      <h1>Welcome to ReeVibes!</h1>" +
                 "    </div>" +
