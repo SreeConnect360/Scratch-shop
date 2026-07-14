@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { usePortal } from "@/lib/portal-state";
+import { BACKEND_URL } from "@/lib/config";
 import { z } from "zod";
 import {
   Trash2,
@@ -655,7 +656,7 @@ export function ShopCart() {
 
     // Razorpay Integration Flow
     const loadingToast = toast.loading("Initializing payment gateway...");
-    const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:8081";
+    const backendUrl = BACKEND_URL;
 
     fetch(`${backendUrl}/api/create-order`, {
       method: "POST",

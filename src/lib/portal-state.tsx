@@ -6,6 +6,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, useCallback, useRef, type ReactNode } from "react";
 import { NOTIFICATIONS_SEED, SEED_COMMENTS, type CommentItem } from "./portal-data";
 import { BACKEND_URL } from "./config";
+import { toast } from "sonner";
 import {
   PLATFORM_USERS, CONTESTANT_APPLICATIONS, ABUSE_REPORTS, PRODUCTS,
   type PlatformUser, type ContestantApplication, type AbuseReport, type Role, type Product,
@@ -821,15 +822,30 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 
       setState(s => {
         const currentUser = s.user;
+        let nextUser = s.user;
         let nextShopCart = s.shopCart;
         if (currentUser) {
           const match = dbCustomers?.find((u: any) => u.id === currentUser.id);
-          if (match && match.cart) {
-            try { nextShopCart = JSON.parse(match.cart); } catch(e) {}
+          if (match) {
+            nextUser = {
+              ...currentUser,
+              firstName: match.firstName || currentUser.firstName,
+              lastName: match.lastName || currentUser.lastName,
+              email: match.email || currentUser.email,
+              phone: match.phone || currentUser.phone,
+              country: match.country || currentUser.country,
+              dob: match.dob || currentUser.dob,
+              gender: match.gender || currentUser.gender,
+              roles: match.roles ? match.roles.split(",") as any[] : currentUser.roles,
+            };
+            if (match.cart) {
+              try { nextShopCart = JSON.parse(match.cart); } catch(e) {}
+            }
           }
         }
         return {
           ...s,
+          user: nextUser,
           vendors: mappedVendors,
           products: mappedProducts,
           buckets: mappedBuckets,
@@ -894,7 +910,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     reloadProducts: fetchBackendState,
 
     signIn: (email, name) => {
-      const match = state.users.find(u => u.email.toLowerCase() === email.toLowerCase());
+      const match = state.users.find(u => u.email.toLowerCase() === email.toLowerCase()) as any;
       if (match) {
         const lastLoginTime = new Date().toLocaleString();
         setState(s => {
@@ -905,6 +921,15 @@ export function PortalProvider({ children }: { children: ReactNode }) {
               email: match.email, phone: match.phone, country: match.country, dob: match.dob,
               roles: match.roles as PortalUser["roles"],
             },
+            shopCart: match.cart || [],
+            shopWishlist: {
+              ...s.shopWishlist,
+              [match.id]: match.wishlist || []
+            },
+            addresses: {
+              ...s.addresses,
+              [match.id]: match.addresses || []
+            }
           };
           save(next);
           return next;
@@ -1924,6 +1949,10 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 
     // Isolated shop cart & wishlist implementations
     addToShopCart: (item) => setState(s => {
+      if (!s.user) {
+        toast.error("Please sign in to add items to your cart.");
+        return s;
+      }
       const cartList = s.shopCart || [];
       const existing = cartList.find(c => c.productId === item.productId && c.selectedSize === item.selectedSize);
       const qty = item.qty ?? 1;
@@ -1969,6 +1998,10 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       return { ...s, shopCart: [] };
     }),
     toggleShopWishlist: (userId, productId) => setState(s => {
+      if (!s.user) {
+        toast.error("Please sign in to manage your wishlist.");
+        return s;
+      }
       const list = s.shopWishlist[userId] ?? [];
       const next = list.includes(productId) ? list.filter(id => id !== productId) : [...list, productId];
       fetch(`${BACKEND_URL}/api/customers/${userId}`, {
