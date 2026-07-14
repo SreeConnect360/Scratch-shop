@@ -265,7 +265,7 @@ public class ShopPortalController {
     }
 
     @GetMapping("/orders/{id}/serviceability")
-    public ResponseEntity<Map> getOrderServiceability(@PathVariable String id) {
+    public ResponseEntity<Map<String, Object>> getOrderServiceability(@PathVariable String id) {
         ShopOrder order = orderRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found: " + id));
         
@@ -278,7 +278,7 @@ public class ShopPortalController {
             pincode = matcher.group();
         }
 
-        Map quotes = shiprocketService.getCourierQuotes(pincode);
+        Map<String, Object> quotes = shiprocketService.getCourierQuotes(pincode);
         return ResponseEntity.ok(quotes);
     }
 
@@ -294,14 +294,14 @@ public class ShopPortalController {
             throw new IllegalStateException("No Shiprocket shipment ID associated with this order");
         }
 
-        Map res = shiprocketService.assignAWB(shipmentId, courierId);
+        Map<String, Object> res = shiprocketService.assignAWB(shipmentId, courierId);
         String awbCode = null;
         String courierName = null;
         try {
             if (res != null && res.containsKey("response")) {
-                Map responseMap = (Map) res.get("response");
+                Map<String, Object> responseMap = (Map<String, Object>) res.get("response");
                 if (responseMap != null && responseMap.containsKey("data")) {
-                    Map dataMap = (Map) responseMap.get("data");
+                    Map<String, Object> dataMap = (Map<String, Object>) responseMap.get("data");
                     if (dataMap != null) {
                         if (dataMap.containsKey("awb_code")) awbCode = String.valueOf(dataMap.get("awb_code"));
                         if (dataMap.containsKey("courier_name")) courierName = String.valueOf(dataMap.get("courier_name"));

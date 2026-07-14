@@ -124,13 +124,13 @@ public class ShiprocketService {
             // Parse items json
             List<Map<String, Object>> orderItems = new ArrayList<>();
             try {
-                List itemsList = objectMapper.readValue(order.getItemsJson(), List.class);
-                for (Object itemObj : itemsList) {
-                    if (itemObj instanceof Map) {
-                        Map itemMap = (Map) itemObj;
-                        Map<String, Object> orderItem = new HashMap<>();
-                        orderItem.put("name", itemMap.getOrDefault("name", "Fashion Piece"));
-                        orderItem.put("sku", itemMap.getOrDefault("productId", "SKU-" + System.currentTimeMillis()));
+            List<?> itemsList = objectMapper.readValue(order.getItemsJson(), List.class);
+            for (Object itemObj : itemsList) {
+                if (itemObj instanceof Map) {
+                    Map<?, ?> itemMap = (Map<?, ?>) itemObj;
+                    Map<String, Object> orderItem = new HashMap<>();
+                    orderItem.put("name", itemMap.getOrDefault("name", "Fashion Piece"));
+                    orderItem.put("sku", itemMap.getOrDefault("productId", "SKU-" + System.currentTimeMillis()));
                         
                         Object qtyVal = itemMap.get("qty");
                         int units = qtyVal instanceof Number ? ((Number) qtyVal).intValue() : 1;
