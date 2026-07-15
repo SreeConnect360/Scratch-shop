@@ -194,6 +194,33 @@ function RegisterPage() {
       return;
     }
 
+    const hasLowercase = /[a-z]/.test(form.password);
+    const hasUppercase = /[A-Z]/.test(form.password);
+    const hasNumber = /[0-9]/.test(form.password);
+    const hasSymbol = /[^A-Za-z0-9]/.test(form.password);
+    const isLessThan16 = form.password.length > 0 && form.password.length < 16;
+
+    if (!isLessThan16) {
+      setError("Password must be less than 16 characters.");
+      return;
+    }
+    if (!hasLowercase) {
+      setError("Password must include at least one lowercase letter.");
+      return;
+    }
+    if (!hasUppercase) {
+      setError("Password must include at least one uppercase letter.");
+      return;
+    }
+    if (!hasNumber) {
+      setError("Password must include at least one number.");
+      return;
+    }
+    if (!hasSymbol) {
+      setError("Password must include at least one symbol.");
+      return;
+    }
+
     if (form.password !== form.confirmPassword) {
       setError("Passwords do not match.");
       return;
@@ -432,6 +459,7 @@ function RegisterPage() {
                       type={showPassword ? "text" : "password"}
                       value={form.password}
                       onChange={e => setForm({ ...form, password: e.target.value })}
+                      maxLength={16}
                       placeholder="••••••••"
                       required
                       className="mt-2 w-full bg-transparent border-b border-foreground/30 py-3 pr-8 outline-none focus:border-accent text-sm"
@@ -439,11 +467,47 @@ function RegisterPage() {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-2 bottom-3 text-muted-foreground hover:text-foreground"
+                      className="absolute right-2 bottom-3 text-muted-foreground hover:text-foreground cursor-pointer"
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
+
+                  {form.password.length > 0 && (
+                    <div className="mt-3 p-3 bg-white/5 border border-white/10 rounded-xl space-y-1.5 transition-all text-left">
+                      <p className="text-[10px] uppercase tracking-widest text-accent font-bold mb-1">Password Requirements</p>
+                      {form.password.length >= 16 && (
+                        <p className="text-[10px] text-rose-400 flex items-center gap-1.5">
+                          • Maximum 16 characters reached
+                        </p>
+                      )}
+                      {form.password.length >= 16 && (
+                        <p className="text-[10px] text-rose-400 flex items-center gap-1.5">
+                          • Must be less than 16 characters
+                        </p>
+                      )}
+                      {!/[a-z]/.test(form.password) && (
+                        <p className="text-[10px] text-rose-400 flex items-center gap-1.5">
+                          • Must include at least one lowercase letter
+                        </p>
+                      )}
+                      {!/[A-Z]/.test(form.password) && (
+                        <p className="text-[10px] text-rose-400 flex items-center gap-1.5">
+                          • Must include at least one uppercase/capital letter
+                        </p>
+                      )}
+                      {!/[0-9]/.test(form.password) && (
+                        <p className="text-[10px] text-rose-400 flex items-center gap-1.5">
+                          • Must include at least one number
+                        </p>
+                      )}
+                      {!/[^A-Za-z0-9]/.test(form.password) && (
+                        <p className="text-[10px] text-rose-400 flex items-center gap-1.5">
+                          • Must include at least one symbol
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </label>
               </div>
 
@@ -455,6 +519,7 @@ function RegisterPage() {
                     type={showConfirmPassword ? "text" : "password"}
                     value={form.confirmPassword}
                     onChange={e => setForm({ ...form, confirmPassword: e.target.value })}
+                    maxLength={16}
                     placeholder="••••••••"
                     required
                     className="mt-2 w-full bg-transparent border-b border-foreground/30 py-3 pr-8 outline-none focus:border-accent text-sm"
@@ -462,7 +527,7 @@ function RegisterPage() {
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-2 bottom-3 text-muted-foreground hover:text-foreground"
+                    className="absolute right-2 bottom-3 text-muted-foreground hover:text-foreground cursor-pointer"
                   >
                     {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>

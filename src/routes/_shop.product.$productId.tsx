@@ -501,7 +501,7 @@ function ProductDetail() {
     .slice(0, 4);
 
   return (
-    <div className="max-w-7xl mx-auto px-6 lg:px-16 py-12 space-y-16">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-16 py-8 md:py-12 space-y-12 md:space-y-16">
       {/* Back Button */}
       <div className="flex items-center gap-2 text-xs uppercase tracking-widest font-semibold">
         <Link
@@ -1087,7 +1087,7 @@ function ProductDetail() {
           <FadeUp>
             <h3 className="font-serif text-2xl">You May Also Like</h3>
           </FadeUp>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
             {relatedProducts.map((p) => {
               const wishlist = state.shopWishlist[state.user?.id || ""] || [];
               return (

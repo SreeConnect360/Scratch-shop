@@ -1,4 +1,3 @@
-import { motion } from "framer-motion";
 import { Home, ShoppingBag, Search, Heart, User } from "lucide-react";
 import { Link, useLocation, useSearch } from "@tanstack/react-router";
 import { usePortal, useCartTotal } from "@/lib/portal-state";
@@ -46,16 +45,12 @@ export default function BottomNav({ setSearchOpen }: BottomNavProps) {
   return (
     <nav
       aria-label="Mobile navigation"
-      className="glass glass-strong fixed inset-x-0 bottom-0 z-[90] border-x-0 border-b-0 md:hidden w-full border-t border-white/10 rounded-none shadow-[0_-8px_32px_rgba(0,0,0,0.15)]"
+      className="glass-dock fixed inset-x-0 bottom-0 z-[90] w-full md:hidden border-t border-white/10"
       style={{
         paddingBottom: "env(safe-area-inset-bottom)",
-        position: "fixed",
-        bottom: 0,
-        left: 0,
-        right: 0
       }}
     >
-      <div className="flex items-end justify-between px-2 py-1.5">
+      <div className="flex items-center justify-around px-2 py-1.5 h-16">
         {items.map((item) => {
           const isSearch = item.key === "search";
           const isActive = active === item.key;
@@ -68,12 +63,42 @@ export default function BottomNav({ setSearchOpen }: BottomNavProps) {
                 type="button"
                 aria-label="Search"
                 onClick={() => setSearchOpen(true)}
-                className="relative -mt-6 flex h-14 w-14 shrink-0 -translate-y-2 items-center justify-center rounded-full bg-gradient-to-br from-gold-soft via-gold to-gold-deep text-obsidian shadow-[0_10px_28px_-6px_rgba(200,169,106,0.7)] transition-transform duration-300 active:scale-90 cursor-pointer"
+                className="relative flex items-center justify-center cursor-pointer -translate-y-3.5 transition-transform duration-300 active:scale-95"
               >
-                <Search size={21} strokeWidth={2} />
+                {/* Glow behind search button */}
+                <div className="absolute -inset-1.5 bg-gold/25 rounded-full blur-md opacity-85" />
+                {/* Circular Gold Button */}
+                <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-gold text-zinc-950 shadow-[0_4px_12px_rgba(0,0,0,0.3),0_0_15px_rgba(200,169,106,0.35)]">
+                  <Search size={22} strokeWidth={2.2} />
+                </div>
               </button>
             );
           }
+
+          const innerContent = (
+            <span className="relative flex flex-col items-center justify-center py-1">
+              <item.Icon
+                size={22}
+                strokeWidth={1.8}
+                className={cn(
+                  "transition-colors duration-300",
+                  isActive ? "text-gold" : "text-white/60 hover:text-white"
+                )}
+              />
+              {count > 0 && (
+                <span className="absolute -right-2.5 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-gold px-1 text-[9px] font-bold text-zinc-950 shadow-[0_2px_5px_rgba(0,0,0,0.35)]">
+                  {count}
+                </span>
+              )}
+              {isActive && (
+                <span className="absolute -bottom-1.5 h-1 w-1 rounded-full bg-gold shadow-[0_0_6px_rgba(200,169,106,0.9)]" />
+              )}
+            </span>
+          );
+
+          const itemClasses = cn(
+            "relative flex flex-1 flex-col items-center justify-center py-2 px-1 cursor-pointer"
+          );
 
           const linkProps: any = {
             to: item.to,
@@ -87,36 +112,9 @@ export default function BottomNav({ setSearchOpen }: BottomNavProps) {
               key={item.key}
               {...linkProps}
               aria-label={count ? `${item.label}, ${count} items` : item.label}
-              className={cn(
-                "relative flex min-h-[52px] min-w-[52px] flex-col items-center justify-center rounded-2xl px-2 transition-colors duration-300",
-                isActive ? "text-gold" : "text-ink-muted"
-              )}
+              className={itemClasses}
             >
-              <span className="relative">
-                <item.Icon
-                  size={20}
-                  strokeWidth={1.8}
-                  className={cn(isActive && item.key === "wishlist" && "fill-gold")}
-                />
-                {count > 0 && (
-                  <motion.span
-                    key={count}
-                    initial={{ scale: 0.4 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: "spring", stiffness: 500, damping: 18 }}
-                    className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-gold px-1 text-[9px] font-bold text-obsidian"
-                  >
-                    {count}
-                  </motion.span>
-                )}
-              </span>
-              {isActive && (
-                <motion.span
-                  layoutId="bottom-nav-dot"
-                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                  className="absolute bottom-1 h-1 w-1 rounded-full bg-gold shadow-[0_0_8px_rgba(200,169,106,0.9)]"
-                />
-              )}
+              {innerContent}
             </Link>
           );
         })}
@@ -124,3 +122,4 @@ export default function BottomNav({ setSearchOpen }: BottomNavProps) {
     </nav>
   );
 }
+

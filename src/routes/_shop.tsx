@@ -443,7 +443,7 @@ function ShopLayout() {
             ref={barRef}
             onMouseMove={onBarMove}
             className={cn(
-              "glass glass-reflect mx-auto flex w-full max-w-[96rem] items-center justify-between gap-2 px-4 py-2.5 transition-shadow duration-500 sm:px-6 h-20 border-x-0 border-t-0 border-b border-white/10",
+              "glass glass-reflect flex w-full items-center justify-between gap-2 px-4 py-2.5 transition-shadow duration-500 sm:px-6 h-16 md:h-20 !border-x-0 !border-t-0 border-b border-white/10",
               scrolled && "glass-strong shadow-[var(--glass-shadow-hover)]"
             )}
           >
@@ -470,19 +470,12 @@ function ShopLayout() {
                         <li key={item} className="relative">
                           <Link
                             to="/categories"
-                            className="relative rounded-full px-3 py-1.5 text-[12.5px] tracking-[0.08em] font-semibold text-ink-muted hover:text-ink transition-colors duration-300"
+                            className="relative rounded-full px-3 py-1.5 text-[15px] tracking-[0.08em] font-semibold transition-colors duration-300"
                           >
                             {({ isActive }) => (
-                              <>
-                                {isActive && (
-                                  <motion.span
-                                    layoutId="nav-active"
-                                    transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                                    className="absolute inset-0 rounded-full border border-gold/25 bg-gold/10 shadow-[0_0_18px_-4px_rgba(200,169,106,0.4)]"
-                                  />
-                                )}
-                                <span className="relative">Fashion</span>
-                              </>
+                              <span className={isActive ? "text-gold" : "text-ink-muted hover:text-ink"}>
+                                Fashion
+                              </span>
                             )}
                           </Link>
                         </li>
@@ -495,19 +488,12 @@ function ShopLayout() {
                           <Link
                             to="/categories"
                             search={{ view: "collections" } as any}
-                            className="relative rounded-full px-3 py-1.5 text-[12.5px] tracking-[0.08em] font-semibold text-ink-muted hover:text-ink transition-colors duration-300"
+                            className="relative rounded-full px-3 py-1.5 text-[15px] tracking-[0.08em] font-semibold transition-colors duration-300"
                           >
                             {({ isActive }) => (
-                              <>
-                                {isActive && (
-                                  <motion.span
-                                    layoutId="nav-active"
-                                    transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                                    className="absolute inset-0 rounded-full border border-gold/25 bg-gold/10 shadow-[0_0_18px_-4px_rgba(200,169,106,0.4)]"
-                                  />
-                                )}
-                                <span className="relative">Collections</span>
-                              </>
+                              <span className={isActive ? "text-gold" : "text-ink-muted hover:text-ink"}>
+                                Collections
+                              </span>
                             )}
                           </Link>
                         </li>
@@ -525,19 +511,12 @@ function ShopLayout() {
                         <Link
                           to="/categories"
                           search={linkSearch}
-                          className="relative rounded-full px-3 py-1.5 text-[12.5px] tracking-[0.08em] font-semibold text-ink-muted hover:text-ink transition-colors duration-300"
+                          className="relative rounded-full px-3 py-1.5 text-[15px] tracking-[0.08em] font-semibold transition-colors duration-300"
                         >
                           {({ isActive }) => (
-                            <>
-                              {isActive && (
-                                <motion.span
-                                  layoutId="nav-active"
-                                  transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                                  className="absolute inset-0 rounded-full border border-gold/25 bg-gold/10 shadow-[0_0_18px_-4px_rgba(200,169,106,0.4)]"
-                                />
-                              )}
-                              <span className="relative">{label}</span>
-                            </>
+                            <span className={isActive ? "text-gold" : "text-ink-muted hover:text-ink"}>
+                              {label}
+                            </span>
                           )}
                         </Link>
                       </li>
@@ -546,50 +525,29 @@ function ShopLayout() {
                 ) : (
                   <>
                     <li className="relative">
-                      <Link to="/" className="relative rounded-full px-3 py-1.5 text-[12.5px] tracking-[0.08em] font-semibold text-ink hover:text-ink transition-colors">
+                      <Link to="/" className="relative rounded-full px-3 py-1.5 text-[15px] tracking-[0.08em] font-semibold transition-colors">
                         {({ isActive }) => (
-                          <>
-                            {isActive && (
-                              <motion.span
-                                layoutId="nav-active"
-                                transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                                className="absolute inset-0 rounded-full border border-gold/25 bg-gold/10 shadow-[0_0_18px_-4px_rgba(200,169,106,0.4)]"
-                              />
-                            )}
-                            <span className="relative">Shop</span>
-                          </>
+                          <span className={isActive ? "text-gold" : "text-ink-muted hover:text-ink"}>
+                            Shop
+                          </span>
                         )}
                       </Link>
                     </li>
                     <li className="relative">
-                      <Link to="/categories" className="relative rounded-full px-3 py-1.5 text-[12.5px] tracking-[0.08em] font-semibold text-ink-muted hover:text-ink transition-colors">
+                      <Link to="/categories" className="relative rounded-full px-3 py-1.5 text-[15px] tracking-[0.08em] font-semibold transition-colors">
                         {({ isActive }) => (
-                          <>
-                            {isActive && (
-                              <motion.span
-                                layoutId="nav-active"
-                                transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                                className="absolute inset-0 rounded-full border border-gold/25 bg-gold/10 shadow-[0_0_18px_-4px_rgba(200,169,106,0.4)]"
-                              />
-                            )}
-                            <span className="relative">Collections</span>
-                          </>
+                          <span className={isActive ? "text-gold" : "text-ink-muted hover:text-ink"}>
+                            Collections
+                          </span>
                         )}
                       </Link>
                     </li>
                     <li className="relative">
-                      <Link to="/FashionBattle/live-contest" className="relative rounded-full px-3 py-1.5 text-[12.5px] tracking-[0.08em] font-semibold text-ink-muted hover:text-ink transition-colors">
+                      <Link to="/FashionBattle/live-contest" className="relative rounded-full px-3 py-1.5 text-[15px] tracking-[0.08em] font-semibold transition-colors">
                         {({ isActive }) => (
-                          <>
-                            {isActive && (
-                              <motion.span
-                                layoutId="nav-active"
-                                transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                                className="absolute inset-0 rounded-full border border-gold/25 bg-gold/10 shadow-[0_0_18px_-4px_rgba(200,169,106,0.4)]"
-                              />
-                            )}
-                            <span className="relative">Contests</span>
-                          </>
+                          <span className={isActive ? "text-gold" : "text-ink-muted hover:text-ink"}>
+                            Contests
+                          </span>
                         )}
                       </Link>
                     </li>
@@ -757,10 +715,43 @@ function ShopLayout() {
                 </AnimatePresence>
               </motion.button>
 
+              {/* Mobile quick actions: search + cart + menu */}
+              <motion.button
+                type="button"
+                aria-label="Search"
+                onClick={() => setSearchOpen(true)}
+                whileTap={{ scale: 0.9 }}
+                className="relative flex h-10 w-10 items-center justify-center rounded-full text-ink-muted transition-colors duration-300 hover:text-ink cursor-pointer md:hidden"
+              >
+                <Search size={18} strokeWidth={1.8} />
+              </motion.button>
+
+              <Link to="/cart" className="md:hidden" aria-label={shopCount ? `Cart, ${shopCount} items` : "Cart"}>
+                <motion.button
+                  type="button"
+                  whileTap={{ scale: 0.9 }}
+                  className="relative flex h-10 w-10 items-center justify-center rounded-full text-ink-muted transition-colors duration-300 hover:text-ink cursor-pointer"
+                >
+                  <ShoppingBag size={18} strokeWidth={1.8} />
+                  {shopCount > 0 && (
+                    <motion.span
+                      key={shopCount}
+                      initial={{ scale: 0.4 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: "spring", stiffness: 500, damping: 18 }}
+                      className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-gold px-1 text-[9px] font-bold text-obsidian"
+                    >
+                      {shopCount}
+                    </motion.span>
+                  )}
+                </motion.button>
+              </Link>
+
               {/* Mobile Drawer Trigger */}
               <span className="md:hidden">
                 <motion.button
                   type="button"
+                  aria-label={mobileOpen ? "Close menu" : "Open menu"}
                   onClick={() => setMobileOpen((v) => !v)}
                   whileHover={{ scale: 1.12, rotate: 4 }}
                   whileTap={{ scale: 0.9 }}
@@ -821,6 +812,58 @@ function ShopLayout() {
                     >
                       Collections
                     </Link>
+                  </li>
+                </ul>
+
+                <div className="gold-hairline my-2" />
+
+                <ul role="list" className="flex flex-col gap-1">
+                  <li>
+                    <Link
+                      to="/account"
+                      search={{ tab: "profile" } as any}
+                      onClick={() => setMobileOpen(false)}
+                      className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm tracking-wide font-semibold transition-colors text-ink-muted hover:bg-gold/5 hover:text-ink cursor-pointer"
+                    >
+                      <User size={16} strokeWidth={1.8} className="text-gold" />
+                      My Account
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      to="/account"
+                      search={{ tab: "orders" } as any}
+                      onClick={() => setMobileOpen(false)}
+                      className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm tracking-wide font-semibold transition-colors text-ink-muted hover:bg-gold/5 hover:text-ink cursor-pointer"
+                    >
+                      <ShoppingBag size={16} strokeWidth={1.8} className="text-gold" />
+                      My Orders
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      to="/account"
+                      search={{ tab: "wishlist" } as any}
+                      onClick={() => setMobileOpen(false)}
+                      className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm tracking-wide font-semibold transition-colors text-ink-muted hover:bg-gold/5 hover:text-ink cursor-pointer"
+                    >
+                      <Heart size={16} strokeWidth={1.8} className="text-gold" />
+                      Wishlist
+                    </Link>
+                  </li>
+                  <li>
+                    <button
+                      type="button"
+                      onClick={toggleTheme}
+                      className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm tracking-wide font-semibold transition-colors text-ink-muted hover:bg-gold/5 hover:text-ink cursor-pointer"
+                    >
+                      {theme === "dark" ? (
+                        <Sun size={16} strokeWidth={1.8} className="text-gold" />
+                      ) : (
+                        <Moon size={16} strokeWidth={1.8} className="text-gold" />
+                      )}
+                      {theme === "dark" ? "Light Mode" : "Dark Mode"}
+                    </button>
                   </li>
                 </ul>
               </motion.div>

@@ -148,6 +148,23 @@ public class AuthController {
             return ResponseEntity.status(400).body(Map.of("message", "Email is already registered"));
         }
 
+        // Validate password constraints
+        if (password.length() >= 16) {
+            return ResponseEntity.status(400).body(Map.of("message", "Password must be less than 16 characters"));
+        }
+        if (!password.matches(".*[a-z].*")) {
+            return ResponseEntity.status(400).body(Map.of("message", "Password must include at least one lowercase letter"));
+        }
+        if (!password.matches(".*[A-Z].*")) {
+            return ResponseEntity.status(400).body(Map.of("message", "Password must include at least one uppercase letter"));
+        }
+        if (!password.matches(".*[0-9].*")) {
+            return ResponseEntity.status(400).body(Map.of("message", "Password must include at least one number"));
+        }
+        if (!password.matches(".*[^A-Za-z0-9].*")) {
+            return ResponseEntity.status(400).body(Map.of("message", "Password must include at least one symbol"));
+        }
+
         String passwordHash = BCrypt.hashpw(password, BCrypt.gensalt());
 
         User user = new User();
@@ -280,6 +297,23 @@ public class AuthController {
         Optional<User> userOpt = userRepository.findByEmail(email);
         if (userOpt.isEmpty()) {
             return ResponseEntity.status(404).body(Map.of("message", "User not found"));
+        }
+
+        // Validate password constraints
+        if (password.length() >= 16) {
+            return ResponseEntity.status(400).body(Map.of("message", "Password must be less than 16 characters"));
+        }
+        if (!password.matches(".*[a-z].*")) {
+            return ResponseEntity.status(400).body(Map.of("message", "Password must include at least one lowercase letter"));
+        }
+        if (!password.matches(".*[A-Z].*")) {
+            return ResponseEntity.status(400).body(Map.of("message", "Password must include at least one uppercase letter"));
+        }
+        if (!password.matches(".*[0-9].*")) {
+            return ResponseEntity.status(400).body(Map.of("message", "Password must include at least one number"));
+        }
+        if (!password.matches(".*[^A-Za-z0-9].*")) {
+            return ResponseEntity.status(400).body(Map.of("message", "Password must include at least one symbol"));
         }
 
         User user = userOpt.get();

@@ -391,7 +391,7 @@ function CategoriesPage() {
           <FadeUp delay={0.2}><p className="mt-4 max-w-xl text-muted-foreground text-sm">Explore our curated collections of luxury outfits and select sets.</p></FadeUp>
         </header>
 
-        <section className="px-6 lg:px-16 py-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 bg-transparent">
+        <section className="px-4 sm:px-6 lg:px-16 py-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 bg-transparent">
           {unhiddenBuckets.length === 0 ? (
             <div className="col-span-full py-24 text-center text-sm text-muted-foreground italic bg-white/5 border border-white/10 rounded-3xl p-6">
               No collections are currently published by the admin.
@@ -495,7 +495,7 @@ function CategoriesPage() {
       )}
 
       {/* Product Grid */}
-      <section className="px-6 lg:px-16 py-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-4 gap-y-10 bg-transparent">
+      <section className="px-4 sm:px-6 lg:px-16 py-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 sm:gap-x-4 gap-y-8 sm:gap-y-10 bg-transparent">
         {filteredProducts.length === 0 ? (
           <div className="col-span-full py-24 text-center text-sm text-muted-foreground italic bg-white/5 border border-white/10 rounded-3xl p-6">
             No items found matching the selected filters.

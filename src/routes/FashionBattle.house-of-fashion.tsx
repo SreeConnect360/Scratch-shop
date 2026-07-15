@@ -1,7 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { Heart } from "lucide-react";
+import { toast } from "sonner";
 import { PublicLayout } from "@/components/layout/PublicLayout";
 import { CinematicImage, FadeUp } from "@/components/motion/Reveal";
 import { PRODUCTS, CAMPAIGNS } from "@/lib/data";
+import { usePortal } from "@/lib/portal-state";
 
 export const Route = createFileRoute("/FashionBattle/house-of-fashion")({
   head: () => ({ meta: [{ title: "House of Fashion — ReeVibes" }, { name: "description", content: "Discover the curated maisons and editorial collections of the ReeVibes ecosystem." }] }),
@@ -9,6 +12,21 @@ export const Route = createFileRoute("/FashionBattle/house-of-fashion")({
 });
 
 function HousePage() {
+  const { state, toggleWishlist } = usePortal();
+  const wishlist = state.user ? (state.wishlist[state.user.id] ?? []) : [];
+
+  const handleWishlist = (e: React.MouseEvent, productId: string, productName: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!state.user) {
+      toast.error("Please sign in to manage your wishlist.");
+      return;
+    }
+    const wasInWishlist = wishlist.includes(productId);
+    toggleWishlist(state.user.id, productId);
+    toast.success(wasInWishlist ? `${productName} removed from wishlist.` : `${productName} added to wishlist!`);
+  };
+
   return (
     <PublicLayout>
       <header className="px-6 lg:px-16 pt-24 pb-12 border-b border-border-subtle">
@@ -32,6 +50,14 @@ function HousePage() {
               <div className="aspect-[3/4] overflow-hidden bg-surface relative">
                 <img src={p.image} alt={p.name} className="w-full h-full object-cover img-cinematic transition-transform duration-[1500ms] group-hover:scale-105" />
                 {p.tag && <div className="absolute top-3 left-3 bg-white text-black editorial-label px-2.5 py-1">{p.tag}</div>}
+                <button
+                  type="button"
+                  onClick={(e) => handleWishlist(e, p.id, p.name)}
+                  title={wishlist.includes(p.id) ? "Remove from wishlist" : "Add to wishlist"}
+                  className="absolute top-3 right-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/50 backdrop-blur-md text-white transition-all duration-300 hover:bg-black/70 hover:scale-110 cursor-pointer"
+                >
+                  <Heart className={`w-4 h-4 transition-colors ${wishlist.includes(p.id) ? "fill-accent text-accent" : "text-white"}`} />
+                </button>
               </div>
               <div className="mt-4 flex items-start justify-between">
                 <div>

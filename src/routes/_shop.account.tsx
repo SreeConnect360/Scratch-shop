@@ -449,11 +449,11 @@ function ShopDashboard() {
   const isProfileTab = activeTab === "dashboard" || activeTab === "profile";
 
   return (
-    <div className="max-w-7xl mx-auto px-6 lg:px-16 py-12 space-y-10">
-      <div className="flex justify-between items-center border-b border-white/10 pb-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-16 py-8 md:py-12 space-y-8 md:space-y-10">
+      <div className="flex flex-wrap justify-between items-center gap-3 border-b border-white/10 pb-6">
         <div>
           <p className="editorial-eyebrow text-accent">Maison Shop Membership</p>
-          <h1 className="mt-2 font-serif text-3xl md:text-5xl">Welcome, {user.firstName}.</h1>
+          <h1 className="mt-2 font-serif text-2xl sm:text-3xl md:text-5xl">Welcome, {user.firstName}.</h1>
         </div>
         <Link to="/" className="text-xs uppercase tracking-widest font-bold text-accent hover:underline">
           Return to Curation
@@ -463,15 +463,15 @@ function ShopDashboard() {
       <div className="flex flex-col lg:flex-row gap-8 items-start">
         {/* Left Sidebar */}
         <aside className="w-full lg:w-72 shrink-0">
-          <div className="liquid-glass border border-white/10 rounded-3xl p-6 space-y-6 bg-white/5 shadow-lg">
-            <div className="border-b border-white/10 pb-4">
+          <div className="liquid-glass border border-white/10 rounded-3xl p-3 sm:p-4 lg:p-6 space-y-4 lg:space-y-6 bg-white/5 shadow-lg">
+            <div className="hidden lg:block border-b border-white/10 pb-4">
               <p className="text-[9px] uppercase tracking-[0.2em] text-accent font-bold">Maison Member</p>
               <h2 className="font-serif text-xl text-foreground font-semibold mt-1 truncate">
                 {user.firstName} {user.lastName}
               </h2>
             </div>
-            
-            <nav className="flex flex-col gap-1.5">
+
+            <nav className="flex lg:flex-col gap-1.5 overflow-x-auto scrollbar-none lg:overflow-visible">
               {[
                 { id: "profile", label: "Profile", icon: User },
                 { id: "orders", label: "My Orders", icon: ListOrdered, count: userOrders.length },
@@ -486,7 +486,7 @@ function ShopDashboard() {
                   <button
                     key={t.id}
                     onClick={() => navigate({ to: "/account", search: { tab: t.id as any } })}
-                    className={`flex items-center justify-between w-full text-left text-[10px] uppercase tracking-wider font-bold py-3.5 px-5 rounded-2xl transition-all duration-300 cursor-pointer border ${
+                    className={`flex items-center justify-between shrink-0 lg:shrink lg:w-full whitespace-nowrap lg:whitespace-normal text-left text-[10px] uppercase tracking-wider font-bold py-3 px-4 lg:py-3.5 lg:px-5 rounded-2xl transition-all duration-300 cursor-pointer border ${
                       isActive 
                         ? "bg-accent/15 border-accent text-white shadow-[0_0_15px_rgba(212,175,55,0.2)]" 
                         : "border-transparent hover:bg-white/5 hover:border-white/5 text-muted-foreground hover:text-foreground"
@@ -497,7 +497,7 @@ function ShopDashboard() {
                       <span>{t.label}</span>
                     </div>
                     {t.count !== undefined && t.count > 0 && (
-                      <span className={`text-[9px] px-2 py-0.5 rounded-full font-mono font-bold ${isActive ? 'bg-accent text-white' : 'bg-white/10 text-muted-foreground'}`}>
+                      <span className={`ml-2 text-[9px] px-2 py-0.5 rounded-full font-mono font-bold ${isActive ? 'bg-accent text-white' : 'bg-white/10 text-muted-foreground'}`}>
                         {t.count}
                       </span>
                     )}

@@ -774,7 +774,7 @@ export function ShopCart() {
   const isSomeSelected = validSelectedKeys.length > 0 && validSelectedKeys.length < cartItems.length;
 
   return (
-    <div className="max-w-7xl mx-auto px-6 lg:px-16 py-12 space-y-8 relative">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-16 py-8 md:py-12 space-y-8 relative">
       
       {/* Checkout step visual indicators */}
       <div className="flex justify-center items-center gap-4 text-xs font-bold uppercase tracking-widest pb-4 border-b border-white/10">

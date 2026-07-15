@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { usePortal } from "@/lib/portal-state";
 import { useTheme } from "@/hooks/use-theme";
 import { BrandLogo } from "@/components/theme/ThemeToggle";
-import { ArrowLeft, Sparkles, Mail, Lock, CheckCircle2, ShieldCheck, X, AlertCircle, User as UserIcon, ShieldAlert, Clock } from "lucide-react";
+import { ArrowLeft, Sparkles, Mail, Lock, CheckCircle2, ShieldCheck, X, AlertCircle, User as UserIcon, ShieldAlert, Clock, Eye, EyeOff } from "lucide-react";
 import { useGoogleLogin } from "@react-oauth/google";
 import { toast } from "sonner";
 import { BACKEND_URL } from "@/lib/config";
@@ -22,6 +22,8 @@ function ShopRegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [emailVerified, setEmailVerified] = useState(false);
   
   // OTP Modal & Resend states
@@ -158,8 +160,30 @@ function ShopRegisterPage() {
       setShowFloatingWarning(true);
       return;
     }
-    if (!password || password.length < 6) {
-      toast.error("Password must be at least 6 characters.");
+    const hasLowercase = /[a-z]/.test(password);
+    const hasUppercase = /[A-Z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSymbol = /[^A-Za-z0-9]/.test(password);
+    const isLessThan16 = password.length > 0 && password.length < 16;
+
+    if (!isLessThan16) {
+      toast.error("Password must be less than 16 characters.");
+      return;
+    }
+    if (!hasLowercase) {
+      toast.error("Password must include at least one lowercase letter.");
+      return;
+    }
+    if (!hasUppercase) {
+      toast.error("Password must include at least one uppercase letter.");
+      return;
+    }
+    if (!hasNumber) {
+      toast.error("Password must include at least one number.");
+      return;
+    }
+    if (!hasSymbol) {
+      toast.error("Password must include at least one symbol.");
       return;
     }
     if (password !== confirmPassword) {
@@ -449,32 +473,90 @@ function ShopRegisterPage() {
                   </div>
                 </label>
 
-                <label className="block">
-                  <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold flex items-center gap-1.5">
-                    <Lock className="w-3.5 h-3.5 text-accent" /> Set Password
-                  </span>
-                  <input
-                    type="password"
-                    placeholder="•••••••• (Min 6 characters)"
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 px-4 py-3 text-xs outline-none focus:border-accent rounded-full text-foreground mt-2 transition-all"
-                    required
-                  />
-                </label>
+                <div>
+                  <label className="block relative">
+                    <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5 text-accent" /> Set Password
+                    </span>
+                    <div className="relative mt-2">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        placeholder="•••••••• (Min 6 characters)"
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        maxLength={16}
+                        className="w-full bg-white/5 border border-white/10 pl-4 pr-12 py-3 text-xs outline-none focus:border-accent rounded-full text-foreground transition-all"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </label>
 
-                <label className="block">
+                  {password.length > 0 && (
+                    <div className="mt-3 p-3 bg-white/5 border border-white/10 rounded-xl space-y-1.5 transition-all text-left">
+                      <p className="text-[10px] uppercase tracking-widest text-accent font-bold mb-1">Password Requirements</p>
+                      {password.length >= 16 && (
+                        <p className="text-[10px] text-rose-400 flex items-center gap-1.5">
+                          • Maximum 16 characters reached
+                        </p>
+                      )}
+                      {password.length >= 16 && (
+                        <p className="text-[10px] text-rose-400 flex items-center gap-1.5">
+                          • Must be less than 16 characters
+                        </p>
+                      )}
+                      {!/[a-z]/.test(password) && (
+                        <p className="text-[10px] text-rose-400 flex items-center gap-1.5">
+                          • Must include at least one lowercase letter
+                        </p>
+                      )}
+                      {!/[A-Z]/.test(password) && (
+                        <p className="text-[10px] text-rose-400 flex items-center gap-1.5">
+                          • Must include at least one uppercase/capital letter
+                        </p>
+                      )}
+                      {!/[0-9]/.test(password) && (
+                        <p className="text-[10px] text-rose-400 flex items-center gap-1.5">
+                          • Must include at least one number
+                        </p>
+                      )}
+                      {!/[^A-Za-z0-9]/.test(password) && (
+                        <p className="text-[10px] text-rose-400 flex items-center gap-1.5">
+                          • Must include at least one symbol
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <label className="block relative">
                   <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold flex items-center gap-1.5">
                     <Lock className="w-3.5 h-3.5 text-accent" /> Confirm Password
                   </span>
-                  <input
-                    type="password"
-                    placeholder="••••••••"
-                    value={confirmPassword}
-                    onChange={e => setConfirmPassword(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 px-4 py-3 text-xs outline-none focus:border-accent rounded-full text-foreground mt-2 transition-all"
-                    required
-                  />
+                  <div className="relative mt-2">
+                    <input
+                      type={showConfirmPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      value={confirmPassword}
+                      onChange={e => setConfirmPassword(e.target.value)}
+                      maxLength={16}
+                      className="w-full bg-white/5 border border-white/10 pl-4 pr-12 py-3 text-xs outline-none focus:border-accent rounded-full text-foreground transition-all"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                    >
+                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </label>
 
                 {error && <p className="text-xs text-rose-500 font-medium text-center">{error}</p>}

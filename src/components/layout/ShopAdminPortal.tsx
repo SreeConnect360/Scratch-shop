@@ -34,7 +34,7 @@ const formatOrderDateTime = (dateStr: string) => {
 
 export function ShopAdminPortal({ tab }: { tab: string }) {
   const [statusFilter, setStatusFilter] = useState<string>("All");
-  const { state, createProduct, updateProduct, deleteProduct, updateOrderStatus, acceptOrder, fetchCourierQuotes, assignAWB, schedulePickup, approveReturn, rejectReturn, updateReturnDetails, suspendCustomer, reactivateCustomer, addCoupon, removeCoupon, moderateReview, createVendor, deleteVendor, addWalletCredit, updateHomepageLayoutDraft, publishHomepageLayout, revertHomepageLayout, createBucket, updateBucket, deleteBucket, reorderBuckets } = usePortal();
+  const { state, createProduct, updateProduct, deleteProduct, updateOrderStatus, acceptOrder, fetchCourierQuotes, assignAWB, schedulePickup, approveReturn, rejectReturn, updateReturnDetails, suspendCustomer, reactivateCustomer, addCoupon, removeCoupon, moderateReview, createVendor, deleteVendor, addWalletCredit, updateHomepageLayoutDraft, publishHomepageLayout, revertHomepageLayout, createBucket, updateBucket, deleteBucket, reorderBuckets, toggleShopWishlist } = usePortal();
 
   // Dynamic products list from state
   const productsList = state.products || [];
@@ -5128,8 +5128,10 @@ Fit: Regular Fit"
                           />
                         </div>
 
+
+
                         {/* Color dot indicator (Green = live, Blue = complete but not live, Yellow = incomplete) */}
-                        <div className="absolute top-3 right-3 z-20 flex items-center">
+                        <div className="absolute top-[15px] right-12 z-20 flex items-center">
                           {(() => {
                             let dotColorClass = "bg-yellow-500 shadow-yellow-500/80";
                             let tooltipTitle = "Product information incomplete";

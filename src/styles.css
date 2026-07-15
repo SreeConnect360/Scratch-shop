@@ -116,38 +116,40 @@
   --text-muted: rgba(244, 242, 238, 0.6);
   --glass-bg: rgba(255, 255, 255, 0.05);
   --glass-bg-strong: rgba(20, 20, 26, 0.66);
-  --glass-border: rgba(255, 255, 255, 0.09);
-  --glass-highlight: rgba(255, 255, 255, 0.14);
+  --glass-border: rgba(228, 207, 163, 0.14);
+  --glass-highlight: rgba(228, 207, 163, 0.22);
   --glass-shadow: 0 12px 44px -12px rgba(0, 0, 0, 0.55),
-    0 2px 10px -4px rgba(0, 0, 0, 0.4);
+    0 2px 10px -4px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
   --glass-shadow-hover: 0 28px 70px -18px rgba(0, 0, 0, 0.7),
-    0 0 40px -10px rgba(200, 169, 106, 0.16);
+    0 0 44px -8px rgba(200, 169, 106, 0.24),
+    inset 0 1px 0 rgba(228, 207, 163, 0.08);
   --gold-glow: 0 0 36px -6px rgba(200, 169, 106, 0.35);
-  --reflect: rgba(255, 255, 255, 0.09);
+  --reflect: rgba(228, 207, 163, 0.12);
   color-scheme: dark;
 }
 
 .light {
   --background: #faf9f7;
-  --foreground: #1b1712;
+  --foreground: #000000;
   --surface: #f1efeb;
   --surface-2: #e9e6df;
   --surface-3: #dfdaca;
 
   --card: #ffffff;
-  --card-foreground: #1b1712;
+  --card-foreground: #000000;
   --popover: #ffffff;
-  --popover-foreground: #1b1712;
+  --popover-foreground: #000000;
 
   --primary: #c8a96a;
-  --primary-foreground: #1b1712;
+  --primary-foreground: #000000;
   --secondary: #f1efeb;
-  --secondary-foreground: #1b1712;
+  --secondary-foreground: #000000;
   --muted: #f1efeb;
-  --muted-foreground: rgba(27, 23, 18, 0.66);
+  --muted-foreground: rgba(0, 0, 0, 0.7);
 
   --accent: #c8a96a;
-  --accent-foreground: #1b1712;
+  --accent-foreground: #000000;
   --accent-rose: #a98a4f;
   --accent-blush: #a98a4f;
 
@@ -160,27 +162,28 @@
   --ring: #c8a96a;
 
   --sidebar: #f1efeb;
-  --sidebar-foreground: #1b1712;
+  --sidebar-foreground: #000000;
   --sidebar-primary: #c8a96a;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #e9e6df;
-  --sidebar-accent-foreground: #1b1712;
+  --sidebar-accent-foreground: #000000;
   --sidebar-border: rgba(27, 23, 18, 0.09);
   --sidebar-ring: #c8a96a;
 
   /* Elysia light mode matches .light */
   --bg: #faf9f7;
   --bg-soft: #f1efeb;
-  --text: #1b1712;
-  --text-muted: rgba(27, 23, 18, 0.66);
+  --text: #000000;
+  --text-muted: rgba(0, 0, 0, 0.7);
   --glass-bg: rgba(255, 255, 255, 0.82);
   --glass-bg-strong: rgba(255, 255, 255, 0.95);
-  --glass-border: rgba(27, 23, 18, 0.09);
+  --glass-border: rgba(138, 109, 51, 0.16);
   --glass-highlight: rgba(255, 255, 255, 1);
   --glass-shadow: 0 1px 2px rgba(27, 23, 18, 0.04),
     0 10px 32px -12px rgba(27, 23, 18, 0.12);
   --glass-shadow-hover: 0 2px 6px rgba(27, 23, 18, 0.05),
-    0 24px 56px -16px rgba(27, 23, 18, 0.2);
+    0 24px 56px -16px rgba(27, 23, 18, 0.2),
+    0 0 34px -10px rgba(138, 109, 51, 0.22);
   --gold-glow: 0 0 28px -6px rgba(138, 109, 51, 0.35);
   --reflect: rgba(255, 255, 255, 0.9);
   color-scheme: light;
@@ -228,6 +231,12 @@
   ::selection {
     background: var(--accent);
     color: white;
+  }
+  /* Visible golden focus ring for keyboard navigation (WCAG) */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 4px;
   }
   /* Custom scrollbar */
   ::-webkit-scrollbar {
@@ -335,6 +344,18 @@ body, button, input, select, textarea, span, p, a, h1, h2, h3, h4, h5, h6, div, 
     box-shadow 0.5s ease;
 }
 
+/* .glass sets position:relative outside Tailwind's layers, which outranks the
+   layered position utilities — restore them for elements using both. */
+.glass.absolute {
+  position: absolute;
+}
+.glass.fixed {
+  position: fixed;
+}
+.glass.sticky {
+  position: sticky;
+}
+
 .glass-strong {
   background: var(--glass-bg-strong);
   -webkit-backdrop-filter: blur(28px) saturate(180%);
@@ -350,8 +371,10 @@ body, button, input, select, textarea, span, p, a, h1, h2, h3, h4, h5, h6, div, 
   background: linear-gradient(
     135deg,
     var(--glass-highlight),
-    transparent 40%,
-    transparent 60%,
+    rgba(200, 169, 106, 0.18) 22%,
+    transparent 42%,
+    transparent 58%,
+    rgba(200, 169, 106, 0.14) 78%,
     var(--glass-highlight)
   );
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
@@ -612,7 +635,7 @@ html:not(.dark) .text-gold {
   color: #7d6432 !important;
 }
 html:not(.dark) .text-ink-muted {
-  color: rgba(27, 23, 18, 0.66) !important;
+  color: rgba(0, 0, 0, 0.7) !important;
 }
 html:not(.dark) .bg-gold\/10 {
   background-color: rgba(138, 109, 51, 0.12) !important;
@@ -915,4 +938,87 @@ html:not(.dark) .fill-gold {
   transform: scaleY(-1);
   opacity: 0.28;
   mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.9), transparent 75%);
+}
+
+/* ============================================================
+   RESPONSIVE REFINEMENT LAYER — professional arrangement
+   across desktop / tablet / mobile ratios
+   ============================================================ */
+
+/* Golden hairline divider */
+.gold-hairline {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(200, 169, 106, 0.4) 20%,
+    rgba(228, 207, 163, 0.55) 50%,
+    rgba(200, 169, 106, 0.4) 80%,
+    transparent
+  );
+}
+
+/* Edge-to-edge liquid-glass mobile dock (borderless, flush with page edges) */
+.glass-dock {
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: blur(32px) saturate(180%);
+  backdrop-filter: blur(32px) saturate(180%);
+  border: none;
+  box-shadow: 0 -8px 32px -10px rgba(0, 0, 0, 0.4);
+}
+.light .glass-dock {
+  box-shadow: 0 -6px 24px -10px rgba(27, 23, 18, 0.12);
+}
+
+/* Tablet: 3-across product rhythm feels more editorial than 2 */
+@media (min-width: 640px) and (max-width: 1023px) {
+  .shop-portal-layout .product-grid-compact {
+    gap: 1rem !important;
+  }
+}
+
+/* Mobile polish — tighter, professional arrangement */
+@media (max-width: 767px) {
+  /* Product grids breathe less on small screens */
+  .shop-portal-layout .grid-cols-2 {
+    gap: 0.75rem !important;
+  }
+  /* Softer, hand-sized card radius */
+  .shop-portal-layout .grid-cols-2 > .glass.rounded-3xl,
+  .shop-portal-layout .grid-cols-2 > a > .glass.rounded-3xl {
+    border-radius: 1.125rem;
+  }
+  /* Clear the floating bottom dock */
+  .shop-portal-layout main {
+    padding-bottom: calc(6rem + env(safe-area-inset-bottom));
+  }
+  /* Section shells hug the viewport a touch closer */
+  .section-shell {
+    padding-inline: 1rem;
+  }
+  /* Heavy glass blurs are expensive on mobile GPUs — lighten */
+  .glass {
+    -webkit-backdrop-filter: blur(14px) saturate(150%);
+    backdrop-filter: blur(14px) saturate(150%);
+  }
+  .liquid-glass {
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+  }
+}
+
+/* Respect reduced-motion preferences everywhere */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .custom-cursor-dot,
+  .custom-cursor-ring {
+    display: none !important;
+  }
 }

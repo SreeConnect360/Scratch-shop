@@ -36,9 +36,22 @@ export const Route = createFileRoute("/FashionBattle/house-of-fashion/$productId
 
 function ProductPage() {
   const { product } = Route.useLoaderData();
-  const { addToCart } = usePortal();
+  const { state, addToCart, toggleWishlist } = usePortal();
   const [added, setAdded] = useState(false);
   const related = PRODUCTS.filter(p => p.id !== product.id).slice(0, 3);
+  const wishlist = state.user ? (state.wishlist[state.user.id] ?? []) : [];
+
+  const handleWishlist = (e: React.MouseEvent, productId: string, productName: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!state.user) {
+      toast.error("Please sign in to manage your wishlist.");
+      return;
+    }
+    const wasInWishlist = wishlist.includes(productId);
+    toggleWishlist(state.user.id, productId);
+    toast.success(wasInWishlist ? `${productName} removed from wishlist.` : `${productName} added to wishlist!`);
+  };
 
   const onAdd = () => {
     addToCart({ productId: product.id, name: product.name, house: product.house, price: product.price, image: product.image });
@@ -75,7 +88,13 @@ function ProductPage() {
               <button onClick={onAdd} className="flex-1 bg-foreground text-background py-4 editorial-label hover:bg-accent hover:text-white transition-colors inline-flex items-center justify-center gap-2">
                 {added ? <><Check className="w-4 h-4" /> Added</> : <><ShoppingBag className="w-4 h-4" /> Add to Cart</>}
               </button>
-              <button className="w-14 h-14 border border-foreground hover:bg-foreground hover:text-background transition-colors flex items-center justify-center" aria-label="Favorite"><Heart className="w-4 h-4" /></button>
+              <button
+                onClick={(e) => handleWishlist(e, product.id, product.name)}
+                className="w-14 h-14 border border-foreground hover:bg-foreground hover:text-background transition-colors flex items-center justify-center cursor-pointer"
+                aria-label="Favorite"
+              >
+                <Heart className={`w-4 h-4 ${wishlist.includes(product.id) ? "fill-accent text-accent" : ""}`} />
+              </button>
             </div>
 
             <dl className="mt-12 divide-y divide-border-subtle border-y border-border-subtle text-sm">
@@ -93,8 +112,16 @@ function ProductPage() {
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
           {related.map(p => (
             <Link key={p.id} to="/FashionBattle/house-of-fashion/$productId" params={{ productId: p.id }} className="group">
-              <div className="aspect-[3/4] overflow-hidden bg-surface">
+              <div className="aspect-[3/4] overflow-hidden bg-surface relative">
                 <img src={p.image} alt={p.name} className="w-full h-full object-cover img-cinematic transition-transform duration-[1500ms] group-hover:scale-105" />
+                <button
+                  type="button"
+                  onClick={(e) => handleWishlist(e, p.id, p.name)}
+                  title={wishlist.includes(p.id) ? "Remove from wishlist" : "Add to wishlist"}
+                  className="absolute top-3 right-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/50 backdrop-blur-md text-white transition-all duration-300 hover:bg-black/70 hover:scale-110 cursor-pointer"
+                >
+                  <Heart className={`w-4 h-4 transition-colors ${wishlist.includes(p.id) ? "fill-accent text-accent" : "text-white"}`} />
+                </button>
               </div>
               <div className="mt-3 flex items-start justify-between">
                 <div>

@@ -4,7 +4,7 @@ import {
   Sparkles, LayoutGrid, Plus, Edit2, Trash2, Check, X, ShieldAlert,
   ArrowUpRight, IndianRupee, Search, Shield, Eye, EyeOff, PlusCircle,
   Settings as SettingsIcon, History, ListFilter, Tag, BarChart2, Undo, CheckSquare,
-  Square, ArrowUpDown, Layers3, ChevronRight, Info, AlertTriangle
+  Square, ArrowUpDown, Layers3, ChevronRight, Info, AlertTriangle, Heart
 } from "lucide-react";
 import { AdminCard, AdminButton, StatusChip } from "./AdminCommon";
 import * as vendorApi from "@/lib/vendor-api";
@@ -12,7 +12,8 @@ import { usePortal } from "@/lib/portal-state";
 import { toast } from "sonner";
 
 export default function VendorDashboard() {
-  const { state, reloadProducts } = usePortal();
+  const { state, reloadProducts, toggleShopWishlist } = usePortal();
+  const vendorWishlist = state.user ? (state.shopWishlist[state.user.id] ?? []) : [];
   const [vendors, setVendors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isOffline, setIsOffline] = useState(false);
@@ -911,10 +912,28 @@ export default function VendorDashboard() {
                                   </button>
 
                                   {/* Yellow (incomplete) / Blue (complete) Glowing Indicator */}
-                                  <div 
+                                  <div
                                     title={isComplete ? "Product information fully complete" : "Product information incomplete"}
-                                    className={`absolute top-3 right-3 w-3 h-3 rounded-full border border-white/20 z-10 shadow-lg ${isComplete ? "bg-blue-500 shadow-blue-500/80 animate-pulse" : "bg-yellow-500 shadow-yellow-500/80 animate-pulse"}`}
+                                    className={`absolute top-[15px] right-12 w-3 h-3 rounded-full border border-white/20 z-10 shadow-lg ${isComplete ? "bg-blue-500 shadow-blue-500/80 animate-pulse" : "bg-yellow-500 shadow-yellow-500/80 animate-pulse"}`}
                                   />
+
+                                  {/* Wishlist Heart */}
+                                  <button
+                                    type="button"
+                                    title={vendorWishlist.includes(p.id) ? "Remove from wishlist" : "Add to wishlist"}
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      if (!state.user) {
+                                        toast.error("Please sign in to manage your wishlist.");
+                                        return;
+                                      }
+                                      toggleShopWishlist(state.user.id, p.id);
+                                    }}
+                                    className="absolute top-2.5 right-2.5 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 hover:bg-black text-white transition-colors cursor-pointer"
+                                  >
+                                    <Heart className={`w-4 h-4 transition-colors ${vendorWishlist.includes(p.id) ? "fill-gold text-gold" : "text-white/70"}`} />
+                                  </button>
 
                                   {/* Image aspect */}
                                   <div className="aspect-[3/4] bg-zinc-950 overflow-hidden relative">

@@ -259,7 +259,7 @@ function ShopHome() {
             id="hero"
             key={sectionId}
             aria-label="Featured stories"
-            className="relative flex flex-col items-center justify-center overflow-hidden pb-14 pt-5 md:min-h-[88svh]"
+            className="relative flex flex-col items-center justify-center overflow-hidden pb-0 pt-0 w-full"
           >
             {/* ambient gold light */}
             <div
@@ -267,14 +267,14 @@ function ShopHome() {
               className="pointer-events-none absolute left-1/2 top-[16%] h-[42rem] w-[42rem] -translate-x-1/2 rounded-full bg-gold/10 blur-[140px]"
             />
 
-            <div className="section-shell relative z-10 w-full">
+            <div className="relative z-10 w-full">
               <div
                 role="region"
                 aria-roledescription="carousel"
                 aria-label="Seasonal highlights"
                 onMouseEnter={() => setHoveringHero(true)}
                 onMouseLeave={() => setHoveringHero(false)}
-                className="glass glass-edge group relative aspect-[16/10] max-h-[calc(100svh-10rem)] w-full overflow-hidden rounded-[1.2rem] sm:rounded-[1.8rem] lg:aspect-[21/9]"
+                className="group relative aspect-[16/10] md:aspect-[21/9] max-h-[360px] md:max-h-[450px] w-full overflow-hidden rounded-none border-none"
               >
                 <AnimatePresence mode="sync">
                   <motion.div
@@ -594,9 +594,9 @@ function ShopHome() {
               </div>
             </FadeUp>
 
-            <div className={naConfig.layoutStyle === "carousel" ? "flex gap-8 overflow-x-auto pb-4 scrollbar-thin" : "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5"}>
+            <div className={naConfig.layoutStyle === "carousel" ? "grid grid-cols-2 gap-3 md:flex md:gap-8 md:overflow-x-auto md:pb-4 scrollbar-thin" : "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5"}>
               {naProducts.map(p => (
-                <div key={p.id} className={naConfig.layoutStyle === "carousel" ? "w-80 shrink-0" : "w-full"}>
+                <div key={p.id} className={naConfig.layoutStyle === "carousel" ? "w-full md:w-80 md:shrink-0" : "w-full"}>
                   <ProductCard
                     p={p}
                     toggleShopWishlist={toggleShopWishlist}
@@ -800,7 +800,7 @@ function ShopHome() {
             <div className="border-b border-white/10 pb-2">
               <h3 className="font-serif text-lg tracking-wider">Recommended For You</h3>
             </div>
-            <div className="grid sm:grid-cols-3 gap-8">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-8">
               {recProducts.map(p => (
                 <ProductCard
                   key={p.id}
@@ -995,7 +995,7 @@ function ShopHome() {
           const bucketProducts = products.filter(p => bucket.productIds.includes(p.id));
 
           return (
-            <section key={sectionId} className="max-w-7xl mx-auto px-6 lg:px-16 space-y-8">
+            <section key={sectionId} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-16 space-y-8">
               <FadeUp>
                 <div className="relative aspect-[16/10] lg:aspect-[21/9] min-h-[160px] sm:min-h-[220px] rounded-3xl overflow-hidden bg-zinc-950 border border-white/10 shadow-xl">
                   <img src={thumbnail} className="absolute inset-0 w-full h-full object-cover opacity-60" alt="" />
@@ -1029,7 +1029,7 @@ function ShopHome() {
           if (sectionBuckets.length === 0 && sectionProducts.length === 0) return null;
 
           return (
-            <section key={sectionId} className="max-w-7xl mx-auto px-6 lg:px-16 space-y-12 animate-in fade-in duration-300 relative z-10">
+            <section key={sectionId} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-16 space-y-12 animate-in fade-in duration-300 relative z-10">
               <div className="border-b border-white/10 pb-4">
                 <h2 className="font-serif text-3xl text-foreground tracking-wide">{sec.name || "Curated Section"}</h2>
                 {sec.subname && (
@@ -1041,7 +1041,7 @@ function ShopHome() {
               {sectionBuckets.length > 0 && (
                 <div className="space-y-6">
                   <h3 className="font-serif text-xl text-accent border-l-2 border-accent pl-3">Curated Collections</h3>
-                  <div className="relative px-12 group/carousel">
+                  <div className="relative px-0 md:px-12 group/carousel">
                     <button
                       type="button"
                       onClick={(e) => {
@@ -1050,17 +1050,17 @@ function ShopHome() {
                           container.scrollBy({ left: -320, behavior: "smooth" });
                         }
                       }}
-                      className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-surface-3 hover:bg-accent border border-border-subtle hover:border-accent text-foreground hover:text-white w-10 h-10 flex items-center justify-center rounded-full shadow-md transition-all cursor-pointer text-sm font-bold"
+                      className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-surface-3 hover:bg-accent border border-border-subtle hover:border-accent text-foreground hover:text-white w-10 h-10 hidden md:flex items-center justify-center rounded-full shadow-md transition-all cursor-pointer text-sm font-bold"
                       title="Scroll Left"
                     >
                       &larr;
                     </button>
-                    <div className="flex gap-5 overflow-x-auto snap-x scroll-smooth scrollbar-none pb-4 px-1">
+                    <div className="grid grid-cols-2 gap-3 md:flex md:gap-5 md:overflow-x-auto md:snap-x md:scroll-smooth scrollbar-none md:pb-4 md:px-1">
                       {sectionBuckets.map((bkt: any) => {
                         const starProd = products.find((p) => p.id === bkt.starProductId) || products.find((p) => bkt.productIds?.includes(p.id));
                         const thumbnail = starProd?.image || "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=400&h=500&q=80";
                         return (
-                          <div key={bkt.id} className="w-[280px] shrink-0 snap-start">
+                          <div key={bkt.id} className="w-full md:w-[280px] md:shrink-0 md:snap-start">
                             <Link
                               to="/categories"
                               search={{ bucketId: bkt.id } as any}
@@ -1069,10 +1069,10 @@ function ShopHome() {
                               <div className="aspect-[3/4] overflow-hidden bg-zinc-950 relative">
                                 <img src={thumbnail} className="absolute inset-0 w-full h-full object-cover opacity-70 transition-transform duration-500 group-hover:scale-105" alt="" />
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 to-transparent" />
-                                <div className="absolute inset-x-0 bottom-0 p-6 flex justify-between items-center z-10">
-                                  <div>
+                                <div className="absolute inset-x-0 bottom-0 p-3.5 md:p-6 flex justify-between items-center z-10">
+                                  <div className="min-w-0">
                                     <span className="text-[9px] uppercase tracking-widest text-accent font-bold">Curation Set</span>
-                                    <h4 className="font-serif text-lg mt-1 text-white font-bold truncate max-w-[170px]">{bkt.name}</h4>
+                                    <h4 className="font-serif text-sm md:text-lg mt-1 text-white font-bold truncate max-w-[170px]">{bkt.name}</h4>
                                   </div>
                                   <ArrowRight className="w-4 h-4 text-white group-hover:text-accent transition-colors shrink-0" />
                                 </div>
@@ -1090,7 +1090,7 @@ function ShopHome() {
                           container.scrollBy({ left: 320, behavior: "smooth" });
                         }
                       }}
-                      className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-surface-3 hover:bg-accent border border-border-subtle hover:border-accent text-foreground hover:text-white w-10 h-10 flex items-center justify-center rounded-full shadow-md transition-all cursor-pointer text-sm font-bold"
+                      className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-surface-3 hover:bg-accent border border-border-subtle hover:border-accent text-foreground hover:text-white w-10 h-10 hidden md:flex items-center justify-center rounded-full shadow-md transition-all cursor-pointer text-sm font-bold"
                       title="Scroll Right"
                     >
                       &rarr;
@@ -1103,7 +1103,7 @@ function ShopHome() {
               {sectionProducts.length > 0 && (
                 <div className="space-y-6 relative">
                   <h3 className="font-serif text-xl text-foreground/80 border-l-2 border-emerald-400 pl-3">Featured Curation</h3>
-                  <div className="relative px-12 group/carousel">
+                  <div className="relative px-0 md:px-12 group/carousel">
                     <button
                       type="button"
                       onClick={(e) => {
@@ -1112,14 +1112,14 @@ function ShopHome() {
                           container.scrollBy({ left: -320, behavior: "smooth" });
                         }
                       }}
-                      className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-surface-3 hover:bg-accent border border-border-subtle hover:border-accent text-foreground hover:text-white w-10 h-10 flex items-center justify-center rounded-full shadow-md transition-all cursor-pointer text-sm font-bold"
+                      className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-surface-3 hover:bg-accent border border-border-subtle hover:border-accent text-foreground hover:text-white w-10 h-10 hidden md:flex items-center justify-center rounded-full shadow-md transition-all cursor-pointer text-sm font-bold"
                       title="Scroll Left"
                     >
                       &larr;
                     </button>
-                    <div className="flex gap-5 overflow-x-auto snap-x scroll-smooth scrollbar-none pb-4 px-1">
+                    <div className="grid grid-cols-2 gap-3 md:flex md:gap-5 md:overflow-x-auto md:snap-x md:scroll-smooth scrollbar-none md:pb-4 md:px-1">
                       {sectionProducts.map((p: any) => (
-                        <div key={p.id} className="w-[280px] shrink-0 snap-start">
+                        <div key={p.id} className="w-full md:w-[280px] md:shrink-0 md:snap-start">
                           <ProductCard
                             key={p.id}
                             p={p}
@@ -1138,7 +1138,7 @@ function ShopHome() {
                           container.scrollBy({ left: 320, behavior: "smooth" });
                         }
                       }}
-                      className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-surface-3 hover:bg-accent border border-border-subtle hover:border-accent text-foreground hover:text-white w-10 h-10 flex items-center justify-center rounded-full shadow-md transition-all cursor-pointer text-sm font-bold"
+                      className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-surface-3 hover:bg-accent border border-border-subtle hover:border-accent text-foreground hover:text-white w-10 h-10 hidden md:flex items-center justify-center rounded-full shadow-md transition-all cursor-pointer text-sm font-bold"
                       title="Scroll Right"
                     >
                       &rarr;
@@ -1218,7 +1218,7 @@ function RotatableBanner({ banner, sectionId }: { banner: any; sectionId: string
   const currentSlide = slides[activeIdx % slides.length] || slides[0];
 
   return (
-    <section key={sectionId} className="max-w-7xl mx-auto px-6 lg:px-16 relative">
+    <section key={sectionId} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-16 relative">
       <FadeUp>
         <div className="relative aspect-[16/10] lg:aspect-[21/9] min-h-[180px] sm:min-h-[260px] overflow-hidden bg-zinc-950 group rounded-3xl border border-border-subtle">
           <Link
