@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "frontend",
+      "runtimeExecutable": "npm.cmd",
+      "runtimeArgs": ["run", "dev"],
+      "port": 8080
+    },
+    {
+      "name": "backend",
+      "runtimeExecutable": "backend-spring-boot\\run-dev.cmd",
+      "runtimeArgs": [],
+      "port": 8081
+    }
+  ]
+}
