@@ -1075,35 +1075,38 @@ function QuickAddModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="relative w-full max-w-lg overflow-hidden bg-background/95 border border-border-subtle rounded-3xl shadow-2xl p-6 md:p-8 text-foreground animate-in zoom-in-95 duration-200">
+      <div className="relative w-[92%] sm:w-[95%] max-w-lg max-h-[90vh] md:max-h-none overflow-hidden bg-background/95 border border-border-subtle rounded-3xl shadow-2xl p-5 sm:p-6 md:p-8 text-foreground animate-in zoom-in-95 duration-200 flex flex-col">
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 text-muted-foreground hover:text-foreground transition-colors rounded-full bg-foreground/5 hover:bg-foreground/10"
+          className="absolute top-4 right-4 p-2 text-muted-foreground hover:text-foreground transition-colors rounded-full bg-foreground/5 hover:bg-foreground/10 z-10"
         >
           <X className="w-4 h-4" />
         </button>
 
-        <div className="flex flex-col md:flex-row gap-6">
-          {/* Image */}
-          <div className="w-full md:w-1/3 aspect-[3/4] bg-foreground/5 rounded-2xl overflow-hidden border border-border-subtle/50">
-            <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
-          </div>
-
-          {/* Details */}
-          <div className="flex-1 flex flex-col justify-between">
-            <div>
-              <span className="text-[9px] uppercase tracking-widest text-accent font-bold">
-                {product.house}
-              </span>
-              <h3 className="font-serif text-xl md:text-2xl mt-1 text-foreground font-medium">
-                {product.name}
-              </h3>
-              <p className="text-accent font-semibold text-base mt-1">{product.price}</p>
+        {/* Scrollable Content Container */}
+        <div className="flex-1 overflow-y-auto pr-1 min-h-0">
+          <div className="flex gap-4 md:gap-6 items-start">
+            {/* Image */}
+            <div className="w-20 sm:w-24 md:w-1/3 aspect-[3/4] bg-foreground/5 rounded-2xl overflow-hidden border border-border-subtle/50 shrink-0">
+              <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
             </div>
 
+            {/* Details */}
+            <div className="flex-1 min-w-0 pr-6">
+              <span className="text-[9px] uppercase tracking-widest text-accent font-bold block">
+                {product.house}
+              </span>
+              <h3 className="font-serif text-base sm:text-lg md:text-xl mt-1 text-foreground font-medium leading-tight">
+                {product.name}
+              </h3>
+              <p className="text-accent font-semibold text-sm sm:text-base mt-1">{product.price}</p>
+            </div>
+          </div>
+
+          <div className="space-y-4 mt-5">
             {/* Size Selector */}
-            <div className="mt-4">
+            <div>
               <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold block mb-2">
                 Select Size:
               </label>
@@ -1117,7 +1120,7 @@ function QuickAddModal({
                       key={size}
                       disabled={!hasStock}
                       onClick={() => setSelectedSize(size)}
-                      className={`text-xs py-2 px-4 font-bold rounded-full transition-all duration-200 ${
+                      className={`text-xs min-w-[42px] h-9 font-bold rounded-full transition-all duration-200 flex items-center justify-center px-3 ${
                         !hasStock
                           ? "opacity-30 bg-foreground/5 line-through text-muted-foreground cursor-not-allowed border border-transparent"
                           : isSelected
@@ -1133,7 +1136,7 @@ function QuickAddModal({
             </div>
 
             {/* Quantity Selector */}
-            <div className="mt-4">
+            <div>
               <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold block mb-2">
                 Quantity:
               </label>
@@ -1141,7 +1144,7 @@ function QuickAddModal({
                 <div className="flex items-center border border-border-subtle rounded-full bg-foreground/5 p-1">
                   <button
                     onClick={() => setQty(prev => Math.max(1, prev - 1))}
-                    className="p-1.5 hover:text-accent transition-colors rounded-full hover:bg-foreground/5"
+                    className="w-8 h-8 flex items-center justify-center hover:text-accent transition-colors rounded-full hover:bg-foreground/5"
                   >
                     <Minus className="w-3.5 h-3.5" />
                   </button>
@@ -1151,13 +1154,13 @@ function QuickAddModal({
                       const maxStock = selectedSize ? (stockPerSize[selectedSize] ?? 10) : 10;
                       setQty(prev => Math.min(maxStock, prev + 1));
                     }}
-                    className="p-1.5 hover:text-accent transition-colors rounded-full hover:bg-foreground/5"
+                    className="w-8 h-8 flex items-center justify-center hover:text-accent transition-colors rounded-full hover:bg-foreground/5"
                   >
                     <Plus className="w-3.5 h-3.5" />
                   </button>
                 </div>
                 {selectedSize && (
-                  <span className="text-[10px] text-muted-foreground">
+                  <span className="text-[10px] text-muted-foreground font-medium">
                     {stockPerSize[selectedSize] ?? 0} items available
                   </span>
                 )}
@@ -1167,7 +1170,7 @@ function QuickAddModal({
         </div>
 
         {/* Modal Footer / Add to Cart Button */}
-        <div className="mt-8 pt-4 border-t border-border-subtle">
+        <div className="mt-5 pt-4 border-t border-border-subtle shrink-0">
           <button
             onClick={handleAdd}
             disabled={!selectedSize}

@@ -1099,7 +1099,7 @@ function ProductDetail() {
                   wishlist={wishlist}
                 />
               );
-            })}
+             })}
           </div>
         </div>
       )}
@@ -1107,121 +1107,127 @@ function ProductDetail() {
       {/* Size Selection Popup Modal */}
       {showSizePopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="liquid-glass max-w-md w-full p-6 md:p-8 space-y-6 shadow-[0_0_50px_rgba(212,175,55,0.25)] animate-in zoom-in-95 duration-200 border border-accent/40 rounded-3xl relative bg-background/90 text-foreground">
+          <div className="liquid-glass w-[92%] sm:w-[95%] max-w-md max-h-[90vh] md:max-h-none p-5 sm:p-6 md:p-8 shadow-[0_0_50px_rgba(212,175,55,0.25)] animate-in zoom-in-95 duration-200 border border-accent/40 rounded-3xl relative bg-background/90 text-foreground flex flex-col">
             <button
               onClick={() => {
                 setShowSizePopup(false);
                 setPostSizeAction(null);
               }}
-              className="absolute top-4 right-4 text-muted-foreground hover:text-accent p-2 transition-colors rounded-full bg-foreground/5 hover:bg-foreground/10 border border-accent/20"
+              className="absolute top-4 right-4 text-muted-foreground hover:text-accent p-2 transition-colors rounded-full bg-foreground/5 hover:bg-foreground/10 border border-accent/20 z-10"
             >
               <X className="w-5 h-5" />
             </button>
 
-            <div className="flex gap-4">
-              <img src={product.image} className="w-20 aspect-[3/4] object-cover rounded-xl border border-border-subtle" />
-              <div className="flex-1 space-y-1">
-                <span className="text-[10px] uppercase tracking-widest text-accent font-bold">{product.house}</span>
-                <h3 className="font-serif text-lg font-bold text-foreground leading-tight">{product.name}</h3>
-                <div className="text-sm font-semibold text-accent mt-1">{product.price}</div>
+            {/* Scrollable Container */}
+            <div className="flex-1 overflow-y-auto pr-1 space-y-5 min-h-0">
+              <div className="flex gap-4">
+                <img src={product.image} className="w-20 aspect-[3/4] object-cover rounded-xl border border-border-subtle shrink-0" />
+                <div className="flex-1 space-y-1 min-w-0 pr-6">
+                  <span className="text-[10px] uppercase tracking-widest text-accent font-bold block">{product.house}</span>
+                  <h3 className="font-serif text-base sm:text-lg font-bold text-foreground leading-tight">{product.name}</h3>
+                  <div className="text-sm font-semibold text-accent mt-1">{product.price}</div>
+                </div>
+              </div>
+
+              <hr className="border-border-subtle" />
+
+              {/* Size Selector in popup */}
+              <div className="space-y-3">
+                <div className="flex justify-between items-center text-xs uppercase tracking-wider font-semibold">
+                  <span>Select Size</span>
+                  <span className="text-red-500 font-semibold tracking-wider text-[10px] animate-pulse">
+                    {selectedSize ? `Stock: ${stockPerSize[selectedSize]} left` : "Please select a size"}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {availableSizes.map((size) => {
+                    const hasStock = (stockPerSize[size] ?? 0) > 0;
+                    const isSelected = selectedSize === size;
+                    return (
+                      <button
+                        key={size}
+                        disabled={!hasStock}
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedSize(null);
+                          } else {
+                            setSelectedSize(size);
+                            setQuantity(1);
+                          }
+                        }}
+                        className={`text-xs min-w-[42px] h-9 font-semibold rounded-full transition-all duration-300 flex items-center justify-center px-3.5 ${
+                          !hasStock
+                            ? "opacity-35 cursor-not-allowed bg-foreground/5 line-through text-muted-foreground border border-transparent"
+                            : isSelected
+                              ? "bg-accent text-white shadow-[0_0_15px_rgba(212,175,55,0.4)] scale-105 border border-accent"
+                              : "bg-foreground/5 hover:bg-foreground/10 text-foreground border border-border-subtle"
+                        }`}
+                      >
+                        {size}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Quantity Selector in popup */}
+              <div className="space-y-3">
+                <label className="block text-xs uppercase tracking-wider font-semibold text-center">Quantity</label>
+                <div className="flex items-center bg-foreground/5 border border-border-subtle w-32 mx-auto rounded-full overflow-hidden p-0.5 backdrop-blur-md">
+                  <button
+                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                    className="flex-1 h-8 flex items-center justify-center hover:bg-foreground/5 rounded-full transition-colors font-bold text-sm text-foreground"
+                  >
+                    -
+                  </button>
+                  <span className="flex-1 text-center font-semibold text-xs text-foreground">
+                    {quantity}
+                  </span>
+                  <button
+                    onClick={() => {
+                      const maxStock = selectedSize ? (stockPerSize[selectedSize] ?? 0) : 10;
+                      setQuantity((q) => (q < maxStock ? q + 1 : q));
+                    }}
+                    className="flex-1 h-8 flex items-center justify-center hover:bg-foreground/5 rounded-full transition-colors font-bold text-sm text-foreground"
+                  >
+                    +
+                  </button>
+                </div>
               </div>
             </div>
 
-            <hr className="border-border-subtle" />
-
-            {/* Size Selector in popup */}
-            <div className="space-y-3">
-              <div className="flex justify-between items-center text-xs uppercase tracking-wider font-semibold">
-                <span>Select Size</span>
-                <span className="text-red-500 font-semibold tracking-wider text-[10px] animate-pulse">
-                  {selectedSize ? `Stock: ${stockPerSize[selectedSize]} left` : "Please select a size"}
-                </span>
-              </div>
-              <div className="flex flex-wrap gap-2 justify-center">
-                {availableSizes.map((size) => {
-                  const hasStock = (stockPerSize[size] ?? 0) > 0;
-                  const isSelected = selectedSize === size;
-                  return (
-                    <button
-                      key={size}
-                      disabled={!hasStock}
-                      onClick={() => {
-                        if (isSelected) {
-                          setSelectedSize(null);
-                        } else {
-                          setSelectedSize(size);
-                          setQuantity(1);
-                        }
-                      }}
-                      className={`text-xs py-2 px-5 font-semibold rounded-full transition-all duration-300 ${
-                        !hasStock
-                          ? "opacity-35 cursor-not-allowed bg-foreground/5 line-through text-muted-foreground border border-transparent"
-                          : isSelected
-                            ? "bg-accent text-white shadow-[0_0_15px_rgba(212,175,55,0.4)] scale-105 border border-accent"
-                            : "bg-foreground/5 hover:bg-foreground/10 text-foreground border border-border-subtle"
-                      }`}
-                    >
-                      {size}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Quantity Selector in popup */}
-            <div className="space-y-3">
-              <label className="block text-xs uppercase tracking-wider font-semibold text-center">Quantity</label>
-              <div className="flex items-center bg-foreground/5 border border-border-subtle w-32 mx-auto rounded-full overflow-hidden p-0.5 backdrop-blur-md">
-                <button
-                  onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                  className="flex-1 py-1.5 text-center hover:bg-foreground/5 rounded-full transition-colors font-bold text-sm text-foreground"
-                >
-                  -
-                </button>
-                <span className="flex-1 text-center font-semibold text-xs text-foreground">
-                  {quantity}
-                </span>
-                <button
-                  onClick={() => {
-                    const maxStock = selectedSize ? (stockPerSize[selectedSize] ?? 0) : 10;
-                    setQuantity((q) => (q < maxStock ? q + 1 : q));
-                  }}
-                  className="flex-1 py-1.5 text-center hover:bg-foreground/5 rounded-full transition-colors font-bold text-sm text-foreground"
-                >
-                  +
-                </button>
-              </div>
-            </div>
-
-            <button
-              onClick={() => {
-                if (!selectedSize) {
-                  toast.error("Please select a size first.");
-                  return;
-                }
-                addToShopCart({
-                  productId: product.id,
-                  name: product.name,
-                  house: product.house,
-                  price: product.price,
-                  image: product.image,
-                  qty: quantity,
-                  selectedSize,
-                });
-                toast.success(`${product.name} (${selectedSize}) added to cart!`);
-                setShowSizePopup(false);
-                if (postSizeAction === "buy") {
-                  navigate({
-                    to: "/cart",
-                    search: { buyNow: "true", productId: product.id, size: selectedSize } as any
+            {/* Footer button fixed at the bottom */}
+            <div className="mt-5 pt-4 border-t border-border-subtle shrink-0">
+              <button
+                onClick={() => {
+                  if (!selectedSize) {
+                    toast.error("Please select a size first.");
+                    return;
+                  }
+                  addToShopCart({
+                    productId: product.id,
+                    name: product.name,
+                    house: product.house,
+                    price: product.price,
+                    image: product.image,
+                    qty: quantity,
+                    selectedSize,
                   });
-                }
-                setPostSizeAction(null);
-              }}
-              className="w-full bg-foreground text-background hover:bg-accent hover:text-white border border-border-subtle py-4 text-xs font-bold uppercase tracking-widest transition-all rounded-full flex items-center justify-center gap-2 transform hover:scale-[1.02] active:scale-[0.98] shadow-md font-semibold"
-            >
-              <ShoppingBag className="w-4 h-4" /> {postSizeAction === "buy" ? "Buy It Now" : "Add to Cart"}
-            </button>
+                  toast.success(`${product.name} (${selectedSize}) added to cart!`);
+                  setShowSizePopup(false);
+                  if (postSizeAction === "buy") {
+                    navigate({
+                      to: "/cart",
+                      search: { buyNow: "true", productId: product.id, size: selectedSize } as any
+                    });
+                  }
+                  setPostSizeAction(null);
+                }}
+                className="w-full bg-foreground text-background hover:bg-accent hover:text-white border border-border-subtle py-3.5 text-xs font-bold uppercase tracking-widest transition-all rounded-full flex items-center justify-center gap-2 transform hover:scale-[1.01] active:scale-[0.99] shadow-md font-semibold"
+              >
+                <ShoppingBag className="w-4 h-4" /> {postSizeAction === "buy" ? "Buy It Now" : "Add to Cart"}
+              </button>
+            </div>
           </div>
         </div>
       )}
