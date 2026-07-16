@@ -14,8 +14,10 @@ export default defineConfig({
   },
   nitro: {
     preset: process.env.NITRO_PRESET || "vercel",
-    externals: {
-      inline: ["tslib"],
-    },
+    // Force-inline tslib into the Vercel serverless bundle (Nitro externalises
+    // it by default, but Vercel functions don't ship node_modules).
+    // The lovable type surface is intentionally narrow; the runtime spreads all
+    // options through to Nitro, so this works despite the TS complaint.
+    ...({ externals: { inline: ["tslib"] } } as Record<string, unknown>),
   },
 });
