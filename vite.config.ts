@@ -13,6 +13,6 @@ export default defineConfig({
     server: { entry: "server" },
   },
   nitro: {
-    preset: process.env.NITRO_PRESET || "netlify",
+    preset: process.env.NITRO_PRESET || "vercel",
   },
 });
