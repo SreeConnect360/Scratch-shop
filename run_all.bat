@@ -24,7 +24,7 @@ echo.
 
 :: 2. Start Spring Boot Backend
 echo [2/3] Starting Spring Boot Backend...
-start "ReeVibes Backend" cmd /c "echo Starting Spring Boot Backend... && set \"JAVA_HOME=C:\Program Files\Java\jdk-17\" && cd backend-spring-boot && mvnw spring-boot:run"
+start "ReeVibes Backend" cmd /c "echo Starting Spring Boot Backend... && cd backend-spring-boot && mvnw spring-boot:run"
 echo [SUCCESS] Backend startup initiated in a new window.
 echo.
 

@@ -512,17 +512,17 @@ function ProductDetail() {
         </Link>
       </div>
 
-      <div className="grid lg:grid-cols-12 gap-12">
-        {/* Left Side: Images sliders & Zoom */}
-        <div className="lg:col-span-7 lg:sticky lg:top-24 self-start flex gap-4 w-full max-h-[70vh] lg:max-h-[calc(100vh-140px)]">
-          {/* Vertical Thumbnail Gallery on the left side */}
+      <div className="grid lg:grid-cols-12 gap-6 lg:gap-12 relative items-start">
+        {/* Left Side: Images sliders & Zoom (Sticky on both mobile and desktop) */}
+        <div className="lg:col-span-6 sticky lg:sticky top-4 lg:top-8 z-20 self-start lg:h-fit flex flex-col-reverse lg:flex-row gap-4 w-full h-[45vh] lg:h-auto max-h-[45vh] lg:max-h-[560px] bg-zinc-950 lg:bg-transparent p-2.5 lg:p-0 rounded-b-[2rem] lg:rounded-none border-b border-white/10 lg:border-none shadow-xl lg:shadow-none">
+          {/* Vertical/Horizontal Thumbnail Gallery */}
           {mediaGallery.length > 1 && (
-            <div className="flex flex-col gap-3 overflow-y-auto pr-1 shrink-0 scrollbar-none justify-start max-h-[70vh] lg:max-h-full">
+            <div className="flex lg:flex-col gap-2.5 overflow-x-auto lg:overflow-y-auto pb-1.5 lg:pb-0 pr-1 shrink-0 scrollbar-none justify-start w-full lg:w-16 max-h-[12vh] lg:max-h-full">
               {mediaGallery.map((m: string, idx: number) => (
                 <button
                   key={idx}
                   onClick={() => setActiveMediaIdx(idx)}
-                  className={`w-16 h-20 border overflow-hidden shrink-0 rounded-xl transition-all duration-300 ${
+                  className={`w-12 h-16 lg:w-16 lg:h-20 border overflow-hidden shrink-0 rounded-xl transition-all duration-300 ${
                     activeMediaIdx === idx
                       ? "border-accent scale-95 shadow-[0_0_15px_rgba(212,175,55,0.4)]"
                       : "border-white/10 hover:border-white/30"
@@ -534,9 +534,9 @@ function ProductDetail() {
             </div>
           )}
 
-          {/* Main Image on the right side */}
+          {/* Main Image */}
           <div
-            className="relative bg-zinc-950 aspect-[3/4] lg:aspect-auto lg:flex-1 lg:min-h-0 overflow-hidden rounded-3xl border border-border-subtle cursor-zoom-in flex items-center justify-center flex-1"
+            className="relative bg-black aspect-square lg:aspect-[3/4] lg:flex-1 lg:min-h-0 overflow-hidden rounded-2xl lg:rounded-3xl border border-white/5 lg:border-border-subtle cursor-zoom-in flex items-center justify-center flex-1 h-full lg:max-h-[520px]"
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
           >
@@ -550,7 +550,7 @@ function ProductDetail() {
               style={{
                 ...zoomStyle,
                 backgroundImage: `url(${mediaGallery[activeMediaIdx]})`,
-                backgroundSize: "200%",
+                backgroundSize: "140%",
               }}
             />
 
@@ -578,8 +578,8 @@ function ProductDetail() {
           </div>
         </div>
 
-        {/* Right Side: Product Details */}
-        <div className="lg:col-span-5 space-y-6">
+        {/* Right Side: Product Details (Details slide behind/under top sticky image gallery on mobile) */}
+        <div className="lg:col-span-6 relative z-10 lg:z-auto p-5 lg:p-0 mt-4 lg:mt-0 space-y-6">
           <FadeUp>
             <div className="text-xs uppercase tracking-widest text-accent font-bold">
               {product.house}
@@ -1087,7 +1087,7 @@ function ProductDetail() {
           <FadeUp>
             <h3 className="font-serif text-2xl">You May Also Like</h3>
           </FadeUp>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 items-start">
             {relatedProducts.map((p) => {
               const wishlist = state.shopWishlist[state.user?.id || ""] || [];
               return (
@@ -1471,7 +1471,14 @@ function RelatedProductCard({
           </div>
 
           {/* Sizes Row */}
-          <div className={`transition-all duration-300 overflow-hidden ${isTitleHovered ? "h-6 opacity-100 mt-1.5" : "h-0 opacity-0"}`}>
+          <div
+            className="transition-all duration-350 ease-in-out overflow-hidden"
+            style={{
+              maxHeight: isTitleHovered ? "24px" : "0px",
+              opacity: isTitleHovered ? 1 : 0,
+              marginTop: isTitleHovered ? "6px" : "0px",
+            }}
+          >
             <div className="flex items-center gap-1.5 w-full">
               <span className="text-[9px] uppercase tracking-widest text-muted-foreground shrink-0">Sizes:</span>
               <div className="overflow-hidden w-full relative">

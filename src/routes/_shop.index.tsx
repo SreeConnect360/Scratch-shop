@@ -523,7 +523,7 @@ function ShopHome() {
               </div>
             </FadeUp>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5 items-start">
               {fsProducts.map(p => (
                 <ProductCard
                   key={p.id}
@@ -562,7 +562,7 @@ function ShopHome() {
               </div>
             </FadeUp>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5 items-start">
               {trendingProductsList.map(p => (
                 <ProductCard
                   key={p.id}
@@ -594,7 +594,7 @@ function ShopHome() {
               </div>
             </FadeUp>
 
-            <div className={naConfig.layoutStyle === "carousel" ? "grid grid-cols-2 gap-3 md:flex md:gap-8 md:overflow-x-auto md:pb-4 scrollbar-thin" : "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5"}>
+            <div className={naConfig.layoutStyle === "carousel" ? "grid grid-cols-2 gap-3 md:flex md:gap-8 md:overflow-x-auto md:pb-4 scrollbar-thin items-start" : "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5 items-start"}>
               {naProducts.map(p => (
                 <div key={p.id} className={naConfig.layoutStyle === "carousel" ? "w-full md:w-80 md:shrink-0" : "w-full"}>
                   <ProductCard
@@ -645,7 +645,7 @@ function ShopHome() {
                 </div>
               </div>
             </FadeUp>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5 items-start">
               {colProducts.map(p => (
                 <ProductCard
                   key={p.id}
@@ -689,7 +689,7 @@ function ShopHome() {
                 <h2 className="font-serif text-3xl mt-1">Most Coveted Curation</h2>
               </div>
             </FadeUp>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5 items-start">
               {bsProducts.map(p => (
                 <ProductCard
                   key={p.id}
@@ -720,7 +720,7 @@ function ShopHome() {
                 <h3 className="font-serif text-lg mt-1">Couture Pieces Selling Fast</h3>
               </div>
             </FadeUp>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5 items-start">
               {limProducts.map(p => (
                 <ProductCard
                   key={p.id}
@@ -748,7 +748,7 @@ function ShopHome() {
                 <h2 className="font-serif text-3xl mt-1">Editor's & Stylist Favorites</h2>
               </div>
             </FadeUp>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5 items-start">
               {infProducts.map(p => (
                 <ProductCard
                   key={p.id}
@@ -800,7 +800,7 @@ function ShopHome() {
             <div className="border-b border-white/10 pb-2">
               <h3 className="font-serif text-lg tracking-wider">Recommended For You</h3>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-8">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-8 items-start">
               {recProducts.map(p => (
                 <ProductCard
                   key={p.id}
@@ -1006,7 +1006,7 @@ function ShopHome() {
                 </div>
               </FadeUp>
 
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5 items-start">
                 {bucketProducts.map(p => (
                   <ProductCard
                     key={p.id}
@@ -1117,7 +1117,7 @@ function ShopHome() {
                     >
                       &larr;
                     </button>
-                    <div className="grid grid-cols-2 gap-3 md:flex md:gap-5 md:overflow-x-auto md:snap-x md:scroll-smooth scrollbar-none md:pb-4 md:px-1">
+                    <div className="grid grid-cols-2 gap-3 md:flex md:gap-5 md:overflow-x-auto md:snap-x md:scroll-smooth scrollbar-none md:pb-4 md:px-1 items-start">
                       {sectionProducts.map((p: any) => (
                         <div key={p.id} className="w-full md:w-[280px] md:shrink-0 md:snap-start">
                           <ProductCard
@@ -1523,7 +1523,14 @@ function ProductCard({
         </div>
 
         {/* Sizes Row */}
-        <div className={`transition-all duration-300 overflow-hidden ${isTitleHovered ? "h-6 opacity-100 mt-1" : "h-0 opacity-0"}`}>
+        <div
+          className="transition-all duration-350 ease-in-out overflow-hidden"
+          style={{
+            maxHeight: isTitleHovered ? "24px" : "0px",
+            opacity: isTitleHovered ? 1 : 0,
+            marginTop: isTitleHovered ? "4px" : "0px",
+          }}
+        >
           <div className="flex items-center gap-1.5 w-full">
             <span className="text-[9px] uppercase tracking-widest text-muted-foreground shrink-0 font-bold">Sizes:</span>
             <div className="overflow-hidden w-full relative">

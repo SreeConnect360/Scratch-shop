@@ -15,6 +15,45 @@ const accountSearchSchema = z.object({
   tab: z.enum(["dashboard", "profile", "addresses", "coupons", "wishlist", "orders", "returns", "wallet", "settings", "ai-analytics"]).catch("profile"),
 });
 
+const INDIAN_STATES = [
+  "Andhra Pradesh",
+  "Arunachal Pradesh",
+  "Assam",
+  "Bihar",
+  "Chhattisgarh",
+  "Goa",
+  "Gujarat",
+  "Haryana",
+  "Himachal Pradesh",
+  "Jharkhand",
+  "Karnataka",
+  "Kerala",
+  "Madhya Pradesh",
+  "Maharashtra",
+  "Manipur",
+  "Meghalaya",
+  "Mizoram",
+  "Nagaland",
+  "Odisha",
+  "Punjab",
+  "Rajasthan",
+  "Sikkim",
+  "Tamil Nadu",
+  "Telangana",
+  "Tripura",
+  "Uttar Pradesh",
+  "Uttarakhand",
+  "West Bengal",
+  "Andaman and Nicobar Islands",
+  "Chandigarh",
+  "Dadra and Nagar Haveli and Daman and Diu",
+  "Delhi",
+  "Jammu and Kashmir",
+  "Ladakh",
+  "Lakshadweep",
+  "Puducherry"
+];
+
 export const Route = createFileRoute("/_shop/account")({
   validateSearch: (search) => accountSearchSchema.parse(search),
   component: ShopDashboard,
@@ -27,6 +66,16 @@ function ShopDashboard() {
   const { tab } = Route.useSearch();
   const navigate = useNavigate();
   const user = state.user;
+
+  useEffect(() => {
+    if (tab === "orders") {
+      navigate({ to: "/orders", replace: true });
+    } else if (tab === "wishlist") {
+      navigate({ to: "/wishlist", replace: true });
+    } else if (tab === "returns") {
+      navigate({ to: "/orders", search: { tab: "returns" } as any, replace: true });
+    }
+  }, [tab, navigate]);
 
   const [isEditing, setIsEditing] = useState(false);
   const [showSaveSuccessPopup, setShowSaveSuccessPopup] = useState(false);
@@ -120,10 +169,9 @@ function ShopDashboard() {
   const profileCompletionPercentage = (() => {
     if (!user) return 0;
     let score = 0;
-    if (user.firstName) score += 15;
-    if (user.lastName) score += 15;
-    if (user.email) score += 15;
-    if (user.phone) score += 15;
+    if (user.firstName) score += 20;
+    if (user.email) score += 20;
+    if (user.phone) score += 20;
     if (user.dob) score += 15;
     if (user.gender && user.gender !== "-") score += 15;
     if (user.country) score += 10;
@@ -164,11 +212,14 @@ function ShopDashboard() {
   const [addrDistrict, setAddrDistrict] = useState("");
   const [addrState, setAddrState] = useState("");
   const [isFetchingPin, setIsFetchingPin] = useState(false);
+  const [showAddressForm, setShowAddressForm] = useState(false);
+  const [stateSearch, setStateSearch] = useState("");
+  const [showStateDropdown, setShowStateDropdown] = useState(false);
 
   // Autofill name and phone from profile
   useEffect(() => {
     if (user) {
-      setAddrName(prev => prev || `${user.firstName} ${user.lastName}`.trim());
+      setAddrName(prev => prev || user.firstName);
       setAddrPhone(prev => prev || user.phone || "");
     }
   }, [user]);
@@ -326,6 +377,7 @@ function ShopDashboard() {
     setAddrDistrict("");
     setAddrState("");
     setMarkerPos(null);
+    setShowAddressForm(false);
   };
 
   const parseSingleAddress = (addrStr: string) => {
@@ -335,7 +387,7 @@ function ShopDashboard() {
       }
     } catch (e) {}
     return {
-      name: `${user.firstName} ${user.lastName}`,
+      name: user.firstName,
       address: addrStr,
       phone: user.phone || ""
     };
@@ -377,7 +429,8 @@ function ShopDashboard() {
     setAddrState(stateVal);
     setAddrPincode(pincode);
     setEditingAddrIndex(index);
-    toast.info("Address loaded into edit form. Scroll down to edit.");
+    setShowAddressForm(true);
+    toast.info("Address loaded into edit form.");
 
     // Geocode edited address to show it on map
     const query = [street, city, district, stateVal, pincode].filter(Boolean).join(", ");
@@ -460,14 +513,14 @@ function ShopDashboard() {
         </Link>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-8 items-start">
+      <div className="flex flex-col lg:flex-row gap-8 items-stretch">
         {/* Left Sidebar */}
         <aside className="w-full lg:w-72 shrink-0">
-          <div className="liquid-glass border border-white/10 rounded-3xl p-3 sm:p-4 lg:p-6 space-y-4 lg:space-y-6 bg-white/5 shadow-lg">
+          <div className="liquid-glass border border-white/10 rounded-3xl p-3 sm:p-4 lg:p-6 space-y-4 lg:space-y-6 bg-white/5 shadow-lg lg:h-full">
             <div className="hidden lg:block border-b border-white/10 pb-4">
               <p className="text-[9px] uppercase tracking-[0.2em] text-accent font-bold">Maison Member</p>
               <h2 className="font-serif text-xl text-foreground font-semibold mt-1 truncate">
-                {user.firstName} {user.lastName}
+                {user.firstName}
               </h2>
             </div>
 
@@ -478,14 +531,21 @@ function ShopDashboard() {
                 { id: "wishlist", label: "Wishlist Curation", icon: Heart, count: wishlistIds.length },
                 { id: "coupons", label: "Maison Coupons", icon: Tag, count: state.coupons.length },
                 { id: "addresses", label: "Address", icon: MapPin, count: userAddresses.length },
-                { id: "returns", label: "Returns & Refunds", icon: RotateCcw },
                 { id: "wallet", label: "Wallet", icon: WalletIcon },
               ].map((t) => {
                 const isActive = t.id === "profile" ? (activeTab === "profile" || activeTab === "dashboard") : activeTab === t.id;
                 return (
                   <button
                     key={t.id}
-                    onClick={() => navigate({ to: "/account", search: { tab: t.id as any } })}
+                    onClick={() => {
+                      if (t.id === "orders") {
+                        navigate({ to: "/orders" });
+                      } else if (t.id === "wishlist") {
+                        navigate({ to: "/wishlist" });
+                      } else {
+                        navigate({ to: "/account", search: { tab: t.id as any } });
+                      }
+                    }}
                     className={`flex items-center justify-between shrink-0 lg:shrink lg:w-full whitespace-nowrap lg:whitespace-normal text-left text-[10px] uppercase tracking-wider font-bold py-3 px-4 lg:py-3.5 lg:px-5 rounded-2xl transition-all duration-300 cursor-pointer border ${
                       isActive 
                         ? "bg-accent/15 border-accent text-white shadow-[0_0_15px_rgba(212,175,55,0.2)]" 
@@ -543,8 +603,7 @@ function ShopDashboard() {
                   <div className="liquid-glass border border-white/10 p-6 rounded-3xl space-y-4">
                     <h4 className="font-serif text-lg text-accent">Personal Dossier</h4>
                     <div className="space-y-2 text-xs leading-normal">
-                      <div className="flex justify-between border-b border-white/5 pb-1"><span className="text-muted-foreground">First Name:</span> <span className="font-medium text-foreground">{user.firstName}</span></div>
-                      <div className="flex justify-between border-b border-white/5 pb-1"><span className="text-muted-foreground">Last Name:</span> <span className="font-medium text-foreground">{user.lastName}</span></div>
+                      <div className="flex justify-between border-b border-white/5 pb-1"><span className="text-muted-foreground">Name:</span> <span className="font-medium text-foreground">{user.firstName}</span></div>
                       <div className="flex justify-between border-b border-white/5 pb-1"><span className="text-muted-foreground">Email:</span> <span className="font-mono text-foreground">{user.email}</span></div>
                       <div className="flex justify-between border-b border-white/5 pb-1"><span className="text-muted-foreground">Phone:</span> <span className="text-foreground">{user.phone || "—"}</span></div>
                     </div>
@@ -556,7 +615,6 @@ function ShopDashboard() {
                       <div className="flex justify-between border-b border-white/5 pb-1"><span className="text-muted-foreground">Gender:</span> <span className="text-foreground">{user.gender || "—"}</span></div>
                       <div className="flex justify-between border-b border-white/5 pb-1"><span className="text-muted-foreground">DOB:</span> <span className="font-mono text-foreground">{user.dob || "—"}</span></div>
                       <div className="flex justify-between border-b border-white/5 pb-1"><span className="text-muted-foreground">Country:</span> <span className="text-foreground">{user.country || "—"}</span></div>
-                      <div className="flex justify-between border-b border-white/5 pb-1"><span className="text-muted-foreground">Rank/Status:</span> <span className="text-accent font-bold uppercase tracking-wider text-[9px]">{user.roles?.join(" / ") || "GENERAL"}</span></div>
                     </div>
                   </div>
                 </div>
@@ -573,28 +631,16 @@ function ShopDashboard() {
                     </button>
                   </div>
                   <form onSubmit={handleUpdateProfile} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <label className="block">
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">First Name</span>
-                        <input
-                          type="text"
-                          value={profileForm.firstName}
-                          onChange={e => setProfileForm({ ...profileForm, firstName: e.target.value })}
-                          className="w-full bg-white/5 border border-white/10 px-4 py-2 text-xs outline-none focus:border-accent rounded-full text-foreground mt-2"
-                          required
-                        />
-                      </label>
-                      <label className="block">
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Last Name</span>
-                        <input
-                          type="text"
-                          value={profileForm.lastName}
-                          onChange={e => setProfileForm({ ...profileForm, lastName: e.target.value })}
-                          className="w-full bg-white/5 border border-white/10 px-4 py-2 text-xs outline-none focus:border-accent rounded-full text-foreground mt-2"
-                          required
-                        />
-                      </label>
-                    </div>
+                    <label className="block">
+                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Name</span>
+                      <input
+                        type="text"
+                        value={profileForm.firstName}
+                        onChange={e => setProfileForm({ ...profileForm, firstName: e.target.value })}
+                        className="w-full bg-white/5 border border-white/10 px-4 py-2 text-xs outline-none focus:border-accent rounded-full text-foreground mt-2"
+                        required
+                      />
+                    </label>
                     <label className="block">
                       <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Email Address</span>
                       <input
@@ -718,11 +764,255 @@ function ShopDashboard() {
             </div>
           )}
 
-          {/* Tab: Addresses */}
           {activeTab === "addresses" && (
-            <div className="liquid-glass border border-white/15 p-8 rounded-3xl space-y-6">
+            <div className="liquid-glass border border-white/15 p-8 rounded-3xl space-y-6 lg:h-full">
               <h2 className="font-serif text-2xl">Multiple Delivery Destinations</h2>
+              
+              {/* Add Address Bar / Button */}
+              {!showAddressForm && editingAddrIndex === null && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddressForm(true);
+                    setAddrName(user.firstName);
+                    setAddrPhone(user.phone || "");
+                    setAddrPincode("");
+                    setAddrStreet("");
+                    setAddrCity("");
+                    setAddrDistrict("");
+                    setAddrState("");
+                    setMarkerPos(null);
+                  }}
+                  className="w-full bg-white/5 border border-dashed border-white/20 hover:border-accent/40 p-5 rounded-2xl flex items-center justify-center gap-2 text-accent font-bold hover:bg-white/10 hover:shadow-[0_0_15px_rgba(212,175,55,0.1)] transition-all cursor-pointer text-xs uppercase tracking-widest"
+                >
+                  <Plus className="w-4 h-4 text-accent" /> Add Address
+                </button>
+              )}
+
+              {/* Toggleable Add/Edit Form */}
+              {(showAddressForm || editingAddrIndex !== null) && (
+                <form onSubmit={handleAddAddress} className="pt-6 border-b border-white/10 pb-6 space-y-4">
+                  <div className="grid lg:grid-cols-12 gap-6">
+                    {/* Left Column: Interactive Map */}
+                    <div className="lg:col-span-5 flex flex-col gap-3">
+                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                        <span>Pin Location on Map</span>
+                        <span className="text-accent/80 font-mono text-[9px]">Drag pin to refine</span>
+                      </span>
+                      <div className="relative h-[280px] w-full rounded-2xl overflow-hidden border border-white/10 shadow-[0_4px_24px_rgba(212,175,55,0.05)] bg-white/5 backdrop-blur-md">
+                        <Map center={mapCenter} zoom={14}>
+                          {markerPos && (
+                            <MapMarker
+                              draggable
+                              longitude={markerPos[0]}
+                              latitude={markerPos[1]}
+                              onDrag={(lngLat) => {
+                                setMarkerPos([lngLat.lng, lngLat.lat]);
+                                handleReverseGeocode(lngLat.lng, lngLat.lat);
+                              }}
+                            >
+                              <MarkerContent>
+                                <div className="relative flex items-center justify-center">
+                                  <div className="absolute w-8 h-8 rounded-full bg-accent/20 border border-accent animate-ping" />
+                                  <div className="relative w-5 h-5 rounded-full bg-accent border-2 border-white shadow-[0_0_10px_rgba(212,175,55,0.8)] flex items-center justify-center">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                                  </div>
+                                </div>
+                              </MarkerContent>
+                            </MapMarker>
+                          )}
+                        </Map>
+                      </div>
+
+                      {/* Detect Location Button below Map */}
+                      <button
+                        type="button"
+                        onClick={handleDetectLocation}
+                        disabled={isLocating}
+                        className="w-full flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-accent border border-white/10 px-4 py-2.5 rounded-full text-xs uppercase tracking-widest font-bold transition-all cursor-pointer shadow-md disabled:opacity-50"
+                      >
+                        <MapPin className={`w-3.5 h-3.5 ${isLocating ? 'animate-bounce text-accent' : 'text-accent'}`} />
+                        {isLocating ? "Locating..." : "Use my current location"}
+                      </button>
+                    </div>
+
+                    {/* Right Column: Address Form Fields */}
+                    <div className="lg:col-span-7 space-y-4">
+                      <div className="grid sm:grid-cols-2 gap-4">
+                        <label className="block">
+                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Recipient Name</span>
+                          <input
+                            required
+                            type="text"
+                            placeholder="e.g. Sree Connect"
+                            className="w-full bg-white/5 border border-white/10 px-4 py-2.5 text-xs outline-none focus:border-accent rounded-full text-foreground mt-1.5"
+                            value={addrName}
+                            onChange={e => setAddrName(e.target.value)}
+                          />
+                        </label>
+                        
+                        <label className="block">
+                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Contact Phone</span>
+                          <input
+                            required
+                            type="text"
+                            placeholder="e.g. +91 98765 43210"
+                            className="w-full bg-white/5 border border-white/10 px-4 py-2.5 text-xs outline-none focus:border-accent rounded-full text-foreground mt-1.5"
+                            value={addrPhone}
+                            onChange={e => setAddrPhone(e.target.value)}
+                          />
+                        </label>
+                      </div>
+
+                      <div className="grid sm:grid-cols-2 gap-4">
+                        <label className="block">
+                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                            <span>India Pin Code</span>
+                            {isFetchingPin && <span className="text-[9px] text-accent animate-pulse">Fetching...</span>}
+                          </span>
+                          <input
+                            required
+                            type="text"
+                            maxLength={6}
+                            placeholder="e.g. 560038"
+                            className="w-full bg-white/5 border border-white/10 px-4 py-2.5 text-xs outline-none focus:border-accent rounded-full text-foreground mt-1.5"
+                            value={addrPincode}
+                            onChange={e => setAddrPincode(e.target.value.replace(/\D/g, ''))}
+                          />
+                        </label>
+
+                        <label className="block">
+                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">City / Town</span>
+                          <input
+                            required
+                            type="text"
+                            placeholder="City Name"
+                            className="w-full bg-white/5 border border-white/10 px-4 py-2.5 text-xs outline-none focus:border-accent rounded-full text-foreground mt-1.5"
+                            value={addrCity}
+                            onChange={e => setAddrCity(e.target.value)}
+                          />
+                        </label>
+                      </div>
+
+                      <div className="grid sm:grid-cols-2 gap-4">
+                        <label className="block">
+                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">District</span>
+                          <input
+                            type="text"
+                            placeholder="District"
+                            className="w-full bg-white/5 border border-white/10 px-4 py-2.5 text-xs outline-none focus:border-accent rounded-full text-foreground mt-1.5"
+                            value={addrDistrict}
+                            onChange={e => setAddrDistrict(e.target.value)}
+                          />
+                        </label>
+
+                        {/* Searchable State Dropdown */}
+                        <label className="block relative">
+                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">State</span>
+                          <div className="relative mt-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setShowStateDropdown(!showStateDropdown)}
+                              className="w-full bg-white/5 border border-white/10 px-4 py-2.5 text-xs text-left outline-none focus:border-accent rounded-full text-foreground flex justify-between items-center cursor-pointer"
+                            >
+                              <span>{addrState || "Select State"}</span>
+                              <span className="text-muted-foreground text-[8px]">▼</span>
+                            </button>
+                            
+                            {showStateDropdown && (
+                              <div className="absolute top-full left-0 right-0 mt-2 bg-zinc-950 border border-white/15 rounded-2xl overflow-hidden shadow-2xl z-50 p-3 space-y-2 max-h-60 flex flex-col">
+                                <div className="relative flex items-center bg-white/5 border border-white/10 rounded-full px-3 py-1">
+                                  <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                                  <input
+                                    type="text"
+                                    placeholder="Search state..."
+                                    className="w-full bg-transparent border-0 px-2 py-1 text-xs text-white outline-none focus:ring-0 placeholder:text-muted-foreground/50"
+                                    value={stateSearch}
+                                    onChange={e => setStateSearch(e.target.value)}
+                                    onClick={e => e.stopPropagation()}
+                                  />
+                                  {stateSearch && (
+                                    <button type="button" onClick={(e) => { e.stopPropagation(); setStateSearch(""); }} className="text-muted-foreground hover:text-white">
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                </div>
+                                
+                                <div className="overflow-y-auto flex-1 space-y-0.5 scrollbar-thin pr-1">
+                                  {(() => {
+                                    const filtered = INDIAN_STATES.filter(st =>
+                                      st.toLowerCase().includes(stateSearch.toLowerCase())
+                                    );
+                                    if (filtered.length === 0) {
+                                      return <div className="text-[10px] text-muted-foreground italic text-center py-2">No matching states</div>;
+                                    }
+                                    return filtered.map(st => (
+                                      <button
+                                        key={st}
+                                        type="button"
+                                        onClick={() => {
+                                          setAddrState(st);
+                                          setShowStateDropdown(false);
+                                          setStateSearch("");
+                                        }}
+                                        className={`w-full text-left text-xs px-3 py-2 rounded-xl transition-colors hover:bg-white/10 cursor-pointer ${
+                                          addrState === st ? "text-accent font-bold bg-white/5" : "text-white/80"
+                                        }`}
+                                      >
+                                        {st}
+                                      </button>
+                                    ));
+                                  })()}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </label>
+                      </div>
+
+                      <label className="block">
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Street / Detailed Address</span>
+                        <input
+                          required
+                          type="text"
+                          placeholder="Apartment/Flat No, Area, Street Name"
+                          className="w-full bg-white/5 border border-white/10 px-4 py-2.5 text-xs outline-none focus:border-accent rounded-full text-foreground mt-1.5"
+                          value={addrStreet}
+                          onChange={e => setAddrStreet(e.target.value)}
+                        />
+                      </label>
+
+                      {/* Add Destination / Cancel options below street address */}
+                      <div className="flex gap-3 pt-4">
+                        <button type="submit" className="bg-accent text-white rounded-full px-6 py-2.5 text-xs font-bold uppercase tracking-widest hover:bg-accent/90 cursor-pointer">
+                          {editingAddrIndex !== null ? "Save Changes" : "Add Destination"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingAddrIndex(null);
+                            setShowAddressForm(false);
+                            setAddrPincode("");
+                            setAddrStreet("");
+                            setAddrCity("");
+                            setAddrDistrict("");
+                            setAddrState("");
+                            setMarkerPos(null);
+                            toast.info("Action cancelled.");
+                          }}
+                          className="border border-white/10 hover:bg-white/10 text-white rounded-full px-6 py-2.5 text-xs font-bold uppercase tracking-widest cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </form>
+              )}
+
+              {/* Added Destinations List */}
               <div className="space-y-3">
+                <h3 className="font-serif text-lg text-foreground pb-2 border-b border-white/5">Saved Delivery Destinations</h3>
                 {userAddresses.length === 0 ? (
                   <p className="text-xs text-muted-foreground italic">No addresses saved yet.</p>
                 ) : (
@@ -777,188 +1067,12 @@ function ShopDashboard() {
                   })
                 )}
               </div>
-              <form onSubmit={handleAddAddress} className="pt-6 border-t border-white/10 space-y-4">
-                <h4 className="font-serif text-lg text-accent">{editingAddrIndex !== null ? "Edit Delivery Destination" : "Add New Delivery Destination"}</h4>
-                
-                <div className="grid lg:grid-cols-12 gap-6">
-                  {/* Left Column: Interactive Map */}
-                  <div className="lg:col-span-5 flex flex-col gap-3">
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-                      <span>Pin Location on Map</span>
-                      <span className="text-accent/80 font-mono text-[9px]">Drag pin to refine</span>
-                    </span>
-                    <div className="relative h-[280px] w-full rounded-2xl overflow-hidden border border-white/10 shadow-[0_4px_24px_rgba(212,175,55,0.05)] bg-white/5 backdrop-blur-md">
-                      <Map center={mapCenter} zoom={14}>
-                        {markerPos && (
-                          <MapMarker
-                            draggable
-                            longitude={markerPos[0]}
-                            latitude={markerPos[1]}
-                            onDrag={(lngLat) => {
-                              setMarkerPos([lngLat.lng, lngLat.lat]);
-                              handleReverseGeocode(lngLat.lng, lngLat.lat);
-                            }}
-                          >
-                            <MarkerContent>
-                              <div className="relative flex items-center justify-center">
-                                <div className="absolute w-8 h-8 rounded-full bg-accent/20 border border-accent animate-ping" />
-                                <div className="relative w-5 h-5 rounded-full bg-accent border-2 border-white shadow-[0_0_10px_rgba(212,175,55,0.8)] flex items-center justify-center">
-                                  <div className="w-1.5 h-1.5 rounded-full bg-white" />
-                                </div>
-                              </div>
-                            </MarkerContent>
-                          </MapMarker>
-                        )}
-                      </Map>
-                      
-                      {/* Detect Location Button with Liquid Glass Theme */}
-                      <button
-                        type="button"
-                        onClick={handleDetectLocation}
-                        disabled={isLocating}
-                        className="absolute bottom-3 right-3 z-10 flex items-center gap-1.5 bg-black/70 hover:bg-black/90 text-accent border border-accent/30 hover:border-accent px-3 py-1.5 rounded-full text-[10px] uppercase tracking-widest font-bold backdrop-blur-md transition-all cursor-pointer shadow-lg disabled:opacity-50"
-                      >
-                        <MapPin className={`w-3.5 h-3.5 ${isLocating ? 'animate-bounce text-accent' : 'text-accent'}`} />
-                        {isLocating ? "Locating..." : "Detect Location"}
-                      </button>
-                    </div>
-                    
-                    <button
-                      type="button"
-                      onClick={handleGeocodeAddress}
-                      className="w-full bg-white/5 hover:bg-white/10 text-accent border border-accent/20 hover:border-accent/40 py-2 rounded-full text-[10px] uppercase tracking-widest font-bold transition-all cursor-pointer"
-                    >
-                      Locate Entered Address on Map
-                    </button>
-                  </div>
-
-                  {/* Right Column: Address Form Fields */}
-                  <div className="lg:col-span-7 space-y-4">
-                    <div className="grid sm:grid-cols-2 gap-4">
-                      <label className="block">
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Recipient Name</span>
-                        <input
-                          required
-                          type="text"
-                          placeholder="e.g. Sree Connect"
-                          className="w-full bg-white/5 border border-white/10 px-4 py-2.5 text-xs outline-none focus:border-accent rounded-full text-foreground mt-1.5"
-                          value={addrName}
-                          onChange={e => setAddrName(e.target.value)}
-                        />
-                      </label>
-                      
-                      <label className="block">
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Contact Phone</span>
-                        <input
-                          required
-                          type="text"
-                          placeholder="e.g. +91 98765 43210"
-                          className="w-full bg-white/5 border border-white/10 px-4 py-2.5 text-xs outline-none focus:border-accent rounded-full text-foreground mt-1.5"
-                          value={addrPhone}
-                          onChange={e => setAddrPhone(e.target.value)}
-                        />
-                      </label>
-                    </div>
-
-                    <div className="grid sm:grid-cols-2 gap-4">
-                      <label className="block">
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-                          <span>India Pin Code</span>
-                          {isFetchingPin && <span className="text-[9px] text-accent animate-pulse">Fetching details...</span>}
-                        </span>
-                        <input
-                          required
-                          type="text"
-                          maxLength={6}
-                          placeholder="e.g. 560038"
-                          className="w-full bg-white/5 border border-white/10 px-4 py-2.5 text-xs outline-none focus:border-accent rounded-full text-foreground mt-1.5"
-                          value={addrPincode}
-                          onChange={e => setAddrPincode(e.target.value.replace(/\D/g, ''))}
-                        />
-                      </label>
-
-                      <label className="block">
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">City / Town</span>
-                        <input
-                          required
-                          type="text"
-                          placeholder="City Name"
-                          className="w-full bg-white/5 border border-white/10 px-4 py-2.5 text-xs outline-none focus:border-accent rounded-full text-foreground mt-1.5"
-                          value={addrCity}
-                          onChange={e => setAddrCity(e.target.value)}
-                        />
-                      </label>
-                    </div>
-
-                    <div className="grid sm:grid-cols-2 gap-4">
-                      <label className="block">
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">District</span>
-                        <input
-                          type="text"
-                          placeholder="District"
-                          className="w-full bg-white/5 border border-white/10 px-4 py-2.5 text-xs outline-none focus:border-accent rounded-full text-foreground mt-1.5"
-                          value={addrDistrict}
-                          onChange={e => setAddrDistrict(e.target.value)}
-                        />
-                      </label>
-
-                      <label className="block">
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">State</span>
-                        <input
-                          required
-                          type="text"
-                          placeholder="State Name"
-                          className="w-full bg-white/5 border border-white/10 px-4 py-2.5 text-xs outline-none focus:border-accent rounded-full text-foreground mt-1.5"
-                          value={addrState}
-                          onChange={e => setAddrState(e.target.value)}
-                        />
-                      </label>
-                    </div>
-
-                    <label className="block">
-                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Street / Detailed Address</span>
-                      <input
-                        required
-                        type="text"
-                        placeholder="Apartment/Flat No, Area, Street Name"
-                        className="w-full bg-white/5 border border-white/10 px-4 py-2.5 text-xs outline-none focus:border-accent rounded-full text-foreground mt-1.5"
-                        value={addrStreet}
-                        onChange={e => setAddrStreet(e.target.value)}
-                      />
-                    </label>
-                  </div>
-                </div>
-
-                <div className="flex gap-3 pt-2">
-                  <button type="submit" className="bg-accent text-white rounded-full px-6 py-2.5 text-xs font-bold uppercase tracking-widest hover:bg-accent/90 cursor-pointer">
-                    {editingAddrIndex !== null ? "Save Changes" : "Add Destination"}
-                  </button>
-                  {editingAddrIndex !== null && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingAddrIndex(null);
-                        setAddrPincode("");
-                        setAddrStreet("");
-                        setAddrCity("");
-                        setAddrDistrict("");
-                        setAddrState("");
-                        setMarkerPos(null);
-                        toast.info("Edit cancelled.");
-                      }}
-                      className="border border-white/10 hover:bg-white/10 text-white rounded-full px-6 py-2.5 text-xs font-bold uppercase tracking-widest cursor-pointer"
-                    >
-                      Cancel Edit
-                    </button>
-                  )}
-                </div>
-              </form>
             </div>
           )}
 
           {/* Tab: Coupons */}
           {activeTab === "coupons" && (
-            <div className="liquid-glass border border-white/15 p-8 rounded-3xl space-y-6">
+            <div className="liquid-glass border border-white/15 p-8 rounded-3xl space-y-6 lg:h-full">
               <h2 className="font-serif text-2xl">Available Maison Coupons</h2>
               <div className="grid sm:grid-cols-2 gap-4">
                 {state.coupons.map((c) => (
@@ -974,574 +1088,11 @@ function ShopDashboard() {
             </div>
           )}
 
-          {/* Tab: Wishlist */}
-          {activeTab === "wishlist" && (
-            <div className="liquid-glass border border-white/15 p-8 rounded-3xl space-y-6">
-              <h2 className="font-serif text-2xl">Isolated Shop Wishlist</h2>
-              {wishlistItems.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic">Your shop wishlist is empty.</p>
-              ) : (
-                <div className="grid sm:grid-cols-2 gap-4">
-                  {wishlistItems.map((p) => (
-                    <WishlistItemCard
-                      key={p.id}
-                      p={p}
-                      user={user}
-                      toggleShopWishlist={toggleShopWishlist}
-                      addToShopCart={addToShopCart}
-                      triggerPopup={triggerPopup}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
 
-
-
-          {/* Tab: Orders */}
-          {activeTab === "orders" && (
-            <div className="liquid-glass border border-white/15 p-8 rounded-3xl space-y-6">
-              <h2 className="font-serif text-2xl">Maison Orders Tracker</h2>
-              {userOrders.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic">No orders found.</p>
-              ) : (
-                <div className="space-y-6">
-                  {userOrders.map(order => {
-                    // Group order items by productId to show different sizes under the same product
-                    const groupedItems: any[] = [];
-                    (order.items || []).forEach((item: any) => {
-                      const existing = groupedItems.find(x => x.productId === item.productId);
-                      if (existing) {
-                        existing.variants.push({
-                          size: item.selectedSize || "M",
-                          qty: item.qty,
-                          price: item.price
-                        });
-                      } else {
-                        groupedItems.push({
-                          ...item,
-                          variants: [{
-                            size: item.selectedSize || "M",
-                            qty: item.qty,
-                            price: item.price
-                          }]
-                        });
-                      }
-                    });
-
-                    return (
-                      <div key={order.id} className="p-5 bg-white/5 border border-white/10 rounded-2xl space-y-4 shadow-sm">
-                        <div className="flex justify-between items-center border-b border-white/10 pb-2">
-                          <span className="font-mono text-xs font-semibold text-accent">{order.id} · {order.date}</span>
-                          <StatusChip status={order.status} tone={order.status === "Delivered" ? "success" : "warn"} />
-                        </div>
-                        <div className="space-y-4">
-                          {groupedItems.map(groupedItem => (
-                            <div key={groupedItem.productId} className="flex flex-col md:flex-row justify-between items-start gap-4 text-xs border-b border-white/[0.03] pb-4 last:border-0 last:pb-0 w-full">
-                              <div className="flex items-start gap-3 flex-1 min-w-0">
-                                <Link to="/product/$productId" params={{ productId: groupedItem.productId }} className="block shrink-0">
-                                  <img src={groupedItem.image} className="w-12 h-15 object-cover rounded-md border border-white/10 hover:opacity-85 transition-opacity" />
-                                </Link>
-                                <div className="flex-1 min-w-0">
-                                  <Link
-                                    to="/product/$productId"
-                                    params={{ productId: groupedItem.productId }}
-                                    className="font-semibold text-white hover:text-accent transition-colors block text-sm font-serif truncate"
-                                  >
-                                    {groupedItem.name}
-                                  </Link>
-                                  <div className="text-[10px] text-muted-foreground mt-0.5">{groupedItem.house}</div>
-                                  
-                                  {/* Same size bar list with correct alignment */}
-                                  <div className="mt-2 space-y-1.5 max-w-xl">
-                                    {groupedItem.variants.map((v: any, vIdx: number) => {
-                                      const hasBeenReturned = state.returns?.some(
-                                        r => r.orderId === order.id && r.productId === groupedItem.productId && r.selectedSize === v.size
-                                      );
-                                      return (
-                                        <div key={vIdx} className="flex flex-wrap items-center justify-between gap-2 bg-white/5 p-2 rounded-xl border border-white/5 w-full">
-                                          <div className="flex items-center gap-3">
-                                            <span className="text-[9px] uppercase tracking-widest font-bold bg-accent/10 text-accent px-2 py-0.5 rounded border border-accent/10">
-                                              Size: {v.size}
-                                            </span>
-                                            <span className="text-[10px] text-muted-foreground">
-                                              Qty: {v.qty}
-                                            </span>
-                                          </div>
-                                          
-                                          <div className="flex items-center gap-3 ml-auto">
-                                            <span className="font-semibold font-mono text-xs text-foreground">{v.price}</span>
-                                            {(() => {
-                                              const hasBeenReturned = state.returns?.some(
-                                                r => r.orderId === order.id && r.productId === groupedItem.productId && r.selectedSize === v.size
-                                              );
-                                              if (hasBeenReturned) {
-                                                return (
-                                                  <span className="text-[8px] uppercase tracking-wider text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
-                                                    Returned
-                                                  </span>
-                                                );
-                                              }
-                                              
-                                              if (order.status === "Delivered") {
-                                                const delDate = order.deliveryDate || order.date;
-                                                const deliveredTime = new Date(delDate).getTime();
-                                                const sevenDaysInMs = 7 * 24 * 60 * 60 * 1000;
-                                                const isWithinSevenDays = (Date.now() - deliveredTime) < sevenDaysInMs;
-                                                
-                                                if (isWithinSevenDays) {
-                                                  return (
-                                                    <div className="flex gap-1.5">
-                                                      <button
-                                                        onClick={() => {
-                                                          setReviewFormItem({ productId: groupedItem.productId, orderId: order.id });
-                                                          setReviewText("");
-                                                          setReviewRating(5);
-                                                        }}
-                                                        className="bg-white/5 hover:bg-white/10 border border-white/10 text-[9px] uppercase font-bold tracking-wider px-2 py-1 rounded-full transition-all"
-                                                      >
-                                                        Review
-                                                      </button>
-                                                      <button
-                                                        onClick={() => {
-                                                          setReturnFormItem({
-                                                            orderId: order.id,
-                                                            productId: groupedItem.productId,
-                                                            productName: groupedItem.name,
-                                                            price: v.price,
-                                                            selectedSize: v.size,
-                                                            qty: v.qty
-                                                          });
-                                                          setReturnReason("Product arrived damaged");
-                                                          setReturnDesc("");
-                                                        }}
-                                                        className="bg-accent/20 hover:bg-accent hover:text-white border border-accent/20 text-[9px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full text-accent transition-colors cursor-pointer"
-                                                      >
-                                                        Return
-                                                      </button>
-                                                    </div>
-                                                  );
-                                                }
-                                              }
-                                              return null;
-                                            })()}
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-
-                        {/* Courier and Shipment Tracker details */}
-                        <div className="bg-white/[0.03] border border-white/5 rounded-2xl p-4 space-y-3.5 text-xs text-muted-foreground leading-relaxed">
-                          <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-white/5 text-[11px]">
-                            <div>
-                              <span className="font-semibold text-white uppercase tracking-wider text-[9px] block">Courier Partner</span>
-                              <span className="text-accent font-medium">{order.courierPartner || "Delhivery Express"}</span>
-                            </div>
-                            <div>
-                              <span className="font-semibold text-white uppercase tracking-wider text-[9px] block text-right md:text-left">Tracking ID</span>
-                              <span className="font-mono text-white">{order.trackingNumber || `TRK-${order.id.replace("ORD-", "")}`}</span>
-                            </div>
-                            <div>
-                              <span className="font-semibold text-white uppercase tracking-wider text-[9px] block text-right">Est. Delivery Date</span>
-                              <span className="text-white font-medium">{order.estimatedDeliveryDate || "July 24, 2026"}</span>
-                            </div>
-                          </div>
-
-                          {/* Visual Delivery Status Progress Timeline */}
-                          <div className="py-2">
-                            <span className="font-bold text-white uppercase tracking-widest text-[8px] block mb-3">Live Curation Transit Roadmap</span>
-                            {(() => {
-                              const steps = ["Order Placed", "Preparing Order", "Shipped", "In Transit", "Delivered"];
-                              const status = order.status || "Order Placed";
-                              
-                              // Helper to determine active index
-                              let activeIdx = 0;
-                              if (status.includes("Confirmed") || status.includes("Accept") || status.includes("Prepare") || status.includes("Pack")) {
-                                activeIdx = 1;
-                              } else if (status.includes("Ship") || status.includes("Ready")) {
-                                activeIdx = 2;
-                              } else if (status.includes("Transit") || status.includes("Delivery") || status.includes("Today")) {
-                                activeIdx = 3;
-                              } else if (status.includes("Deliver")) {
-                                activeIdx = 4;
-                              }
-                              
-                              return (
-                                <>
-                                  <div className="relative flex items-center justify-between w-full mt-4 pb-1.5">
-                                    {/* Progress Line Bar */}
-                                    <div className="absolute left-0 right-0 top-1.5 h-0.5 bg-white/10 -z-10" />
-                                    <div
-                                      className="absolute left-0 top-1.5 h-0.5 bg-accent transition-all duration-500 -z-10"
-                                      style={{ width: `${(activeIdx / (steps.length - 1)) * 100}%` }}
-                                    />
-                                    
-                                    {steps.map((st, sIdx) => {
-                                      const isCompleted = sIdx <= activeIdx;
-                                      const isActive = sIdx === activeIdx;
-                                      return (
-                                        <div key={sIdx} className="flex flex-col items-center">
-                                          <div
-                                            className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center transition-all ${
-                                              isCompleted
-                                                ? "bg-accent border-accent shadow-[0_0_8px_rgba(212,175,55,0.6)]"
-                                                : "bg-zinc-950 border-white/20"
-                                            }`}
-                                          >
-                                            {isCompleted && (
-                                              <div className="w-1 h-1 rounded-full bg-white" />
-                                            )}
-                                          </div>
-                                          <span
-                                            className={`text-[8px] uppercase tracking-wider mt-2.5 font-bold transition-colors ${
-                                              isActive
-                                                ? "text-accent"
-                                                : isCompleted
-                                                ? "text-white"
-                                                : "text-muted-foreground"
-                                            }`}
-                                          >
-                                            {st}
-                                          </span>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                  {order.scansJson && (() => {
-                                    try {
-                                      const scans = JSON.parse(order.scansJson);
-                                      if (Array.isArray(scans) && scans.length > 0) {
-                                        return (
-                                          <div className="mt-4 pt-4 border-t border-white/5 space-y-2.5">
-                                            <span className="font-bold text-white uppercase tracking-widest text-[8px] block">Live Tracking History</span>
-                                            <div className="space-y-2 pl-2 border-l border-white/10 max-h-36 overflow-y-auto">
-                                              {scans.map((scan: any, idx: number) => (
-                                                <div key={idx} className="relative pl-3 text-[10px] leading-relaxed">
-                                                  <div className="absolute left-[-4px] top-1.5 w-1.5 h-1.5 rounded-full bg-accent" />
-                                                  <div className="font-semibold text-white">{scan.activity}</div>
-                                                  <div className="text-[9px] text-muted-foreground">{scan.date} · {scan.location}</div>
-                                                </div>
-                                              ))}
-                                            </div>
-                                          </div>
-                                        );
-                                      }
-                                    } catch (e) {
-                                      console.error("Failed to parse user scansJson", e);
-                                    }
-                                    return null;
-                                  })()}
-                                </>
-                              );
-                            })()}
-                        </div>
-                      </div>
-
-                        <div className="flex justify-between items-center pt-2 border-t border-white/10 text-xs">
-                          <span className="text-muted-foreground">Total Paid:</span>
-                          <span className="font-bold text-accent">₹{order.total.toLocaleString()}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Write Review Dialog Modal */}
-              {reviewFormItem && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-                  <div className="liquid-glass max-w-md w-full p-6 md:p-8 space-y-4 shadow-2xl animate-in zoom-in-95 duration-200">
-                    <div className="flex justify-between items-center border-b border-white/10 pb-3">
-                      <h3 className="font-serif text-xl">Write verified Review</h3>
-                      <button onClick={() => setReviewFormItem(null)} className="text-muted-foreground hover:text-foreground">
-                        <X className="w-5 h-5" />
-                      </button>
-                    </div>
-                    <div className="flex gap-2 justify-center py-2">
-                      {[1, 2, 3, 4, 5].map((stars) => (
-                        <button
-                          key={stars}
-                          type="button"
-                          onClick={() => setReviewRating(stars)}
-                          className="text-amber-400 hover:scale-110 transition-transform"
-                        >
-                          <Star className={`w-6 h-6 ${stars <= reviewRating ? "fill-current" : "text-zinc-600"}`} />
-                        </button>
-                      ))}
-                    </div>
-                    <textarea
-                      required
-                      placeholder="Share your experience styling this piece..."
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl p-3 text-xs outline-none focus:border-accent h-28 text-white placeholder:text-muted-foreground/50 transition-colors"
-                      value={reviewText}
-                      onChange={e => setReviewText(e.target.value)}
-                    />
-                    <div className="flex gap-2 pt-2">
-                      <button
-                        onClick={() => {
-                          if (!reviewText.trim()) {
-                            toast.error("Please explain your review in detail.");
-                            return;
-                          }
-                          addReview(reviewFormItem.productId, {
-                            userName: `${user.firstName} ${user.lastName}`,
-                            rating: reviewRating,
-                            comment: reviewText.trim()
-                          });
-                          toast.success("Thank you! Review submitted successfully.");
-                          setReviewFormItem(null);
-                        }}
-                        className="flex-1 bg-accent text-white py-2.5 rounded-full text-xs font-bold uppercase tracking-widest hover:bg-accent/90 transition-transform hover:scale-105 active:scale-95 shadow-lg"
-                      >
-                        Submit Review
-                      </button>
-                      <button
-                        onClick={() => setReviewFormItem(null)}
-                        className="bg-white/10 text-foreground px-5 py-2.5 rounded-full text-xs"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Simplified Return Form Modal */}
-              {returnFormItem && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-                  <div className="liquid-glass max-w-lg w-full p-6 md:p-8 space-y-6 shadow-2xl animate-in zoom-in-95 duration-200">
-                    <div className="flex justify-between items-center border-b border-white/10 pb-4">
-                      <div>
-                        <span className="text-[10px] uppercase tracking-widest text-accent font-bold">Maison Returns Desk</span>
-                        <h3 className="font-serif text-xl mt-1">Return: {returnFormItem.productName}</h3>
-                      </div>
-                      <button onClick={() => setReturnFormItem(null)} className="text-muted-foreground hover:text-foreground">
-                        <X className="w-5 h-5" />
-                      </button>
-                    </div>
-
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <label className="block text-xs text-muted-foreground uppercase tracking-wider font-semibold">Return Reason</label>
-                        <select
-                          value={returnReason}
-                          onChange={e => setReturnReason(e.target.value)}
-                          className="w-full bg-zinc-900 border border-white/10 p-3 rounded-xl text-xs outline-none text-white focus:border-accent"
-                        >
-                          <option value="Product arrived damaged">Product arrived damaged</option>
-                          <option value="Wrong item delivered">Wrong item delivered</option>
-                          <option value="Wrong size delivered">Wrong size delivered</option>
-                          <option value="Too small">Too small</option>
-                          <option value="Too large">Too large</option>
-                          <option value="Product color different from website">Product color different from website</option>
-                          <option value="Poor quality material">Poor quality material</option>
-                          <option value="No longer needed">No longer needed</option>
-                          <option value="Other">Other</option>
-                        </select>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <label className="block text-xs text-muted-foreground uppercase tracking-wider font-semibold">Comments (Optional)</label>
-                          <span className="text-[10px] font-mono text-muted-foreground">{returnDesc.length} / 500 characters</span>
-                        </div>
-                        <textarea
-                          maxLength={500}
-                          placeholder="Please explain the issue or provide details..."
-                          className="w-full bg-white/5 border border-white/10 rounded-2xl p-3 text-xs outline-none focus:border-accent h-24 text-white resize-none"
-                          value={returnDesc}
-                          onChange={e => setReturnDesc(e.target.value)}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex gap-3 pt-4 border-t border-white/10">
-                      <button
-                        onClick={() => setReturnFormItem(null)}
-                        className="flex-1 bg-white/10 hover:bg-white/20 border border-white/15 py-2.5 rounded-full text-xs text-foreground font-semibold transition-colors uppercase tracking-wider"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={() => {
-                          requestReturn({
-                            orderId: returnFormItem.orderId,
-                            productId: returnFormItem.productId,
-                            productName: returnFormItem.productName,
-                            customerId: user.id,
-                            customerName: `${user.firstName} ${user.lastName}`,
-                            reason: returnReason,
-                            comment: returnDesc.trim(),
-                            images: [],
-                            videos: [],
-                            refundAmount: Number(String(returnFormItem.price).replace(/[^0-9.]/g, "")) * returnFormItem.qty,
-                            selectedSize: returnFormItem.selectedSize,
-                            qty: returnFormItem.qty,
-                            refundMethod: "Original Payment Method"
-                          });
-                          toast.success("Return request logged with Maison operations team!");
-                          setReturnFormItem(null);
-                          navigate({ to: "/account", search: { tab: "returns" } });
-                        }}
-                        className="flex-1 bg-gradient-to-r from-accent to-accent-rose text-white hover:shadow-[0_0_20px_rgba(212,175,55,0.4)] py-2.5 rounded-full text-xs font-bold uppercase tracking-widest transition-transform hover:scale-105 active:scale-95"
-                      >
-                        Submit Return Request
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Tab: Returns & Refund status section */}
-          {activeTab === "returns" && (
-            <div className="liquid-glass border border-white/15 p-8 rounded-3xl space-y-8">
-              <h2 className="font-serif text-2xl border-b border-white/10 pb-4">Returns Tracker & Refund Status</h2>
-              
-              <div className="space-y-8">
-                {state.returns.filter(r => r.customerId === user.id).length === 0 ? (
-                  <p className="text-xs text-muted-foreground italic text-center py-6">No returns logged or in progress.</p>
-                ) : (
-                  state.returns.filter(r => r.customerId === user.id).map(r => {
-                    const RETURN_TIMELINE_STEPS = [
-                      "Return Requested",
-                      "Under Review",
-                      "Return Approved",
-                      "Pickup Scheduled",
-                      "Item Received",
-                      "Refund Processed",
-                      "Refund Completed"
-                    ];
-                    
-                    const isRejected = r.status === "Rejected";
-                    const currentStepIndex = RETURN_TIMELINE_STEPS.indexOf(r.status);
-                    
-                    return (
-                      <div key={r.id} className="p-6 bg-white/5 border border-white/10 rounded-3xl space-y-6 shadow-md">
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-white/10 pb-3">
-                          <div>
-                            <span className="font-mono text-xs font-bold text-accent">{r.id}</span>
-                            <span className="text-[10px] text-muted-foreground ml-3 font-mono">Order: {r.orderId}</span>
-                          </div>
-                          <StatusChip
-                            status={r.status}
-                            tone={isRejected ? "danger" : r.status === "Refund Completed" ? "success" : "warn"}
-                          />
-                        </div>
-
-                        <div className="text-xs space-y-1 text-muted-foreground leading-relaxed">
-                          <div><span className="font-bold text-foreground">Item:</span> {r.productName} ({r.selectedSize || "M"})</div>
-                          <div><span className="font-bold text-foreground">Refund Method:</span> {r.refundMethod || "Original Payment Method"}</div>
-                          <div><span className="font-bold text-foreground">Reason:</span> {r.reason}</div>
-                          <div><span className="font-bold text-foreground">Comments:</span> {r.comment}</div>
-                        </div>
-
-                        {/* Return Timeline Step Chart */}
-                        {!isRejected ? (
-                          <div className="space-y-4">
-                            <h4 className="text-[10px] uppercase tracking-widest text-accent font-bold">Return Status Timeline</h4>
-                            
-                            {/* Horizontal visual progress bars */}
-                            <div className="relative pt-2 pb-6">
-                              <div className="absolute top-4 left-1 right-1 h-0.5 bg-white/10 z-0 rounded-full" />
-                              <div
-                                className="absolute top-4 left-1 h-0.5 bg-accent transition-all duration-500 z-0 rounded-full"
-                                style={{
-                                  width: `${Math.max(0, (currentStepIndex / (RETURN_TIMELINE_STEPS.length - 1)) * 100)}%`
-                                }}
-                              />
-                              <div className="relative z-10 flex justify-between gap-1">
-                                {RETURN_TIMELINE_STEPS.map((step, idx) => {
-                                  const isCompleted = idx <= currentStepIndex;
-                                  const isCurrent = idx === currentStepIndex;
-                                  return (
-                                    <div key={step} className="flex flex-col items-center flex-1 max-w-[80px]">
-                                      <div
-                                        className={`w-4 h-4 rounded-full border flex items-center justify-center transition-all ${
-                                          isCurrent
-                                            ? "border-accent bg-accent text-white scale-110 shadow-[0_0_10px_rgba(212,175,55,0.5)] animate-pulse"
-                                            : isCompleted
-                                              ? "border-accent bg-accent text-white"
-                                              : "border-white/20 bg-zinc-950 text-muted-foreground"
-                                        }`}
-                                      >
-                                        {isCompleted && !isCurrent ? (
-                                          <Check className="w-2.5 h-2.5" />
-                                        ) : (
-                                          <span className="text-[7px] font-mono">{idx + 1}</span>
-                                        )}
-                                      </div>
-                                      <span
-                                        className={`text-[7px] text-center mt-2 font-semibold uppercase tracking-wider block transition-colors leading-tight ${
-                                          isCurrent ? "text-accent" : isCompleted ? "text-white" : "text-muted-foreground"
-                                        }`}
-                                      >
-                                        {step}
-                                      </span>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-start gap-3 text-xs text-rose-300">
-                            <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-                            <div>
-                              <div className="font-bold uppercase tracking-wider">Return Request Rejected</div>
-                              <p className="mt-1 text-rose-400 font-medium">Rejection Reason: {r.rejectionReason || "Insufficient evidence"}</p>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Detailed Refund Status Section */}
-                        <div className="pt-4 border-t border-white/5 text-xs space-y-3">
-                          <h4 className="font-bold text-accent uppercase tracking-wider text-[10px]">Detailed Refund Statement</h4>
-                          <div className="grid grid-cols-2 gap-4 border border-white/5 bg-white/[0.02] p-4 rounded-2xl">
-                            <div className="space-y-2">
-                              <div>
-                                <span className="text-muted-foreground block text-[9px] uppercase tracking-wider">Refund Amount</span>
-                                <span className="font-bold text-white text-sm">₹{r.refundAmount.toLocaleString()}</span>
-                              </div>
-                              <div>
-                                <span className="text-muted-foreground block text-[9px] uppercase tracking-wider">Expected Settlement Date</span>
-                                <span className="font-semibold text-white">
-                                  {r.status === "Refund Completed" ? "Completed" : r.expectedCreditDate || "Expected 3-5 days after approval"}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="space-y-2">
-                              <div>
-                                <span className="text-muted-foreground block text-[9px] uppercase tracking-wider">Ref Transaction ID</span>
-                                <span className="font-mono text-white text-[10px] break-all">{r.refundTransactionId || "N/A"}</span>
-                              </div>
-                              <div>
-                                <span className="text-muted-foreground block text-[9px] uppercase tracking-wider">Settlement Date</span>
-                                <span className="font-semibold text-white">{r.refundDate || "Pending Payout"}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-          )}
 
           {/* Tab: Wallet */}
           {activeTab === "wallet" && (
-            <div className="liquid-glass border border-white/15 p-8 rounded-3xl space-y-4">
+            <div className="liquid-glass border border-white/15 p-8 rounded-3xl space-y-4 lg:h-full">
               <h2 className="font-serif text-2xl">My Luxury Wallet</h2>
               <div className="bg-gradient-to-br from-accent/20 to-black/40 border border-accent/20 p-6 rounded-2xl max-w-sm space-y-2">
                 <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Available Credits</div>
@@ -1690,107 +1241,6 @@ function AIAnalyticsView() {
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function WishlistItemCard({
-  p,
-  user,
-  toggleShopWishlist,
-  addToShopCart,
-  triggerPopup
-}: {
-  p: any;
-  user: any;
-  toggleShopWishlist: any;
-  addToShopCart: any;
-  triggerPopup: any;
-}) {
-  const [isTitleHovered, setIsTitleHovered] = useState(false);
-
-  const ensureRupees = (val: any) => {
-    if (val === undefined || val === null) return "";
-    const clean = String(val).trim();
-    return clean.startsWith("₹") ? clean : `₹${clean}`;
-  };
-
-  const handleRemove = () => {
-    toggleShopWishlist(user.id, p.id);
-    triggerPopup(
-      `${p.name} removed from wishlist.`,
-      () => toggleShopWishlist(user.id, p.id),
-      `${p.name} added to wishlist!`,
-      () => toggleShopWishlist(user.id, p.id),
-      `${p.name} removed from wishlist.`
-    );
-  };
-
-  const availableSizes = p.sizes || ["S", "M", "L", "XL"];
-
-  return (
-    <div className="flex gap-4 p-4 bg-white/5 border border-white/10 rounded-2xl relative group overflow-hidden">
-      <Link to="/product/$productId" params={{ productId: p.id }} className="block shrink-0">
-        <img src={p.image} className="w-20 h-24 object-cover rounded-xl border border-white/10 hover:opacity-85 transition-opacity" />
-      </Link>
-      <div className="flex-1 flex flex-col justify-between min-w-0">
-        <div className="relative pr-8">
-          <div className="text-[10px] text-muted-foreground">{p.house}</div>
-          <Link
-            to="/product/$productId"
-            params={{ productId: p.id }}
-            className="hover:text-accent transition-colors block mt-0.5"
-            onMouseEnter={() => setIsTitleHovered(true)}
-            onMouseLeave={() => setIsTitleHovered(false)}
-          >
-            <h3 className="font-serif text-sm font-semibold truncate">{p.name}</h3>
-          </Link>
-          
-          {/* Price Row */}
-          <div className="text-accent text-xs font-bold mt-1">{ensureRupees(p.price)}</div>
-
-          {/* Sizes Row (Slides down on title hover, static) */}
-          <div className={`transition-all duration-300 overflow-hidden ${isTitleHovered ? "h-6 opacity-100 mt-1" : "h-0 opacity-0"}`}>
-            <div className="flex items-center gap-1.5 w-full">
-              <span className="text-[9px] uppercase tracking-widest text-muted-foreground shrink-0">Sizes:</span>
-              <div className="flex gap-1.5 flex-wrap">
-                {availableSizes.map((sz: string, idx: number) => (
-                  <span key={idx} className="text-[9px] bg-white/10 text-white border border-white/5 px-1.5 py-0.5 rounded font-mono">
-                    {sz}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <div className="flex gap-2 mt-2">
-          <button
-            onClick={() => {
-              addToShopCart({ productId: p.id, name: p.name, house: p.house, price: p.price, image: p.image, selectedSize: "M" });
-              triggerPopup(
-                `${p.name} (M) added to cart!`,
-                () => {},
-                `${p.name} removed from cart.`,
-                () => {},
-                `${p.name} added to cart!`
-              );
-            }}
-            className="bg-accent text-white px-4 py-1.5 rounded-full text-[10px] uppercase font-bold tracking-wider hover:bg-accent/90 transition-all cursor-pointer"
-          >
-            Add Cart
-          </button>
-        </div>
-      </div>
-
-      {/* Heart Icon at Top Right */}
-      <button
-        onClick={handleRemove}
-        className="absolute top-3 right-3 p-1.5 bg-black/40 hover:bg-accent/20 rounded-full transition-colors group/btn cursor-pointer"
-        title="Remove from Wishlist"
-      >
-        <Heart className="w-4 h-4 fill-rose-500 text-rose-500 group-hover/btn:scale-110 transition-transform" />
-      </button>
     </div>
   );
 }

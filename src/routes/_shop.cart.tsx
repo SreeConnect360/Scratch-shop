@@ -928,8 +928,6 @@ export function ShopCart() {
               {isAddingNewAddress || parsedAddresses.length === 0 ? (
                 /* Add New Address Form */
                 <form onSubmit={handleAddNewAddressSubmit} className="space-y-4 pt-2">
-                  <h4 className="font-serif text-lg text-accent">Add New Shipping Address</h4>
-                  
                   <div className="grid lg:grid-cols-12 gap-6">
                     {/* Left: Map */}
                     <div className="lg:col-span-5 flex flex-col gap-3">
@@ -960,17 +958,18 @@ export function ShopCart() {
                             </MapMarker>
                           )}
                         </Map>
-                        
-                        <button
-                          type="button"
-                          onClick={handleDetectLocation}
-                          disabled={isLocating}
-                          className="absolute bottom-3 right-3 z-10 flex items-center gap-1.5 bg-black/70 hover:bg-black/90 text-accent border border-accent/30 hover:border-accent px-3 py-1.5 rounded-full text-[10px] uppercase tracking-widest font-bold backdrop-blur-md transition-all cursor-pointer shadow-lg disabled:opacity-50"
-                        >
-                          <MapPin className={`w-3.5 h-3.5 ${isLocating ? 'animate-bounce text-accent' : 'text-accent'}`} />
-                          {isLocating ? "Locating..." : "Detect Location"}
-                        </button>
                       </div>
+
+                      {/* Use my current location button below map */}
+                      <button
+                        type="button"
+                        onClick={handleDetectLocation}
+                        disabled={isLocating}
+                        className="w-full flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-accent border border-white/10 px-4 py-2.5 rounded-full text-xs uppercase tracking-widest font-bold transition-all cursor-pointer shadow-md disabled:opacity-50"
+                      >
+                        <MapPin className={`w-3.5 h-3.5 ${isLocating ? 'animate-bounce text-accent' : 'text-accent'}`} />
+                        {isLocating ? "Locating..." : "Use my current location"}
+                      </button>
                       
                       <button
                         type="button"
@@ -1069,28 +1068,29 @@ export function ShopCart() {
                           onChange={e => setNewStreet(e.target.value)}
                         />
                       </div>
-                    </div>
-                  </div>
 
-                  <div className="flex gap-2 pt-2">
-                    <button
-                      type="submit"
-                      className="bg-accent text-white px-6 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest hover:bg-accent/90 transition-all cursor-pointer"
-                    >
-                      Save & Select Address
-                    </button>
-                    {parsedAddresses.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsAddingNewAddress(false);
-                          setMarkerPos(null);
-                        }}
-                        className="bg-white/10 text-foreground px-5 py-2.5 rounded-full text-xs cursor-pointer"
-                      >
-                        Cancel
-                      </button>
-                    )}
+                      {/* Save & Select / Cancel options below street address */}
+                      <div className="flex gap-2 pt-4">
+                        <button
+                          type="submit"
+                          className="bg-accent text-white px-6 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest hover:bg-accent/90 transition-all cursor-pointer"
+                        >
+                          Save & Select Address
+                        </button>
+                        {parsedAddresses.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsAddingNewAddress(false);
+                              setMarkerPos(null);
+                            }}
+                            className="border border-white/10 hover:bg-white/10 text-white rounded-full px-6 py-2.5 text-xs font-bold uppercase tracking-widest cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </form>
               ) : (

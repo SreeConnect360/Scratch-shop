@@ -8,73 +8,28 @@ import React, {
   useRef,
   useState,
 } from "react";
-import maplibregl from "maplibre-gl";
-import "maplibre-gl/dist/maplibre-gl.css";
+import type L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import { Layers } from "lucide-react";
 
 // Context to share map instance with child markers/popups
 const MapContext = createContext<{
-  map: maplibregl.Map | null;
+  map: any | null;
 } | null>(null);
-
-const STYLE_PRESETS = {
-  bright: "https://tiles.openfreemap.org/styles/bright",
-  liberty: "https://tiles.openfreemap.org/styles/liberty",
-  positron: "https://tiles.openfreemap.org/styles/positron",
-  satellite: {
-    version: 8,
-    sources: {
-      "esri-satellite": {
-        type: "raster",
-        tiles: [
-          "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-        ],
-        tileSize: 256,
-        attribution: "Tiles &copy; Esri"
-      },
-      "cartodb-labels": {
-        type: "raster",
-        tiles: [
-          "https://a.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}.png"
-        ],
-        tileSize: 256,
-        attribution: "&copy; OpenStreetMap, &copy; CARTO"
-      }
-    },
-    layers: [
-      {
-        id: "esri-satellite-layer",
-        type: "raster",
-        source: "esri-satellite",
-        minzoom: 0,
-        maxzoom: 20
-      },
-      {
-        id: "cartodb-labels-layer",
-        type: "raster",
-        source: "cartodb-labels",
-        minzoom: 0,
-        maxzoom: 20
-      }
-    ]
-  }
-};
 
 export interface MapViewport {
   center: [number, number]; // [longitude, latitude]
   zoom: number;
-  bearing?: number;
-  pitch?: number;
 }
 
 export interface MapRef {
-  easeTo: (options: maplibregl.EaseToOptions) => void;
-  flyTo: (options: maplibregl.FlyToOptions) => void;
-  getMap: () => maplibregl.Map | null;
+  easeTo: (options: any) => void;
+  flyTo: (options: any) => void;
+  getMap: () => any | null;
 }
 
 interface MapProps {
-  center?: [number, number];
+  center?: [number, number]; // [longitude, latitude]
   zoom?: number;
   viewport?: MapViewport;
   onViewportChange?: (viewport: MapViewport) => void;
@@ -86,76 +41,76 @@ interface MapProps {
 export const Map = React.forwardRef<MapRef, MapProps>(
   (
     {
-      center = [77.5946, 12.9716], // Default to Bangalore, India
+      center = [77.5946, 12.9716], // [longitude, latitude]
       zoom = 12,
       viewport,
       onViewportChange,
       blank = false,
-      styles,
       children,
     },
     ref
   ) => {
     const containerRef = useRef<HTMLDivElement>(null);
-    const mapRef = useRef<maplibregl.Map | null>(null);
-    const [mapInstance, setMapInstance] = useState<maplibregl.Map | null>(null);
-    const [mapStyle, setMapStyle] = useState<'bright' | 'liberty' | 'positron' | 'satellite'>('bright');
+    const mapRef = useRef<any | null>(null);
+    const tileLayerRef = useRef<any | null>(null);
+    const labelLayerRef = useRef<any | null>(null);
+    const [mapInstance, setMapInstance] = useState<any | null>(null);
+    const [LInstance, setLInstance] = useState<any>(null);
+    const [mapStyle, setMapStyle] = useState<'bright' | 'satellite'>('bright');
     const [showStyles, setShowStyles] = useState(false);
 
-    // Enforce light mode / selected style only. Theme is ignored.
-    const getStyleUrl = (currentStyle: 'bright' | 'liberty' | 'positron' | 'satellite') => {
-      if (blank) return { version: 8, sources: {}, layers: [] };
-      if (styles) {
-        // Fallback to custom light style if provided
-        return styles.light;
-      }
-      return STYLE_PRESETS[currentStyle];
-    };
+    // Dynamic import Leaflet on client-side only
+    useEffect(() => {
+      if (typeof window === "undefined") return;
+      import("leaflet").then((module) => {
+        setLInstance(module.default || module);
+      });
+    }, []);
 
     // Expose map methods to parent via ref
     useImperativeHandle(ref, () => ({
       easeTo: (options) => {
-        mapRef.current?.easeTo(options);
+        if (options.center) {
+          mapRef.current?.panTo([options.center[1], options.center[0]], {
+            animate: true,
+            duration: (options.duration ?? 500) / 1000,
+          });
+        }
       },
       flyTo: (options) => {
-        mapRef.current?.flyTo(options);
+        if (options.center) {
+          mapRef.current?.flyTo([options.center[1], options.center[0]], options.zoom ?? mapRef.current?.getZoom(), {
+            animate: true,
+            duration: (options.duration ?? 1000) / 1000,
+          });
+        }
       },
       getMap: () => mapRef.current,
     }));
 
-    // Initialize Map
+    // Initialize Map once Leaflet is loaded
     useEffect(() => {
-      if (!containerRef.current) return;
+      if (!LInstance || !containerRef.current) return;
 
       const initialCenter = viewport ? viewport.center : center;
       const initialZoom = viewport ? viewport.zoom : zoom;
-      const initialBearing = viewport?.bearing ?? 0;
-      const initialPitch = viewport?.pitch ?? 0;
 
-      const map = new maplibregl.Map({
-        container: containerRef.current,
-        style: getStyleUrl(mapStyle) as any,
-        center: initialCenter,
+      const map = LInstance.map(containerRef.current, {
+        center: [initialCenter[1], initialCenter[0]],
         zoom: initialZoom,
-        bearing: initialBearing,
-        pitch: initialPitch,
+        zoomControl: false,
         attributionControl: false,
       });
 
       mapRef.current = map;
-
-      map.on("load", () => {
-        setMapInstance(map);
-      });
+      setMapInstance(map);
 
       map.on("move", () => {
         if (onViewportChange) {
-          const centerLngLat = map.getCenter();
+          const mapCenter = map.getCenter();
           onViewportChange({
-            center: [centerLngLat.lng, centerLngLat.lat],
+            center: [mapCenter.lng, mapCenter.lat],
             zoom: map.getZoom(),
-            bearing: map.getBearing(),
-            pitch: map.getPitch(),
           });
         }
       });
@@ -166,13 +121,48 @@ export const Map = React.forwardRef<MapRef, MapProps>(
         mapRef.current = null;
         setMapInstance(null);
       };
-    }, []);
+    }, [LInstance]);
 
-    // Update style dynamically when selected
+    // Handle tile layers reactively based on selected style
     useEffect(() => {
-      if (!mapRef.current || blank) return;
-      mapRef.current.setStyle(getStyleUrl(mapStyle) as any);
-    }, [mapStyle, blank]);
+      if (!mapInstance || !LInstance) return;
+
+      if (tileLayerRef.current) {
+        mapInstance.removeLayer(tileLayerRef.current);
+      }
+      if (labelLayerRef.current) {
+        mapInstance.removeLayer(labelLayerRef.current);
+      }
+
+      if (!blank) {
+        if (mapStyle === 'satellite') {
+          tileLayerRef.current = LInstance.tileLayer(
+            "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+            {
+              maxZoom: 19,
+              attribution: "Tiles &copy; Esri &mdash; Source: Esri",
+            }
+          ).addTo(mapInstance);
+
+          // Add voyager transparent labels overlay for streets/city names
+          labelLayerRef.current = LInstance.tileLayer(
+            "https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}.png",
+            {
+              maxZoom: 19,
+              attribution: "&copy; CARTO",
+            }
+          ).addTo(mapInstance);
+        } else {
+          tileLayerRef.current = LInstance.tileLayer(
+            "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            {
+              maxZoom: 19,
+              attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors',
+            }
+          ).addTo(mapInstance);
+        }
+      }
+    }, [mapInstance, LInstance, mapStyle, blank]);
 
     // Update center and zoom if they change externally
     useEffect(() => {
@@ -182,7 +172,7 @@ export const Map = React.forwardRef<MapRef, MapProps>(
         Math.abs(currentCenter.lng - center[0]) > 0.0001 ||
         Math.abs(currentCenter.lat - center[1]) > 0.0001
       ) {
-        mapRef.current.setCenter(center);
+        mapRef.current.setView([center[1], center[0]], mapRef.current.getZoom());
       }
     }, [center]);
 
@@ -204,12 +194,7 @@ export const Map = React.forwardRef<MapRef, MapProps>(
       const zoomChanged = Math.abs(currentZoom - viewport.zoom) > 0.1;
 
       if (centerChanged || zoomChanged) {
-        mapRef.current.jumpTo({
-          center: viewport.center,
-          zoom: viewport.zoom,
-          bearing: viewport.bearing,
-          pitch: viewport.pitch,
-        });
+        mapRef.current.setView([viewport.center[1], viewport.center[0]], viewport.zoom);
       }
     }, [viewport]);
 
@@ -217,7 +202,7 @@ export const Map = React.forwardRef<MapRef, MapProps>(
       <div ref={containerRef} className="w-full h-full rounded-2xl overflow-hidden relative border border-white/10 shadow-lg font-sans">
         {/* Style Preset Selector Overlay */}
         {!blank && (
-          <div className="absolute top-3 left-3 z-20">
+          <div className="absolute top-3 left-3 z-[1000]">
             <div className="relative">
               <button
                 type="button"
@@ -229,8 +214,8 @@ export const Map = React.forwardRef<MapRef, MapProps>(
               </button>
               
               {showStyles && (
-                <div className="absolute top-full left-0 mt-1.5 w-28 bg-black/90 border border-white/15 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-lg flex flex-col z-30">
-                  {(['bright', 'liberty', 'positron', 'satellite'] as const).map((style) => (
+                <div className="absolute top-full left-0 mt-1.5 w-28 bg-black/90 border border-white/15 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-lg flex flex-col z-[1001]">
+                  {(['bright', 'satellite'] as const).map((style) => (
                     <button
                       key={style}
                       type="button"
@@ -242,7 +227,7 @@ export const Map = React.forwardRef<MapRef, MapProps>(
                         mapStyle === style ? 'text-[#d4af37] font-bold bg-white/5' : 'text-white/80'
                       }`}
                     >
-                      {style}
+                      {style === 'bright' ? 'Standard' : 'Satellite'}
                     </button>
                   ))}
                 </div>
@@ -280,28 +265,40 @@ export function MapMarker({
   children,
 }: MapMarkerProps) {
   const { map } = useContext(MapContext) || {};
-  const markerRef = useRef<maplibregl.Marker | null>(null);
+  const markerRef = useRef<any | null>(null);
   const elementRef = useRef<HTMLDivElement>(null);
+  const [LInstance, setLInstance] = useState<any>(null);
+
+  // Dynamic import Leaflet on client-side only
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    import("leaflet").then((module) => {
+      setLInstance(module.default || module);
+    });
+  }, []);
 
   useEffect(() => {
-    if (!map) return;
+    if (!map || !LInstance) return;
 
     const el = document.createElement("div");
     el.style.display = "inline-block";
 
-    const marker = new maplibregl.Marker({
-      element: el,
+    const marker = LInstance.marker([latitude, longitude], {
+      icon: LInstance.divIcon({
+        html: el,
+        className: "custom-leaflet-marker-wrapper",
+        iconSize: [0, 0],
+        iconAnchor: [0, 0],
+      }),
       draggable,
-    })
-      .setLngLat([longitude, latitude])
-      .addTo(map);
+    }).addTo(map);
 
     markerRef.current = marker;
 
     if (onDrag) {
       marker.on("dragend", () => {
-        const lngLat = marker.getLngLat();
-        onDrag({ lng: lngLat.lng, lat: lngLat.lat });
+        const latLng = marker.getLatLng();
+        onDrag({ lng: latLng.lng, lat: latLng.lat });
       });
     }
 
@@ -309,28 +306,31 @@ export function MapMarker({
       marker.remove();
       markerRef.current = null;
     };
-  }, [map]);
+  }, [map, LInstance]);
 
   // Sync marker position
   useEffect(() => {
     if (markerRef.current) {
-      markerRef.current.setLngLat([longitude, latitude]);
+      markerRef.current.setLatLng([latitude, longitude]);
     }
   }, [longitude, latitude]);
 
   // Sync draggable property
   useEffect(() => {
     if (markerRef.current) {
-      markerRef.current.setDraggable(draggable);
+      if (draggable) {
+        markerRef.current.dragging?.enable();
+      } else {
+        markerRef.current.dragging?.disable();
+      }
     }
   }, [draggable]);
 
-  // Render children into the portal element
   return (
     <div style={{ display: "none" }}>
       <div ref={elementRef}>{children}</div>
       {markerRef.current && elementRef.current && (
-        <MarkerPortal element={elementRef.current} target={markerRef.current.getElement()} />
+        <MarkerPortal element={elementRef.current} target={markerRef.current.getElement() as HTMLElement} />
       )}
     </div>
   );
@@ -339,6 +339,7 @@ export function MapMarker({
 // Helper component to teleport elements
 function MarkerPortal({ element, target }: { element: HTMLDivElement; target: HTMLElement }) {
   useEffect(() => {
+    if (!target) return;
     target.appendChild(element);
     return () => {
       if (target.contains(element)) {
@@ -385,8 +386,6 @@ interface MapPopupProps {
   latitude: number;
   onClose?: () => void;
   closeButton?: boolean;
-  focusAfterOpen?: boolean;
-  closeOnClick?: boolean;
   className?: string;
   children?: React.ReactNode;
 }
@@ -400,37 +399,48 @@ export function MapPopup({
   children,
 }: MapPopupProps) {
   const { map } = useContext(MapContext) || {};
-  const popupRef = useRef<maplibregl.Popup | null>(null);
+  const popupRef = useRef<any | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const [LInstance, setLInstance] = useState<any>(null);
+
+  // Dynamic import Leaflet on client-side only
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    import("leaflet").then((module) => {
+      setLInstance(module.default || module);
+    });
+  }, []);
 
   useEffect(() => {
-    if (!map) return;
+    if (!map || !LInstance) return;
 
     const el = document.createElement("div");
-    const popup = new maplibregl.Popup({
+    const popup = LInstance.popup({
       closeButton,
       closeOnClick: false,
       className: `custom-liquid-popup ${className}`,
     })
-      .setLngLat([longitude, latitude])
-      .setDOMContent(el)
-      .addTo(map);
+      .setLatLng([latitude, longitude])
+      .setContent(el)
+      .openOn(map);
 
     popupRef.current = popup;
 
     if (onClose) {
-      popup.on("close", onClose);
+      map.on("popupclose", (e: any) => {
+        if (e.popup === popup) onClose();
+      });
     }
 
     return () => {
       popup.remove();
       popupRef.current = null;
     };
-  }, [map]);
+  }, [map, LInstance]);
 
   useEffect(() => {
     if (popupRef.current) {
-      popupRef.current.setLngLat([longitude, latitude]);
+      popupRef.current.setLatLng([latitude, longitude]);
     }
   }, [longitude, latitude]);
 
@@ -440,13 +450,13 @@ export function MapPopup({
         {children}
       </div>
       {popupRef.current && contentRef.current && (
-        <MarkerPortal element={contentRef.current} target={popupRef.current.getElement().querySelector(".maplibregl-popup-content") as HTMLElement} />
+        <MarkerPortal element={contentRef.current} target={popupRef.current.getElement()?.querySelector(".leaflet-popup-content") as HTMLElement} />
       )}
     </div>
   );
 }
 
-// Dummy export components to avoid breakages in case they are imported in general examples
+// Dummy export components
 export function MarkerPopup({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <div className={`p-1 ${className}`}>{children}</div>;
 }
@@ -462,7 +472,6 @@ export function MarkerTooltip({ children }: { children: React.ReactNode }) {
 export function MapControls({
   position = "top-right",
   showZoom = true,
-  showCompass = true,
 }: {
   position?: "top-left" | "top-right" | "bottom-left" | "bottom-right";
   showZoom?: boolean;
@@ -471,18 +480,41 @@ export function MapControls({
   showFullscreen?: boolean;
 }) {
   const { map } = useContext(MapContext) || {};
+  const [LInstance, setLInstance] = useState<any>(null);
+
+  // Dynamic import Leaflet on client-side only
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    import("leaflet").then((module) => {
+      setLInstance(module.default || module);
+    });
+  }, []);
 
   useEffect(() => {
-    if (!map) return;
-    const nav = new maplibregl.NavigationControl({
-      showZoom,
-      showCompass,
-    });
-    map.addControl(nav, position);
+    if (!map || !LInstance) return;
+
+    // Map control positions in Leaflet
+    const leafletPosition: any =
+      position === "top-right"
+        ? "topright"
+        : position === "top-left"
+        ? "topleft"
+        : position === "bottom-left"
+        ? "bottomleft"
+        : "bottomright";
+
+    let zoomControl: any = null;
+    if (showZoom) {
+      zoomControl = LInstance.control.zoom({ position: leafletPosition });
+      zoomControl.addTo(map);
+    }
+
     return () => {
-      map.removeControl(nav);
+      if (zoomControl) {
+        map.removeControl(zoomControl);
+      }
     };
-  }, [map, position]);
+  }, [map, LInstance, position, showZoom]);
 
   return null;
 }

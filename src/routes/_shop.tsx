@@ -465,36 +465,36 @@ function ShopLayout() {
 
                     if (item === "Men") return null;
 
+                    const searchParams = location.search as any;
+
                     if (item === "Women") {
+                      const isActive = location.pathname === "/categories" && !searchParams?.view && !searchParams?.tag;
                       return (
                         <li key={item} className="relative">
                           <Link
                             to="/categories"
-                            className="relative rounded-full px-3 py-1.5 text-[15px] tracking-[0.08em] font-semibold transition-colors duration-300"
+                            className="relative rounded-full px-3 py-1.5 text-[15px] tracking-[0.08em] font-semibold transition-colors duration-300 outline-none focus:outline-none focus-visible:outline-none"
                           >
-                            {({ isActive }) => (
-                              <span className={isActive ? "text-gold" : "text-ink-muted hover:text-ink"}>
-                                Fashion
-                              </span>
-                            )}
+                            <span className={isActive ? "text-gold" : "text-ink-muted hover:text-ink"}>
+                              Fashion
+                            </span>
                           </Link>
                         </li>
                       );
                     }
 
                     if (item === "Collections") {
+                      const isActive = location.pathname === "/categories" && searchParams?.view === "collections";
                       return (
                         <li key={item} className="relative">
                           <Link
                             to="/categories"
                             search={{ view: "collections" } as any}
-                            className="relative rounded-full px-3 py-1.5 text-[15px] tracking-[0.08em] font-semibold transition-colors duration-300"
+                            className="relative rounded-full px-3 py-1.5 text-[15px] tracking-[0.08em] font-semibold transition-colors duration-300 outline-none focus:outline-none focus-visible:outline-none"
                           >
-                            {({ isActive }) => (
-                              <span className={isActive ? "text-gold" : "text-ink-muted hover:text-ink"}>
-                                Collections
-                              </span>
-                            )}
+                            <span className={isActive ? "text-gold" : "text-ink-muted hover:text-ink"}>
+                              Collections
+                            </span>
                           </Link>
                         </li>
                       );
@@ -505,19 +505,22 @@ function ShopLayout() {
                     else if (item === "Trending") linkSearch = { tag: "Trending" };
 
                     const label = item === "New Arrivals" ? "New" : item;
+                    const isActive = item === "New Arrivals"
+                      ? (location.pathname === "/categories" && searchParams?.tag === "New")
+                      : (item === "Trending"
+                        ? (location.pathname === "/categories" && searchParams?.tag === "Trending")
+                        : false);
 
                     return (
                       <li key={item} className="relative">
                         <Link
                           to="/categories"
                           search={linkSearch}
-                          className="relative rounded-full px-3 py-1.5 text-[15px] tracking-[0.08em] font-semibold transition-colors duration-300"
+                          className="relative rounded-full px-3 py-1.5 text-[15px] tracking-[0.08em] font-semibold transition-colors duration-300 outline-none focus:outline-none focus-visible:outline-none"
                         >
-                          {({ isActive }) => (
-                            <span className={isActive ? "text-gold" : "text-ink-muted hover:text-ink"}>
-                              {label}
-                            </span>
-                          )}
+                          <span className={isActive ? "text-gold" : "text-ink-muted hover:text-ink"}>
+                            {label}
+                          </span>
                         </Link>
                       </li>
                     );
@@ -525,7 +528,7 @@ function ShopLayout() {
                 ) : (
                   <>
                     <li className="relative">
-                      <Link to="/" className="relative rounded-full px-3 py-1.5 text-[15px] tracking-[0.08em] font-semibold transition-colors">
+                      <Link to="/" className="relative rounded-full px-3 py-1.5 text-[15px] tracking-[0.08em] font-semibold transition-colors outline-none focus:outline-none focus-visible:outline-none">
                         {({ isActive }) => (
                           <span className={isActive ? "text-gold" : "text-ink-muted hover:text-ink"}>
                             Shop
@@ -534,7 +537,7 @@ function ShopLayout() {
                       </Link>
                     </li>
                     <li className="relative">
-                      <Link to="/categories" className="relative rounded-full px-3 py-1.5 text-[15px] tracking-[0.08em] font-semibold transition-colors">
+                      <Link to="/categories" className="relative rounded-full px-3 py-1.5 text-[15px] tracking-[0.08em] font-semibold transition-colors outline-none focus:outline-none focus-visible:outline-none">
                         {({ isActive }) => (
                           <span className={isActive ? "text-gold" : "text-ink-muted hover:text-ink"}>
                             Collections
@@ -543,7 +546,7 @@ function ShopLayout() {
                       </Link>
                     </li>
                     <li className="relative">
-                      <Link to="/FashionBattle/live-contest" className="relative rounded-full px-3 py-1.5 text-[15px] tracking-[0.08em] font-semibold transition-colors">
+                      <Link to="/FashionBattle/live-contest" className="relative rounded-full px-3 py-1.5 text-[15px] tracking-[0.08em] font-semibold transition-colors outline-none focus:outline-none focus-visible:outline-none">
                         {({ isActive }) => (
                           <span className={isActive ? "text-gold" : "text-ink-muted hover:text-ink"}>
                             Contests

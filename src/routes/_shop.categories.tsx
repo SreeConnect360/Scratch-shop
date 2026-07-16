@@ -495,7 +495,7 @@ function CategoriesPage() {
       )}
 
       {/* Product Grid */}
-      <section className="px-4 sm:px-6 lg:px-16 py-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 sm:gap-x-4 gap-y-8 sm:gap-y-10 bg-transparent">
+      <section className="px-4 sm:px-6 lg:px-16 py-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 sm:gap-x-4 gap-y-8 sm:gap-y-10 bg-transparent items-start">
         {filteredProducts.length === 0 ? (
           <div className="col-span-full py-24 text-center text-sm text-muted-foreground italic bg-white/5 border border-white/10 rounded-3xl p-6">
             No items found matching the selected filters.
@@ -754,7 +754,14 @@ function CategoryProductCard({
             </div>
 
             {/* Sizes Row */}
-            <div className={`transition-all duration-300 overflow-hidden ${isTitleHovered ? "h-6 opacity-100 mt-1.5" : "h-0 opacity-0"}`}>
+            <div
+              className="transition-all duration-350 ease-in-out overflow-hidden"
+              style={{
+                maxHeight: isTitleHovered ? "24px" : "0px",
+                opacity: isTitleHovered ? 1 : 0,
+                marginTop: isTitleHovered ? "6px" : "0px",
+              }}
+            >
               <div className="flex items-center gap-1.5 w-full">
                 <span className="text-[9px] uppercase tracking-widest text-muted-foreground shrink-0">Sizes:</span>
                 <div className="overflow-hidden w-full relative">
