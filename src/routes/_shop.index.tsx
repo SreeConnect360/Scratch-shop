@@ -14,7 +14,7 @@ import { SplineScene } from "@/components/ui/splite";
 import MagneticButton from "@/components/ui/MagneticButton";
 import { cn, prefersReducedMotion } from "@/lib/utils";
 import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { ScrollTrigger } from "gsap/dist/ScrollTrigger";
 
 if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger);
