@@ -39,6 +39,10 @@ target/
 
 # Environment files
 .env
+.vercel/
+Nominatim-5.3.2/
+search_results.txt
+history_dirs.txt
 
 
 

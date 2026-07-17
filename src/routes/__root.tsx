@@ -140,6 +140,8 @@ function RootShell({ children }: { children: React.ReactNode }) {
 }
 
 import { Toaster } from "@/components/ui/sonner";
+import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
@@ -151,6 +153,8 @@ function RootComponent() {
           <PortalProvider>
             <Outlet />
             <Toaster duration={2000} position="top-right" closeButton />
+            <Analytics />
+            <SpeedInsights />
           </PortalProvider>
         </ThemeProvider>
       </GoogleOAuthProvider>
