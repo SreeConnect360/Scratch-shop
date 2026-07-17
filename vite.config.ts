@@ -8,16 +8,39 @@ import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
 // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
 // @cloudflare/vite-plugin builds from this — wrangler.jsonc main alone is insufficient.
+import fs from "fs";
+import path from "path";
+
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+
 export default defineConfig({
   tanstackStart: {
     server: { entry: "server" },
   },
   nitro: {
     preset: process.env.NITRO_PRESET || "vercel",
-    // Force-inline tslib into the Vercel serverless bundle (Nitro externalises
-    // it by default, but Vercel functions don't ship node_modules).
-    // The lovable type surface is intentionally narrow; the runtime spreads all
-    // options through to Nitro, so this works despite the TS complaint.
-    ...({ externals: { inline: ["tslib"] } } as Record<string, unknown>),
+    // We add hooks to copy the missing ES6 module files of tslib because Nitro's builder
+    // omits them when compiling the function node_modules, triggering ERR_MODULE_NOT_FOUND.
+    hooks: {
+      compiled(nitro) {
+        const destDir = path.join(
+          nitro.options.output.serverDir,
+          "node_modules",
+          "tslib"
+        );
+        if (fs.existsSync(destDir)) {
+          const srcDir = path.dirname(require.resolve("tslib/package.json"));
+          const filesToCopy = ["tslib.es6.js", "tslib.es6.mjs"];
+          for (const file of filesToCopy) {
+            const srcPath = path.join(srcDir, file);
+            const destPath = path.join(destDir, file);
+            if (fs.existsSync(srcPath)) {
+              fs.copyFileSync(srcPath, destPath);
+            }
+          }
+        }
+      }
+    }
   },
 });
