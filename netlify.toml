@@ -5,8 +5,12 @@
 [build.environment]
   NITRO_PRESET = "netlify"
 
+[functions]
+  directory = ".netlify/functions-internal"
+
 [[redirects]]
   from = "/*"
   to = "/.netlify/functions/server"
   status = 200
+
 
