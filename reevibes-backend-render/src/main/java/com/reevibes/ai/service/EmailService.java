@@ -43,6 +43,9 @@ public class EmailService {
     @Value("${gmail.reply.to}")
     private String replyToEmail;
 
+    @Value("${app.frontend.url:http://localhost:5173}")
+    private String frontendUrl;
+
     private String getAccessToken() {
         if (clientId == null || clientId.trim().isEmpty() || 
             clientSecret == null || clientSecret.trim().isEmpty() || 
@@ -234,7 +237,7 @@ public class EmailService {
                 "        </div>" +
                 "      </div>" +
                 "      <div class='cta-container'>" +
-                "        <a href='http://localhost:5173' class='cta-button'>Explore Dashboard</a>" +
+                "        <a href='" + frontendUrl + "' class='cta-button'>Explore Dashboard</a>" +
                 "      </div>" +
                 "      <div class='support'>" +
                 "        Need help or have questions? Reach out to us at <a href='mailto:hello@reevibes.com' style='color: #18181b; text-decoration: underline;'>hello@reevibes.com</a>" +

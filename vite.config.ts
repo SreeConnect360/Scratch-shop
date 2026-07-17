@@ -19,7 +19,7 @@ export default defineConfig({
     server: { entry: "server" },
   },
   nitro: {
-    preset: process.env.NITRO_PRESET || "vercel",
+    preset: process.env.NITRO_PRESET || "netlify",
     // We add hooks to copy the missing ES6 module files of tslib because Nitro's builder
     // omits them when compiling the function node_modules, triggering ERR_MODULE_NOT_FOUND.
     hooks: {
