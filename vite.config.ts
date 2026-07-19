@@ -17,7 +17,10 @@ const require = createRequire(import.meta.url);
 
 export default defineConfig({
   vite: {
-    plugins: [netlify()],
+    // Keep the Netlify build integration, but disable its dev-server middleware:
+    // it emulates the netlify.toml catch-all redirect and static serving inside
+    // `vite dev`, which hijacks asset requests (styles.css served raw, routes broken).
+    plugins: [netlify({ dev: { middleware: false } } as never)],
   },
   tanstackStart: {
     server: { entry: "server" },

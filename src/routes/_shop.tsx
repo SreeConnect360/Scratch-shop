@@ -729,27 +729,6 @@ function ShopLayout() {
                 <Search size={18} strokeWidth={1.8} />
               </motion.button>
 
-              <Link to="/cart" className="md:hidden" aria-label={shopCount ? `Cart, ${shopCount} items` : "Cart"}>
-                <motion.button
-                  type="button"
-                  whileTap={{ scale: 0.9 }}
-                  className="relative flex h-10 w-10 items-center justify-center rounded-full text-ink-muted transition-colors duration-300 hover:text-ink cursor-pointer"
-                >
-                  <ShoppingBag size={18} strokeWidth={1.8} />
-                  {shopCount > 0 && (
-                    <motion.span
-                      key={shopCount}
-                      initial={{ scale: 0.4 }}
-                      animate={{ scale: 1 }}
-                      transition={{ type: "spring", stiffness: 500, damping: 18 }}
-                      className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-gold px-1 text-[9px] font-bold text-obsidian"
-                    >
-                      {shopCount}
-                    </motion.span>
-                  )}
-                </motion.button>
-              </Link>
-
               {/* Mobile Drawer Trigger */}
               <span className="md:hidden">
                 <motion.button

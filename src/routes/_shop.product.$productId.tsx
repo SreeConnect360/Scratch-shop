@@ -350,8 +350,10 @@ function ProductDetail() {
     toast.success("Thank you! Your review has been added.");
   };
 
-  // Magnifying Zoom Viewer on Hover
+  // Magnifying Zoom Viewer on Hover (desktop pointers only — on touch devices the
+  // synthetic mousemove fired by a tap would lock the magnifier on with no way out)
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (typeof window !== "undefined" && !window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
     const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
     const x = ((e.clientX - left) / width) * 100;
     const y = ((e.clientY - top) / height) * 100;
@@ -363,6 +365,46 @@ function ProductDetail() {
 
   const handleMouseLeave = () => {
     setZoomStyle({ display: "none", backgroundPosition: "0% 0%" });
+  };
+
+  // Mobile: swipe to browse images on the main image, tap to open fullscreen viewer
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const imageSwipe = useRef<{ x: number; y: number; moved: boolean } | null>(null);
+  const suppressImageClick = useRef(false);
+
+  const handleImageTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length !== 1) return;
+    imageSwipe.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, moved: false };
+  };
+  const handleImageTouchMove = (e: React.TouchEvent) => {
+    const s = imageSwipe.current;
+    if (!s) return;
+    if (Math.abs(e.touches[0].clientX - s.x) > 10 || Math.abs(e.touches[0].clientY - s.y) > 10) s.moved = true;
+  };
+  const handleImageTouchEnd = (e: React.TouchEvent) => {
+    const s = imageSwipe.current;
+    imageSwipe.current = null;
+    if (!s) return;
+    const dx = e.changedTouches[0].clientX - s.x;
+    const dy = e.changedTouches[0].clientY - s.y;
+    if (mediaGallery.length > 1 && Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      setActiveMediaIdx((prev) =>
+        dx < 0 ? (prev === mediaGallery.length - 1 ? 0 : prev + 1) : (prev === 0 ? mediaGallery.length - 1 : prev - 1)
+      );
+      suppressImageClick.current = true;
+    } else if (s.moved) {
+      suppressImageClick.current = true;
+    }
+  };
+  const handleImageClick = () => {
+    if (suppressImageClick.current) {
+      suppressImageClick.current = false;
+      return;
+    }
+    // Fullscreen viewer is a touch-device experience; desktop keeps the hover magnifier
+    if (typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches) {
+      setViewerOpen(true);
+    }
   };
 
   // Actions
@@ -514,13 +556,20 @@ function ProductDetail() {
 
       <div className="grid lg:grid-cols-12 gap-6 lg:gap-12 relative items-start">
         {/* Left Side: Images sliders & Zoom (Sticky on both mobile and desktop) */}
-        <div className="lg:col-span-6 sticky lg:sticky top-4 lg:top-8 z-20 self-start lg:h-fit flex flex-col-reverse lg:flex-row gap-4 w-full h-[45vh] lg:h-auto max-h-[45vh] lg:max-h-[560px] bg-zinc-950 lg:bg-transparent p-2.5 lg:p-0 rounded-b-[2rem] lg:rounded-none border-b border-white/10 lg:border-none shadow-xl lg:shadow-none">
-          {/* Vertical/Horizontal Thumbnail Gallery */}
+        <div className="lg:col-span-6 sticky top-4 lg:top-8 z-20 self-start flex flex-col-reverse lg:flex-row gap-2.5 lg:gap-4 w-full h-[45vh] max-h-[45vh] lg:h-[calc(100vh-8rem)] lg:max-h-[760px] bg-zinc-950 lg:bg-transparent p-2.5 lg:p-0 rounded-b-[2rem] lg:rounded-none border-b border-white/10 lg:border-none shadow-xl lg:shadow-none">
+          {/* Thumbnails — vertical column on the left (desktop), row below image (mobile) */}
           {mediaGallery.length > 1 && (
-            <div className="flex lg:flex-col gap-2.5 overflow-x-auto lg:overflow-y-auto pb-1.5 lg:pb-0 pr-1 shrink-0 scrollbar-none justify-start w-full lg:w-16 max-h-[12vh] lg:max-h-full">
+            <div
+              role="listbox"
+              aria-label="Product images"
+              className="hidden lg:flex lg:flex-col gap-2.5 lg:overflow-x-hidden lg:overflow-y-auto lg:pr-1 shrink-0 scrollbar-none justify-start lg:w-16 lg:max-h-full lg:self-center"
+            >
               {mediaGallery.map((m: string, idx: number) => (
                 <button
                   key={idx}
+                  role="option"
+                  aria-selected={activeMediaIdx === idx}
+                  aria-label={`View image ${idx + 1}`}
                   onClick={() => setActiveMediaIdx(idx)}
                   className={`w-12 h-16 lg:w-16 lg:h-20 border overflow-hidden shrink-0 rounded-xl transition-all duration-300 ${
                     activeMediaIdx === idx
@@ -528,22 +577,39 @@ function ProductDetail() {
                       : "border-white/10 hover:border-white/30"
                   }`}
                 >
-                  <img src={m} className="w-full h-full object-cover" />
+                  <img src={m} className="w-full h-full object-cover" alt="" loading="lazy" />
                 </button>
               ))}
             </div>
           )}
 
-          {/* Main Image */}
+          {/* Main Image — portrait, fills remaining space, always centered */}
           <div
-            className="relative bg-black aspect-square lg:aspect-[3/4] lg:flex-1 lg:min-h-0 overflow-hidden rounded-2xl lg:rounded-3xl border border-white/5 lg:border-border-subtle cursor-zoom-in flex items-center justify-center flex-1 h-full lg:max-h-[520px]"
+            className="relative bg-black w-full lg:w-auto flex-1 min-h-0 overflow-hidden rounded-2xl lg:rounded-3xl border border-white/5 lg:border-border-subtle cursor-zoom-in flex items-center justify-center touch-pan-y"
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
+            onTouchStart={handleImageTouchStart}
+            onTouchMove={handleImageTouchMove}
+            onTouchEnd={handleImageTouchEnd}
+            onClick={handleImageClick}
           >
             <img
               src={mediaGallery[activeMediaIdx]}
               className="max-w-full max-h-full object-contain select-none pointer-events-none"
             />
+            {/* Mobile swipe position dots */}
+            {mediaGallery.length > 1 && (
+              <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 flex gap-1.5 lg:hidden pointer-events-none">
+                {mediaGallery.map((_: string, i: number) => (
+                  <span
+                    key={i}
+                    className={`h-1.5 rounded-full transition-all duration-300 ${
+                      i === activeMediaIdx ? "w-4 bg-accent" : "w-1.5 bg-white/40"
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
             {/* Magnifier zoom portal */}
             <div
               className="absolute inset-0 hidden pointer-events-none transition-shadow bg-no-repeat duration-100"
@@ -558,18 +624,20 @@ function ProductDetail() {
             {mediaGallery.length > 1 && (
               <>
                 <button
-                  onClick={() =>
-                    setActiveMediaIdx((prev) => (prev === 0 ? mediaGallery.length - 1 : prev - 1))
-                  }
-                  className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/60 text-white p-2.5 rounded-full hover:bg-black transition-colors z-10"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveMediaIdx((prev) => (prev === 0 ? mediaGallery.length - 1 : prev - 1));
+                  }}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/60 text-white p-2.5 rounded-full hover:bg-black transition-colors z-10 hidden lg:block"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={() =>
-                    setActiveMediaIdx((prev) => (prev === mediaGallery.length - 1 ? 0 : prev + 1))
-                  }
-                  className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/60 text-white p-2.5 rounded-full hover:bg-black transition-colors z-10"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveMediaIdx((prev) => (prev === mediaGallery.length - 1 ? 0 : prev + 1));
+                  }}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/60 text-white p-2.5 rounded-full hover:bg-black transition-colors z-10 hidden lg:block"
                 >
                   <ArrowRight className="w-4 h-4" />
                 </button>
@@ -1104,6 +1172,18 @@ function ProductDetail() {
         </div>
       )}
 
+      {/* Fullscreen mobile image viewer */}
+      {viewerOpen && (
+        <FullscreenImageViewer
+          images={mediaGallery}
+          startIdx={activeMediaIdx}
+          onClose={(idx) => {
+            setViewerOpen(false);
+            setActiveMediaIdx(idx);
+          }}
+        />
+      )}
+
       {/* Size Selection Popup Modal */}
       {showSizePopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -1516,6 +1596,197 @@ function RelatedProductCard({
           Add to Bag
         </button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Fullscreen touch image viewer (mobile lightbox).
+ * Gestures: swipe left/right to change image, pinch to zoom, double-tap to
+ * toggle zoom, one-finger pan while zoomed. Zoom resets on image change.
+ */
+function FullscreenImageViewer({
+  images,
+  startIdx,
+  onClose,
+}: {
+  images: string[];
+  startIdx: number;
+  onClose: (idx: number) => void;
+}) {
+  const [idx, setIdx] = useState(startIdx);
+  const [view, setView] = useState({ scale: 1, tx: 0, ty: 0 });
+  const [animate, setAnimate] = useState(true);
+  const idxRef = useRef(idx);
+  idxRef.current = idx;
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  const gesture = useRef({
+    mode: "none" as "none" | "swipe" | "pan" | "pinch",
+    startX: 0,
+    startY: 0,
+    startDist: 0,
+    start: { scale: 1, tx: 0, ty: 0 },
+    moved: false,
+    lastTap: 0,
+  });
+
+  const clampPan = (scale: number, tx: number, ty: number) => {
+    const maxX = (window.innerWidth * (scale - 1)) / 2;
+    const maxY = (window.innerHeight * (scale - 1)) / 2;
+    return {
+      tx: Math.max(-maxX, Math.min(maxX, tx)),
+      ty: Math.max(-maxY, Math.min(maxY, ty)),
+    };
+  };
+
+  const resetZoom = () => setView({ scale: 1, tx: 0, ty: 0 });
+  const go = (dir: number) => {
+    setIdx((i) => (i + dir + images.length) % images.length);
+    resetZoom();
+  };
+
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose(idxRef.current);
+      if (e.key === "ArrowRight") go(1);
+      if (e.key === "ArrowLeft") go(-1);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKey);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const touchDist = (t: React.TouchList) =>
+    Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    if ((e.target as Element).closest("[data-viewer-control]")) return;
+    const g = gesture.current;
+    setAnimate(false);
+    if (e.touches.length === 2) {
+      g.mode = "pinch";
+      g.startDist = touchDist(e.touches);
+      g.start = { ...viewRef.current };
+      g.moved = true;
+    } else if (e.touches.length === 1) {
+      g.mode = viewRef.current.scale > 1 ? "pan" : "swipe";
+      g.startX = e.touches[0].clientX;
+      g.startY = e.touches[0].clientY;
+      g.start = { ...viewRef.current };
+      g.moved = false;
+    }
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    const g = gesture.current;
+    if (g.mode === "pinch" && e.touches.length === 2) {
+      const scale = Math.min(4, Math.max(1, (g.start.scale * touchDist(e.touches)) / g.startDist));
+      const pan = scale === 1 ? { tx: 0, ty: 0 } : clampPan(scale, g.start.tx, g.start.ty);
+      setView({ scale, ...pan });
+    } else if (g.mode === "pan" && e.touches.length === 1) {
+      const dx = e.touches[0].clientX - g.startX;
+      const dy = e.touches[0].clientY - g.startY;
+      if (Math.abs(dx) > 4 || Math.abs(dy) > 4) g.moved = true;
+      const pan = clampPan(g.start.scale, g.start.tx + dx, g.start.ty + dy);
+      setView({ scale: g.start.scale, ...pan });
+    } else if (g.mode === "swipe" && e.touches.length === 1) {
+      const dx = e.touches[0].clientX - g.startX;
+      if (Math.abs(dx) > 6) g.moved = true;
+      setView({ scale: 1, tx: dx, ty: 0 });
+    }
+  };
+
+  const onTouchEnd = (e: React.TouchEvent) => {
+    const g = gesture.current;
+    setAnimate(true);
+    if (g.mode === "swipe") {
+      const endX = e.changedTouches[0]?.clientX ?? g.startX;
+      const dx = endX - g.startX;
+      if (Math.abs(dx) > 60 && images.length > 1) {
+        go(dx < 0 ? 1 : -1);
+      } else {
+        setView({ scale: 1, tx: 0, ty: 0 });
+        if (!g.moved) {
+          const now = Date.now();
+          if (now - g.lastTap < 300) {
+            setView({ scale: 2.5, tx: 0, ty: 0 });
+            g.lastTap = 0;
+          } else {
+            g.lastTap = now;
+          }
+        }
+      }
+    } else if (g.mode === "pan" && !g.moved) {
+      const now = Date.now();
+      if (now - g.lastTap < 300) {
+        resetZoom();
+        g.lastTap = 0;
+      } else {
+        g.lastTap = now;
+      }
+    }
+    if (e.touches.length === 0) g.mode = "none";
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] bg-black flex items-center justify-center touch-none select-none overscroll-contain"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Product image viewer"
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+    >
+      <img
+        key={idx}
+        src={images[idx]}
+        alt=""
+        draggable={false}
+        className="max-w-full max-h-full object-contain will-change-transform"
+        style={{
+          transform: `translate3d(${view.tx}px, ${view.ty}px, 0) scale(${view.scale})`,
+          transition: animate ? "transform 0.25s ease-out" : "none",
+        }}
+      />
+
+      {/* Close */}
+      <button
+        type="button"
+        data-viewer-control
+        aria-label="Close image viewer"
+        onClick={() => onClose(idxRef.current)}
+        className="absolute top-4 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-md active:bg-white/25 transition-colors"
+      >
+        <X className="w-5 h-5" />
+      </button>
+
+      {/* Counter */}
+      {images.length > 1 && (
+        <div className="absolute top-5 left-4 z-10 text-white/80 text-xs font-semibold tracking-widest bg-black/40 px-2.5 py-1 rounded-full pointer-events-none">
+          {idx + 1} / {images.length}
+        </div>
+      )}
+
+      {/* Position dots */}
+      {images.length > 1 && (
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-1.5 z-10 pointer-events-none">
+          {images.map((_, i) => (
+            <span
+              key={i}
+              className={`h-1.5 rounded-full transition-all duration-300 ${
+                i === idx ? "w-4 bg-accent" : "w-1.5 bg-white/40"
+              }`}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

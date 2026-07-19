@@ -675,7 +675,14 @@ export function ShopCart() {
         return res.json();
       })
       .then((data) => {
-        const keyId = import.meta.env.VITE_VITE_RAZORPAY_KEY_ID || import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_test_TD5IJ7If16ZHbr";
+        const isProdDomain = typeof window !== "undefined" && 
+          (window.location.hostname === "reevibes.com" || 
+           window.location.hostname === "www.reevibes.com" || 
+           window.location.hostname === "shop.reevibes.com");
+           
+        const keyId = import.meta.env.VITE_VITE_RAZORPAY_KEY_ID || 
+                      import.meta.env.VITE_RAZORPAY_KEY_ID || 
+                      (isProdDomain ? "rzp_live_TD6rmV4Xstddju" : "rzp_test_TD5IJ7If16ZHbr");
         
         const options = {
           key: keyId,
