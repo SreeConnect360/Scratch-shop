@@ -23,6 +23,8 @@ export default function BottomNav({ setSearchOpen }: BottomNavProps) {
   let active = "home";
   if (path === "/cart") {
     active = "cart";
+  } else if (path === "/wishlist") {
+    active = "wishlist";
   } else if (path === "/account") {
     if (currentTab === "wishlist") {
       active = "wishlist";
@@ -41,7 +43,7 @@ export default function BottomNav({ setSearchOpen }: BottomNavProps) {
     { key: "home", label: "Home", Icon: Home, to: "/" },
     { key: "cart", label: "Cart", Icon: ShoppingBag, to: "/cart", badge: shopCount },
     { key: "search", label: "Search", Icon: Search, isAction: true },
-    { key: "wishlist", label: "Wishlist", Icon: Heart, to: "/account", search: { tab: "wishlist" }, badge: wishlistCount },
+    { key: "wishlist", label: "Wishlist", Icon: Heart, to: "/wishlist", badge: wishlistCount },
     { key: "account", label: "Account", Icon: User, to: "/account", search: { tab: "profile" } },
   ];
 
