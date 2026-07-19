@@ -21,6 +21,9 @@ export default defineConfig({
     // it emulates the netlify.toml catch-all redirect and static serving inside
     // `vite dev`, which hijacks asset requests (styles.css served raw, routes broken).
     plugins: [netlify({ dev: { middleware: false } } as never)],
+    ssr: {
+      noExternal: ["gsap"],
+    },
   },
   tanstackStart: {
     server: { entry: "server" },
