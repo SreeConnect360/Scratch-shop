@@ -2476,7 +2476,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                     "Are you sure you want to push all draft modifications live to shop.reevibes.com? This will overwrite the active homepage layout.",
                     () => {
                       updateHomepageLayoutDraft(draftLayout);
-                      publishHomepageLayout();
+                      publishHomepageLayout(draftLayout);
                       triggerModal("success", "Homepage Published", "The new homepage layout has been published successfully and is now live.", () => {});
                     }
                   );

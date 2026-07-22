@@ -590,17 +590,6 @@ function ShopLayout() {
                   className="relative flex h-10 w-10 items-center justify-center rounded-full text-ink-muted transition-colors duration-300 hover:text-ink cursor-pointer"
                 >
                   <ShoppingBag size={18} strokeWidth={1.8} />
-                  {shopCount > 0 && (
-                    <motion.span
-                      key={shopCount}
-                      initial={{ scale: 0.4 }}
-                      animate={{ scale: 1 }}
-                      transition={{ type: "spring", stiffness: 500, damping: 18 }}
-                      className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-gold px-1 text-[9px] font-bold text-obsidian"
-                    >
-                      {shopCount}
-                    </motion.span>
-                  )}
                 </motion.button>
               </Link>
 
@@ -858,10 +847,10 @@ function ShopLayout() {
           <Outlet />
         </main>
 
-        {/* Luxury Footer */}
+        {/* Luxury Footer (Full Width, Merged Left/Right/Bottom, Borderless) */}
         {(!layout || layout.footer?.enabled !== false) ? (
-          <footer className="relative z-10 pb-16 pt-8 max-w-7xl mx-auto w-full px-3 sm:px-5">
-            <div className="glass glass-reflect glass-edge rounded-[2rem] px-7 py-10 sm:px-10 lg:px-14 border border-white/10 shadow-[var(--glass-shadow)]">
+          <footer className="relative z-10 w-full pt-10 sm:pt-14 pb-20 sm:pb-12 bg-white/40 dark:bg-black/40 backdrop-blur-xl border-0 !border-none mt-16 sm:mt-24">
+            <div className="max-w-7xl mx-auto px-6 sm:px-10 lg:px-16">
               <div className="grid gap-10 sm:grid-cols-2 md:grid-cols-3">
                 <div className="space-y-3">
                   <div className="text-xl tracking-[0.3em] text-ink font-serif hover:opacity-90 transition-opacity">
@@ -885,13 +874,13 @@ function ShopLayout() {
                   <div className="not-mono text-xs mt-2">{layout?.footer?.address || "UB City, Level 14, Bangalore, Karnataka - 560001"}</div>
                 </div>
               </div>
-              <div className="border-t border-white/10 mt-8 pt-6 text-center text-[10px] text-muted-foreground">
+              <div className="border-t border-white/10 mt-10 pt-6 text-center text-[10px] text-muted-foreground">
                 © 2026 ReeVibes. Designed by Google DeepMind Team. All Rights Reserved.
               </div>
             </div>
           </footer>
         ) : (
-          <footer className="relative z-10 pb-8 pt-4 text-center text-[10px] text-muted-foreground">
+          <footer className="relative z-10 w-full py-8 text-center text-[10px] text-muted-foreground bg-white/40 dark:bg-black/40 backdrop-blur-xl border-0 !border-none">
             © 2026 ReeVibes. Designed by Google DeepMind Team. All Rights Reserved.
           </footer>
         )}

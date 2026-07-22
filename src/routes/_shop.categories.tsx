@@ -733,7 +733,7 @@ function CategoryProductCard({
         </div>
 
         {/* details */}
-        <div className="relative z-[2] flex flex-col justify-between p-5 bg-black/25 flex-1 space-y-4">
+        <div className="relative z-[2] flex flex-col justify-between p-5 bg-white dark:bg-black/25 flex-1 space-y-4">
           <div>
             <div className="editorial-label text-muted-foreground text-[9px]">{p.house}</div>
             <Link

@@ -591,7 +591,7 @@ type Ctx = {
   addReview: (productId: string, r: Omit<ProductReview, "id" | "status" | "date">) => void;
   updateHomepageLayout: (layout: Partial<PortalState["homepageLayout"]>) => void;
   updateHomepageLayoutDraft: (layout: Partial<PortalState["homepageLayoutDraft"]>) => void;
-  publishHomepageLayout: () => void;
+  publishHomepageLayout: (layoutToPublish?: Partial<PortalState["homepageLayoutDraft"]>) => void;
   revertHomepageLayout: () => void;
   createBucket: (name: string, productIds: string[], starProductId?: string) => void;
   updateBucket: (id: string, patch: Partial<Bucket>) => void;
@@ -1520,6 +1520,13 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newCoupon)
+      }).then(res => {
+        if (res.ok) {
+          toast.success(`Coupon ${upperCode} saved to production database!`);
+          fetchBackendState(true);
+        } else {
+          toast.error("Failed to save coupon to production.");
+        }
       }).catch(err => console.error("Failed to sync new coupon to backend:", err));
     },
     removeCoupon: (code) => {
@@ -1528,6 +1535,13 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 
       fetch(`${BACKEND_URL}/api/coupons/${upperCode}`, {
         method: "DELETE"
+      }).then(res => {
+        if (res.ok) {
+          toast.success(`Coupon ${upperCode} deleted from production!`);
+          fetchBackendState(true);
+        } else {
+          toast.error("Failed to delete coupon from production.");
+        }
       }).catch(err => console.error("Failed to sync coupon deletion to backend:", err));
     },
 
@@ -1552,6 +1566,13 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(cleaned)
+      }).then(res => {
+        if (res.ok) {
+          toast.success("Product created & saved to production database!");
+          fetchBackendState(true);
+        } else {
+          toast.error("Failed to save product to production database.");
+        }
       }).catch(err => console.error("Failed to sync new product to backend:", err));
     },
     updateProduct: (id, patch) => {
@@ -1559,29 +1580,40 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         ...s,
         products: s.products.map(p => p.id === id ? { ...p, ...patch } : p)
       }));
-      if (id.startsWith("vp-") || id.startsWith("vnd-") || id.includes("-catalog")) {
-        // Clean price strings to numbers if present
-        const cleanedPatch = { ...patch };
-        if (cleanedPatch.price !== undefined) {
-          cleanedPatch.price = cleanedPatch.price.toString().replace(/[^0-9.]/g, "") as any;
-        }
-        if (cleanedPatch.originalPrice !== undefined) {
-          cleanedPatch.originalPrice = cleanedPatch.originalPrice.toString().replace(/[^0-9.]/g, "") as any;
-        }
-        fetch(`${BACKEND_URL}/api/vendors/products/${id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(cleanedPatch)
-        }).catch(err => console.error("Failed to sync product update to backend:", err));
+      
+      // Clean price strings to numbers if present
+      const cleanedPatch = { ...patch };
+      if (cleanedPatch.price !== undefined) {
+        cleanedPatch.price = cleanedPatch.price.toString().replace(/[^0-9.]/g, "") as any;
       }
+      if (cleanedPatch.originalPrice !== undefined) {
+        cleanedPatch.originalPrice = cleanedPatch.originalPrice.toString().replace(/[^0-9.]/g, "") as any;
+      }
+      fetch(`${BACKEND_URL}/api/vendors/products/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(cleanedPatch)
+      }).then(res => {
+        if (res.ok) {
+          toast.success("Product updated in production database!");
+          fetchBackendState(true);
+        } else {
+          toast.error("Failed to update product in production backend.");
+        }
+      }).catch(err => console.error("Failed to sync product update to backend:", err));
     },
     deleteProduct: (id) => {
       setState(s => ({ ...s, products: s.products.filter(p => p.id !== id) }));
-      if (id.startsWith("vp-") || id.startsWith("vnd-") || id.includes("-catalog")) {
-        fetch(`${BACKEND_URL}/api/vendors/products/${id}`, {
-          method: "DELETE"
-        }).catch(err => console.error("Failed to sync product deletion to backend:", err));
-      }
+      fetch(`${BACKEND_URL}/api/vendors/products/${id}`, {
+        method: "DELETE"
+      }).then(res => {
+        if (res.ok) {
+          toast.success("Product deleted from production database!");
+          fetchBackendState(true);
+        } else {
+          toast.error("Failed to delete product from production backend.");
+        }
+      }).catch(err => console.error("Failed to sync product deletion to backend:", err));
     },
     requestReturn: (req) => {
       const returnId = `RET-${Math.floor(100 + Math.random() * 900)}`;
@@ -1844,6 +1876,8 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ layoutJson: JSON.stringify(nextLayout) })
+      }).then(res => {
+        if (res.ok) fetchBackendState(true);
       }).catch(err => console.error("Failed to sync published homepage layout:", err));
     },
     updateHomepageLayoutDraft: (layout) => {
@@ -1858,31 +1892,57 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ layoutJson: JSON.stringify(nextLayout) })
+      }).then(res => {
+        if (res.ok) fetchBackendState(true);
       }).catch(err => console.error("Failed to sync draft homepage layout:", err));
     },
-    publishHomepageLayout: () => {
+    publishHomepageLayout: (layoutToPublish?: any) => {
+      let targetLayout: any;
       setState(s => {
-        const next = { ...s, homepageLayout: { ...s.homepageLayoutDraft } };
+        targetLayout = layoutToPublish || s.homepageLayoutDraft || s.homepageLayout;
+        const next = { ...s, homepageLayout: targetLayout, homepageLayoutDraft: targetLayout };
         save(next);
-        fetch(`${BACKEND_URL}/api/homepage-layout/published`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ layoutJson: JSON.stringify(s.homepageLayoutDraft) })
-        }).catch(err => console.error("Failed to publish homepage layout:", err));
         return next;
       });
+      if (targetLayout) {
+        const jsonStr = JSON.stringify(targetLayout);
+        Promise.all([
+          fetch(`${BACKEND_URL}/api/homepage-layout/published`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ layoutJson: jsonStr })
+          }),
+          fetch(`${BACKEND_URL}/api/homepage-layout/draft`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ layoutJson: jsonStr })
+          })
+        ]).then(() => {
+          toast.success("Homepage layout published live to production database!");
+          fetchBackendState(true);
+        }).catch(err => {
+          console.error("Failed to publish homepage layout:", err);
+          toast.error("Failed to publish homepage layout to production database.");
+        });
+      }
     },
     revertHomepageLayout: () => {
+      let liveLayout: any;
       setState(s => {
-        const next = { ...s, homepageLayoutDraft: { ...s.homepageLayout } };
+        liveLayout = s.homepageLayout;
+        const next = { ...s, homepageLayoutDraft: liveLayout };
         save(next);
+        return next;
+      });
+      if (liveLayout) {
         fetch(`${BACKEND_URL}/api/homepage-layout/draft`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ layoutJson: JSON.stringify(s.homepageLayout) })
+          body: JSON.stringify({ layoutJson: JSON.stringify(liveLayout) })
+        }).then(res => {
+          if (res.ok) fetchBackendState(true);
         }).catch(err => console.error("Failed to revert homepage layout:", err));
-        return next;
-      });
+      }
     },
     createBucket: (name, productIds, starProductId) => {
       const id = `bkt-${Date.now()}`;
@@ -1899,6 +1959,13 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           starProductId,
           hidden: false
         })
+      }).then(res => {
+        if (res.ok) {
+          toast.success(`Bucket "${name}" created & saved to production!`);
+          fetchBackendState(true);
+        } else {
+          toast.error("Failed to create bucket on production database.");
+        }
       }).catch(err => console.error("Failed to sync new bucket to backend:", err));
     },
     updateBucket: (id, patch) => {
@@ -1917,6 +1984,13 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(bodyPatch)
+      }).then(res => {
+        if (res.ok) {
+          toast.success("Bucket updated in production database!");
+          fetchBackendState(true);
+        } else {
+          toast.error("Failed to update bucket in production backend.");
+        }
       }).catch(err => console.error("Failed to sync bucket update to backend:", err));
     },
     deleteBucket: (id) => {
@@ -1927,12 +2001,31 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 
       fetch(`${BACKEND_URL}/api/buckets/${id}`, {
         method: "DELETE"
+      }).then(res => {
+        if (res.ok) {
+          toast.success("Bucket deleted from production database!");
+          fetchBackendState(true);
+        } else {
+          toast.error("Failed to delete bucket from production backend.");
+        }
       }).catch(err => console.error("Failed to sync bucket deletion to backend:", err));
     },
-    reorderBuckets: (buckets) => setState(s => ({
-      ...s,
-      buckets
-    })),
+    reorderBuckets: (buckets) => {
+      setState(s => ({ ...s, buckets }));
+      Promise.all(buckets.map(b =>
+        fetch(`${BACKEND_URL}/api/buckets/${b.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: b.name,
+            productIds: (b.productIds || []).join(","),
+            starProductId: b.starProductId,
+            hidden: b.hidden ?? false
+          })
+        })
+      )).then(() => fetchBackendState(true))
+      .catch(err => console.error("Failed to sync bucket reorder to backend:", err));
+    },
     createVendor: (v) => setState(s => {
       const newVendor: Vendor = {
         id: `vn-${Date.now()}`,

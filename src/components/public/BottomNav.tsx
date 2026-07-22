@@ -1,7 +1,7 @@
 import { Home, ShoppingBag, Search, Heart, User } from "lucide-react";
 import { Link, useLocation } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { usePortal, useCartTotal } from "@/lib/portal-state";
+import { usePortal } from "@/lib/portal-state";
 import { cn } from "@/lib/utils";
 
 interface BottomNavProps {
@@ -10,7 +10,6 @@ interface BottomNavProps {
 
 export default function BottomNav({ setSearchOpen }: BottomNavProps) {
   const { state } = usePortal();
-  const { shopCount } = useCartTotal();
   const location = useLocation();
 
   // Read `tab` from the fully-resolved location search — reading it from the
@@ -41,7 +40,7 @@ export default function BottomNav({ setSearchOpen }: BottomNavProps) {
 
   const items = [
     { key: "home", label: "Home", Icon: Home, to: "/" },
-    { key: "cart", label: "Cart", Icon: ShoppingBag, to: "/cart", badge: shopCount },
+    { key: "cart", label: "Cart", Icon: ShoppingBag, to: "/cart" },
     { key: "search", label: "Search", Icon: Search, isAction: true },
     { key: "wishlist", label: "Wishlist", Icon: Heart, to: "/wishlist", badge: wishlistCount },
     { key: "account", label: "Account", Icon: User, to: "/account", search: { tab: "profile" } },

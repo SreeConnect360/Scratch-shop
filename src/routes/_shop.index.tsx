@@ -13,11 +13,85 @@ import { motion, useSpring, AnimatePresence } from "framer-motion";
 import { SplineScene } from "@/components/ui/splite";
 import MagneticButton from "@/components/ui/MagneticButton";
 import { cn, prefersReducedMotion } from "@/lib/utils";
+import { ProductCard } from "@/components/public/ProductCard";
 import gsap from "gsap";
-import { ScrollTrigger } from "gsap/dist/ScrollTrigger";
+// ESM entry (not dist/ UMD — that build references `self` and crashes Node SSR);
+// ssr.noExternal:["gsap"] in vite.config bundles it for the server build.
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger);
+}
+
+function ProductCarouselWrapper({ children, itemsCount }: { children: React.ReactNode; itemsCount: number }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [canScroll, setCanScroll] = useState(false);
+
+  const checkScroll = useCallback(() => {
+    const el = containerRef.current;
+    if (el) {
+      setCanScroll(el.scrollWidth - el.clientWidth > 4);
+    }
+  }, []);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    checkScroll();
+
+    const ro = new ResizeObserver(() => {
+      checkScroll();
+    });
+    ro.observe(el);
+
+    Array.from(el.children).forEach((child) => ro.observe(child));
+
+    window.addEventListener("resize", checkScroll);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", checkScroll);
+    };
+  }, [checkScroll, itemsCount]);
+
+  const handleScroll = (dir: number) => {
+    if (containerRef.current) {
+      containerRef.current.scrollBy({ left: dir * 320, behavior: "smooth" });
+    }
+  };
+
+  return (
+    <div className="relative px-0 md:px-12 group/carousel">
+      {canScroll && (
+        <button
+          type="button"
+          aria-label="Previous items"
+          onClick={() => handleScroll(-1)}
+          className="glass absolute left-0 top-1/2 z-30 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full text-white opacity-0 transition-all duration-300 hover:border-gold/40 hover:text-gold-soft group-hover/carousel:opacity-100 focus-visible:opacity-100 md:flex cursor-pointer"
+        >
+          <ChevronLeft size={18} />
+        </button>
+      )}
+
+      <div
+        ref={containerRef}
+        className="grid grid-cols-2 gap-3 md:flex md:gap-5 md:overflow-x-auto md:snap-x md:scroll-smooth scrollbar-none md:pb-4 md:px-1 items-start"
+      >
+        {children}
+      </div>
+
+      {canScroll && (
+        <button
+          type="button"
+          aria-label="Next items"
+          onClick={() => handleScroll(1)}
+          className="glass absolute right-0 top-1/2 z-30 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full text-white opacity-0 transition-all duration-300 hover:border-gold/40 hover:text-gold-soft group-hover/carousel:opacity-100 focus-visible:opacity-100 md:flex cursor-pointer"
+        >
+          <ChevronRight size={18} />
+        </button>
+      )}
+    </div>
+  );
 }
 
 export const Route = createFileRoute("/_shop/")({
@@ -1041,61 +1115,33 @@ function ShopHome() {
               {sectionBuckets.length > 0 && (
                 <div className="space-y-6">
                   <h3 className="font-serif text-xl text-accent border-l-2 border-accent pl-3">Curated Collections</h3>
-                  <div className="relative px-0 md:px-12 group/carousel">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        const container = e.currentTarget.nextElementSibling;
-                        if (container) {
-                          container.scrollBy({ left: -320, behavior: "smooth" });
-                        }
-                      }}
-                      className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-surface-3 hover:bg-accent border border-border-subtle hover:border-accent text-foreground hover:text-white w-10 h-10 hidden md:flex items-center justify-center rounded-full shadow-md transition-all cursor-pointer text-sm font-bold"
-                      title="Scroll Left"
-                    >
-                      &larr;
-                    </button>
-                    <div className="grid grid-cols-2 gap-3 md:flex md:gap-5 md:overflow-x-auto md:snap-x md:scroll-smooth scrollbar-none md:pb-4 md:px-1">
-                      {sectionBuckets.map((bkt: any) => {
-                        const starProd = products.find((p) => p.id === bkt.starProductId) || products.find((p) => bkt.productIds?.includes(p.id));
-                        const thumbnail = starProd?.image || "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=400&h=500&q=80";
-                        return (
-                          <div key={bkt.id} className="w-full md:w-[280px] md:shrink-0 md:snap-start">
-                            <Link
-                              to="/categories"
-                              search={{ bucketId: bkt.id } as any}
-                              className="liquid-glass liquid-glass-card-hover relative flex flex-col group overflow-hidden bg-transparent border border-white/10 rounded-3xl block"
-                            >
-                              <div className="aspect-[3/4] overflow-hidden bg-zinc-950 relative">
-                                <img src={thumbnail} className="absolute inset-0 w-full h-full object-cover opacity-70 transition-transform duration-500 group-hover:scale-105" alt="" />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/90 to-transparent" />
-                                <div className="absolute inset-x-0 bottom-0 p-3.5 md:p-6 flex justify-between items-center z-10">
-                                  <div className="min-w-0">
-                                    <span className="text-[9px] uppercase tracking-widest text-accent font-bold">Curation Set</span>
-                                    <h4 className="font-serif text-sm md:text-lg mt-1 text-white font-bold truncate max-w-[170px]">{bkt.name}</h4>
-                                  </div>
-                                  <ArrowRight className="w-4 h-4 text-white group-hover:text-accent transition-colors shrink-0" />
+                  <ProductCarouselWrapper itemsCount={sectionBuckets.length}>
+                    {sectionBuckets.map((bkt: any) => {
+                      const starProd = products.find((p) => p.id === bkt.starProductId) || products.find((p) => bkt.productIds?.includes(p.id));
+                      const thumbnail = starProd?.image || "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=400&h=500&q=80";
+                      return (
+                        <div key={bkt.id} className="w-full md:w-[280px] md:shrink-0 md:snap-start">
+                          <Link
+                            to="/categories"
+                            search={{ bucketId: bkt.id } as any}
+                            className="liquid-glass liquid-glass-card-hover relative flex flex-col group overflow-hidden bg-transparent border border-white/10 rounded-3xl block"
+                          >
+                            <div className="aspect-[3/4] overflow-hidden bg-zinc-950 relative">
+                              <img src={thumbnail} className="absolute inset-0 w-full h-full object-cover opacity-70 transition-transform duration-500 group-hover:scale-105" alt="" />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/90 to-transparent" />
+                              <div className="absolute inset-x-0 bottom-0 p-3.5 md:p-6 flex justify-between items-center z-10">
+                                <div className="min-w-0">
+                                  <span className="text-[9px] uppercase tracking-widest text-accent font-bold">Curation Set</span>
+                                  <h4 className="font-serif text-sm md:text-lg mt-1 text-white font-bold truncate max-w-[170px]">{bkt.name}</h4>
                                 </div>
+                                <ArrowRight className="w-4 h-4 text-white group-hover:text-accent transition-colors shrink-0" />
                               </div>
-                            </Link>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        const container = e.currentTarget.previousElementSibling;
-                        if (container) {
-                          container.scrollBy({ left: 320, behavior: "smooth" });
-                        }
-                      }}
-                      className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-surface-3 hover:bg-accent border border-border-subtle hover:border-accent text-foreground hover:text-white w-10 h-10 hidden md:flex items-center justify-center rounded-full shadow-md transition-all cursor-pointer text-sm font-bold"
-                      title="Scroll Right"
-                    >
-                      &rarr;
-                    </button>
-                  </div>
+                            </div>
+                          </Link>
+                        </div>
+                      );
+                    })}
+                  </ProductCarouselWrapper>
                 </div>
               )}
 
@@ -1103,47 +1149,19 @@ function ShopHome() {
               {sectionProducts.length > 0 && (
                 <div className="space-y-6 relative">
                   <h3 className="font-serif text-xl text-foreground/80 border-l-2 border-emerald-400 pl-3">Featured Curation</h3>
-                  <div className="relative px-0 md:px-12 group/carousel">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        const container = e.currentTarget.nextElementSibling;
-                        if (container) {
-                          container.scrollBy({ left: -320, behavior: "smooth" });
-                        }
-                      }}
-                      className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-surface-3 hover:bg-accent border border-border-subtle hover:border-accent text-foreground hover:text-white w-10 h-10 hidden md:flex items-center justify-center rounded-full shadow-md transition-all cursor-pointer text-sm font-bold"
-                      title="Scroll Left"
-                    >
-                      &larr;
-                    </button>
-                    <div className="grid grid-cols-2 gap-3 md:flex md:gap-5 md:overflow-x-auto md:snap-x md:scroll-smooth scrollbar-none md:pb-4 md:px-1 items-start">
-                      {sectionProducts.map((p: any) => (
-                        <div key={p.id} className="w-full md:w-[280px] md:shrink-0 md:snap-start">
-                          <ProductCard
-                            key={p.id}
-                            p={p}
-                            toggleShopWishlist={toggleShopWishlist}
-                            addToShopCart={addToShopCart}
-                            wishlist={state.shopWishlist[state.user?.id || ""]}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        const container = e.currentTarget.previousElementSibling;
-                        if (container) {
-                          container.scrollBy({ left: 320, behavior: "smooth" });
-                        }
-                      }}
-                      className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-surface-3 hover:bg-accent border border-border-subtle hover:border-accent text-foreground hover:text-white w-10 h-10 hidden md:flex items-center justify-center rounded-full shadow-md transition-all cursor-pointer text-sm font-bold"
-                      title="Scroll Right"
-                    >
-                      &rarr;
-                    </button>
-                  </div>
+                  <ProductCarouselWrapper itemsCount={sectionProducts.length}>
+                    {sectionProducts.map((p: any) => (
+                      <div key={p.id} className="w-full md:w-[280px] md:shrink-0 md:snap-start">
+                        <ProductCard
+                          key={p.id}
+                          p={p}
+                          toggleShopWishlist={toggleShopWishlist}
+                          addToShopCart={addToShopCart}
+                          wishlist={state.shopWishlist[state.user?.id || ""]}
+                        />
+                      </div>
+                    ))}
+                  </ProductCarouselWrapper>
                 </div>
               )}
             </section>
@@ -1264,310 +1282,5 @@ function RotatableBanner({ banner, sectionId }: { banner: any; sectionId: string
         </div>
       </FadeUp>
     </section>
-  );
-}
-
-function ProductCard({
-  p,
-  toggleShopWishlist,
-  addToShopCart,
-  wishlist,
-  discountPercent,
-  stockWarningText,
-}: {
-  p: any;
-  toggleShopWishlist: (uid: string, pid: string) => void;
-  addToShopCart: (p: any) => void;
-  wishlist: string[] | undefined;
-  discountPercent?: number;
-  stockWarningText?: string;
-}) {
-  const { state } = usePortal();
-  const { triggerPopup } = useShopNotification();
-  const userId = state.user?.id;
-  const isFavorite = wishlist ? wishlist.includes(p.id) : false;
-  const quickAdd = useContext(QuickAddContext);
-
-  const gallery = (p.images && p.images.length > 0) ? p.images : [p.image];
-  const [activeImgIdx, setActiveImgIdx] = useState(0);
-  const [isTitleHovered, setIsTitleHovered] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
-
-  const ref = useRef<HTMLDivElement>(null);
-  const frame = useRef(0);
-
-  const handleMove = useCallback((e: React.MouseEvent) => {
-    const el = ref.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    const px = (e.clientX - r.left) / r.width;
-    const py = (e.clientY - r.top) / r.height;
-    cancelAnimationFrame(frame.current);
-    frame.current = requestAnimationFrame(() => {
-      el.style.setProperty("--mx", `${px * 100}%`);
-      el.style.setProperty("--my", `${py * 100}%`);
-      el.style.transform = `perspective(900px) rotateX(${(0.5 - py) * 6}deg) rotateY(${(px - 0.5) * 6}deg) translateY(-6px)`;
-    });
-  }, []);
-
-  const handleLeave = useCallback(() => {
-    cancelAnimationFrame(frame.current);
-    if (ref.current) {
-      ref.current.style.transform = "perspective(900px) rotateX(0) rotateY(0) translateY(0)";
-    }
-  }, []);
-
-  const handleWishlistClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!userId) {
-      toast.error("Please login to manage your wishlist.");
-      return;
-    }
-    toggleShopWishlist(userId, p.id);
-    triggerPopup(
-      !isFavorite ? `${p.name} added to wishlist!` : `${p.name} removed from wishlist.`,
-      () => toggleShopWishlist(userId, p.id),
-      !isFavorite ? `${p.name} removed from wishlist.` : `${p.name} added to wishlist!`,
-      () => toggleShopWishlist(userId, p.id),
-      !isFavorite ? `${p.name} added to wishlist!` : `${p.name} removed from wishlist.`
-    );
-  };
-
-  const handleAddToCartClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (quickAdd) {
-      quickAdd.openQuickAdd(p);
-    }
-  };
-
-  // Calculate discounted price if applicable
-  const pct = discountPercent || p.discount || 0;
-  const hasDiscount = !!(pct || p.originalPrice);
-  let origPrice = p.price;
-  let finalPrice = p.price;
-
-  if (p.originalPrice && p.originalPrice !== p.price) {
-    origPrice = p.originalPrice;
-    finalPrice = p.price;
-  } else if (pct) {
-    try {
-      const numeric = Number(String(p.price).replace(/[^0-9]/g, ""));
-      if (!isNaN(numeric)) {
-        const discounted = Math.round(numeric * (1 - pct / 100));
-        finalPrice = `₹${discounted.toLocaleString()}`;
-        origPrice = p.price;
-      }
-    } catch { /* ignore */ }
-  }
-
-  const ensureRupees = (val: any) => {
-    if (val === undefined || val === null) return "";
-    const clean = String(val).trim();
-    return clean.startsWith("₹") ? clean : `₹${clean}`;
-  };
-
-  const displayFinalPrice = ensureRupees(finalPrice);
-  const displayOrigPrice = ensureRupees(origPrice);
-
-  // Calculate final discount percentage if we have both prices
-  let displayPct = pct;
-  if (hasDiscount && !displayPct) {
-    try {
-      const origNumeric = Number(String(origPrice).replace(/[^0-9]/g, ""));
-      const finalNumeric = Number(String(finalPrice).replace(/[^0-9]/g, ""));
-      if (origNumeric && finalNumeric && origNumeric > finalNumeric) {
-        displayPct = Math.round(((origNumeric - finalNumeric) / origNumeric) * 100);
-      }
-    } catch { /* ignore */ }
-  }
-
-  return (
-    <div
-      ref={ref}
-      onMouseMove={(e) => {
-        setIsHovered(true);
-        handleMove(e);
-      }}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => {
-        setIsHovered(false);
-        handleLeave();
-      }}
-      className="group glass glass-reflect glass-edge relative flex h-full flex-col overflow-hidden rounded-3xl transition-[transform,box-shadow] duration-500 ease-out will-change-transform hover:shadow-[var(--glass-shadow-hover)] cursor-pointer"
-      style={{ transformStyle: "preserve-3d" }}
-    >
-      {/* image */}
-      <div className="relative aspect-[4/5] shrink-0 overflow-hidden bg-charcoal/5">
-        <Link to="/product/$productId" params={{ productId: p.id }} className="block w-full h-full">
-          <img
-            src={gallery[activeImgIdx]}
-            alt={p.name}
-            loading="lazy"
-            className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.07]"
-          />
-        </Link>
-        <div className="pointer-events-none absolute inset-0 hidden bg-gradient-to-t from-black/35 via-transparent to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100 md:block" />
-
-        {displayPct > 0 && (
-          <span className="glass-strong glass absolute left-3 top-3 rounded-full px-3 py-1 text-[10px] tracking-[0.18em] uppercase text-ink z-10">
-            {displayPct}% OFF
-          </span>
-        )}
-
-        {stockWarningText && (
-          <span className="glass absolute bottom-3 left-3 rounded-full bg-amber-500/20 border border-amber-500/35 px-2.5 py-1 text-[9px] uppercase tracking-[0.1em] font-bold text-amber-300 z-10">
-            {stockWarningText}
-          </span>
-        )}
-
-        {/* Carousel Toggles */}
-        {gallery.length > 1 && (
-          <>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setActiveImgIdx((prev) => (prev === 0 ? gallery.length - 1 : prev - 1));
-              }}
-              className="absolute left-3 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-accent text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-20 duration-200"
-            >
-              <ChevronLeft className="w-3.5 h-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setActiveImgIdx((prev) => (prev === gallery.length - 1 ? 0 : prev + 1));
-              }}
-              className="absolute right-3 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-accent text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-20 duration-200"
-            >
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </>
-        )}
-
-        {/* wishlist */}
-        <motion.button
-          type="button"
-          onClick={handleWishlistClick}
-          whileTap={{ scale: 0.8 }}
-          className={cn(
-            "glass glass-strong absolute right-2 top-2 z-30 flex h-9 w-9 items-center justify-center rounded-full transition-shadow duration-300 sm:right-3 sm:top-3 sm:h-11 sm:w-11 cursor-pointer",
-            isFavorite && "shadow-[0_0_20px_-2px_rgba(200,169,106,0.6)]"
-          )}
-        >
-          <motion.span
-            key={String(isFavorite)}
-            initial={{ scale: 0.4 }}
-            animate={{ scale: 1 }}
-            transition={{ type: "spring", stiffness: 480, damping: 15 }}
-            className="flex"
-          >
-            <Heart
-              size={15}
-              strokeWidth={1.8}
-              className={cn(
-                "transition-colors duration-300",
-                isFavorite ? "fill-gold text-gold" : "text-ink"
-              )}
-            />
-          </motion.span>
-        </motion.button>
-
-        {/* Add to Bag slides up - desktop only */}
-        <div className="absolute inset-x-3 bottom-3 z-10 hidden translate-y-[130%] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:translate-y-0 group-focus-within:translate-y-0 md:block">
-          <button
-            type="button"
-            onClick={handleAddToCartClick}
-            className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-full bg-gradient-to-br from-gold-soft via-gold to-gold-deep py-2.5 text-[11px] font-semibold tracking-[0.2em] uppercase text-obsidian shadow-[0_10px_28px_-8px_rgba(200,169,106,0.6)] transition-[box-shadow,filter,transform] duration-300 hover:shadow-[0_14px_38px_-8px_rgba(200,169,106,0.8)] hover:brightness-105 active:scale-[0.97] cursor-pointer"
-          >
-            <ShoppingBag size={14} strokeWidth={2} />
-            Add to Bag
-          </button>
-        </div>
-      </div>
-
-      {/* details */}
-      <div className="relative z-[2] flex flex-1 flex-col gap-2 p-2.5 sm:gap-3 sm:p-4 bg-black/25">
-        <div className="flex flex-1 items-start justify-between gap-2 sm:gap-2.5">
-          <div className="min-w-0">
-            <Link
-              to="/product/$productId"
-              params={{ productId: p.id }}
-              className="hover:text-accent transition-colors block"
-              onMouseEnter={() => setIsTitleHovered(true)}
-              onMouseLeave={() => setIsTitleHovered(false)}
-            >
-              <h3 className="truncate text-[13px] text-ink sm:text-[15px] font-sans font-medium leading-tight">
-                {p.name}
-              </h3>
-            </Link>
-            <p className="mt-0.5 flex items-center gap-1 text-[11px] text-ink-muted sm:text-xs">
-              <Star size={11} className="fill-gold text-gold" />
-              {(p.rating || 4.8).toFixed(1)}
-            </p>
-          </div>
-          <div className="shrink-0 text-right">
-            <span className="block text-[13px] text-gold sm:text-[15px] font-bold">
-              {displayFinalPrice}
-            </span>
-            {hasDiscount && (
-              <span className="block text-[11px] text-ink-muted line-through sm:text-xs">
-                {displayOrigPrice}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Sizes Row */}
-        <div
-          className="transition-all duration-350 ease-in-out overflow-hidden"
-          style={{
-            maxHeight: isTitleHovered ? "24px" : "0px",
-            opacity: isTitleHovered ? 1 : 0,
-            marginTop: isTitleHovered ? "4px" : "0px",
-          }}
-        >
-          <div className="flex items-center gap-1.5 w-full">
-            <span className="text-[9px] uppercase tracking-widest text-muted-foreground shrink-0 font-bold">Sizes:</span>
-            <div className="overflow-hidden w-full relative">
-              <style>{`
-                @keyframes marquee-pingpong {
-                  0%, 15% { transform: translateX(0%); }
-                  85%, 100% { transform: translateX(-45%); }
-                }
-              `}</style>
-              <div
-                className="flex gap-1.5"
-                style={
-                  isTitleHovered && (p.sizes || ["S", "M", "L", "XL"]).length > 3
-                    ? { animation: 'marquee-pingpong 4s ease-in-out infinite alternate', animationDelay: '1s', width: 'max-content' }
-                    : { width: 'max-content' }
-                }
-              >
-                {(p.sizes || ["S", "M", "L", "XL"]).map((sz: string, idx: number) => (
-                  <span key={sz + "-" + idx} className="text-[9px] font-bold bg-white/10 px-2 py-0.5 rounded border border-white/5 text-foreground whitespace-nowrap">
-                    {sz}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* add to bag — mobile/tablet: always visible, no hover needed */}
-        <button
-          type="button"
-          onClick={handleAddToCartClick}
-          className="flex min-h-[38px] w-full items-center justify-center gap-2 rounded-full bg-gradient-to-br from-gold-soft via-gold to-gold-deep py-2 text-[10px] tracking-[0.16em] sm:min-h-[44px] sm:py-2.5 sm:text-[11px] sm:tracking-[0.2em] md:hidden cursor-pointer shadow-[0_10px_28px_-8px_rgba(200,169,106,0.6)] transition-[box-shadow,filter,transform] duration-300 hover:shadow-[0_14px_38px_-8px_rgba(200,169,106,0.8)] hover:brightness-105 active:scale-[0.97]"
-        >
-          <ShoppingBag size={13} strokeWidth={2} />
-          Add to Bag
-        </button>
-      </div>
-    </div>
   );
 }
