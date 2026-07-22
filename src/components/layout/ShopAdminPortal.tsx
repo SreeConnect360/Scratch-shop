@@ -162,6 +162,65 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
   const [newSizeQty, setNewSizeQty] = useState(10);
   const [newImageUrl, setNewImageUrl] = useState("");
 
+  const handleExportCustomersExcel = () => {
+    if (!customersList || customersList.length === 0) {
+      toast.error("No customers available to export.");
+      return;
+    }
+
+    const data = customersList.map((c) => {
+      const rawAddrs = state.addresses[c.id] || c.addresses || [];
+      const formattedAddrs = rawAddrs.map((addrItem: any) => {
+        if (typeof addrItem === "string") {
+          const trimmed = addrItem.trim();
+          if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+            try {
+              const parsed = JSON.parse(trimmed);
+              return parsed.address || parsed.street || parsed.fullAddress || trimmed;
+            } catch {
+              return trimmed;
+            }
+          }
+          return trimmed;
+        } else if (typeof addrItem === "object" && addrItem !== null) {
+          return addrItem.address || addrItem.street || addrItem.fullAddress || "";
+        }
+        return String(addrItem || "");
+      }).filter(Boolean);
+
+      const addressStr = formattedAddrs.length > 0 ? formattedAddrs.join(" ; ") : "—";
+
+      return {
+        "ID": c.id,
+        "Name": `${c.firstName || ""} ${c.lastName || ""}`.trim() || "Member",
+        "Email": c.email || "",
+        "Phone": c.phone || "—",
+        "Registered Date": c.registeredAt || "2026-07-13",
+        "Gender": c.gender || "—",
+        "Date of Birth (DOB)": c.dob || "—",
+        "Country": c.country || "—",
+        "Address": addressStr
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    ws["!cols"] = [
+      { wch: 15 },
+      { wch: 25 },
+      { wch: 30 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 12 },
+      { wch: 20 },
+      { wch: 18 },
+      { wch: 60 }
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Customers Directory");
+    XLSX.writeFile(wb, `customers_directory_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    toast.success("Customers Directory exported to Excel successfully!");
+  };
+
   const handlePrintInvoice = (order: any) => {
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
@@ -1046,18 +1105,56 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                   </div>
                 </div>
 
-                {/* Saved Addresses */}
-                <div className="space-y-2 text-xs">
+                {/* Saved Shipping Destinations */}
+                <div className="space-y-3 text-xs">
                   <h4 className="font-bold text-accent uppercase tracking-wider text-[10px]">Saved Shipping Destinations</h4>
-                  {(state.addresses[selectedCustomerDetails.id] ?? []).length === 0 ? (
-                    <p className="text-muted-foreground italic">No addresses saved.</p>
-                  ) : (
-                    <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
-                      {(state.addresses[selectedCustomerDetails.id] ?? []).map((addr: string, i: number) => (
-                        <li key={i}>{addr}</li>
-                      ))}
-                    </ul>
-                  )}
+                  {(() => {
+                    const rawAddrs = state.addresses[selectedCustomerDetails.id] || selectedCustomerDetails.addresses || [];
+                    if (!rawAddrs || rawAddrs.length === 0) {
+                      return <p className="text-muted-foreground italic text-xs">No saved shipping destinations available.</p>;
+                    }
+                    return (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {rawAddrs.map((addrItem: any, i: number) => {
+                          let name = "";
+                          let phone = "";
+                          let fullAddress = "";
+
+                          if (typeof addrItem === "string") {
+                            const trimmed = addrItem.trim();
+                            if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+                              try {
+                                const parsed = JSON.parse(trimmed);
+                                name = parsed.name || parsed.fullName || `${selectedCustomerDetails.firstName} ${selectedCustomerDetails.lastName}`.trim();
+                                phone = parsed.phone || parsed.phoneNumber || selectedCustomerDetails.phone || "No phone provided";
+                                fullAddress = parsed.address || parsed.street || parsed.fullAddress || trimmed;
+                              } catch {
+                                fullAddress = trimmed;
+                              }
+                            } else {
+                              fullAddress = trimmed;
+                            }
+                          } else if (typeof addrItem === "object" && addrItem !== null) {
+                            name = addrItem.name || addrItem.fullName || `${selectedCustomerDetails.firstName} ${selectedCustomerDetails.lastName}`.trim();
+                            phone = addrItem.phone || addrItem.phoneNumber || selectedCustomerDetails.phone || "No phone provided";
+                            fullAddress = addrItem.address || addrItem.street || addrItem.fullAddress || "";
+                          }
+
+                          if (!name) name = `${selectedCustomerDetails.firstName} ${selectedCustomerDetails.lastName}`.trim() || "Customer";
+                          if (!phone) phone = selectedCustomerDetails.phone || "No phone provided";
+                          if (!fullAddress) fullAddress = "No address specified";
+
+                          return (
+                            <div key={i} className="p-3.5 bg-white/5 border border-white/10 rounded-2xl space-y-1 text-xs">
+                              <div className="font-bold text-white text-sm">{name}</div>
+                              <div className="text-accent font-mono text-xs">{phone}</div>
+                              <div className="text-muted-foreground leading-relaxed font-sans pt-1">{fullAddress}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             )}
@@ -5416,7 +5513,18 @@ Fit: Regular Fit"
       {/* 6. CUSTOMERS DIRECTORY */}
       {tab === "customers" && (
         <AdminCard className="space-y-6 animate-in fade-in duration-200">
-          <h3 className="font-serif text-xl">Customer Directories</h3>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-white/10 pb-4">
+            <div>
+              <h3 className="font-serif text-xl">Customer Directories</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">Manage registered platform members, profile dossiers, and shipping destinations</p>
+            </div>
+            <button
+              onClick={handleExportCustomersExcel}
+              className="editorial-label bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-full transition-all shadow-md inline-flex items-center gap-2 text-xs font-bold cursor-pointer"
+            >
+              <FileSpreadsheet className="w-4 h-4" /> Export to Excel
+            </button>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
