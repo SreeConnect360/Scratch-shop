@@ -169,7 +169,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
     }
 
     const data = customersList.map((c) => {
-      const rawAddrs = state.addresses[c.id] || c.addresses || [];
+      const rawAddrs = state.addresses[c.id] || (c as any).addresses || [];
       const formattedAddrs = rawAddrs.map((addrItem: any) => {
         if (typeof addrItem === "string") {
           const trimmed = addrItem.trim();
