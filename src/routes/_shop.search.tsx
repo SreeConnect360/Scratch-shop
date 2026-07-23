@@ -23,7 +23,14 @@ export const Route = createFileRoute("/_shop/search")({
 
 function SearchResultsPage() {
   const { q = "" } = Route.useSearch();
-  const { state, toggleShopWishlist, addToShopCart } = usePortal();
+  const { state, toggleShopWishlist, addToShopCart, reloadProducts } = usePortal();
+
+  // Force refetch backend products on search page load to ensure real DB products are evaluated
+  useEffect(() => {
+    if (reloadProducts) {
+      reloadProducts(true);
+    }
+  }, [reloadProducts]);
 
   const products = (state.products || []).filter(p => !p.status || p.status === "PUBLISHED" || p.status === "published");
   const user = state.user;

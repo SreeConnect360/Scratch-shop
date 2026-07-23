@@ -625,7 +625,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       const versionRes = await fetch(`${BACKEND_URL}/api/sync/version`);
       if (versionRes.ok) {
         const { version } = await versionRes.json();
-        if (version && version === localVersionRef.current && !force) {
+        if (version && version === localVersionRef.current && !force && localVersionRef.current !== 0) {
           return;
         }
         localVersionRef.current = version;
@@ -653,12 +653,38 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       let mappedProducts = PRODUCTS;
       if (res.ok) {
         const dbProducts = await res.json();
-        mappedProducts = dbProducts.map((p: any) => ({
-          ...p,
-          id: String(p.id),
-          house: p.house || p.brand || "Maison Curation",
-          price: typeof p.price === "number" ? `₹${p.price.toLocaleString("en-IN")}` : (p.price?.toString().startsWith("₹") ? p.price : `₹${p.price}`),
-        }));
+        if (dbProducts && Array.isArray(dbProducts) && dbProducts.length > 0) {
+          mappedProducts = dbProducts.map((p: any) => {
+            let imgs: string[] = [];
+            if (p.images && Array.isArray(p.images) && p.images.length > 0) {
+              imgs = p.images;
+            } else if (p.image) {
+              imgs = [p.image];
+            } else if (p.img) {
+              imgs = [p.img];
+            }
+
+            imgs = imgs.map((imgUrl: string) => {
+              if (!imgUrl) return "";
+              if (imgUrl.startsWith("http://localhost:8081")) {
+                return imgUrl.replace("http://localhost:8081", BACKEND_URL);
+              }
+              return imgUrl;
+            }).filter(Boolean);
+
+            const primaryImg = imgs[0] || p.image || p.img || "";
+
+            return {
+              ...p,
+              id: String(p.id),
+              house: p.house || p.brand || "Maison Curation",
+              price: typeof p.price === "number" ? `₹${p.price.toLocaleString("en-IN")}` : (p.price?.toString().startsWith("₹") ? p.price : `₹${p.price}`),
+              images: imgs.length > 0 ? imgs : [primaryImg],
+              image: primaryImg,
+              img: primaryImg
+            };
+          });
+        }
       }
 
       // 3. Fetch Buckets

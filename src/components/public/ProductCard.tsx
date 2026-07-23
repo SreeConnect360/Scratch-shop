@@ -37,7 +37,11 @@ export function ProductCard({
   const isFavorite = wishlist ? wishlist.includes(p.id) : false;
   const quickAdd = useContext(QuickAddContext);
 
-  const gallery = (p.images && p.images.length > 0) ? p.images : [p.image];
+  const rawGallery = (p.images && Array.isArray(p.images) && p.images.length > 0)
+    ? p.images
+    : (p.image ? [p.image] : (p.img ? [p.img] : []));
+  const fallbackImg = "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=900&h=1200&q=80";
+  const gallery = rawGallery.length > 0 ? rawGallery : [fallbackImg];
   const [activeImgIdx, setActiveImgIdx] = useState(0);
   const [isTitleHovered, setIsTitleHovered] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
