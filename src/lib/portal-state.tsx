@@ -457,7 +457,7 @@ const DEFAULT: PortalState = {
     { code: "FESTIVE20", discount: 20, type: "percentage", expiryDate: "2026-12-31", usageLimit: 100, userEligibility: "All", active: true },
     { code: "REEVIBES10", discount: 10, type: "percentage", expiryDate: "2026-12-31", usageLimit: 200, userEligibility: "All", active: true }
   ],
-  products: PRODUCTS,
+  products: [],
   returns: [
     {
       id: "RET-101",
@@ -486,14 +486,18 @@ const DEFAULT: PortalState = {
 };
 
 function load(): PortalState {
-  if (typeof window === "undefined") return DEFAULT;
+  if (typeof window === "undefined") return { ...DEFAULT, products: [] };
   try {
     const raw = window.localStorage.getItem(KEY);
-    if (!raw) return DEFAULT;
+    if (!raw) return { ...DEFAULT, products: [] };
     const parsed = JSON.parse(raw);
-    return { ...DEFAULT, ...parsed };
+    let prods = parsed.products || [];
+    if (prods.length > 0 && prods.some((p: any) => p.id === "pr1" || p.id === "prw9" || p.id === "prm1")) {
+      prods = prods.filter((p: any) => !p.id.startsWith("pr1") && !p.id.startsWith("pr2") && !p.id.startsWith("pr3") && !p.id.startsWith("pr4") && !p.id.startsWith("pr5") && !p.id.startsWith("pr6") && !p.id.startsWith("prm") && !p.id.startsWith("prw"));
+    }
+    return { ...DEFAULT, ...parsed, products: prods };
   } catch {
-    return DEFAULT;
+    return { ...DEFAULT, products: [] };
   }
 }
 function save(s: PortalState) {
@@ -508,6 +512,7 @@ function save(s: PortalState) {
 
 type Ctx = {
   state: PortalState;
+  isProductsLoading: boolean;
 
   // session
   signIn: (email: string, name?: string) => boolean;
@@ -616,6 +621,7 @@ const PortalContext = createContext<Ctx | null>(null);
 export function PortalProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<PortalState>(DEFAULT);
   const [hydrated, setHydrated] = useState(false);
+  const [isProductsLoading, setIsProductsLoading] = useState(true);
   const localVersionRef = useRef<number>(0);
 
   // Fetch dynamic database vendors, products, buckets, and customers from PostgreSQL backend
@@ -891,6 +897,8 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       });
     } catch (err) {
       console.warn("Backend offline. Fallback to offline store data.", err);
+    } finally {
+      setIsProductsLoading(false);
     }
   }, []);
 
@@ -935,6 +943,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 
   const api = useMemo<Ctx>(() => ({
     state,
+    isProductsLoading,
     reloadProducts: fetchBackendState,
 
     signIn: (email, name) => {
@@ -2172,7 +2181,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       }
       return { ...s, shopCart };
     })
-  }), [state]);
+  }), [state, isProductsLoading]);
 
   return <PortalContext.Provider value={api}>{children}</PortalContext.Provider>;
 }

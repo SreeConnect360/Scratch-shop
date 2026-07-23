@@ -23,7 +23,7 @@ export const Route = createFileRoute("/_shop/search")({
 
 function SearchResultsPage() {
   const { q = "" } = Route.useSearch();
-  const { state, toggleShopWishlist, addToShopCart, reloadProducts } = usePortal();
+  const { state, toggleShopWishlist, addToShopCart, reloadProducts, isProductsLoading } = usePortal();
 
   // Force refetch backend products on search page load to ensure real DB products are evaluated
   useEffect(() => {
@@ -32,7 +32,13 @@ function SearchResultsPage() {
     }
   }, [reloadProducts]);
 
-  const products = (state.products || []).filter(p => !p.status || p.status === "PUBLISHED" || p.status === "published");
+  // Exclude legacy dummy seed products so only live backend products display
+  const products = (state.products || []).filter(
+    p => (!p.status || p.status === "PUBLISHED" || p.status === "published") &&
+    p.id !== "pr1" && p.id !== "pr2" && p.id !== "pr3" && p.id !== "pr4" && p.id !== "pr5" && p.id !== "pr6" &&
+    p.id !== "prm1" && p.id !== "prm2" && p.id !== "prm3" && p.id !== "prm4" &&
+    p.id !== "prw7" && p.id !== "prw8" && p.id !== "prw9"
+  );
   const user = state.user;
   const wishlist = state.shopWishlist[user?.id || ""];
 
@@ -129,66 +135,83 @@ function SearchResultsPage() {
             </span>
           </h1>
           <p className="mt-4 text-xs md:text-sm text-muted-foreground max-w-md mx-auto uppercase tracking-widest leading-relaxed">
-            {totalFound} {totalFound === 1 ? "Product" : "Products"} Found
+            {isProductsLoading ? "Searching Catalog..." : `${totalFound} ${totalFound === 1 ? "Product" : "Products"} Found`}
           </p>
         </FadeUp>
       </div>
 
       {/* Product Lists */}
       <div className="space-y-12">
-        {mainProducts.length > 0 && (
+        {isProductsLoading && products.length === 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-1 gap-4 sm:gap-5">
-            {mainProducts.map((product) => (
-              <ProductCard
-                key={product.id}
-                p={product}
-                toggleShopWishlist={toggleShopWishlist}
-                addToShopCart={addToShopCart}
-                wishlist={wishlist}
-                variant={cardVariant}
-              />
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="glass rounded-2xl md:rounded-3xl h-48 animate-pulse bg-white/5 p-4 flex flex-col md:flex-row gap-4 border border-white/10">
+                <div className="w-full md:w-48 h-full bg-white/10 rounded-xl shrink-0" />
+                <div className="flex-1 space-y-3 py-2">
+                  <div className="h-5 bg-white/10 rounded w-3/4" />
+                  <div className="h-3 bg-white/5 rounded w-1/2" />
+                  <div className="h-3 bg-white/5 rounded w-1/4 mt-auto" />
+                </div>
+              </div>
             ))}
           </div>
-        )}
+        ) : (
+          <>
+            {mainProducts.length > 0 && (
+              <div className="grid grid-cols-2 md:grid-cols-1 gap-4 sm:gap-5">
+                {mainProducts.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    p={product}
+                    toggleShopWishlist={toggleShopWishlist}
+                    addToShopCart={addToShopCart}
+                    wishlist={wishlist}
+                    variant={cardVariant}
+                  />
+                ))}
+              </div>
+            )}
 
-        {relatedProducts.length > 0 && (
-          <div className="space-y-6 pt-6">
-            <div className="text-left border-t border-white/10 pt-8 pb-2">
-              <h2 className="font-serif text-2xl text-accent italic">Related Curations</h2>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">
-                You might also be interested in these matching styles
-              </p>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-1 gap-4 sm:gap-6">
-              {relatedProducts.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  p={product}
-                  toggleShopWishlist={toggleShopWishlist}
-                  addToShopCart={addToShopCart}
-                  wishlist={wishlist}
-                  variant={cardVariant}
-                />
-              ))}
-            </div>
-          </div>
-        )}
+            {relatedProducts.length > 0 && (
+              <div className="space-y-6 pt-6">
+                <div className="text-left border-t border-white/10 pt-8 pb-2">
+                  <h2 className="font-serif text-2xl text-accent italic">Related Curations</h2>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">
+                    You might also be interested in these matching styles
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-1 gap-4 sm:gap-6">
+                  {relatedProducts.map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      p={product}
+                      toggleShopWishlist={toggleShopWishlist}
+                      addToShopCart={addToShopCart}
+                      wishlist={wishlist}
+                      variant={cardVariant}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
 
-        {totalFound === 0 && (
-          <FadeUp>
-            <div className="liquid-glass border border-white/10 p-12 text-center space-y-6">
-              <p className="text-sm text-muted-foreground uppercase tracking-widest">
-                No products found matching your search.
-              </p>
-              <Link
-                to="/categories"
-                className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-accent hover:underline"
-              >
-                <span>Browse All Collections</span>
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-            </div>
-          </FadeUp>
+            {!isProductsLoading && totalFound === 0 && (
+              <FadeUp>
+                <div className="liquid-glass border border-white/10 p-12 text-center space-y-6">
+                  <p className="text-sm text-muted-foreground uppercase tracking-widest">
+                    No products found matching your search.
+                  </p>
+                  <Link
+                    to="/categories"
+                    className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-accent hover:underline"
+                  >
+                    <span>Browse All Collections</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                </div>
+              </FadeUp>
+            )}
+          </>
         )}
       </div>
     </div>
