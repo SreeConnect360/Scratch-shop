@@ -733,6 +733,8 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         }
         if (draft) {
           try { mappedDraftLayout = JSON.parse(draft.layoutJson); } catch(e) {}
+        } else if (pub) {
+          mappedDraftLayout = mappedPubLayout;
         }
       }
 
@@ -1867,7 +1869,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     updateHomepageLayout: (layout) => {
       let nextLayout: any;
       setState(s => {
-        nextLayout = { ...s.homepageLayout, ...layout };
+        nextLayout = layout;
         const next = { ...s, homepageLayout: nextLayout };
         save(next);
         return next;
@@ -1878,12 +1880,13 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ layoutJson: JSON.stringify(nextLayout) })
       }).then(res => {
         if (res.ok) fetchBackendState(true);
+        else console.error("Failed to sync published homepage layout, status:", res.status);
       }).catch(err => console.error("Failed to sync published homepage layout:", err));
     },
     updateHomepageLayoutDraft: (layout) => {
       let nextLayout: any;
       setState(s => {
-        nextLayout = { ...s.homepageLayoutDraft, ...layout };
+        nextLayout = layout;
         const next = { ...s, homepageLayoutDraft: nextLayout };
         save(next);
         return next;
@@ -1894,6 +1897,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ layoutJson: JSON.stringify(nextLayout) })
       }).then(res => {
         if (res.ok) fetchBackendState(true);
+        else console.error("Failed to sync draft homepage layout, status:", res.status);
       }).catch(err => console.error("Failed to sync draft homepage layout:", err));
     },
     publishHomepageLayout: (layoutToPublish?: any) => {
@@ -1917,9 +1921,14 @@ export function PortalProvider({ children }: { children: ReactNode }) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ layoutJson: jsonStr })
           })
-        ]).then(() => {
-          toast.success("Homepage layout published live to production database!");
-          fetchBackendState(true);
+        ]).then(([pubRes, draftRes]) => {
+          if (pubRes.ok && draftRes.ok) {
+            toast.success("Homepage layout published live to production database!");
+            fetchBackendState(true);
+          } else {
+            console.error("Failed to publish layout to production backend:", pubRes.status, draftRes.status);
+            toast.error("Failed to publish homepage layout to production database.");
+          }
         }).catch(err => {
           console.error("Failed to publish homepage layout:", err);
           toast.error("Failed to publish homepage layout to production database.");
@@ -1941,6 +1950,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           body: JSON.stringify({ layoutJson: JSON.stringify(liveLayout) })
         }).then(res => {
           if (res.ok) fetchBackendState(true);
+          else console.error("Failed to revert homepage layout, status:", res.status);
         }).catch(err => console.error("Failed to revert homepage layout:", err));
       }
     },

@@ -1,3 +1,5 @@
+export const PRODUCTION_BACKEND_URL = "https://scratch-render-sj9n.onrender.com";
+
 const getBackendUrl = () => {
   if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
   if (typeof process !== "undefined" && process.env.VITE_API_URL) return process.env.VITE_API_URL;
@@ -15,13 +17,14 @@ const getBackendUrl = () => {
       hostname.endsWith(".local");
       
     if (!isLocal) {
-      return "https://scratch-render-sj9n.onrender.com";
+      return PRODUCTION_BACKEND_URL;
     }
     
-    // Dynamically construct backend URL using current protocol and hostname on port 8081
-    return `${window.location.protocol}//${hostname}:8081`;
+    // Dynamically construct backend URL using current protocol and hostname on port 8081 if running local backend,
+    // otherwise fallback to production backend URL.
+    return PRODUCTION_BACKEND_URL;
   }
-  return "http://localhost:8081";
+  return PRODUCTION_BACKEND_URL;
 };
 
 const rawUrl = getBackendUrl();
