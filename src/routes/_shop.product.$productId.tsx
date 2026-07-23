@@ -546,12 +546,20 @@ function ProductDetail() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-16 py-8 md:py-12 space-y-12 md:space-y-16">
       {/* Back Button */}
       <div className="flex items-center gap-2 text-xs uppercase tracking-widest font-semibold">
-        <Link
-          to="/"
-          className="text-muted-foreground hover:text-foreground flex items-center gap-1.5 transition-colors"
+        <button
+          type="button"
+          onClick={() => {
+            if (typeof window !== "undefined" && window.history.length > 1) {
+              window.history.back();
+            } else {
+              navigate({ to: "/search" });
+            }
+          }}
+          className="text-muted-foreground hover:text-accent flex items-center gap-2 transition-colors cursor-pointer bg-transparent border-none p-0 text-xs font-semibold uppercase tracking-widest"
         >
-          <ArrowLeft className="w-3.5 h-3.5" /> Back to Shop
-        </Link>
+          <ArrowLeft className="w-4 h-4 text-accent" />
+          <span>Back to Results</span>
+        </button>
       </div>
 
       <div className="grid lg:grid-cols-12 gap-6 lg:gap-12 relative items-start">
