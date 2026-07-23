@@ -153,6 +153,11 @@ function ShopHome() {
     return () => window.removeEventListener("mousemove", handleGlobalMouseMove);
   }, [showRobot]);
 
+  // Active Hero Slide Index & State
+  const [activeHeroIdx, setActiveHeroIdx] = useState(0);
+  const [hoveringHero, setHoveringHero] = useState(false);
+  const [heroCycle, setHeroCycle] = useState(0);
+
   // Touch Swipe & Navigation for Hero Banner Carousel
   const touchStartXRef = useRef<number | null>(null);
   const touchEndXRef = useRef<number | null>(null);
