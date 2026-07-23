@@ -153,10 +153,22 @@ function ShopHome() {
     return () => window.removeEventListener("mousemove", handleGlobalMouseMove);
   }, [showRobot]);
 
-  // Active Hero Slide Index
-  const [activeHeroIdx, setActiveHeroIdx] = useState(0);
-  const [hoveringHero, setHoveringHero] = useState(false);
-  const [heroCycle, setHeroCycle] = useState(0);
+  // Touch Swipe & Navigation for Hero Banner Carousel
+  const touchStartXRef = useRef<number | null>(null);
+  const touchEndXRef = useRef<number | null>(null);
+
+  const triggerBannerNavigation = useCallback((banner: any) => {
+    if (!banner?.redirectUrl) return;
+    const url = banner.redirectUrl.trim();
+    if (!url) return;
+
+    const openIn = banner.openIn || "sameTab";
+    if (openIn === "newTab") {
+      window.open(url, "_blank", "noopener,noreferrer");
+    } else {
+      window.location.href = url;
+    }
+  }, []);
 
   const goHero = useCallback(
     (dir: number, bannersLength: number) => {
@@ -328,6 +340,15 @@ function ShopHome() {
         if (!heroData.banners || heroData.banners.length === 0) return null;
         const currentBanner = heroData.banners[activeHeroIdx % heroData.banners.length];
 
+        const hasSubtitle = Boolean(currentBanner.subtitle && currentBanner.subtitle.trim().length > 0);
+        const hasTitle = Boolean(currentBanner.title && currentBanner.title.trim().length > 0);
+        const hasButtonText = Boolean(currentBanner.buttonText && currentBanner.buttonText.trim().length > 0);
+        const hasDesktopText = hasSubtitle || hasTitle || hasButtonText;
+
+        const isBannerClickTarget = 
+          Boolean(currentBanner.redirectUrl && currentBanner.redirectUrl.trim().length > 0) &&
+          (currentBanner.clickTarget === "banner" || !hasButtonText);
+
         return (
           <section
             id="hero"
@@ -348,7 +369,44 @@ function ShopHome() {
                 aria-label="Seasonal highlights"
                 onMouseEnter={() => setHoveringHero(true)}
                 onMouseLeave={() => setHoveringHero(false)}
-                className="group relative aspect-[16/10] md:aspect-[21/9] max-h-[360px] md:max-h-[450px] w-full overflow-hidden rounded-none border-none"
+                onTouchStart={(e) => {
+                  touchStartXRef.current = e.touches[0].clientX;
+                  touchEndXRef.current = null;
+                }}
+                onTouchMove={(e) => {
+                  touchEndXRef.current = e.touches[0].clientX;
+                }}
+                onTouchEnd={() => {
+                  if (touchStartXRef.current !== null && touchEndXRef.current !== null) {
+                    const diff = touchStartXRef.current - touchEndXRef.current;
+                    if (Math.abs(diff) > 40) {
+                      if (diff > 0) goHero(1, heroData.banners.length);
+                      else goHero(-1, heroData.banners.length);
+                      touchStartXRef.current = null;
+                      touchEndXRef.current = null;
+                      return;
+                    }
+                  }
+                  touchStartXRef.current = null;
+                  touchEndXRef.current = null;
+                  // On mobile screen sizes, tapping anywhere on the banner triggers banner link
+                  if (window.innerWidth < 768 && currentBanner.redirectUrl) {
+                    triggerBannerNavigation(currentBanner);
+                  }
+                }}
+                onClick={(e) => {
+                  // Desktop click handling for entire banner
+                  if (window.innerWidth >= 768 && isBannerClickTarget) {
+                    // Make sure we didn't click navigation arrows or pagination dots
+                    const target = e.target as HTMLElement;
+                    if (!target.closest("button") && !target.closest("[role='tab']")) {
+                      triggerBannerNavigation(currentBanner);
+                    }
+                  }
+                }}
+                className={`group relative aspect-[16/10] md:aspect-[21/9] max-h-[360px] md:max-h-[450px] w-full overflow-hidden rounded-none border-none ${
+                  isBannerClickTarget ? "md:cursor-pointer" : ""
+                }`}
               >
                 <AnimatePresence mode="sync">
                   <motion.div
@@ -372,60 +430,70 @@ function ShopHome() {
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      <motion.img
-                        src={currentBanner.desktopImage}
-                        alt={currentBanner.title}
-                        initial={{ scale: 1 }}
-                        animate={{ scale: 1.08 }}
-                        transition={{ duration: 6.2, ease: "linear" }}
-                        className="h-full w-full object-cover"
-                      />
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-black/10" />
-
-                    {/* slide copy */}
-                    <div className="absolute inset-x-0 bottom-0 p-7 sm:p-10 lg:p-14 z-20">
-                      <motion.p
-                        initial={{ opacity: 0, y: 22 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.25, duration: 0.6 }}
-                        className="mb-3 text-[10.5px] tracking-[0.34em] uppercase text-gold-soft"
-                      >
-                        {currentBanner.subtitle || "The Curation Édition"}
-                      </motion.p>
-                      <motion.h1
-                        initial={{ opacity: 0, y: 26, filter: "blur(6px)" }}
-                        animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                        transition={{ delay: 0.35, duration: 0.7 }}
-                        className="max-w-2xl text-balance text-4xl leading-[1.05] text-white sm:text-5xl lg:text-6xl"
-                      >
-                        {currentBanner.title || "Wear the Extraordinary"}
-                      </motion.h1>
-                      {currentBanner.description && (
-                        <motion.p
-                          initial={{ opacity: 0, y: 22 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: 0.48, duration: 0.6 }}
-                          className="mt-3 max-w-lg text-sm leading-relaxed text-white/75 sm:text-base"
-                        >
-                          {currentBanner.description}
-                        </motion.p>
-                      )}
-                      <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.6, duration: 0.6 }}
-                        className="mt-6 flex flex-wrap gap-4"
-                      >
-                        {currentBanner.redirectUrl && (
-                          <Link to={currentBanner.redirectUrl}>
-                            <MagneticButton variant="gold">
-                              {currentBanner.buttonText || "Discover Now"} <ArrowRight size={15} aria-hidden="true" />
-                            </MagneticButton>
-                          </Link>
+                      <picture className="h-full w-full block">
+                        {currentBanner.mobileImage && (
+                          <source media="(max-width: 767px)" srcSet={currentBanner.mobileImage} />
                         )}
-                      </motion.div>
-                    </div>
+                        <motion.img
+                          src={currentBanner.desktopImage}
+                          alt={currentBanner.title || "Banner"}
+                          initial={{ scale: 1 }}
+                          animate={{ scale: 1.08 }}
+                          transition={{ duration: 6.2, ease: "linear" }}
+                          className="h-full w-full object-cover"
+                        />
+                      </picture>
+                    )}
+                    {hasDesktopText && (
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-black/10 hidden md:block" />
+                    )}
+
+                    {/* slide copy — DESKTOP ONLY */}
+                    {hasDesktopText && (
+                      <div className="absolute inset-x-0 bottom-0 p-7 sm:p-10 lg:p-14 z-20 hidden md:block">
+                        {hasSubtitle && (
+                          <motion.p
+                            initial={{ opacity: 0, y: 22 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.25, duration: 0.6 }}
+                            className="mb-3 text-[10.5px] tracking-[0.34em] uppercase text-gold-soft"
+                          >
+                            {currentBanner.subtitle.trim()}
+                          </motion.p>
+                        )}
+                        {hasTitle && (
+                          <motion.h1
+                            initial={{ opacity: 0, y: 26, filter: "blur(6px)" }}
+                            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                            transition={{ delay: 0.35, duration: 0.7 }}
+                            className="max-w-2xl text-balance text-4xl leading-[1.05] text-white sm:text-5xl lg:text-6xl font-serif"
+                          >
+                            {currentBanner.title.trim()}
+                          </motion.h1>
+                        )}
+                        {hasButtonText && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.6, duration: 0.6 }}
+                            className="mt-6 flex flex-wrap gap-4"
+                          >
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                triggerBannerNavigation(currentBanner);
+                              }}
+                              className="cursor-pointer"
+                            >
+                              <MagneticButton variant="gold">
+                                {currentBanner.buttonText.trim()} <ArrowRight size={15} aria-hidden="true" />
+                              </MagneticButton>
+                            </button>
+                          </motion.div>
+                        )}
+                      </div>
+                    )}
                   </motion.div>
                 </AnimatePresence>
 

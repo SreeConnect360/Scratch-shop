@@ -3038,7 +3038,9 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                 title: "Brand Statement Title",
                                 subtitle: "Campaign details or seasonal promo",
                                 buttonText: "Explore Collection",
-                                redirectUrl: "/shop/categories",
+                                redirectUrl: "/categories",
+                                openIn: "sameTab",
+                                clickTarget: "button",
                                 desktopImage: "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=1200&h=600&q=80",
                                 mobileImage: "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=600&h=800&q=80",
                                 videoUrl: "",
@@ -3111,45 +3113,85 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                       <option value="Brand Campaign Banner">Brand Campaign Banner</option>
                                     </select>
                                     <input
-                                      placeholder="Title"
+                                      placeholder="Main Title (leave empty to hide)"
                                       className="bg-surface border border-border-subtle p-2 outline-none"
-                                      value={b.title}
+                                      value={b.title ?? ""}
                                       onChange={(e) => {
                                         const updated = draftLayout.hero.banners.map((x: any) => x.id === b.id ? { ...x, title: e.target.value } : x);
                                         setDraftLayout({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
                                       }}
                                     />
                                     <input
-                                      placeholder="Subtitle"
+                                      placeholder="Subtitle (leave empty to hide)"
                                       className="bg-surface border border-border-subtle p-2 outline-none"
-                                      value={b.subtitle}
+                                      value={b.subtitle ?? ""}
                                       onChange={(e) => {
                                         const updated = draftLayout.hero.banners.map((x: any) => x.id === b.id ? { ...x, subtitle: e.target.value } : x);
                                         setDraftLayout({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
                                       }}
                                     />
                                     <input
-                                      placeholder="Button text"
+                                      placeholder="Button text (leave empty to hide)"
                                       className="bg-surface border border-border-subtle p-2 outline-none"
-                                      value={b.buttonText || "Shop Now"}
+                                      value={b.buttonText ?? ""}
                                       onChange={(e) => {
-                                        const updated = draftLayout.hero.banners.map((x: any) => x.id === b.id ? { ...x, buttonText: e.target.value } : x);
+                                        const val = e.target.value;
+                                        const updated = draftLayout.hero.banners.map((x: any) => {
+                                          if (x.id !== b.id) return x;
+                                          const nextClickTarget = (!val.trim() && x.clickTarget === "button") ? "banner" : (x.clickTarget || "button");
+                                          return { ...x, buttonText: val, clickTarget: nextClickTarget };
+                                        });
                                         setDraftLayout({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
                                       }}
                                     />
                                     <input
                                       placeholder="Redirect URL"
                                       className="bg-surface border border-border-subtle p-2 outline-none font-mono"
-                                      value={b.redirectUrl}
+                                      value={b.redirectUrl ?? ""}
                                       onChange={(e) => {
                                         const updated = draftLayout.hero.banners.map((x: any) => x.id === b.id ? { ...x, redirectUrl: e.target.value } : x);
                                         setDraftLayout({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
                                       }}
                                     />
+
+                                    {/* Link Destination Options */}
+                                    <div className="col-span-2 grid grid-cols-2 gap-2 p-2 bg-white/5 border border-white/10 rounded">
+                                      <div className="space-y-1">
+                                        <label className="text-[10px] text-muted-foreground font-semibold">Open Link Target</label>
+                                        <select
+                                          value={b.openIn || "sameTab"}
+                                          onChange={(e) => {
+                                            const updated = draftLayout.hero.banners.map((x: any) => x.id === b.id ? { ...x, openIn: e.target.value } : x);
+                                            setDraftLayout({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
+                                          }}
+                                          className="w-full bg-surface border border-border-subtle p-1.5 outline-none text-foreground text-xs rounded"
+                                        >
+                                          <option value="sameTab">Open in Current Tab</option>
+                                          <option value="newTab">Open in New Tab</option>
+                                        </select>
+                                      </div>
+                                      <div className="space-y-1">
+                                        <label className="text-[10px] text-muted-foreground font-semibold">Click Trigger Target</label>
+                                        <select
+                                          value={(!b.buttonText?.trim() && b.clickTarget === "button") ? "banner" : (b.clickTarget || "button")}
+                                          onChange={(e) => {
+                                            const updated = draftLayout.hero.banners.map((x: any) => x.id === b.id ? { ...x, clickTarget: e.target.value } : x);
+                                            setDraftLayout({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
+                                          }}
+                                          className="w-full bg-surface border border-border-subtle p-1.5 outline-none text-foreground text-xs rounded"
+                                        >
+                                          <option value="banner">Clicking Entire Banner</option>
+                                          <option value="button" disabled={!b.buttonText?.trim()}>
+                                            Clicking Button Only{!b.buttonText?.trim() ? " (Requires Button Text)" : ""}
+                                          </option>
+                                        </select>
+                                      </div>
+                                    </div>
+
                                     <input
                                       placeholder="Desktop Image URL"
                                       className="col-span-2 bg-surface border border-border-subtle p-2 outline-none font-mono"
-                                      value={b.desktopImage}
+                                      value={b.desktopImage ?? ""}
                                       onChange={(e) => {
                                         const updated = draftLayout.hero.banners.map((x: any) => x.id === b.id ? { ...x, desktopImage: e.target.value } : x);
                                         setDraftLayout({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
@@ -3158,7 +3200,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                     <input
                                       placeholder="Mobile Image URL"
                                       className="col-span-2 bg-surface border border-border-subtle p-2 outline-none font-mono"
-                                      value={b.mobileImage}
+                                      value={b.mobileImage ?? ""}
                                       onChange={(e) => {
                                         const updated = draftLayout.hero.banners.map((x: any) => x.id === b.id ? { ...x, mobileImage: e.target.value } : x);
                                         setDraftLayout({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
