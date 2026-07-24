@@ -3,7 +3,7 @@ import { useState } from "react";
 import { usePortal } from "@/lib/portal-state";
 import { useTheme } from "@/hooks/use-theme";
 import { BrandLogo } from "@/components/theme/ThemeToggle";
-import { ArrowLeft, Sparkles, Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, Sparkles, Mail, Lock, Eye, EyeOff, X } from "lucide-react";
 import { useGoogleLogin } from "@react-oauth/google";
 import { toast } from "sonner";
 import { BACKEND_URL } from "@/lib/config";

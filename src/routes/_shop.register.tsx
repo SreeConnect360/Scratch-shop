@@ -39,6 +39,8 @@ function ShopRegisterPage() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [showGoogleModal, setShowGoogleModal] = useState(false);
+  const [googleEmailInput, setGoogleEmailInput] = useState("");
 
   // Auto-hide warning alert after 3 seconds
   useEffect(() => {
