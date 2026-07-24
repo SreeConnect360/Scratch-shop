@@ -1056,35 +1056,37 @@ export function ShopCart() {
                           )}
                         </div>
 
-                        {/* Size & Quantity Pills (Triggers Combined Edit Modal) */}
-                        <div className="flex flex-wrap items-center gap-2 pt-1">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEditModal(item)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-accent/40 rounded-xl text-xs font-medium text-foreground transition-all cursor-pointer"
-                          >
-                            <span className="text-muted-foreground">Size:</span>
-                            <span className="font-bold text-accent uppercase">{item.selectedSize || "M"}</span>
-                            <Edit2 className="w-3 h-3 text-accent/70 ml-0.5" />
-                          </button>
+                        {/* Size, Quantity, Edit Icon & Buy Now Row */}
+                        <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                          {/* Left: Size, Qty & Single Edit Icon */}
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-white/5 border border-white/10 rounded-xl text-xs font-medium text-foreground">
+                              <span className="text-muted-foreground">Size:</span>
+                              <span className="font-bold text-accent uppercase">{item.selectedSize || "M"}</span>
+                            </span>
 
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEditModal(item)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-accent/40 rounded-xl text-xs font-medium text-foreground transition-all cursor-pointer"
-                          >
-                            <span className="text-muted-foreground">Qty:</span>
-                            <span className="font-bold text-accent">{item.qty}</span>
-                            <Edit2 className="w-3 h-3 text-accent/70 ml-0.5" />
-                          </button>
-                        </div>
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-white/5 border border-white/10 rounded-xl text-xs font-medium text-foreground">
+                              <span className="text-muted-foreground">Qty:</span>
+                              <span className="font-bold text-accent">{item.qty}</span>
+                            </span>
 
-                        {/* Buy Now Button */}
-                        <div className="pt-2">
+                            {/* Single Edit Icon to right of Quantity */}
+                            <button
+                              type="button"
+                              aria-label="Edit size and quantity"
+                              title="Edit Size & Quantity"
+                              onClick={() => handleOpenEditModal(item)}
+                              className="p-2 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-accent/40 text-accent rounded-xl transition-all cursor-pointer hover:scale-105 active:scale-95 flex items-center justify-center shadow-sm"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          {/* Far Right: Buy Now Button */}
                           <button
                             type="button"
                             onClick={() => handleSingleBuyNow(item)}
-                            className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-accent via-gold to-accent-rose text-obsidian text-xs font-bold uppercase tracking-wider rounded-xl shadow-md hover:shadow-[0_0_15px_rgba(212,175,55,0.4)] transition-all cursor-pointer active:scale-95"
+                            className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-accent via-gold to-accent-rose text-obsidian text-xs font-bold uppercase tracking-wider rounded-xl shadow-md hover:shadow-[0_0_15px_rgba(212,175,55,0.4)] transition-all cursor-pointer active:scale-95 ml-auto"
                           >
                             <ShoppingBag className="w-3.5 h-3.5" />
                             Buy Now
