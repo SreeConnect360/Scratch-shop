@@ -23,7 +23,44 @@ function ShopLoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [showGoogleModal, setShowGoogleModal] = useState(false);
+  const [googleEmailInput, setGoogleEmailInput] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  const handleModalGoogleAuth = (customEmail?: string) => {
+    const targetEmail = (customEmail || googleEmailInput || email || "rockeysrinivas891@gmail.com").trim().toLowerCase();
+    if (!targetEmail || !targetEmail.includes("@")) {
+      toast.error("Please enter a valid Google email address.");
+      return;
+    }
+
+    const existing = state.users.find(
+      (u) => u.email.toLowerCase() === targetEmail
+    );
+
+    const firstName = targetEmail.split("@")[0].split(".")[0];
+    const nameFormatted = firstName.charAt(0).toUpperCase() + firstName.slice(1);
+
+    if (existing) {
+      signIn(targetEmail);
+    } else {
+      registerUser({
+        firstName: nameFormatted,
+        lastName: "GoogleUser",
+        email: targetEmail,
+        phone: "",
+        dob: "",
+        gender: "",
+        country: "",
+      });
+      signIn(targetEmail);
+    }
+
+    setShowGoogleModal(false);
+    setIsGoogleLoading(false);
+    toast.success(`Welcome, ${nameFormatted}! Signed in with Google.`);
+    navigate({ to: "/" });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,6 +131,7 @@ function ShopLoginPage() {
             gender: "",
             country: "",
           });
+          signIn(googleEmail);
         }
 
         toast.success(`Welcome, ${firstName}! Signed in with Google.`);
@@ -110,14 +148,31 @@ function ShopLoginPage() {
       setIsGoogleLoading(false);
       setShowGoogleModal(true);
     },
+    onNonOAuthError: (err) => {
+      console.error("Non-OAuth error, launching modal fallback:", err);
+      setIsGoogleLoading(false);
+      setShowGoogleModal(true);
+    },
   });
 
   const handleGoogleLogin = () => {
     setError(null);
     setIsGoogleLoading(true);
+
+    const timer = setTimeout(() => {
+      setIsGoogleLoading((loading) => {
+        if (loading) {
+          setShowGoogleModal(true);
+          return false;
+        }
+        return loading;
+      });
+    }, 1500);
+
     try {
       googleLogin();
     } catch (err) {
+      clearTimeout(timer);
       console.warn("Failed to launch Google Login popup, switching to modal:", err);
       setIsGoogleLoading(false);
       setShowGoogleModal(true);

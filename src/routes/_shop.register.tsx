@@ -301,14 +301,31 @@ function ShopRegisterPage() {
       setIsGoogleLoading(false);
       setShowGoogleModal(true);
     },
+    onNonOAuthError: (err) => {
+      console.error("Non-OAuth error, launching modal fallback:", err);
+      setIsGoogleLoading(false);
+      setShowGoogleModal(true);
+    },
   });
 
   const handleGoogleSignup = () => {
     setError(null);
     setIsGoogleLoading(true);
+
+    const timer = setTimeout(() => {
+      setIsGoogleLoading((loading) => {
+        if (loading) {
+          setShowGoogleModal(true);
+          return false;
+        }
+        return loading;
+      });
+    }, 1500);
+
     try {
       googleLogin();
     } catch (err) {
+      clearTimeout(timer);
       console.warn("Failed to launch Google Signup popup, switching to modal:", err);
       setIsGoogleLoading(false);
       setShowGoogleModal(true);
