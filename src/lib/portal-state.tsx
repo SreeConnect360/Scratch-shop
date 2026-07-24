@@ -1414,7 +1414,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     }),
     toggleWishlist: (userId, productId) => setState(s => {
       const list = s.wishlist[userId] ?? [];
-      const next = list.includes(productId) ? list.filter(id => id !== productId) : [...list, productId];
+      const next = list.includes(productId) ? list.filter(id => id !== productId) : [productId, ...list];
       return { ...s, wishlist: { ...s.wishlist, [userId]: next } };
     }),
     createOrder: (userId, order) => {
@@ -2300,9 +2300,10 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       const qty = item.qty ?? 1;
       let shopCart;
       if (existing) {
-        shopCart = cartList.map(c => (c.productId === item.productId && c.selectedSize === item.selectedSize) ? { ...c, qty: c.qty + qty } : c);
+        const filtered = cartList.filter(c => !(c.productId === item.productId && c.selectedSize === item.selectedSize));
+        shopCart = [{ ...existing, qty: existing.qty + qty }, ...filtered];
       } else {
-        shopCart = [...cartList, { ...item, qty }];
+        shopCart = [{ ...item, qty }, ...cartList];
       }
       if (s.user) {
         fetch(`${BACKEND_URL}/api/customers/${s.user.id}`, {
@@ -2345,7 +2346,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         return s;
       }
       const list = s.shopWishlist[userId] ?? [];
-      const next = list.includes(productId) ? list.filter(id => id !== productId) : [...list, productId];
+      const next = list.includes(productId) ? list.filter(id => id !== productId) : [productId, ...list];
       fetch(`${BACKEND_URL}/api/customers/${userId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -2389,8 +2390,8 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       return { ...s, shopCart };
     }),
     restoreToShopCart: (item) => setState(s => {
-      const exists = (s.shopCart || []).some(c => c.productId === item.productId && c.selectedSize === item.selectedSize);
-      const shopCart = exists ? (s.shopCart || []) : [...(s.shopCart || []), item];
+      const filtered = (s.shopCart || []).filter(c => !(c.productId === item.productId && c.selectedSize === item.selectedSize));
+      const shopCart = [item, ...filtered];
       if (s.user) {
         fetch(`${BACKEND_URL}/api/customers/${s.user.id}`, {
           method: "PUT",

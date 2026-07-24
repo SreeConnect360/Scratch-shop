@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { usePortal } from "@/lib/portal-state";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { z } from "zod";
 import { 
   X, Check, AlertTriangle, Star, ListOrdered, 
@@ -55,7 +55,22 @@ function ShopOrdersPage() {
   const [returnReason, setReturnReason] = useState("Product arrived damaged");
   const [returnDesc, setReturnDesc] = useState("");
 
-  const userOrders = user ? (state.orders?.[user.id] || []) : [];
+  const userOrders = useMemo(() => {
+    if (!user) return [];
+    const list = state.orders?.[user.id] || [];
+    return [...list].sort((a, b) => {
+      const timeA = new Date(a.date).getTime();
+      const timeB = new Date(b.date).getTime();
+      if (isNaN(timeA)) return 1;
+      if (isNaN(timeB)) return -1;
+      return timeB - timeA;
+    });
+  }, [user, state.orders]);
+
+  const userReturns = useMemo(() => {
+    if (!user) return [];
+    return (state.returns || []).filter(r => r.customerId === user.id);
+  }, [user, state.returns]);
 
   if (!user) {
     return (
@@ -225,7 +240,7 @@ function ShopOrdersPage() {
           </div>
 
           <div className="space-y-4">
-            {state.returns.filter(r => r.customerId === user.id).length === 0 ? (
+            {userReturns.length === 0 ? (
               <div className="text-center py-16 space-y-3">
                 <div className="w-16 h-16 rounded-full bg-accent/15 border border-accent/30 mx-auto flex items-center justify-center text-accent">
                   <RotateCcw className="w-8 h-8" />
@@ -233,7 +248,7 @@ function ShopOrdersPage() {
                 <p className="text-xs text-muted-foreground italic">No return requests logged or in progress.</p>
               </div>
             ) : (
-              state.returns.filter(r => r.customerId === user.id).map(r => (
+              userReturns.map(r => (
                 <div
                   key={r.id}
                   className="bg-white dark:bg-white/5 border border-black/10 dark:border-white/10 hover:border-accent/50 rounded-2xl p-4 sm:p-5 transition-all duration-300 cursor-pointer shadow-sm hover:shadow-md text-foreground group"

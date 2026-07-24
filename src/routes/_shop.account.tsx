@@ -490,12 +490,23 @@ function ShopDashboard() {
        state.shopWishlist?.[user.id.toUpperCase()] ||
        [])
     : [];
-  const wishlistItems = (state.products || PRODUCTS).filter(p =>
-    wishlistIds.map(String).includes(String(p.id))
-  );
+  const allProducts = state.products || PRODUCTS;
+  const wishlistItems = wishlistIds
+    .map(id => allProducts.find(p => String(p.id) === String(id)))
+    .filter((p): p is typeof allProducts[number] => Boolean(p));
 
-  // Orders List
-  const userOrders = user ? (state.orders?.[user.id] || []) : [];
+  // Orders List (Latest first)
+  const userOrders = useMemo(() => {
+    if (!user) return [];
+    const list = state.orders?.[user.id] || [];
+    return [...list].sort((a, b) => {
+      const timeA = new Date(a.date).getTime();
+      const timeB = new Date(b.date).getTime();
+      if (isNaN(timeA)) return 1;
+      if (isNaN(timeB)) return -1;
+      return timeB - timeA;
+    });
+  }, [user, state.orders]);
 
   // Checkout Form State
   const [checkoutAddress, setCheckoutAddress] = useState("");

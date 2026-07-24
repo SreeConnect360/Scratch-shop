@@ -26,9 +26,10 @@ function ShopWishlistPage() {
        [])
     : [];
   
-  const wishlistItems = (state.products || PRODUCTS).filter(p =>
-    wishlistIds.map(String).includes(String(p.id))
-  );
+  const allProducts = state.products || PRODUCTS;
+  const wishlistItems = wishlistIds
+    .map(id => allProducts.find(p => String(p.id) === String(id)))
+    .filter((p): p is typeof allProducts[number] => Boolean(p));
 
   if (!user) {
     return (
