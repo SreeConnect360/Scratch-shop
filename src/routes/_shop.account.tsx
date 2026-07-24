@@ -760,42 +760,41 @@ function ShopDashboard() {
 
               {!isEditing ? (
                 <div className="grid sm:grid-cols-2 gap-6">
-                  <div className="liquid-glass border border-white/10 p-6 rounded-3xl space-y-4">
+                  <div className="liquid-glass border border-black/10 dark:border-white/10 bg-white/60 dark:bg-white/5 p-6 rounded-3xl space-y-4 shadow-sm dark:shadow-none">
                     <h4 className="font-serif text-lg text-accent">Personal Dossier</h4>
                     <div className="space-y-3 text-xs leading-normal">
-                      <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                      <div className="flex justify-between items-center border-b border-black/5 dark:border-white/5 pb-2">
                         <span className="text-muted-foreground font-medium">Name:</span>
                         <span className="font-semibold text-foreground">{user.firstName} {user.lastName || ""}</span>
                       </div>
-                      <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                      <div className="flex justify-between items-center border-b border-black/5 dark:border-white/5 pb-2">
                         <span className="text-muted-foreground font-medium">Email:</span>
                         <div className="flex items-center gap-2">
                           <span className="font-mono text-foreground font-medium">{user.email}</span>
-                          <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[9px] font-bold uppercase tracking-wider" title="Email verified via OTP">
-                            <ShieldCheck className="w-3 h-3" />
-                            <span>Verified</span>
+                          <div className="flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-500 dark:text-emerald-400" title="Email verified via OTP">
+                            <ShieldCheck className="w-3.5 h-3.5" />
                           </div>
                         </div>
                       </div>
-                      <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                      <div className="flex justify-between items-center border-b border-black/5 dark:border-white/5 pb-2">
                         <span className="text-muted-foreground font-medium">Phone:</span>
                         <span className="text-foreground font-medium">{user.phone || "—"}</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="liquid-glass border border-white/10 p-6 rounded-3xl space-y-4">
+                  <div className="liquid-glass border border-black/10 dark:border-white/10 bg-white/60 dark:bg-white/5 p-6 rounded-3xl space-y-4 shadow-sm dark:shadow-none">
                     <h4 className="font-serif text-lg text-accent">Maison Details</h4>
                     <div className="space-y-3 text-xs leading-normal">
-                      <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                      <div className="flex justify-between items-center border-b border-black/5 dark:border-white/5 pb-2">
                         <span className="text-muted-foreground font-medium">Gender:</span>
                         <span className="text-foreground font-medium">{user.gender || "—"}</span>
                       </div>
-                      <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                      <div className="flex justify-between items-center border-b border-black/5 dark:border-white/5 pb-2">
                         <span className="text-muted-foreground font-medium">DOB:</span>
                         <span className="font-mono text-foreground font-medium">{user.dob || "—"}</span>
                       </div>
-                      <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                      <div className="flex justify-between items-center border-b border-black/5 dark:border-white/5 pb-2">
                         <span className="text-muted-foreground font-medium">Country:</span>
                         <span className="text-foreground font-medium">{user.country || "—"}</span>
                       </div>
@@ -803,8 +802,8 @@ function ShopDashboard() {
                   </div>
                 </div>
               ) : (
-                <div className="liquid-glass border border-white/15 p-6 sm:p-8 rounded-3xl space-y-6">
-                  <div className="flex justify-between items-center border-b border-white/10 pb-4">
+                <div className="liquid-glass border border-black/15 dark:border-white/15 bg-white/70 dark:bg-black/40 p-6 sm:p-8 rounded-3xl space-y-6 text-foreground backdrop-blur-xl shadow-xl dark:shadow-none">
+                  <div className="flex justify-between items-center border-b border-black/10 dark:border-white/10 pb-4">
                     <div>
                       <h2 className="font-serif text-2xl font-bold">Edit Curation Profile</h2>
                       <p className="text-[11px] text-muted-foreground mt-0.5">Update your personal account dossier & communication preferences</p>
@@ -812,7 +811,7 @@ function ShopDashboard() {
                     <button
                       type="button"
                       onClick={() => setIsEditing(false)}
-                      className="text-xs uppercase font-bold text-muted-foreground hover:text-foreground transition-colors border border-white/10 hover:border-white/20 px-4 py-1.5 rounded-full cursor-pointer"
+                      className="text-xs uppercase font-bold text-muted-foreground hover:text-foreground transition-colors border border-black/10 dark:border-white/10 hover:border-black/20 dark:hover:border-white/20 px-4 py-1.5 rounded-full cursor-pointer"
                     >
                       Cancel
                     </button>
@@ -825,12 +824,12 @@ function ShopDashboard() {
                         type="text"
                         value={profileForm.firstName}
                         onChange={e => setProfileForm({ ...profileForm, firstName: e.target.value })}
-                        className="w-full bg-white/5 border border-white/10 focus:border-accent px-4 py-2.5 text-xs outline-none rounded-full text-foreground"
+                        className="w-full bg-black/5 dark:bg-white/5 border border-black/15 dark:border-white/10 focus:border-accent px-4 py-2.5 text-xs outline-none rounded-full text-foreground"
                         required
                       />
                     </label>
 
-                    {/* Email with Verified Badge & Change Email Button */}
+                    {/* Email with Verified Icon Badge & Change Email Button */}
                     <div className="space-y-1.5">
                       <div className="flex justify-between items-center">
                         <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Email Address</span>
@@ -852,11 +851,10 @@ function ShopDashboard() {
                           type="email"
                           value={profileForm.email}
                           readOnly
-                          className="w-full bg-white/5 border border-white/10 px-4 py-2.5 text-xs outline-none rounded-full text-foreground/80 cursor-not-allowed pr-28 font-mono"
+                          className="w-full bg-black/5 dark:bg-white/5 border border-black/15 dark:border-white/10 px-4 py-2.5 text-xs outline-none rounded-full text-foreground/80 cursor-not-allowed pr-12 font-mono"
                         />
-                        <div className="absolute right-3 flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[9px] font-bold uppercase tracking-wider">
+                        <div className="absolute right-3 flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-500 dark:text-emerald-400" title="Email Verified via OTP">
                           <ShieldCheck className="w-3.5 h-3.5" />
-                          <span>Verified</span>
                         </div>
                       </div>
                     </div>
@@ -870,7 +868,7 @@ function ShopDashboard() {
                           <button
                             type="button"
                             onClick={() => setShowCodeDropdown(!showCodeDropdown)}
-                            className="bg-white/5 border border-white/10 px-3.5 py-2.5 text-xs outline-none focus:border-accent rounded-full text-foreground flex items-center gap-1.5 cursor-pointer hover:border-white/20 transition-all font-mono font-medium"
+                            className="bg-black/5 dark:bg-white/5 border border-black/15 dark:border-white/10 px-3.5 py-2.5 text-xs outline-none focus:border-accent rounded-full text-foreground flex items-center gap-1.5 cursor-pointer hover:border-accent transition-all font-mono font-medium"
                           >
                             <span>{COUNTRY_CODES.find(c => c.code === phoneCountryCode)?.flag || "🌐"}</span>
                             <span>{phoneCountryCode}</span>
@@ -878,7 +876,7 @@ function ShopDashboard() {
                           </button>
 
                           {showCodeDropdown && (
-                            <div className="absolute left-0 top-full mt-2 z-50 w-64 bg-zinc-950/95 border border-white/20 rounded-2xl shadow-2xl backdrop-blur-xl p-2.5 space-y-2 animate-in fade-in duration-150">
+                            <div className="absolute left-0 top-full mt-2 z-50 w-64 bg-white dark:bg-zinc-950 border border-black/15 dark:border-white/20 rounded-2xl shadow-2xl backdrop-blur-xl p-2.5 space-y-2 animate-in fade-in duration-150 text-foreground">
                               <div className="relative">
                                 <Search className="w-3 h-3 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                                 <input
@@ -886,7 +884,7 @@ function ShopDashboard() {
                                   value={codeSearch}
                                   onChange={(e) => setCodeSearch(e.target.value)}
                                   placeholder="Search code or country..."
-                                  className="w-full bg-white/5 border border-white/10 pl-7 pr-2.5 py-1 text-[11px] rounded-xl outline-none focus:border-accent text-foreground"
+                                  className="w-full bg-black/5 dark:bg-white/5 border border-black/15 dark:border-white/10 pl-7 pr-2.5 py-1 text-[11px] rounded-xl outline-none focus:border-accent text-foreground"
                                   autoFocus
                                 />
                               </div>
@@ -904,7 +902,7 @@ function ShopDashboard() {
                                         setCodeSearch("");
                                       }}
                                       className={`w-full text-left px-2.5 py-1.5 text-xs rounded-xl transition-colors flex justify-between items-center ${
-                                        phoneCountryCode === item.code ? "bg-accent/20 text-accent font-semibold" : "hover:bg-white/10 text-foreground"
+                                        phoneCountryCode === item.code ? "bg-accent/20 text-accent font-semibold" : "hover:bg-black/5 dark:hover:bg-white/10 text-foreground"
                                       }`}
                                     >
                                       <div className="flex items-center gap-2 min-w-0">
@@ -926,7 +924,7 @@ function ShopDashboard() {
                           value={phoneNumberOnly}
                           onChange={e => setPhoneNumberOnly(e.target.value.replace(/[^\d\s-]/g, ""))}
                           placeholder="9876543210"
-                          className="flex-1 min-w-0 bg-white/5 border border-white/10 focus:border-accent px-4 py-2.5 text-xs outline-none rounded-full text-foreground font-mono"
+                          className="flex-1 min-w-0 bg-black/5 dark:bg-white/5 border border-black/15 dark:border-white/10 focus:border-accent px-4 py-2.5 text-xs outline-none rounded-full text-foreground font-mono"
                         />
                       </div>
                     </div>
@@ -955,7 +953,7 @@ function ShopDashboard() {
                                 className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-full text-xs font-semibold tracking-wider transition-all cursor-pointer border ${
                                   isSelected
                                     ? "bg-accent/20 border-accent text-accent shadow-[0_0_12px_rgba(212,175,55,0.3)]"
-                                    : "bg-white/5 border-white/10 text-muted-foreground hover:text-foreground hover:border-white/20"
+                                    : "bg-black/5 dark:bg-white/5 border-black/15 dark:border-white/10 text-muted-foreground hover:text-foreground hover:border-black/30 dark:hover:border-white/20"
                                 }`}
                               >
                                 <span className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center transition-colors ${
@@ -977,7 +975,7 @@ function ShopDashboard() {
                           type="date"
                           value={profileForm.dob}
                           onChange={e => setProfileForm({ ...profileForm, dob: e.target.value })}
-                          className="w-full bg-white/5 border border-white/10 focus:border-accent px-4 py-2 text-xs outline-none rounded-full text-foreground"
+                          className="w-full bg-black/5 dark:bg-white/5 border border-black/15 dark:border-white/10 focus:border-accent px-4 py-2 text-xs outline-none rounded-full text-foreground"
                         />
                       </label>
                     </div>
@@ -988,7 +986,7 @@ function ShopDashboard() {
                       <button
                         type="button"
                         onClick={() => setShowCountryDropdown(!showCountryDropdown)}
-                        className="w-full bg-white/5 border border-white/10 px-4 py-2.5 text-xs outline-none focus:border-accent rounded-full text-foreground flex justify-between items-center cursor-pointer hover:border-white/20 transition-all text-left"
+                        className="w-full bg-black/5 dark:bg-white/5 border border-black/15 dark:border-white/10 px-4 py-2.5 text-xs outline-none focus:border-accent rounded-full text-foreground flex justify-between items-center cursor-pointer hover:border-accent transition-all text-left"
                       >
                         <span className={profileForm.country ? "text-foreground font-medium" : "text-muted-foreground"}>
                           {profileForm.country || "— Select Country —"}
@@ -997,7 +995,7 @@ function ShopDashboard() {
                       </button>
 
                       {showCountryDropdown && (
-                        <div className="absolute left-0 right-0 top-full mt-2 z-50 bg-zinc-950/95 border border-white/20 rounded-2xl shadow-2xl backdrop-blur-xl p-2.5 space-y-2 animate-in fade-in duration-150">
+                        <div className="absolute left-0 right-0 top-full mt-2 z-50 bg-white dark:bg-zinc-950 border border-black/15 dark:border-white/20 rounded-2xl shadow-2xl backdrop-blur-xl p-2.5 space-y-2 animate-in fade-in duration-150 text-foreground">
                           <div className="relative">
                             <Search className="w-3 h-3 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                             <input
@@ -1005,7 +1003,7 @@ function ShopDashboard() {
                               value={countrySearch}
                               onChange={(e) => setCountrySearch(e.target.value)}
                               placeholder="Search country..."
-                              className="w-full bg-white/5 border border-white/10 pl-8 pr-3 py-1.5 text-xs rounded-xl outline-none focus:border-accent text-foreground"
+                              className="w-full bg-black/5 dark:bg-white/5 border border-black/15 dark:border-white/10 pl-8 pr-3 py-1.5 text-xs rounded-xl outline-none focus:border-accent text-foreground"
                               autoFocus
                             />
                           </div>
@@ -1023,7 +1021,7 @@ function ShopDashboard() {
                                     setCountrySearch("");
                                   }}
                                   className={`w-full text-left px-3 py-2 text-xs rounded-xl transition-colors flex justify-between items-center ${
-                                    profileForm.country === c ? "bg-accent/20 text-accent font-semibold" : "hover:bg-white/10 text-foreground"
+                                    profileForm.country === c ? "bg-accent/20 text-accent font-semibold" : "hover:bg-black/5 dark:hover:bg-white/10 text-foreground"
                                   }`}
                                 >
                                   <span>{c}</span>
@@ -1049,20 +1047,20 @@ function ShopDashboard() {
               {/* Logout & Delete Account Section */}
               <div className="space-y-4">
                 {/* Logout Card */}
-                <div className="liquid-glass border border-rose-500/15 p-6 rounded-3xl">
+                <div className="liquid-glass border border-rose-500/20 bg-rose-500/5 dark:bg-rose-500/10 p-6 rounded-3xl">
                   <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                     <div className="flex items-center gap-3 text-center sm:text-left">
                       <div className="w-10 h-10 rounded-full bg-rose-500/10 border border-rose-500/20 flex items-center justify-center shrink-0">
-                        <LogOut className="w-4.5 h-4.5 text-rose-400" />
+                        <LogOut className="w-4.5 h-4.5 text-rose-500 dark:text-rose-400" />
                       </div>
                       <div>
-                        <h4 className="font-serif text-base font-bold">Sign Out</h4>
+                        <h4 className="font-serif text-base font-bold text-foreground">Sign Out</h4>
                         <p className="text-[11px] text-muted-foreground">Log out of your account session on this device.</p>
                       </div>
                     </div>
                     <button
                       onClick={() => setShowLogoutConfirm(true)}
-                      className="text-xs uppercase font-bold tracking-widest px-6 py-2.5 rounded-full border border-rose-500/30 text-rose-400 hover:bg-rose-500 hover:text-white transition-all cursor-pointer shrink-0"
+                      className="text-xs uppercase font-bold tracking-widest px-6 py-2.5 rounded-full border border-rose-500/40 text-rose-600 dark:text-rose-400 hover:bg-rose-600 hover:text-white transition-all cursor-pointer shrink-0"
                     >
                       Logout
                     </button>
@@ -1070,14 +1068,14 @@ function ShopDashboard() {
                 </div>
 
                 {/* Delete Account Option (Positioned below Logout) */}
-                <div className="liquid-glass border border-rose-600/30 bg-rose-950/10 p-6 rounded-3xl">
+                <div className="liquid-glass border border-rose-600/30 bg-rose-500/5 dark:bg-rose-950/20 p-6 rounded-3xl">
                   <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                     <div className="flex items-center gap-3 text-center sm:text-left">
-                      <div className="w-10 h-10 rounded-full bg-rose-600/20 border border-rose-500/40 flex items-center justify-center shrink-0 text-rose-400">
+                      <div className="w-10 h-10 rounded-full bg-rose-600/20 border border-rose-500/40 flex items-center justify-center shrink-0 text-rose-500 dark:text-rose-400">
                         <AlertTriangle className="w-5 h-5" />
                       </div>
                       <div>
-                        <h4 className="font-serif text-base font-bold text-rose-400">Delete Account</h4>
+                        <h4 className="font-serif text-base font-bold text-rose-600 dark:text-rose-400">Delete Account</h4>
                         <p className="text-[11px] text-muted-foreground">Permanently delete your profile, order history, addresses & data.</p>
                       </div>
                     </div>
@@ -1086,7 +1084,7 @@ function ShopDashboard() {
                         setDeleteConfirmText("");
                         setShowDeleteAccountModal(true);
                       }}
-                      className="text-xs uppercase font-bold tracking-widest px-6 py-2.5 rounded-full bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/40 transition-all cursor-pointer shrink-0 shadow-md"
+                      className="text-xs uppercase font-bold tracking-widest px-6 py-2.5 rounded-full bg-rose-600/20 hover:bg-rose-600 text-rose-600 dark:text-rose-300 hover:text-white border border-rose-500/40 transition-all cursor-pointer shrink-0 shadow-md"
                     >
                       Delete Account
                     </button>
@@ -1097,7 +1095,7 @@ function ShopDashboard() {
               {/* Change Email Modal */}
               {showChangeEmailModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
-                  <div className="liquid-glass bg-background/95 border border-accent/30 max-w-md w-full p-6 sm:p-8 space-y-6 shadow-2xl animate-in zoom-in-95 duration-200 rounded-3xl relative text-foreground">
+                  <div className="liquid-glass bg-white dark:bg-zinc-950 border border-black/15 dark:border-accent/30 max-w-md w-full p-6 sm:p-8 space-y-6 shadow-2xl animate-in zoom-in-95 duration-200 rounded-3xl relative text-foreground">
                     <button
                       onClick={() => {
                         setShowChangeEmailModal(false);
@@ -1111,7 +1109,7 @@ function ShopDashboard() {
                       <X className="w-5 h-5" />
                     </button>
 
-                    <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+                    <div className="flex items-center gap-3 border-b border-black/10 dark:border-white/10 pb-4">
                       <div className="w-10 h-10 rounded-full bg-accent/15 border border-accent/30 flex items-center justify-center shrink-0 text-accent">
                         <RefreshCw className="w-5 h-5" />
                       </div>
@@ -1122,7 +1120,7 @@ function ShopDashboard() {
                     </div>
 
                     {emailChangeError && (
-                      <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-rose-400 text-xs flex items-center gap-2">
+                      <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-rose-500 dark:text-rose-400 text-xs flex items-center gap-2">
                         <AlertTriangle className="w-4 h-4 shrink-0" />
                         <span>{emailChangeError}</span>
                       </div>
@@ -1140,14 +1138,14 @@ function ShopDashboard() {
                             value={newEmailInput}
                             onChange={(e) => setNewEmailInput(e.target.value)}
                             placeholder="enter.new.email@example.com"
-                            className="w-full bg-white/5 border border-white/10 focus:border-accent px-4 py-3 text-xs outline-none rounded-xl text-foreground font-mono"
+                            className="w-full bg-black/5 dark:bg-white/5 border border-black/15 dark:border-white/10 focus:border-accent px-4 py-3 text-xs outline-none rounded-xl text-foreground font-mono"
                           />
                         </label>
                         <div className="flex gap-3 justify-end pt-2">
                           <button
                             type="button"
                             onClick={() => setShowChangeEmailModal(false)}
-                            className="text-xs uppercase font-bold tracking-wider px-5 py-2.5 rounded-full border border-white/10 text-muted-foreground hover:text-foreground hover:border-white/20 transition-all cursor-pointer"
+                            className="text-xs uppercase font-bold tracking-wider px-5 py-2.5 rounded-full border border-black/15 dark:border-white/10 text-muted-foreground hover:text-foreground hover:border-black/30 dark:hover:border-white/20 transition-all cursor-pointer"
                           >
                             Cancel
                           </button>
@@ -1162,8 +1160,8 @@ function ShopDashboard() {
                       </div>
                     ) : (
                       <div className="space-y-4">
-                        <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-emerald-400 text-xs leading-relaxed">
-                          An OTP code was sent to <strong className="font-mono text-white">{newEmailInput}</strong>. Enter the 6-digit code below to verify your new email address.
+                        <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-emerald-600 dark:text-emerald-400 text-xs leading-relaxed">
+                          An OTP code was sent to <strong className="font-mono text-foreground">{newEmailInput}</strong>. Enter the 6-digit code below to verify your new email address.
                         </div>
                         <label className="block space-y-1.5">
                           <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">6-Digit Verification Code (OTP)</span>
@@ -1173,14 +1171,14 @@ function ShopDashboard() {
                             value={emailOtpInput}
                             onChange={(e) => setEmailOtpInput(e.target.value.replace(/\D/g, "").slice(0, 6))}
                             placeholder="123456"
-                            className="w-full bg-white/5 border border-white/10 focus:border-accent px-4 py-3 text-center text-lg font-mono tracking-[0.5em] outline-none rounded-xl text-foreground"
+                            className="w-full bg-black/5 dark:bg-white/5 border border-black/15 dark:border-white/10 focus:border-accent px-4 py-3 text-center text-lg font-mono tracking-[0.5em] outline-none rounded-xl text-foreground"
                           />
                         </label>
                         <div className="flex gap-3 justify-end pt-2">
                           <button
                             type="button"
                             onClick={() => setEmailChangeStep(1)}
-                            className="text-xs uppercase font-bold tracking-wider px-5 py-2.5 rounded-full border border-white/10 text-muted-foreground hover:text-foreground hover:border-white/20 transition-all cursor-pointer"
+                            className="text-xs uppercase font-bold tracking-wider px-5 py-2.5 rounded-full border border-black/15 dark:border-white/10 text-muted-foreground hover:text-foreground hover:border-black/30 dark:hover:border-white/20 transition-all cursor-pointer"
                           >
                             Back
                           </button>
@@ -1201,10 +1199,10 @@ function ShopDashboard() {
               {/* Logout Confirmation Modal */}
               {showLogoutConfirm && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-                  <div className="liquid-glass bg-background/95 border border-rose-500/20 max-w-sm w-full p-6 space-y-5 shadow-2xl animate-in zoom-in-95 duration-200 rounded-3xl">
+                  <div className="liquid-glass bg-white dark:bg-zinc-950 border border-rose-500/20 max-w-sm w-full p-6 space-y-5 shadow-2xl animate-in zoom-in-95 duration-200 rounded-3xl text-foreground">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-rose-500/15 flex items-center justify-center">
-                        <LogOut className="w-5 h-5 text-rose-400" />
+                        <LogOut className="w-5 h-5 text-rose-500 dark:text-rose-400" />
                       </div>
                       <div>
                         <h3 className="font-serif text-lg font-bold">Confirm Logout</h3>
@@ -1217,7 +1215,7 @@ function ShopDashboard() {
                     <div className="flex gap-3 justify-end">
                       <button
                         onClick={() => setShowLogoutConfirm(false)}
-                        className="text-xs uppercase font-bold tracking-wider px-5 py-2 rounded-full border border-white/10 text-muted-foreground hover:text-foreground hover:border-white/20 transition-all cursor-pointer"
+                        className="text-xs uppercase font-bold tracking-wider px-5 py-2 rounded-full border border-black/15 dark:border-white/10 text-muted-foreground hover:text-foreground transition-all cursor-pointer"
                       >
                         Cancel
                       </button>
@@ -1240,7 +1238,7 @@ function ShopDashboard() {
               {/* Delete Account Confirmation Modal */}
               {showDeleteAccountModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
-                  <div className="liquid-glass bg-background/95 border border-rose-500/30 max-w-md w-full p-6 sm:p-8 space-y-6 shadow-2xl animate-in zoom-in-95 duration-200 rounded-3xl relative text-foreground">
+                  <div className="liquid-glass bg-white dark:bg-zinc-950 border border-rose-500/30 max-w-md w-full p-6 sm:p-8 space-y-6 shadow-2xl animate-in zoom-in-95 duration-200 rounded-3xl relative text-foreground">
                     <button
                       onClick={() => {
                         setShowDeleteAccountModal(false);
@@ -1252,11 +1250,11 @@ function ShopDashboard() {
                     </button>
 
                     <div className="flex items-center gap-3 border-b border-rose-500/20 pb-4">
-                      <div className="w-11 h-11 rounded-full bg-rose-500/15 border border-rose-500/30 flex items-center justify-center shrink-0 text-rose-500">
+                      <div className="w-11 h-11 rounded-full bg-rose-500/15 border border-rose-500/30 flex items-center justify-center shrink-0 text-rose-500 dark:text-rose-400">
                         <AlertTriangle className="w-6 h-6" />
                       </div>
                       <div>
-                        <h3 className="font-serif text-xl font-bold text-rose-500">Delete Your Account</h3>
+                        <h3 className="font-serif text-xl font-bold text-rose-600 dark:text-rose-500">Delete Your Account</h3>
                         <p className="text-[11px] text-muted-foreground">Permanent Account Removal</p>
                       </div>
                     </div>
@@ -1265,7 +1263,7 @@ function ShopDashboard() {
                       <p className="font-semibold text-foreground">
                         You are about to permanently delete your ReeVibes account.
                       </p>
-                      <p className="text-rose-400 font-bold uppercase tracking-wider text-[11px]">
+                      <p className="text-rose-600 dark:text-rose-400 font-bold uppercase tracking-wider text-[11px]">
                         This action cannot be undone.
                       </p>
                       <p>Deleting your account will permanently remove:</p>
@@ -1279,7 +1277,7 @@ function ShopDashboard() {
                         <li>Any other personal data associated with your account</li>
                       </ul>
                       <p className="pt-2 text-foreground font-medium">
-                        If you wish to continue, type <strong className="text-rose-400 font-mono">DELETE</strong> below to confirm.
+                        If you wish to continue, type <strong className="text-rose-600 dark:text-rose-400 font-mono">DELETE</strong> below to confirm.
                       </p>
                     </div>
 
@@ -1289,7 +1287,7 @@ function ShopDashboard() {
                         value={deleteConfirmText}
                         onChange={(e) => setDeleteConfirmText(e.target.value)}
                         placeholder="Type DELETE to confirm"
-                        className="w-full bg-white/5 border border-rose-500/30 focus:border-rose-500 px-4 py-3 text-xs outline-none rounded-xl text-foreground font-mono tracking-widest uppercase placeholder:text-muted-foreground/50 text-center"
+                        className="w-full bg-black/5 dark:bg-white/5 border border-rose-500/30 focus:border-rose-500 px-4 py-3 text-xs outline-none rounded-xl text-foreground font-mono tracking-widest uppercase placeholder:text-muted-foreground/50 text-center"
                       />
 
                       <div className="flex gap-3 justify-end pt-2">
@@ -1298,7 +1296,7 @@ function ShopDashboard() {
                             setShowDeleteAccountModal(false);
                             setDeleteConfirmText("");
                           }}
-                          className="text-xs uppercase font-bold tracking-wider px-5 py-2.5 rounded-full border border-white/10 text-muted-foreground hover:text-foreground hover:border-white/20 transition-all cursor-pointer"
+                          className="text-xs uppercase font-bold tracking-wider px-5 py-2.5 rounded-full border border-black/15 dark:border-white/10 text-muted-foreground hover:text-foreground transition-all cursor-pointer"
                         >
                           Cancel
                         </button>
