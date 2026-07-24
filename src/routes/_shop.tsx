@@ -613,7 +613,6 @@ function ShopLayout() {
                         { tab: "orders", label: "My Orders" },
                         { tab: "coupons", label: "Maison Coupons" },
                         { tab: "addresses", label: "Address" },
-                        { tab: "wallet", label: "Wallet" },
                       ].map((item) => (
                         <Link
                           key={item.tab}
