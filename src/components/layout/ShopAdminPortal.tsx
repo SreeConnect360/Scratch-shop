@@ -34,7 +34,7 @@ const formatOrderDateTime = (dateStr: string) => {
 
 export function ShopAdminPortal({ tab }: { tab: string }) {
   const [statusFilter, setStatusFilter] = useState<string>("All");
-  const { state, createProduct, updateProduct, deleteProduct, updateOrderStatus, acceptOrder, fetchCourierQuotes, assignAWB, schedulePickup, approveReturn, rejectReturn, updateReturnDetails, suspendCustomer, reactivateCustomer, addCoupon, removeCoupon, moderateReview, createVendor, deleteVendor, addWalletCredit, updateHomepageLayoutDraft, publishHomepageLayout, revertHomepageLayout, createBucket, updateBucket, deleteBucket, reorderBuckets, toggleShopWishlist } = usePortal();
+  const { state, createProduct, updateProduct, deleteProduct, updateOrderStatus, acceptOrder, fetchCourierQuotes, assignAWB, schedulePickup, approveReturn, rejectReturn, updateReturnDetails, suspendCustomer, reactivateCustomer, addCoupon, removeCoupon, moderateReview, createVendor, deleteVendor, addWalletCredit, updateHomepageLayoutDraft, publishHomepageLayout, revertHomepageLayout, createBucket, updateBucket, deleteBucket, reorderBuckets, toggleShopWishlist, addWalletGiftCard, updateWalletGiftCard, toggleWalletGiftCardStatus, deleteWalletGiftCard } = usePortal();
 
   // Dynamic products list from state
   const productsList = state.products || [];
@@ -140,6 +140,28 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
     userEligibility: "All"
   });
   const [isAddingCoupon, setIsAddingCoupon] = useState(false);
+
+  // Coupons & Wallet Gift Cards Sub-tab
+  const [couponsSubTab, setCouponsSubTab] = useState<"store-coupons" | "wallet-gift-cards">("store-coupons");
+  const [isAddingGiftCard, setIsAddingGiftCard] = useState(false);
+  const [editingGiftCard, setEditingGiftCard] = useState<any | null>(null);
+  const [giftCardForm, setGiftCardForm] = useState<{
+    code: string;
+    amount: number;
+    usageType: "unlimited" | "custom";
+    usageLimit?: number;
+    validityType: "unlimited" | "custom";
+    expiryDate?: string;
+    status: "Active" | "Inactive";
+  }>({
+    code: "",
+    amount: 500,
+    usageType: "unlimited",
+    usageLimit: 100,
+    validityType: "unlimited",
+    expiryDate: "2026-12-31",
+    status: "Active"
+  });
 
   const [vendorForm, setVendorForm] = useState({
     companyName: "", contactPerson: "", email: "", phone: ""
@@ -518,6 +540,59 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
       userEligibility: "All"
     });
     triggerModal("success", "Coupon Created", "New coupon successfully generated and active.", () => {});
+  };
+
+  const handleGiftCardSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const codeFormatted = giftCardForm.code.trim().toUpperCase();
+
+    if (!codeFormatted) {
+      toast.error("Please enter a valid gift card code.");
+      return;
+    }
+
+    const existingCards = state.walletGiftCards || [];
+    const isDuplicate = existingCards.some(g => g.code.toUpperCase() === codeFormatted && g.id !== editingGiftCard?.id);
+    if (isDuplicate) {
+      toast.error(`Gift card code "${codeFormatted}" already exists. Please enter a unique code.`);
+      return;
+    }
+
+    if (editingGiftCard) {
+      updateWalletGiftCard(editingGiftCard.id, {
+        code: codeFormatted,
+        amount: Number(giftCardForm.amount),
+        usageType: giftCardForm.usageType,
+        usageLimit: giftCardForm.usageType === "custom" ? Number(giftCardForm.usageLimit) : undefined,
+        validityType: giftCardForm.validityType,
+        expiryDate: giftCardForm.validityType === "custom" ? giftCardForm.expiryDate : undefined,
+        status: giftCardForm.status
+      });
+      toast.success(`Wallet gift card ${codeFormatted} updated successfully.`);
+    } else {
+      addWalletGiftCard({
+        code: codeFormatted,
+        amount: Number(giftCardForm.amount),
+        usageType: giftCardForm.usageType,
+        usageLimit: giftCardForm.usageType === "custom" ? Number(giftCardForm.usageLimit) : undefined,
+        validityType: giftCardForm.validityType,
+        expiryDate: giftCardForm.validityType === "custom" ? giftCardForm.expiryDate : undefined,
+        status: giftCardForm.status
+      });
+      toast.success(`🎉 Wallet gift card ${codeFormatted} created successfully!`);
+    }
+
+    setIsAddingGiftCard(false);
+    setEditingGiftCard(null);
+    setGiftCardForm({
+      code: "",
+      amount: 500,
+      usageType: "unlimited",
+      usageLimit: 100,
+      validityType: "unlimited",
+      expiryDate: "2026-12-31",
+      status: "Active"
+    });
   };
 
   const handleVendorSubmit = (e: React.FormEvent) => {
@@ -5610,103 +5685,372 @@ Fit: Regular Fit"
         </AdminCard>
       )}
 
-      {/* 7. COUPONS MANAGER */}
+      {/* 7. COUPONS & WALLET+ MANAGER */}
       {tab === "coupons" && (
         <div className="space-y-6 animate-in fade-in duration-200">
-          <div className="flex justify-between items-center">
-            <h3 className="font-serif text-xl">Active Store Coupons</h3>
+          {/* Sub-tab Switcher Header */}
+          <div className="flex border-b border-white/10 gap-6 pb-2">
             <button
-              onClick={() => setIsAddingCoupon(!isAddingCoupon)}
-              className="editorial-label bg-accent text-white px-5 py-2.5 hover:bg-accent/90 flex items-center gap-2"
+              type="button"
+              onClick={() => setCouponsSubTab("store-coupons")}
+              className={`pb-2 font-serif text-lg font-bold border-b-2 transition-all cursor-pointer ${
+                couponsSubTab === "store-coupons"
+                  ? "border-accent text-accent"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
             >
-              <Plus className="w-4 h-4" /> Add Coupon
+              Store Coupons
+            </button>
+            <button
+              type="button"
+              onClick={() => setCouponsSubTab("wallet-gift-cards")}
+              className={`pb-2 font-serif text-lg font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2 ${
+                couponsSubTab === "wallet-gift-cards"
+                  ? "border-accent text-accent"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <span>Wallet+ Gift Cards</span>
+              <span className="bg-accent/20 text-accent text-[10px] font-mono font-bold px-2 py-0.5 rounded-full uppercase">
+                {(state.walletGiftCards || []).length}
+              </span>
             </button>
           </div>
 
-          {isAddingCoupon && (
-            <AdminCard className="space-y-6 animate-in slide-in-from-top-4 duration-200">
-              <h4 className="font-serif text-lg">Create Coupon Code</h4>
-              <form onSubmit={handleCouponSubmit} className="grid md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <label className="text-xs text-muted-foreground font-semibold">Coupon Code</label>
-                  <input required className="w-full bg-surface border border-border-subtle p-2 text-sm outline-none" placeholder="DIWALI30" value={couponForm.code} onChange={e => setCouponForm({...couponForm, code: e.target.value})} />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs text-muted-foreground font-semibold">Discount Value</label>
-                  <input required type="number" className="w-full bg-surface border border-border-subtle p-2 text-sm outline-none" value={couponForm.discount} onChange={e => setCouponForm({...couponForm, discount: Number(e.target.value)})} />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs text-muted-foreground font-semibold">Coupon Type</label>
-                  <select className="w-full bg-surface border border-border-subtle p-2 text-sm outline-none text-foreground" value={couponForm.type} onChange={e => setCouponForm({...couponForm, type: e.target.value as any})}>
-                    <option value="percentage">Percentage (%)</option>
-                    <option value="fixed">Fixed Amount (₹)</option>
-                    <option value="wallet">Wallet Cashback</option>
-                  </select>
-                </div>
-                
-                <div className="space-y-2">
-                  <label className="text-xs text-muted-foreground font-semibold">User Eligibility Limit</label>
-                  <select className="w-full bg-surface border border-border-subtle p-2 text-sm outline-none text-foreground" value={couponForm.userLimitType} onChange={e => setCouponForm({...couponForm, userLimitType: e.target.value})}>
-                    <option value="unlimited">Unlimited Users</option>
-                    <option value="limited">Limited Users</option>
-                  </select>
-                </div>
-                {couponForm.userLimitType === "limited" && (
-                  <div className="space-y-2 animate-in fade-in duration-200">
-                    <label className="text-xs text-muted-foreground font-semibold">Max User Count</label>
-                    <input required type="number" min="1" className="w-full bg-surface border border-border-subtle p-2 text-sm outline-none" value={couponForm.usageLimit} onChange={e => setCouponForm({...couponForm, usageLimit: Number(e.target.value)})} />
-                  </div>
-                )}
+          {/* Sub-tab 1: Store Promotional Coupons */}
+          {couponsSubTab === "store-coupons" && (
+            <div className="space-y-6 animate-in fade-in duration-200">
+              <div className="flex justify-between items-center">
+                <h3 className="font-serif text-xl font-bold">Active Store Coupons</h3>
+                <button
+                  onClick={() => setIsAddingCoupon(!isAddingCoupon)}
+                  className="editorial-label bg-accent text-white px-5 py-2.5 hover:bg-accent/90 flex items-center gap-2 rounded-full cursor-pointer shadow-md"
+                >
+                  <Plus className="w-4 h-4" /> Add Coupon
+                </button>
+              </div>
 
-                <div className="space-y-2">
-                  <label className="text-xs text-muted-foreground font-semibold">Coupon Expiry Duration</label>
-                  <select className="w-full bg-surface border border-border-subtle p-2 text-sm outline-none text-foreground" value={couponForm.expiryType} onChange={e => setCouponForm({...couponForm, expiryType: e.target.value})}>
-                    <option value="unlimited">Unlimited Time (No Expiry)</option>
-                    <option value="limited">Limited Time (Expires)</option>
-                  </select>
-                </div>
-                {couponForm.expiryType === "limited" && (
-                  <div className="space-y-2 animate-in fade-in duration-200">
-                    <label className="text-xs text-muted-foreground font-semibold">Expiry Date</label>
-                    <input required type="date" className="w-full bg-surface border border-border-subtle p-2 text-sm outline-none text-foreground" value={couponForm.expiryDate} onChange={e => setCouponForm({...couponForm, expiryDate: e.target.value})} />
-                  </div>
-                )}
+              {isAddingCoupon && (
+                <AdminCard className="space-y-6 animate-in slide-in-from-top-4 duration-200">
+                  <h4 className="font-serif text-lg font-bold">Create Coupon Code</h4>
+                  <form onSubmit={handleCouponSubmit} className="grid md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-xs text-muted-foreground font-semibold">Coupon Code</label>
+                      <input required className="w-full bg-surface border border-border-subtle p-2.5 text-sm outline-none font-mono focus:border-accent text-foreground rounded-xl" placeholder="DIWALI30" value={couponForm.code} onChange={e => setCouponForm({...couponForm, code: e.target.value})} />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs text-muted-foreground font-semibold">Discount Value</label>
+                      <input required type="number" className="w-full bg-surface border border-border-subtle p-2.5 text-sm outline-none font-mono focus:border-accent text-foreground rounded-xl" value={couponForm.discount} onChange={e => setCouponForm({...couponForm, discount: Number(e.target.value)})} />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs text-muted-foreground font-semibold">Coupon Type</label>
+                      <select className="w-full bg-surface border border-border-subtle p-2.5 text-sm outline-none text-foreground focus:border-accent rounded-xl" value={couponForm.type} onChange={e => setCouponForm({...couponForm, type: e.target.value as any})}>
+                        <option value="percentage">Percentage (%)</option>
+                        <option value="fixed">Fixed Amount (₹)</option>
+                        <option value="wallet">Wallet Cashback</option>
+                      </select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <label className="text-xs text-muted-foreground font-semibold">User Eligibility Limit</label>
+                      <select className="w-full bg-surface border border-border-subtle p-2.5 text-sm outline-none text-foreground focus:border-accent rounded-xl" value={couponForm.userLimitType} onChange={e => setCouponForm({...couponForm, userLimitType: e.target.value})}>
+                        <option value="unlimited">Unlimited Users</option>
+                        <option value="limited">Limited Users</option>
+                      </select>
+                    </div>
+                    {couponForm.userLimitType === "limited" && (
+                      <div className="space-y-2 animate-in fade-in duration-200">
+                        <label className="text-xs text-muted-foreground font-semibold">Max User Count</label>
+                        <input required type="number" min="1" className="w-full bg-surface border border-border-subtle p-2.5 text-sm outline-none font-mono focus:border-accent text-foreground rounded-xl" value={couponForm.usageLimit} onChange={e => setCouponForm({...couponForm, usageLimit: Number(e.target.value)})} />
+                      </div>
+                    )}
 
-                <div className="md:col-span-3 flex justify-end gap-3 pt-4 border-t border-border-subtle">
-                  <AdminButton type="button" variant="outline" onClick={() => setIsAddingCoupon(false)}>Cancel</AdminButton>
-                  <button type="submit" className="editorial-label bg-accent text-white px-6 py-2.5 hover:bg-accent/90">Add Coupon</button>
-                </div>
-              </form>
-            </AdminCard>
+                    <div className="space-y-2">
+                      <label className="text-xs text-muted-foreground font-semibold">Coupon Expiry Duration</label>
+                      <select className="w-full bg-surface border border-border-subtle p-2.5 text-sm outline-none text-foreground focus:border-accent rounded-xl" value={couponForm.expiryType} onChange={e => setCouponForm({...couponForm, expiryType: e.target.value})}>
+                        <option value="unlimited">Unlimited Time (No Expiry)</option>
+                        <option value="limited">Limited Time (Expires)</option>
+                      </select>
+                    </div>
+                    {couponForm.expiryType === "limited" && (
+                      <div className="space-y-2 animate-in fade-in duration-200">
+                        <label className="text-xs text-muted-foreground font-semibold">Expiry Date</label>
+                        <input required type="date" className="w-full bg-surface border border-border-subtle p-2.5 text-sm outline-none text-foreground focus:border-accent rounded-xl" value={couponForm.expiryDate} onChange={e => setCouponForm({...couponForm, expiryDate: e.target.value})} />
+                      </div>
+                    )}
+
+                    <div className="md:col-span-3 flex justify-end gap-3 pt-4 border-t border-border-subtle">
+                      <AdminButton type="button" variant="outline" onClick={() => setIsAddingCoupon(false)}>Cancel</AdminButton>
+                      <button type="submit" className="editorial-label bg-accent text-white px-6 py-2.5 hover:bg-accent/90 rounded-full cursor-pointer">Add Coupon</button>
+                    </div>
+                  </form>
+                </AdminCard>
+              )}
+
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {couponsList.map(c => (
+                  <AdminCard key={c.code} className="relative overflow-hidden flex flex-col justify-between min-h-48 p-5">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-accent/5 rounded-full -mr-8 -mt-8" />
+                    <div className="space-y-1">
+                      <div className="font-mono text-xl font-bold tracking-widest text-accent">{c.code}</div>
+                      <div className="text-xs text-muted-foreground uppercase tracking-wider">{c.type} discount</div>
+                    </div>
+                    
+                    <div className="text-xs space-y-1 my-3 text-muted-foreground border-y border-white/5 py-2">
+                      <div>
+                        <span className="font-semibold text-foreground/80">Expiry:</span>{" "}
+                        {c.expiryDate === "unlimited" || !c.expiryDate ? "Unlimited (No Expiry)" : c.expiryDate}
+                      </div>
+                      <div>
+                        <span className="font-semibold text-foreground/80">Claims:</span>{" "}
+                        {c.usageLimit === -1 || !c.usageLimit ? `${c.usedCount || 0} / Unlimited` : `${c.usedCount || 0} / ${c.usageLimit} users`}
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-end pt-2">
+                      <div className="font-serif text-2xl font-bold">{c.type === "percentage" ? `${c.discount}% OFF` : `₹${c.discount.toLocaleString()} OFF`}</div>
+                      <button onClick={() => removeCoupon(c.code)} className="text-xs text-rose-400 hover:text-rose-500 uppercase font-semibold cursor-pointer">Delete</button>
+                    </div>
+                  </AdminCard>
+                ))}
+              </div>
+            </div>
           )}
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {couponsList.map(c => (
-              <AdminCard key={c.code} className="relative overflow-hidden flex flex-col justify-between min-h-48 p-5">
-                <div className="absolute top-0 right-0 w-24 h-24 bg-accent/5 rounded-full -mr-8 -mt-8" />
-                <div className="space-y-1">
-                  <div className="font-mono text-xl font-bold tracking-widest text-accent">{c.code}</div>
-                  <div className="text-xs text-muted-foreground uppercase tracking-wider">{c.type} discount</div>
+          {/* Sub-tab 2: Wallet+ Gift Cards Manager */}
+          {couponsSubTab === "wallet-gift-cards" && (
+            <div className="space-y-6 animate-in fade-in duration-200">
+              <div className="flex flex-wrap justify-between items-center gap-4">
+                <div>
+                  <h3 className="font-serif text-xl font-bold">Wallet+ Gift Cards Manager</h3>
+                  <p className="text-xs text-muted-foreground">Create and manage digital wallet gift cards for customer redemption</p>
                 </div>
-                
-                <div className="text-xs space-y-1 my-3 text-muted-foreground border-y border-white/5 py-2">
-                  <div>
-                    <span className="font-semibold text-foreground/80">Expiry:</span>{" "}
-                    {c.expiryDate === "unlimited" || !c.expiryDate ? "Unlimited (No Expiry)" : c.expiryDate}
-                  </div>
-                  <div>
-                    <span className="font-semibold text-foreground/80">Claims:</span>{" "}
-                    {c.usageLimit === -1 || !c.usageLimit ? `${c.usedCount || 0} / Unlimited` : `${c.usedCount || 0} / ${c.usageLimit} users`}
-                  </div>
-                </div>
+                <button
+                  onClick={() => {
+                    setEditingGiftCard(null);
+                    setGiftCardForm({
+                      code: "",
+                      amount: 500,
+                      usageType: "unlimited",
+                      usageLimit: 100,
+                      validityType: "unlimited",
+                      expiryDate: "2026-12-31",
+                      status: "Active"
+                    });
+                    setIsAddingGiftCard(!isAddingGiftCard);
+                  }}
+                  className="editorial-label bg-accent text-white px-5 py-2.5 hover:bg-accent/90 flex items-center gap-2 rounded-full cursor-pointer shadow-md"
+                >
+                  <Plus className="w-4 h-4" /> Create Wallet Gift Card
+                </button>
+              </div>
 
-                <div className="flex justify-between items-end pt-2">
-                  <div className="font-serif text-2xl font-bold">{c.type === "percentage" ? `${c.discount}% OFF` : `₹${c.discount.toLocaleString()} OFF`}</div>
-                  <button onClick={() => removeCoupon(c.code)} className="text-xs text-rose-400 hover:text-rose-500 uppercase font-semibold">Delete</button>
+              {/* Gift Card Create / Edit Form */}
+              {isAddingGiftCard && (
+                <AdminCard className="space-y-6 animate-in slide-in-from-top-4 duration-200">
+                  <div className="flex justify-between items-center border-b border-white/10 pb-3">
+                    <h4 className="font-serif text-lg font-bold">{editingGiftCard ? "Edit Wallet Gift Card" : "Create Wallet Gift Card"}</h4>
+                    <button onClick={() => setIsAddingGiftCard(false)} className="text-muted-foreground hover:text-foreground cursor-pointer">
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleGiftCardSubmit} className="grid md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-xs text-muted-foreground font-semibold">Gift Card Code</label>
+                      <input
+                        required
+                        type="text"
+                        placeholder="e.g. GIFT20, WELCOME500, BONUS100"
+                        className="w-full bg-surface border border-border-subtle p-2.5 text-sm outline-none font-mono uppercase focus:border-accent text-foreground rounded-xl"
+                        value={giftCardForm.code}
+                        onChange={e => setGiftCardForm({ ...giftCardForm, code: e.target.value.toUpperCase() })}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs text-muted-foreground font-semibold">Wallet Credit Amount (₹)</label>
+                      <input
+                        required
+                        type="number"
+                        min="1"
+                        placeholder="e.g. 500"
+                        className="w-full bg-surface border border-border-subtle p-2.5 text-sm outline-none font-mono focus:border-accent text-foreground rounded-xl"
+                        value={giftCardForm.amount}
+                        onChange={e => setGiftCardForm({ ...giftCardForm, amount: Number(e.target.value) })}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs text-muted-foreground font-semibold">Status</label>
+                      <select
+                        className="w-full bg-surface border border-border-subtle p-2.5 text-sm outline-none text-foreground focus:border-accent rounded-xl"
+                        value={giftCardForm.status}
+                        onChange={e => setGiftCardForm({ ...giftCardForm, status: e.target.value as any })}
+                      >
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs text-muted-foreground font-semibold">Usage Limit Type</label>
+                      <select
+                        className="w-full bg-surface border border-border-subtle p-2.5 text-sm outline-none text-foreground focus:border-accent rounded-xl"
+                        value={giftCardForm.usageType}
+                        onChange={e => setGiftCardForm({ ...giftCardForm, usageType: e.target.value as any })}
+                      >
+                        <option value="unlimited">Unlimited Uses</option>
+                        <option value="custom">Custom Usage Limit</option>
+                      </select>
+                    </div>
+
+                    {giftCardForm.usageType === "custom" && (
+                      <div className="space-y-2 animate-in fade-in duration-200">
+                        <label className="text-xs text-muted-foreground font-semibold">Maximum Redemptions</label>
+                        <input
+                          required
+                          type="number"
+                          min="1"
+                          placeholder="e.g. 100 users"
+                          className="w-full bg-surface border border-border-subtle p-2.5 text-sm outline-none font-mono focus:border-accent text-foreground rounded-xl"
+                          value={giftCardForm.usageLimit}
+                          onChange={e => setGiftCardForm({ ...giftCardForm, usageLimit: Number(e.target.value) })}
+                        />
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      <label className="text-xs text-muted-foreground font-semibold">Validity Period</label>
+                      <select
+                        className="w-full bg-surface border border-border-subtle p-2.5 text-sm outline-none text-foreground focus:border-accent rounded-xl"
+                        value={giftCardForm.validityType}
+                        onChange={e => setGiftCardForm({ ...giftCardForm, validityType: e.target.value as any })}
+                      >
+                        <option value="unlimited">Unlimited Validity (No Expiry)</option>
+                        <option value="custom">Custom Expiration Date</option>
+                      </select>
+                    </div>
+
+                    {giftCardForm.validityType === "custom" && (
+                      <div className="space-y-2 animate-in fade-in duration-200">
+                        <label className="text-xs text-muted-foreground font-semibold">Expiration Date</label>
+                        <input
+                          required
+                          type="date"
+                          className="w-full bg-surface border border-border-subtle p-2.5 text-sm outline-none text-foreground focus:border-accent rounded-xl"
+                          value={giftCardForm.expiryDate}
+                          onChange={e => setGiftCardForm({ ...giftCardForm, expiryDate: e.target.value })}
+                        />
+                      </div>
+                    )}
+
+                    <div className="md:col-span-3 flex justify-end gap-3 pt-4 border-t border-border-subtle">
+                      <AdminButton type="button" variant="outline" onClick={() => setIsAddingGiftCard(false)}>Cancel</AdminButton>
+                      <button type="submit" className="editorial-label bg-accent text-white px-6 py-2.5 hover:bg-accent/90 rounded-full cursor-pointer">
+                        {editingGiftCard ? "Update Gift Card" : "Create Gift Card"}
+                      </button>
+                    </div>
+                  </form>
+                </AdminCard>
+              )}
+
+              {/* Gift Cards Table */}
+              <AdminCard className="p-0 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-white/5 border-b border-border-subtle text-[10px] uppercase tracking-wider text-muted-foreground">
+                      <tr>
+                        <th className="p-4">Gift Card Code</th>
+                        <th className="p-4">Credit Amount</th>
+                        <th className="p-4">Status</th>
+                        <th className="p-4">Usage Type</th>
+                        <th className="p-4">Redemptions</th>
+                        <th className="p-4">Validity / Expiration</th>
+                        <th className="p-4">Created Date</th>
+                        <th className="p-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border-subtle">
+                      {(state.walletGiftCards || []).map((card) => {
+                        const today = new Date().toISOString().split("T")[0];
+                        const isExpired = card.validityType === "custom" && card.expiryDate && card.expiryDate < today;
+                        const isFullyRedeemed = card.usageType === "custom" && card.usageLimit !== undefined && card.usedCount >= card.usageLimit;
+                        const displayStatus = isExpired ? "Expired" : isFullyRedeemed ? "Fully Redeemed" : card.status;
+
+                        return (
+                          <tr key={card.id} className="hover:bg-white/5 transition-colors">
+                            <td className="p-4 font-mono font-bold text-accent text-sm">{card.code}</td>
+                            <td className="p-4 font-mono font-bold text-foreground">₹{card.amount.toLocaleString()}</td>
+                            <td className="p-4">
+                              <StatusChip
+                                status={displayStatus}
+                                tone={displayStatus === "Active" ? "success" : displayStatus === "Expired" ? "warn" : displayStatus === "Fully Redeemed" ? "danger" : "neutral"}
+                              />
+                            </td>
+                            <td className="p-4 capitalize">{card.usageType}</td>
+                            <td className="p-4 font-mono">
+                              {card.usageType === "custom" ? `${card.usedCount} / ${card.usageLimit}` : `${card.usedCount} / Unlimited`}
+                            </td>
+                            <td className="p-4">
+                              {card.validityType === "custom" ? card.expiryDate || "Specified" : "Unlimited"}
+                            </td>
+                            <td className="p-4 font-mono text-muted-foreground">{card.createdAt}</td>
+                            <td className="p-4 text-right">
+                              <div className="flex justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleWalletGiftCardStatus(card.id)}
+                                  className={`text-[10px] uppercase font-bold px-2.5 py-1 rounded-full border cursor-pointer ${
+                                    card.status === "Active"
+                                      ? "border-amber-500/30 text-amber-500 hover:bg-amber-500/10"
+                                      : "border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10"
+                                  }`}
+                                >
+                                  {card.status === "Active" ? "Deactivate" : "Activate"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingGiftCard(card);
+                                    setGiftCardForm({
+                                      code: card.code,
+                                      amount: card.amount,
+                                      usageType: card.usageType,
+                                      usageLimit: card.usageLimit || 100,
+                                      validityType: card.validityType,
+                                      expiryDate: card.expiryDate || "2026-12-31",
+                                      status: card.status === "Expired" || card.status === "Fully Redeemed" ? "Active" : card.status
+                                    });
+                                    setIsAddingGiftCard(true);
+                                  }}
+                                  className="text-[10px] uppercase font-bold px-2.5 py-1 rounded-full border border-accent/30 text-accent hover:bg-accent/10 cursor-pointer"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    triggerModal("danger", "Delete Wallet Gift Card", `Are you sure you want to delete gift card "${card.code}"? This action cannot be undone.`, () => {
+                                      deleteWalletGiftCard(card.id);
+                                      toast.success(`Gift card ${card.code} deleted.`);
+                                    });
+                                  }}
+                                  className="text-[10px] uppercase font-bold px-2.5 py-1 rounded-full border border-rose-500/30 text-rose-500 hover:bg-rose-500/10 cursor-pointer"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               </AdminCard>
-            ))}
-          </div>
+            </div>
+          )}
         </div>
       )}
 

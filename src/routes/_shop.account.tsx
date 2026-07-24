@@ -123,7 +123,7 @@ export const Route = createFileRoute("/_shop/account")({
 });
 
 function ShopDashboard() {
-  const { state, updateUser, addAddress, removeAddress, updateAddress, setMajorAddress, toggleShopWishlist, createOrder, addToShopCart, requestReturn, markNotificationsRead, addReview, signOut } = usePortal();
+  const { state, updateUser, addAddress, removeAddress, updateAddress, setMajorAddress, toggleShopWishlist, createOrder, addToShopCart, requestReturn, markNotificationsRead, addReview, signOut, redeemWalletGiftCard } = usePortal();
   const { triggerPopup } = useShopNotification();
   const { shopCount, shopTotal } = useCartTotal();
   const { tab } = Route.useSearch();
@@ -395,30 +395,15 @@ function ShopDashboard() {
       return;
     }
 
-    const giftCardValues: Record<string, number> = {
-      GIFT500: 500,
-      MAISON1000: 1000,
-      WELCOME2000: 2000,
-      OFFER500: 500,
-      GOLD5000: 5000,
-      REEVIBES100: 100,
-    };
-
-    const amountToAdd = giftCardValues[code] || (code.length >= 6 ? 500 : 0);
-
-    if (amountToAdd <= 0) {
-      toast.error("Invalid or expired gift card code.");
-      return;
-    }
-
     setIsRedeeming(true);
-    const currentBalance = state.wallets[user.id] ?? 0;
-    const newBalance = currentBalance + amountToAdd;
+    const res = redeemWalletGiftCard(user.id, code);
 
-    state.wallets[user.id] = newBalance;
-
-    toast.success(`🎉 Gift card redeemed! ₹${amountToAdd.toLocaleString()} added to your wallet balance.`);
-    setGiftCardInput("");
+    if (res.success) {
+      toast.success(res.message);
+      setGiftCardInput("");
+    } else {
+      toast.error(res.message);
+    }
     setIsRedeeming(false);
   };
 
@@ -1931,7 +1916,7 @@ function ShopDashboard() {
                         type="text"
                         value={giftCardInput}
                         onChange={(e) => setGiftCardInput(e.target.value.toUpperCase())}
-                        placeholder="e.g. GIFT500, MAISON1000, WELCOME2000"
+                        placeholder="Enter gift card code (e.g. WELCOME500)"
                         className="flex-1 bg-white dark:bg-black/50 border border-black/15 dark:border-white/15 px-4 py-2.5 text-xs outline-none focus:border-accent rounded-full text-foreground font-mono tracking-wider uppercase"
                       />
                       <button
@@ -1943,9 +1928,6 @@ function ShopDashboard() {
                         {isRedeeming ? "Redeeming..." : "Redeem"}
                       </button>
                     </div>
-                    <p className="text-[10px] text-muted-foreground">
-                      Try test vouchers: <code className="text-accent font-mono font-bold">GIFT500</code>, <code className="text-accent font-mono font-bold">MAISON1000</code>, <code className="text-accent font-mono font-bold">WELCOME2000</code>, <code className="text-accent font-mono font-bold">GOLD5000</code>
-                    </p>
                   </div>
                 </div>
               </div>

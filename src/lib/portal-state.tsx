@@ -113,6 +113,20 @@ export type ShopCoupon = {
   usedCount?: number;
 };
 
+export type WalletGiftCard = {
+  id: string;
+  code: string;
+  amount: number;
+  usageType: "unlimited" | "custom";
+  usageLimit?: number;
+  usedCount: number;
+  validityType: "unlimited" | "custom";
+  expiryDate?: string;
+  status: "Active" | "Inactive" | "Expired" | "Fully Redeemed";
+  createdAt: string;
+  redeemedUsers?: string[];
+};
+
 export type PortalState = {
   buckets: Bucket[];
   user: PortalUser | null;
@@ -165,6 +179,7 @@ export type PortalState = {
     transactionDate?: string;
   }>>;
   coupons: ShopCoupon[];
+  walletGiftCards: WalletGiftCard[];
   products: Product[];
   returns: ReturnRequest[];
   wallets: Record<string, number>; // userId -> balance (INR)
@@ -209,6 +224,44 @@ const DEFAULT_WALLETS: Record<string, number> = {
   "USR-1000": 25000,
   "usr-1000": 25000
 };
+
+const DEFAULT_WALLET_GIFT_CARDS: WalletGiftCard[] = [
+  {
+    id: "wgc-wel500",
+    code: "WELCOME500",
+    amount: 500,
+    usageType: "unlimited",
+    usedCount: 0,
+    validityType: "unlimited",
+    status: "Active",
+    createdAt: "2026-07-20",
+    redeemedUsers: []
+  },
+  {
+    id: "wgc-mai1000",
+    code: "MAISON1000",
+    amount: 1000,
+    usageType: "custom",
+    usageLimit: 100,
+    usedCount: 12,
+    validityType: "custom",
+    expiryDate: "2026-12-31",
+    status: "Active",
+    createdAt: "2026-07-21",
+    redeemedUsers: []
+  },
+  {
+    id: "wgc-gift20",
+    code: "GIFT20",
+    amount: 20,
+    usageType: "unlimited",
+    usedCount: 5,
+    validityType: "unlimited",
+    status: "Active",
+    createdAt: "2026-07-22",
+    redeemedUsers: []
+  }
+];
 
 const DEFAULT_HOMEPAGE_LAYOUT = {
   sectionOrder: [
@@ -476,6 +529,7 @@ const DEFAULT: PortalState = {
     }
   ],
   wallets: DEFAULT_WALLETS,
+  walletGiftCards: DEFAULT_WALLET_GIFT_CARDS,
   vendors: DEFAULT_VENDORS,
   productReviews: DEFAULT_REVIEWS,
   adminMode: "Contest",
@@ -580,6 +634,11 @@ type Ctx = {
   schedulePickup: (userId: string, orderId: string, pickupDate: string) => Promise<any>;
   addCoupon: (coupon: { code: string; discount: number; type?: "fixed" | "percentage" | "wallet"; expiryDate?: string; usageLimit?: number; userEligibility?: string }) => void;
   removeCoupon: (code: string) => void;
+  addWalletGiftCard: (giftCard: Omit<WalletGiftCard, "id" | "usedCount" | "createdAt" | "status"> & { status?: WalletGiftCard["status"] }) => void;
+  updateWalletGiftCard: (id: string, patch: Partial<WalletGiftCard>) => void;
+  toggleWalletGiftCardStatus: (id: string) => void;
+  deleteWalletGiftCard: (id: string) => void;
+  redeemWalletGiftCard: (userId: string, code: string) => { success: boolean; message: string; amount?: number };
 
   // Shopping Platform Actions
   setAdminMode: (mode: "Contest" | "Shop") => void;
@@ -1878,6 +1937,122 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         ]
       };
     }),
+    addWalletGiftCard: (gc) => setState(s => {
+      const newGc: WalletGiftCard = {
+        id: `wgc-${Date.now()}`,
+        code: gc.code.trim().toUpperCase(),
+        amount: Number(gc.amount),
+        usageType: gc.usageType,
+        usageLimit: gc.usageLimit,
+        usedCount: 0,
+        validityType: gc.validityType,
+        expiryDate: gc.expiryDate,
+        status: gc.status || "Active",
+        createdAt: new Date().toISOString().split("T")[0],
+        redeemedUsers: []
+      };
+      return {
+        ...s,
+        walletGiftCards: [newGc, ...(s.walletGiftCards || [])]
+      };
+    }),
+    updateWalletGiftCard: (id, patch) => setState(s => ({
+      ...s,
+      walletGiftCards: (s.walletGiftCards || []).map(g => g.id === id ? { ...g, ...patch } : g)
+    })),
+    toggleWalletGiftCardStatus: (id) => setState(s => ({
+      ...s,
+      walletGiftCards: (s.walletGiftCards || []).map(g => {
+        if (g.id !== id) return g;
+        const nextStatus = g.status === "Active" ? "Inactive" : "Active";
+        return { ...g, status: nextStatus };
+      })
+    })),
+    deleteWalletGiftCard: (id) => setState(s => ({
+      ...s,
+      walletGiftCards: (s.walletGiftCards || []).filter(g => g.id !== id)
+    })),
+    redeemWalletGiftCard: (userId, inputCode) => {
+      const code = inputCode.trim().toUpperCase();
+      const currentCards = state.walletGiftCards || DEFAULT_WALLET_GIFT_CARDS;
+      const targetCard = currentCards.find(g => g.code.toUpperCase() === code);
+
+      if (!targetCard) {
+        return { success: false, message: "Invalid gift card code." };
+      }
+
+      // Check Expiration Date
+      const today = new Date().toISOString().split("T")[0];
+      if (targetCard.validityType === "custom" && targetCard.expiryDate && targetCard.expiryDate < today) {
+        setState(s => ({
+          ...s,
+          walletGiftCards: (s.walletGiftCards || []).map(g => g.id === targetCard.id ? { ...g, status: "Expired" } : g)
+        }));
+        return { success: false, message: "Gift card has expired." };
+      }
+
+      if (targetCard.status === "Inactive") {
+        return { success: false, message: "Gift card is inactive." };
+      }
+
+      if (targetCard.status === "Expired") {
+        return { success: false, message: "Gift card has expired." };
+      }
+
+      if (targetCard.status === "Fully Redeemed") {
+        return { success: false, message: "Gift card usage limit has been reached." };
+      }
+
+      // Check Usage Limit
+      if (targetCard.usageType === "custom" && (targetCard.usageLimit !== undefined) && targetCard.usedCount >= targetCard.usageLimit) {
+        setState(s => ({
+          ...s,
+          walletGiftCards: (s.walletGiftCards || []).map(g => g.id === targetCard.id ? { ...g, status: "Fully Redeemed" } : g)
+        }));
+        return { success: false, message: "Gift card usage limit has been reached." };
+      }
+
+      // Check if User already redeemed
+      if (targetCard.redeemedUsers?.includes(userId)) {
+        return { success: false, message: "You have already redeemed this gift card code." };
+      }
+
+      // Successful redemption
+      const nextUsedCount = targetCard.usedCount + 1;
+      const isNowFullyRedeemed = targetCard.usageType === "custom" && targetCard.usageLimit !== undefined && nextUsedCount >= targetCard.usageLimit;
+      const nextStatus = isNowFullyRedeemed ? "Fully Redeemed" : targetCard.status;
+      const nextRedeemedUsers = [...(targetCard.redeemedUsers || []), userId];
+      const currentWalletBal = state.wallets[userId] ?? 0;
+      const newWalletBal = currentWalletBal + targetCard.amount;
+
+      setState(s => ({
+        ...s,
+        wallets: { ...s.wallets, [userId]: newWalletBal },
+        walletGiftCards: (s.walletGiftCards || []).map(g => g.id === targetCard.id ? {
+          ...g,
+          usedCount: nextUsedCount,
+          status: nextStatus,
+          redeemedUsers: nextRedeemedUsers
+        } : g),
+        notifications: [
+          {
+            id: `n-${Date.now()}`,
+            icon: "wallet",
+            title: "Gift Card Redeemed",
+            body: `₹${targetCard.amount.toLocaleString()} added to your wallet via gift card ${targetCard.code}.`,
+            time: "now",
+            unread: true
+          },
+          ...s.notifications
+        ]
+      }));
+
+      return {
+        success: true,
+        message: `🎉 Gift card redeemed! ₹${targetCard.amount.toLocaleString()} added to your wallet balance.`,
+        amount: targetCard.amount
+      };
+    },
     moderateReview: (productId, reviewId, action) => {
       const nextStatus = action === "approve" ? "Approved" : "Hidden";
       setState(s => {
