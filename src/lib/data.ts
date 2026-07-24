@@ -209,6 +209,7 @@ export type PlatformUser = {
   registeredAt: string;
   roles: Role[];
   status: "Active" | "Invited" | "Suspended";
+  emailVerified?: boolean;
 };
 
 const FIRST = ["Anaïs","Sofia","Amara","Yuna","Camila","Zara","Isabela","Naomi","Aaliyah","Lucia","Mei","Olivia","Inés","Chiamaka","Lara","Valentina","Élise","Kenji","Adaeze","Marco","Léa","Hiro","Ada","Carlos","Sara"];

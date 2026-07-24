@@ -5,7 +5,7 @@ import { FadeUp } from "@/components/motion/Reveal";
 import { PRODUCTS } from "@/lib/data";
 import { useState, useEffect } from "react";
 import { z } from "zod";
-import { MapPin, Tag, Heart, ShoppingBag, ListOrdered, User, Save, Trash2, Plus, Check, RotateCcw, Wallet as WalletIcon, Settings as SettingsIcon, ShieldCheck, Star, X, ArrowLeft, AlertTriangle, LogOut, Search } from "lucide-react";
+import { MapPin, Tag, Heart, ShoppingBag, ListOrdered, User, Save, Trash2, Plus, Check, RotateCcw, Wallet as WalletIcon, Settings as SettingsIcon, ShieldCheck, Star, X, ArrowLeft, AlertTriangle, LogOut, Search, ChevronDown, CheckCircle2, RefreshCw, KeyRound, Lock } from "lucide-react";
 import { StatusChip } from "@/components/layout/AdminLayout";
 import { toast } from "sonner";
 import { Map, MapMarker, MarkerContent } from "@/components/ui/map";
@@ -52,6 +52,62 @@ const INDIAN_STATES = [
   "Ladakh",
   "Lakshadweep",
   "Puducherry"
+];
+
+const WORLD_COUNTRIES = [
+  "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda", "Argentina", "Armenia", "Australia", "Austria",
+  "Azerbaijan", "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus", "Belgium", "Belize", "Benin", "Bhutan",
+  "Bolivia", "Bosnia and Herzegovina", "Botswana", "Brazil", "Brunei", "Bulgaria", "Burkina Faso", "Burundi", "Cambodia", "Cameroon",
+  "Canada", "Cape Verde", "Central African Republic", "Chad", "Chile", "China", "Colombia", "Comoros", "Congo", "Costa Rica",
+  "Croatia", "Cuba", "Cyprus", "Czech Republic", "Denmark", "Djibouti", "Dominica", "Dominican Republic", "Ecuador", "Egypt",
+  "El Salvador", "Equatorial Guinea", "Eritrea", "Estonia", "Eswatini", "Ethiopia", "Fiji", "Finland", "France", "Gabon",
+  "Gambia", "Georgia", "Germany", "Ghana", "Greece", "Grenada", "Guatemala", "Guinea", "Guinea-Bissau", "Guyana",
+  "Haiti", "Honduras", "Hungary", "Iceland", "India", "Indonesia", "Iran", "Iraq", "Ireland", "Israel",
+  "Italy", "Ivory Coast", "Jamaica", "Japan", "Jordan", "Kazakhstan", "Kenya", "Kiribati", "Kuwait", "Kyrgyzstan",
+  "Laos", "Latvia", "Lebanon", "Lesotho", "Liberia", "Libya", "Liechtenstein", "Lithuania", "Luxembourg", "Madagascar",
+  "Malawi", "Malaysia", "Maldives", "Mali", "Malta", "Marshall Islands", "Mauritania", "Mauritius", "Mexico", "Micronesia",
+  "Moldova", "Monaco", "Mongolia", "Montenegro", "Morocco", "Mozambique", "Myanmar", "Namibia", "Nauru", "Nepal",
+  "Netherlands", "New Zealand", "Nicaragua", "Niger", "Nigeria", "North Korea", "North Macedonia", "Norway", "Oman", "Pakistan",
+  "Palau", "Palestine", "Panama", "Papua New Guinea", "Paraguay", "Peru", "Philippines", "Poland", "Portugal", "Qatar",
+  "Romania", "Russia", "Rwanda", "Saint Kitts and Nevis", "Saint Lucia", "Saint Vincent and the Grenadines", "Samoa", "San Marino", "Sao Tome and Principe", "Saudi Arabia",
+  "Senegal", "Serbia", "Seychelles", "Sierra Leone", "Singapore", "Slovakia", "Slovenia", "Solomon Islands", "Somalia", "South Africa",
+  "South Korea", "South Sudan", "Spain", "Sri Lanka", "Sudan", "Suriname", "Sweden", "Switzerland", "Syria", "Taiwan",
+  "Tajikistan", "Tanzania", "Thailand", "Timor-Leste", "Togo", "Tonga", "Trinidad and Tobago", "Tunisia", "Turkey", "Turkmenistan",
+  "Tuvalu", "Uganda", "Ukraine", "United Arab Emirates", "United Kingdom", "United States", "Uruguay", "Uzbekistan", "Vanuatu", "Vatican City",
+  "Venezuela", "Vietnam", "Yemen", "Zambia", "Zimbabwe"
+];
+
+const COUNTRY_CODES = [
+  { country: "India", code: "+91", flag: "🇮🇳" },
+  { country: "United States", code: "+1", flag: "🇺🇸" },
+  { country: "United Kingdom", code: "+44", flag: "🇬🇧" },
+  { country: "Canada", code: "+1", flag: "🇨🇦" },
+  { country: "Australia", code: "+61", flag: "🇦🇺" },
+  { country: "United Arab Emirates", code: "+971", flag: "🇦🇪" },
+  { country: "Singapore", code: "+65", flag: "🇸🇬" },
+  { country: "Germany", code: "+49", flag: "🇩🇪" },
+  { country: "France", code: "+33", flag: "🇫🇷" },
+  { country: "Italy", code: "+39", flag: "🇮🇹" },
+  { country: "Japan", code: "+81", flag: "🇯🇵" },
+  { country: "China", code: "+86", flag: "🇨🇳" },
+  { country: "Saudi Arabia", code: "+966", flag: "🇸🇦" },
+  { country: "Brazil", code: "+55", flag: "🇧🇷" },
+  { country: "South Korea", code: "+82", flag: "🇰🇷" },
+  { country: "Spain", code: "+34", flag: "🇪🇸" },
+  { country: "Netherlands", code: "+31", flag: "🇳🇱" },
+  { country: "Switzerland", code: "+41", flag: "🇨🇭" },
+  { country: "Sweden", code: "+46", flag: "🇸🇪" },
+  { country: "Mexico", code: "+52", flag: "🇲🇽" },
+  { country: "Russia", code: "+7", flag: "🇷🇺" },
+  { country: "Turkey", code: "+90", flag: "🇹🇷" },
+  { country: "Indonesia", code: "+62", flag: "🇮🇩" },
+  { country: "Malaysia", code: "+60", flag: "🇲🇾" },
+  { country: "Thailand", code: "+66", flag: "🇹🇭" },
+  { country: "Vietnam", code: "+84", flag: "🇻🇳" },
+  { country: "Philippines", code: "+63", flag: "🇵🇭" },
+  { country: "South Africa", code: "+27", flag: "🇿🇦" },
+  { country: "Nigeria", code: "+234", flag: "🇳🇬" },
+  { country: "Kenya", code: "+254", flag: "🇰🇪" },
 ];
 
 export const Route = createFileRoute("/_shop/account")({
@@ -189,6 +245,27 @@ function ShopDashboard() {
     country: user?.country || "",
   });
 
+  // Country & Dialing Code States
+  const [phoneCountryCode, setPhoneCountryCode] = useState("+91");
+  const [phoneNumberOnly, setPhoneNumberOnly] = useState("");
+  const [showCodeDropdown, setShowCodeDropdown] = useState(false);
+  const [codeSearch, setCodeSearch] = useState("");
+
+  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
+  const [countrySearch, setCountrySearch] = useState("");
+
+  // Change Email Feature States
+  const [showChangeEmailModal, setShowChangeEmailModal] = useState(false);
+  const [newEmailInput, setNewEmailInput] = useState("");
+  const [emailChangeStep, setEmailChangeStep] = useState<1 | 2>(1);
+  const [emailOtpInput, setEmailOtpInput] = useState("");
+  const [generatedOtp, setGeneratedOtp] = useState("");
+  const [emailChangeError, setEmailChangeError] = useState("");
+
+  // Delete Account Feature States
+  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+
   useEffect(() => {
     if (user) {
       setProfileForm({
@@ -200,8 +277,94 @@ function ShopDashboard() {
         dob: user.dob || "",
         country: user.country || "",
       });
+
+      // Parse existing phone for dialing code
+      const rawPhone = (user.phone || "").trim();
+      const matchedCode = COUNTRY_CODES.find(c => rawPhone.startsWith(c.code));
+      if (matchedCode) {
+        setPhoneCountryCode(matchedCode.code);
+        setPhoneNumberOnly(rawPhone.slice(matchedCode.code.length).trim());
+      } else {
+        setPhoneCountryCode("+91");
+        setPhoneNumberOnly(rawPhone);
+      }
     }
   }, [user]);
+
+  // Filtered lists
+  const filteredCountries = WORLD_COUNTRIES.filter(c =>
+    c.toLowerCase().includes(countrySearch.trim().toLowerCase())
+  );
+
+  const filteredCountryCodes = COUNTRY_CODES.filter(c =>
+    c.country.toLowerCase().includes(codeSearch.trim().toLowerCase()) ||
+    c.code.toLowerCase().includes(codeSearch.trim().toLowerCase())
+  );
+
+  // Email Change Logic
+  const handleInitiateEmailChange = () => {
+    setEmailChangeError("");
+    const trimmed = newEmailInput.trim().toLowerCase();
+    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setEmailChangeError("Please enter a valid email address.");
+      return;
+    }
+
+    if (user && trimmed === user.email.toLowerCase()) {
+      setEmailChangeError("New email must be different from your current email.");
+      return;
+    }
+
+    // Validate that email is not already registered by another account
+    const existing = state.users.find(u => u.email.toLowerCase() === trimmed && u.id !== user?.id);
+    if (existing) {
+      setEmailChangeError("This email address is already registered to another account.");
+      return;
+    }
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    setGeneratedOtp(otp);
+    setEmailChangeStep(2);
+    toast.success(`Verification OTP sent to ${trimmed}! (OTP: ${otp})`, { duration: 10000 });
+  };
+
+  const handleVerifyEmailOtp = () => {
+    if (!user) return;
+    setEmailChangeError("");
+    if (emailOtpInput.trim() !== generatedOtp) {
+      setEmailChangeError("Invalid OTP code. Please check and try again.");
+      return;
+    }
+
+    const newEmail = newEmailInput.trim();
+    // Update account with new verified email address
+    updateUser(user.id, {
+      email: newEmail,
+      emailVerified: true,
+    } as any);
+
+    setProfileForm(prev => ({ ...prev, email: newEmail }));
+    setShowChangeEmailModal(false);
+    setNewEmailInput("");
+    setEmailOtpInput("");
+    setEmailChangeStep(1);
+    toast.success("Email address updated and verified successfully! Your account and history have been preserved.");
+  };
+
+  // Delete Account Logic
+  const handleDeleteAccountConfirm = () => {
+    if (!user) return;
+    if (deleteConfirmText.trim() !== "DELETE") {
+      toast.error("Please type DELETE exactly to confirm.");
+      return;
+    }
+
+    deleteUser(user.id);
+    setShowDeleteAccountModal(false);
+    toast.success("Your account and all associated data have been permanently deleted.");
+    navigate({ to: "/" });
+  };
 
   // Saved Addresses State
   const [addrName, setAddrName] = useState("");
@@ -599,26 +762,53 @@ function ShopDashboard() {
                 <div className="grid sm:grid-cols-2 gap-6">
                   <div className="liquid-glass border border-white/10 p-6 rounded-3xl space-y-4">
                     <h4 className="font-serif text-lg text-accent">Personal Dossier</h4>
-                    <div className="space-y-2 text-xs leading-normal">
-                      <div className="flex justify-between border-b border-white/5 pb-1"><span className="text-muted-foreground">Name:</span> <span className="font-medium text-foreground">{user.firstName}</span></div>
-                      <div className="flex justify-between border-b border-white/5 pb-1"><span className="text-muted-foreground">Email:</span> <span className="font-mono text-foreground">{user.email}</span></div>
-                      <div className="flex justify-between border-b border-white/5 pb-1"><span className="text-muted-foreground">Phone:</span> <span className="text-foreground">{user.phone || "—"}</span></div>
+                    <div className="space-y-3 text-xs leading-normal">
+                      <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                        <span className="text-muted-foreground font-medium">Name:</span>
+                        <span className="font-semibold text-foreground">{user.firstName} {user.lastName || ""}</span>
+                      </div>
+                      <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                        <span className="text-muted-foreground font-medium">Email:</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-foreground font-medium">{user.email}</span>
+                          <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[9px] font-bold uppercase tracking-wider" title="Email verified via OTP">
+                            <ShieldCheck className="w-3 h-3" />
+                            <span>Verified</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                        <span className="text-muted-foreground font-medium">Phone:</span>
+                        <span className="text-foreground font-medium">{user.phone || "—"}</span>
+                      </div>
                     </div>
                   </div>
 
                   <div className="liquid-glass border border-white/10 p-6 rounded-3xl space-y-4">
                     <h4 className="font-serif text-lg text-accent">Maison Details</h4>
-                    <div className="space-y-2 text-xs leading-normal">
-                      <div className="flex justify-between border-b border-white/5 pb-1"><span className="text-muted-foreground">Gender:</span> <span className="text-foreground">{user.gender || "—"}</span></div>
-                      <div className="flex justify-between border-b border-white/5 pb-1"><span className="text-muted-foreground">DOB:</span> <span className="font-mono text-foreground">{user.dob || "—"}</span></div>
-                      <div className="flex justify-between border-b border-white/5 pb-1"><span className="text-muted-foreground">Country:</span> <span className="text-foreground">{user.country || "—"}</span></div>
+                    <div className="space-y-3 text-xs leading-normal">
+                      <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                        <span className="text-muted-foreground font-medium">Gender:</span>
+                        <span className="text-foreground font-medium">{user.gender || "—"}</span>
+                      </div>
+                      <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                        <span className="text-muted-foreground font-medium">DOB:</span>
+                        <span className="font-mono text-foreground font-medium">{user.dob || "—"}</span>
+                      </div>
+                      <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                        <span className="text-muted-foreground font-medium">Country:</span>
+                        <span className="text-foreground font-medium">{user.country || "—"}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
               ) : (
-                <div className="liquid-glass border border-white/15 p-8 rounded-3xl space-y-6">
+                <div className="liquid-glass border border-white/15 p-6 sm:p-8 rounded-3xl space-y-6">
                   <div className="flex justify-between items-center border-b border-white/10 pb-4">
-                    <h2 className="font-serif text-2xl">Edit Curation Profile</h2>
+                    <div>
+                      <h2 className="font-serif text-2xl font-bold">Edit Curation Profile</h2>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">Update your personal account dossier & communication preferences</p>
+                    </div>
                     <button
                       type="button"
                       onClick={() => setIsEditing(false)}
@@ -627,98 +817,386 @@ function ShopDashboard() {
                       Cancel
                     </button>
                   </div>
-                  <form onSubmit={handleUpdateProfile} className="space-y-4">
-                    <label className="block">
-                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Name</span>
+                  <form onSubmit={handleUpdateProfile} className="space-y-5">
+                    {/* Name */}
+                    <label className="block space-y-1.5">
+                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Name</span>
                       <input
                         type="text"
                         value={profileForm.firstName}
                         onChange={e => setProfileForm({ ...profileForm, firstName: e.target.value })}
-                        className="w-full bg-white/5 border border-white/10 px-4 py-2 text-xs outline-none focus:border-accent rounded-full text-foreground mt-2"
+                        className="w-full bg-white/5 border border-white/10 focus:border-accent px-4 py-2.5 text-xs outline-none rounded-full text-foreground"
                         required
                       />
                     </label>
-                    <label className="block">
-                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Email Address</span>
-                      <input
-                        type="email"
-                        value={profileForm.email}
-                        onChange={e => setProfileForm({ ...profileForm, email: e.target.value })}
-                        className="w-full bg-white/5 border border-white/10 px-4 py-2 text-xs outline-none focus:border-accent rounded-full text-foreground mt-2"
-                        required
-                      />
-                    </label>
-                    <label className="block">
-                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Phone Number</span>
-                      <input
-                        type="text"
-                        value={profileForm.phone}
-                        onChange={e => setProfileForm({ ...profileForm, phone: e.target.value })}
-                        className="w-full bg-white/5 border border-white/10 px-4 py-2 text-xs outline-none focus:border-accent rounded-full text-foreground mt-2"
-                      />
-                    </label>
-                    <div className="grid grid-cols-2 gap-4">
-                      <label className="block">
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Gender</span>
-                        <select
-                          value={profileForm.gender}
-                          onChange={e => setProfileForm({ ...profileForm, gender: e.target.value })}
-                          className="w-full bg-white/5 border border-white/10 px-4 py-2 text-xs outline-none focus:border-accent rounded-full text-foreground mt-2"
+
+                    {/* Email with Verified Badge & Change Email Button */}
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Email Address</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNewEmailInput("");
+                            setEmailChangeError("");
+                            setEmailChangeStep(1);
+                            setShowChangeEmailModal(true);
+                          }}
+                          className="text-[10px] uppercase tracking-wider text-accent hover:underline font-bold cursor-pointer flex items-center gap-1"
                         >
-                          <option className="bg-zinc-950" value="" disabled>— Select Gender —</option>
-                          <option className="bg-zinc-950" value="Female">Female</option>
-                          <option className="bg-zinc-950" value="Male">Male</option>
-                          <option className="bg-zinc-950" value="Other">Other</option>
-                        </select>
-                      </label>
-                      <label className="block">
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Date of Birth</span>
+                          <RefreshCw className="w-3 h-3" /> Change Email
+                        </button>
+                      </div>
+                      <div className="relative flex items-center">
+                        <input
+                          type="email"
+                          value={profileForm.email}
+                          readOnly
+                          className="w-full bg-white/5 border border-white/10 px-4 py-2.5 text-xs outline-none rounded-full text-foreground/80 cursor-not-allowed pr-28 font-mono"
+                        />
+                        <div className="absolute right-3 flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[9px] font-bold uppercase tracking-wider">
+                          <ShieldCheck className="w-3.5 h-3.5" />
+                          <span>Verified</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Phone Number with Country Code Dropdown */}
+                    <div className="space-y-1.5">
+                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold block">Phone Number</span>
+                      <div className="flex gap-2 relative">
+                        {/* Country Code Selector */}
+                        <div className="relative shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setShowCodeDropdown(!showCodeDropdown)}
+                            className="bg-white/5 border border-white/10 px-3.5 py-2.5 text-xs outline-none focus:border-accent rounded-full text-foreground flex items-center gap-1.5 cursor-pointer hover:border-white/20 transition-all font-mono font-medium"
+                          >
+                            <span>{COUNTRY_CODES.find(c => c.code === phoneCountryCode)?.flag || "🌐"}</span>
+                            <span>{phoneCountryCode}</span>
+                            <ChevronDown className="w-3 h-3 text-muted-foreground ml-0.5" />
+                          </button>
+
+                          {showCodeDropdown && (
+                            <div className="absolute left-0 top-full mt-2 z-50 w-64 bg-zinc-950/95 border border-white/20 rounded-2xl shadow-2xl backdrop-blur-xl p-2.5 space-y-2 animate-in fade-in duration-150">
+                              <div className="relative">
+                                <Search className="w-3 h-3 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                <input
+                                  type="text"
+                                  value={codeSearch}
+                                  onChange={(e) => setCodeSearch(e.target.value)}
+                                  placeholder="Search code or country..."
+                                  className="w-full bg-white/5 border border-white/10 pl-7 pr-2.5 py-1 text-[11px] rounded-xl outline-none focus:border-accent text-foreground"
+                                  autoFocus
+                                />
+                              </div>
+                              <div className="max-h-48 overflow-y-auto space-y-0.5 pr-1 scrollbar-thin">
+                                {filteredCountryCodes.length === 0 ? (
+                                  <div className="text-[10px] text-muted-foreground p-2 text-center">No match found</div>
+                                ) : (
+                                  filteredCountryCodes.map((item) => (
+                                    <button
+                                      key={item.country + item.code}
+                                      type="button"
+                                      onClick={() => {
+                                        setPhoneCountryCode(item.code);
+                                        setShowCodeDropdown(false);
+                                        setCodeSearch("");
+                                      }}
+                                      className={`w-full text-left px-2.5 py-1.5 text-xs rounded-xl transition-colors flex justify-between items-center ${
+                                        phoneCountryCode === item.code ? "bg-accent/20 text-accent font-semibold" : "hover:bg-white/10 text-foreground"
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        <span className="text-sm">{item.flag}</span>
+                                        <span className="truncate text-[11px]">{item.country}</span>
+                                      </div>
+                                      <span className="font-mono text-[10px] font-bold text-muted-foreground shrink-0 ml-2">{item.code}</span>
+                                    </button>
+                                  ))
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Number input */}
+                        <input
+                          type="tel"
+                          value={phoneNumberOnly}
+                          onChange={e => setPhoneNumberOnly(e.target.value.replace(/[^\d\s-]/g, ""))}
+                          placeholder="9876543210"
+                          className="flex-1 min-w-0 bg-white/5 border border-white/10 focus:border-accent px-4 py-2.5 text-xs outline-none rounded-full text-foreground font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      {/* Gender Selector: Male / Female Radio buttons */}
+                      <div className="space-y-1.5">
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold block">Gender</span>
+                        <div className="flex gap-3 items-center pt-0.5">
+                          {[
+                            { value: "Male", label: "Male" },
+                            { value: "Female", label: "Female" },
+                          ].map((option) => {
+                            const isSelected = profileForm.gender === option.value;
+                            return (
+                              <button
+                                key={option.value}
+                                type="button"
+                                onClick={() => {
+                                  if (isSelected) {
+                                    setProfileForm({ ...profileForm, gender: "" });
+                                  } else {
+                                    setProfileForm({ ...profileForm, gender: option.value });
+                                  }
+                                }}
+                                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-full text-xs font-semibold tracking-wider transition-all cursor-pointer border ${
+                                  isSelected
+                                    ? "bg-accent/20 border-accent text-accent shadow-[0_0_12px_rgba(212,175,55,0.3)]"
+                                    : "bg-white/5 border-white/10 text-muted-foreground hover:text-foreground hover:border-white/20"
+                                }`}
+                              >
+                                <span className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center transition-colors ${
+                                  isSelected ? "border-accent bg-accent" : "border-muted-foreground/60"
+                                }`}>
+                                  {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-obsidian" />}
+                                </span>
+                                <span>{option.label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Date of Birth */}
+                      <label className="block space-y-1.5">
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Date of Birth</span>
                         <input
                           type="date"
                           value={profileForm.dob}
                           onChange={e => setProfileForm({ ...profileForm, dob: e.target.value })}
-                          className="w-full bg-white/5 border border-white/10 px-4 py-2 text-xs outline-none focus:border-accent rounded-full text-foreground mt-2"
+                          className="w-full bg-white/5 border border-white/10 focus:border-accent px-4 py-2 text-xs outline-none rounded-full text-foreground"
                         />
                       </label>
                     </div>
-                    <label className="block">
-                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Country</span>
-                      <input
-                        type="text"
-                        value={profileForm.country}
-                        onChange={e => setProfileForm({ ...profileForm, country: e.target.value })}
-                        className="w-full bg-white/5 border border-white/10 px-4 py-2 text-xs outline-none focus:border-accent rounded-full text-foreground mt-2"
-                      />
-                    </label>
+
+                    {/* Country Searchable Dropdown */}
+                    <div className="space-y-1.5 relative">
+                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold block">Country</span>
+                      <button
+                        type="button"
+                        onClick={() => setShowCountryDropdown(!showCountryDropdown)}
+                        className="w-full bg-white/5 border border-white/10 px-4 py-2.5 text-xs outline-none focus:border-accent rounded-full text-foreground flex justify-between items-center cursor-pointer hover:border-white/20 transition-all text-left"
+                      >
+                        <span className={profileForm.country ? "text-foreground font-medium" : "text-muted-foreground"}>
+                          {profileForm.country || "— Select Country —"}
+                        </span>
+                        <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+                      </button>
+
+                      {showCountryDropdown && (
+                        <div className="absolute left-0 right-0 top-full mt-2 z-50 bg-zinc-950/95 border border-white/20 rounded-2xl shadow-2xl backdrop-blur-xl p-2.5 space-y-2 animate-in fade-in duration-150">
+                          <div className="relative">
+                            <Search className="w-3 h-3 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                            <input
+                              type="text"
+                              value={countrySearch}
+                              onChange={(e) => setCountrySearch(e.target.value)}
+                              placeholder="Search country..."
+                              className="w-full bg-white/5 border border-white/10 pl-8 pr-3 py-1.5 text-xs rounded-xl outline-none focus:border-accent text-foreground"
+                              autoFocus
+                            />
+                          </div>
+                          <div className="max-h-48 overflow-y-auto space-y-0.5 pr-1 scrollbar-thin">
+                            {filteredCountries.length === 0 ? (
+                              <div className="text-[11px] text-muted-foreground p-2 text-center">No countries match "{countrySearch}"</div>
+                            ) : (
+                              filteredCountries.map((c) => (
+                                <button
+                                  key={c}
+                                  type="button"
+                                  onClick={() => {
+                                    setProfileForm({ ...profileForm, country: c });
+                                    setShowCountryDropdown(false);
+                                    setCountrySearch("");
+                                  }}
+                                  className={`w-full text-left px-3 py-2 text-xs rounded-xl transition-colors flex justify-between items-center ${
+                                    profileForm.country === c ? "bg-accent/20 text-accent font-semibold" : "hover:bg-white/10 text-foreground"
+                                  }`}
+                                >
+                                  <span>{c}</span>
+                                  {profileForm.country === c && <Check className="w-3.5 h-3.5 text-accent" />}
+                                </button>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
                     <button
                       type="submit"
-                      className="bg-accent hover:bg-accent/90 text-white rounded-full px-6 py-3 w-full text-xs font-bold uppercase tracking-widest transition-transform hover:scale-105 active:scale-95 shadow-md mt-4 cursor-pointer"
+                      className="bg-accent hover:bg-accent/90 text-white rounded-full px-6 py-3 w-full text-xs font-bold uppercase tracking-widest transition-transform hover:scale-[1.01] active:scale-[0.99] shadow-md mt-4 cursor-pointer"
                     >
                       Save Profile Details
                     </button>
                   </form>
                 </div>
               )}
-              {/* Logout Section */}
-              <div className="liquid-glass border border-rose-500/15 p-6 rounded-3xl">
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <div className="flex items-center gap-3 text-center sm:text-left">
-                    <div className="w-10 h-10 rounded-full bg-rose-500/10 border border-rose-500/20 flex items-center justify-center shrink-0">
-                      <LogOut className="w-4.5 h-4.5 text-rose-400" />
+
+              {/* Logout & Delete Account Section */}
+              <div className="space-y-4">
+                {/* Logout Card */}
+                <div className="liquid-glass border border-rose-500/15 p-6 rounded-3xl">
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 text-center sm:text-left">
+                      <div className="w-10 h-10 rounded-full bg-rose-500/10 border border-rose-500/20 flex items-center justify-center shrink-0">
+                        <LogOut className="w-4.5 h-4.5 text-rose-400" />
+                      </div>
+                      <div>
+                        <h4 className="font-serif text-base font-bold">Sign Out</h4>
+                        <p className="text-[11px] text-muted-foreground">Log out of your account session on this device.</p>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="font-serif text-base">Sign Out</h4>
-                      <p className="text-[11px] text-muted-foreground">Log out of your account on this device.</p>
-                    </div>
+                    <button
+                      onClick={() => setShowLogoutConfirm(true)}
+                      className="text-xs uppercase font-bold tracking-widest px-6 py-2.5 rounded-full border border-rose-500/30 text-rose-400 hover:bg-rose-500 hover:text-white transition-all cursor-pointer shrink-0"
+                    >
+                      Logout
+                    </button>
                   </div>
-                  <button
-                    onClick={() => setShowLogoutConfirm(true)}
-                    className="text-xs uppercase font-bold tracking-widest px-6 py-2.5 rounded-full border border-rose-500/30 text-rose-400 hover:bg-rose-500 hover:text-white transition-all cursor-pointer"
-                  >
-                    Logout
-                  </button>
+                </div>
+
+                {/* Delete Account Option (Positioned below Logout) */}
+                <div className="liquid-glass border border-rose-600/30 bg-rose-950/10 p-6 rounded-3xl">
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 text-center sm:text-left">
+                      <div className="w-10 h-10 rounded-full bg-rose-600/20 border border-rose-500/40 flex items-center justify-center shrink-0 text-rose-400">
+                        <AlertTriangle className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="font-serif text-base font-bold text-rose-400">Delete Account</h4>
+                        <p className="text-[11px] text-muted-foreground">Permanently delete your profile, order history, addresses & data.</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setDeleteConfirmText("");
+                        setShowDeleteAccountModal(true);
+                      }}
+                      className="text-xs uppercase font-bold tracking-widest px-6 py-2.5 rounded-full bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/40 transition-all cursor-pointer shrink-0 shadow-md"
+                    >
+                      Delete Account
+                    </button>
+                  </div>
                 </div>
               </div>
+
+              {/* Change Email Modal */}
+              {showChangeEmailModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
+                  <div className="liquid-glass bg-background/95 border border-accent/30 max-w-md w-full p-6 sm:p-8 space-y-6 shadow-2xl animate-in zoom-in-95 duration-200 rounded-3xl relative text-foreground">
+                    <button
+                      onClick={() => {
+                        setShowChangeEmailModal(false);
+                        setEmailChangeStep(1);
+                        setNewEmailInput("");
+                        setEmailOtpInput("");
+                        setEmailChangeError("");
+                      }}
+                      className="absolute top-4 right-4 text-muted-foreground hover:text-foreground p-2 rounded-full transition-colors"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+
+                    <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+                      <div className="w-10 h-10 rounded-full bg-accent/15 border border-accent/30 flex items-center justify-center shrink-0 text-accent">
+                        <RefreshCw className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="font-serif text-xl font-bold">Change Email Address</h3>
+                        <p className="text-[11px] text-muted-foreground">Secure Email Update & Verification</p>
+                      </div>
+                    </div>
+
+                    {emailChangeError && (
+                      <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-rose-400 text-xs flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 shrink-0" />
+                        <span>{emailChangeError}</span>
+                      </div>
+                    )}
+
+                    {emailChangeStep === 1 ? (
+                      <div className="space-y-4">
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          Enter your new email address. A 6-digit verification code (OTP) will be sent to verify ownership.
+                        </p>
+                        <label className="block space-y-1.5">
+                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">New Email Address</span>
+                          <input
+                            type="email"
+                            value={newEmailInput}
+                            onChange={(e) => setNewEmailInput(e.target.value)}
+                            placeholder="enter.new.email@example.com"
+                            className="w-full bg-white/5 border border-white/10 focus:border-accent px-4 py-3 text-xs outline-none rounded-xl text-foreground font-mono"
+                          />
+                        </label>
+                        <div className="flex gap-3 justify-end pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setShowChangeEmailModal(false)}
+                            className="text-xs uppercase font-bold tracking-wider px-5 py-2.5 rounded-full border border-white/10 text-muted-foreground hover:text-foreground hover:border-white/20 transition-all cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleInitiateEmailChange}
+                            className="bg-accent hover:bg-accent/90 text-white text-xs font-bold uppercase tracking-wider px-6 py-2.5 rounded-full transition-all shadow-md cursor-pointer"
+                          >
+                            Verify Email
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-emerald-400 text-xs leading-relaxed">
+                          An OTP code was sent to <strong className="font-mono text-white">{newEmailInput}</strong>. Enter the 6-digit code below to verify your new email address.
+                        </div>
+                        <label className="block space-y-1.5">
+                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">6-Digit Verification Code (OTP)</span>
+                          <input
+                            type="text"
+                            maxLength={6}
+                            value={emailOtpInput}
+                            onChange={(e) => setEmailOtpInput(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                            placeholder="123456"
+                            className="w-full bg-white/5 border border-white/10 focus:border-accent px-4 py-3 text-center text-lg font-mono tracking-[0.5em] outline-none rounded-xl text-foreground"
+                          />
+                        </label>
+                        <div className="flex gap-3 justify-end pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setEmailChangeStep(1)}
+                            className="text-xs uppercase font-bold tracking-wider px-5 py-2.5 rounded-full border border-white/10 text-muted-foreground hover:text-foreground hover:border-white/20 transition-all cursor-pointer"
+                          >
+                            Back
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleVerifyEmailOtp}
+                            className="bg-accent hover:bg-accent/90 text-white text-xs font-bold uppercase tracking-wider px-6 py-2.5 rounded-full transition-all shadow-md cursor-pointer"
+                          >
+                            Confirm & Verify
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Logout Confirmation Modal */}
               {showLogoutConfirm && (
@@ -729,7 +1207,7 @@ function ShopDashboard() {
                         <LogOut className="w-5 h-5 text-rose-400" />
                       </div>
                       <div>
-                        <h3 className="font-serif text-lg">Confirm Logout</h3>
+                        <h3 className="font-serif text-lg font-bold">Confirm Logout</h3>
                         <p className="text-[11px] text-muted-foreground">You will be signed out of your account.</p>
                       </div>
                     </div>
@@ -754,6 +1232,88 @@ function ShopDashboard() {
                       >
                         Yes, Logout
                       </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Delete Account Confirmation Modal */}
+              {showDeleteAccountModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
+                  <div className="liquid-glass bg-background/95 border border-rose-500/30 max-w-md w-full p-6 sm:p-8 space-y-6 shadow-2xl animate-in zoom-in-95 duration-200 rounded-3xl relative text-foreground">
+                    <button
+                      onClick={() => {
+                        setShowDeleteAccountModal(false);
+                        setDeleteConfirmText("");
+                      }}
+                      className="absolute top-4 right-4 text-muted-foreground hover:text-foreground p-2 rounded-full transition-colors"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+
+                    <div className="flex items-center gap-3 border-b border-rose-500/20 pb-4">
+                      <div className="w-11 h-11 rounded-full bg-rose-500/15 border border-rose-500/30 flex items-center justify-center shrink-0 text-rose-500">
+                        <AlertTriangle className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h3 className="font-serif text-xl font-bold text-rose-500">Delete Your Account</h3>
+                        <p className="text-[11px] text-muted-foreground">Permanent Account Removal</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4 text-xs leading-relaxed text-muted-foreground">
+                      <p className="font-semibold text-foreground">
+                        You are about to permanently delete your ReeVibes account.
+                      </p>
+                      <p className="text-rose-400 font-bold uppercase tracking-wider text-[11px]">
+                        This action cannot be undone.
+                      </p>
+                      <p>Deleting your account will permanently remove:</p>
+                      <ul className="list-disc pl-5 space-y-1 text-foreground/90 font-medium">
+                        <li>Your profile information</li>
+                        <li>Wishlist</li>
+                        <li>Shopping cart</li>
+                        <li>Order history</li>
+                        <li>Saved addresses</li>
+                        <li>Account preferences</li>
+                        <li>Any other personal data associated with your account</li>
+                      </ul>
+                      <p className="pt-2 text-foreground font-medium">
+                        If you wish to continue, type <strong className="text-rose-400 font-mono">DELETE</strong> below to confirm.
+                      </p>
+                    </div>
+
+                    <div className="space-y-3">
+                      <input
+                        type="text"
+                        value={deleteConfirmText}
+                        onChange={(e) => setDeleteConfirmText(e.target.value)}
+                        placeholder="Type DELETE to confirm"
+                        className="w-full bg-white/5 border border-rose-500/30 focus:border-rose-500 px-4 py-3 text-xs outline-none rounded-xl text-foreground font-mono tracking-widest uppercase placeholder:text-muted-foreground/50 text-center"
+                      />
+
+                      <div className="flex gap-3 justify-end pt-2">
+                        <button
+                          onClick={() => {
+                            setShowDeleteAccountModal(false);
+                            setDeleteConfirmText("");
+                          }}
+                          className="text-xs uppercase font-bold tracking-wider px-5 py-2.5 rounded-full border border-white/10 text-muted-foreground hover:text-foreground hover:border-white/20 transition-all cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          disabled={deleteConfirmText.trim() !== "DELETE"}
+                          onClick={handleDeleteAccountConfirm}
+                          className={`text-xs uppercase font-bold tracking-wider px-6 py-2.5 rounded-full transition-all shadow-md ${
+                            deleteConfirmText.trim() === "DELETE"
+                              ? "bg-rose-600 hover:bg-rose-700 text-white cursor-pointer shadow-rose-600/30"
+                              : "bg-rose-950/40 text-rose-400/40 border border-rose-900/30 cursor-not-allowed opacity-60"
+                          }`}
+                        >
+                          Delete Account
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>

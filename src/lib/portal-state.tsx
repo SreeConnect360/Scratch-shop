@@ -25,6 +25,7 @@ export type PortalUser = {
   dob?: string;
   avatar?: string;
   gender?: string;
+  emailVerified?: boolean;
   roles: Role[];
 };
 
@@ -1180,6 +1181,8 @@ export function PortalProvider({ children }: { children: ReactNode }) {
             phone: updatedMatch.phone,
             country: updatedMatch.country,
             dob: updatedMatch.dob,
+            gender: updatedMatch.gender,
+            emailVerified: (updatedMatch as any).emailVerified ?? true,
             avatar: updatedMatch.avatar,
             roles: updatedMatch.roles,
           } : s.user,
@@ -1193,7 +1196,32 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       }).catch(err => console.error("Failed to sync customer details update to backend:", err));
     },
     deleteUser: (id) => {
-      setState(s => ({ ...s, users: s.users.filter(u => u.id !== id) }));
+      setState(s => {
+        const nextWishlist = { ...s.shopWishlist };
+        delete nextWishlist[id];
+        const nextOrders = { ...s.orders };
+        delete nextOrders[id];
+        const nextAddresses = { ...s.addresses };
+        delete nextAddresses[id];
+        const nextMajor = { ...s.majorAddresses };
+        delete nextMajor[id];
+        const nextWallets = { ...s.wallets };
+        delete nextWallets[id];
+
+        const isSelf = s.user?.id === id;
+        return {
+          ...s,
+          users: s.users.filter(u => u.id !== id),
+          user: isSelf ? null : s.user,
+          shopCart: isSelf ? [] : s.shopCart,
+          shopWishlist: nextWishlist,
+          orders: nextOrders,
+          addresses: nextAddresses,
+          majorAddresses: nextMajor,
+          wallets: nextWallets,
+        };
+      });
+
       fetch(`${BACKEND_URL}/api/customers/${id}`, {
         method: "DELETE"
       }).catch(err => console.error("Failed to delete customer on backend:", err));
