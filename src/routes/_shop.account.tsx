@@ -5,7 +5,7 @@ import { FadeUp } from "@/components/motion/Reveal";
 import { PRODUCTS } from "@/lib/data";
 import { useState, useEffect } from "react";
 import { z } from "zod";
-import { MapPin, Tag, Heart, ShoppingBag, ListOrdered, User, Save, Trash2, Plus, Check, RotateCcw, Wallet as WalletIcon, Settings as SettingsIcon, ShieldCheck, Star, X, ArrowLeft, AlertTriangle, LogOut, Search, ChevronDown, CheckCircle2, RefreshCw, KeyRound, Lock } from "lucide-react";
+import { MapPin, Tag, Heart, ShoppingBag, ListOrdered, User, Save, Trash2, Plus, Check, RotateCcw, Wallet as WalletIcon, Settings as SettingsIcon, ShieldCheck, Star, X, ArrowLeft, ArrowRight, AlertTriangle, LogOut, Search, ChevronDown, CheckCircle2, RefreshCw, KeyRound, Lock } from "lucide-react";
 import { StatusChip } from "@/components/layout/AdminLayout";
 import { toast } from "sonner";
 import { Map, MapMarker, MarkerContent } from "@/components/ui/map";
@@ -278,6 +278,10 @@ function ShopDashboard() {
   const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
+  // Gift Card / Wallet Redemption States
+  const [giftCardInput, setGiftCardInput] = useState("");
+  const [isRedeeming, setIsRedeeming] = useState(false);
+
   useEffect(() => {
     if (user) {
       setProfileForm({
@@ -376,6 +380,42 @@ function ShopDashboard() {
     setShowDeleteAccountModal(false);
     toast.success("Your account and all associated data have been permanently deleted.");
     navigate({ to: "/" });
+  };
+
+  // Gift Card Redemption Logic
+  const handleRedeemGiftCard = () => {
+    if (!user) return;
+    const code = giftCardInput.trim().toUpperCase();
+    if (!code) {
+      toast.error("Please enter a gift card or voucher code.");
+      return;
+    }
+
+    const giftCardValues: Record<string, number> = {
+      GIFT500: 500,
+      MAISON1000: 1000,
+      WELCOME2000: 2000,
+      OFFER500: 500,
+      GOLD5000: 5000,
+      REEVIBES100: 100,
+    };
+
+    const amountToAdd = giftCardValues[code] || (code.length >= 6 ? 500 : 0);
+
+    if (amountToAdd <= 0) {
+      toast.error("Invalid or expired gift card code.");
+      return;
+    }
+
+    setIsRedeeming(true);
+    const currentBalance = state.wallets[user.id] ?? 0;
+    const newBalance = currentBalance + amountToAdd;
+
+    state.wallets[user.id] = newBalance;
+
+    toast.success(`🎉 Gift card redeemed! ₹${amountToAdd.toLocaleString()} added to your wallet balance.`);
+    setGiftCardInput("");
+    setIsRedeeming(false);
   };
 
   // Saved Addresses State
@@ -704,24 +744,89 @@ function ShopDashboard() {
         </Link>
       </div>
 
+      {/* Mobile User Information Header (Above all navigation options) */}
+      <div className="lg:hidden liquid-glass border border-black/10 dark:border-white/10 bg-white/60 dark:bg-white/5 p-4 rounded-3xl space-y-3 shadow-sm dark:shadow-none text-foreground">
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-full bg-accent/20 border-2 border-accent flex items-center justify-center font-serif text-lg font-bold text-accent shrink-0 uppercase shadow-md">
+            {user.firstName ? user.firstName.charAt(0) : "U"}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[9px] uppercase tracking-[0.2em] text-accent font-bold">Maison Member</p>
+            <h2 className="font-serif text-lg text-foreground font-bold truncate">
+              {user.firstName} {user.lastName || ""}
+            </h2>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="font-mono text-[11px] text-muted-foreground truncate">{user.email}</span>
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400 shrink-0" title="Email Verified via OTP" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile 2x2 Dashboard Navigation Grid */}
+      <div className="lg:hidden grid grid-cols-2 gap-3">
+        {[
+          { id: "profile", label: "Profile", icon: User, subtitle: "Dossier & Settings" },
+          { id: "orders", label: "My Orders", icon: ListOrdered, count: userOrders.length, subtitle: "Track & History" },
+          { id: "addresses", label: "Address", icon: MapPin, count: userAddresses.length, subtitle: "Destinations" },
+          { id: "coupons", label: "Maison Coupons", icon: Tag, count: state.coupons.length, subtitle: "Coupons & Wallet" },
+        ].map((t) => {
+          const isActive = t.id === "profile" ? (activeTab === "profile" || activeTab === "dashboard") : activeTab === t.id;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => {
+                navigate({ to: "/account", search: { tab: t.id as any } });
+              }}
+              className={`flex flex-col justify-between p-4 rounded-2xl transition-all duration-300 cursor-pointer text-left border ${
+                isActive
+                  ? "bg-accent/15 border-accent text-accent shadow-[0_0_15px_rgba(212,175,55,0.25)]"
+                  : "bg-white/60 dark:bg-white/5 border-black/10 dark:border-white/10 text-muted-foreground hover:text-foreground hover:border-black/20 dark:hover:border-white/20 shadow-sm dark:shadow-none"
+              }`}
+            >
+              <div className="flex items-center justify-between w-full">
+                <div className={`p-2.5 rounded-xl border transition-colors ${
+                  isActive ? "bg-accent text-white border-accent" : "bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 text-accent"
+                }`}>
+                  <t.icon className="w-4.5 h-4.5" />
+                </div>
+                {t.count !== undefined && t.count > 0 && (
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                    isActive ? "bg-accent text-white" : "bg-black/10 dark:bg-white/10 text-muted-foreground"
+                  }`}>
+                    {t.count}
+                  </span>
+                )}
+              </div>
+              <div className="mt-3">
+                <h3 className={`text-xs uppercase tracking-wider font-bold ${isActive ? 'text-accent' : 'text-foreground'}`}>
+                  {t.label}
+                </h3>
+                <p className="text-[10px] text-muted-foreground mt-0.5 font-medium">{t.subtitle}</p>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
       <div className="flex flex-col lg:flex-row gap-8 items-stretch">
-        {/* Left Sidebar */}
-        <aside className="w-full lg:w-72 shrink-0">
-          <div className="liquid-glass border border-white/10 rounded-3xl p-3 sm:p-4 lg:p-6 space-y-4 lg:space-y-6 bg-white/5 shadow-lg lg:h-full">
-            <div className="hidden lg:block border-b border-white/10 pb-4">
+        {/* Desktop Left Sidebar (hidden on mobile) */}
+        <aside className="hidden lg:block w-full lg:w-72 shrink-0">
+          <div className="liquid-glass border border-black/10 dark:border-white/10 rounded-3xl p-6 space-y-6 bg-white/60 dark:bg-white/5 shadow-lg lg:h-full text-foreground">
+            <div className="border-b border-black/10 dark:border-white/10 pb-4">
               <p className="text-[9px] uppercase tracking-[0.2em] text-accent font-bold">Maison Member</p>
-              <h2 className="font-serif text-xl text-foreground font-semibold mt-1 truncate">
+              <h2 className="font-serif text-xl text-foreground font-bold mt-1 truncate">
                 {user.firstName}
               </h2>
             </div>
 
-            <nav className="flex lg:flex-col gap-1.5 overflow-x-auto scrollbar-none lg:overflow-visible">
+            <nav className="flex flex-col gap-1.5">
               {[
                 { id: "profile", label: "Profile", icon: User },
                 { id: "orders", label: "My Orders", icon: ListOrdered, count: userOrders.length },
                 { id: "coupons", label: "Maison Coupons", icon: Tag, count: state.coupons.length },
                 { id: "addresses", label: "Address", icon: MapPin, count: userAddresses.length },
-                { id: "wallet", label: "Wallet", icon: WalletIcon },
               ].map((t) => {
                 const isActive = t.id === "profile" ? (activeTab === "profile" || activeTab === "dashboard") : activeTab === t.id;
                 return (
@@ -734,10 +839,10 @@ function ShopDashboard() {
                         navigate({ to: "/account", search: { tab: t.id as any } });
                       }
                     }}
-                    className={`flex items-center justify-between shrink-0 lg:shrink lg:w-full whitespace-nowrap lg:whitespace-normal text-left text-[10px] uppercase tracking-wider font-bold py-3 px-4 lg:py-3.5 lg:px-5 rounded-2xl transition-all duration-300 cursor-pointer border ${
+                    className={`flex items-center justify-between w-full text-left text-[10px] uppercase tracking-wider font-bold py-3.5 px-5 rounded-2xl transition-all duration-300 cursor-pointer border ${
                       isActive 
-                        ? "bg-accent/15 border-accent text-white shadow-[0_0_15px_rgba(212,175,55,0.2)]" 
-                        : "border-transparent hover:bg-white/5 hover:border-white/5 text-muted-foreground hover:text-foreground"
+                        ? "bg-accent/15 border-accent text-accent shadow-[0_0_15px_rgba(212,175,55,0.2)]" 
+                        : "border-transparent hover:bg-black/5 dark:hover:bg-white/5 text-muted-foreground hover:text-foreground"
                     }`}
                   >
                     <div className="flex items-center gap-3">
@@ -745,7 +850,7 @@ function ShopDashboard() {
                       <span>{t.label}</span>
                     </div>
                     {t.count !== undefined && t.count > 0 && (
-                      <span className={`ml-2 text-[9px] px-2 py-0.5 rounded-full font-mono font-bold ${isActive ? 'bg-accent text-white' : 'bg-white/10 text-muted-foreground'}`}>
+                      <span className={`ml-2 text-[9px] px-2 py-0.5 rounded-full font-mono font-bold ${isActive ? 'bg-accent text-white' : 'bg-black/10 dark:bg-white/10 text-muted-foreground'}`}>
                         {t.count}
                       </span>
                     )}
@@ -1675,33 +1780,184 @@ function ShopDashboard() {
             </div>
           )}
 
-          {/* Tab: Coupons */}
-          {activeTab === "coupons" && (
-            <div className="liquid-glass border border-white/15 p-8 rounded-3xl space-y-6 lg:h-full">
-              <h2 className="font-serif text-2xl">Available Maison Coupons</h2>
-              <div className="grid sm:grid-cols-2 gap-4">
-                {state.coupons.map((c) => (
-                  <div key={c.code} className="border border-dashed border-accent/40 bg-accent/5 p-5 flex flex-col justify-between rounded-2xl">
-                    <div>
-                      <div className="font-mono text-lg font-bold tracking-widest text-accent">{c.code}</div>
-                      <div className="text-xs mt-1 font-semibold">{c.discount}% Discount for Curation Carts</div>
-                    </div>
-                    <div className="text-[10px] text-muted-foreground uppercase tracking-widest mt-4">Expiry: {c.expiryDate}</div>
-                  </div>
-                ))}
+          {/* Tab: My Orders (Inline View for Mobile & Tab Navigation) */}
+          {activeTab === "orders" && (
+            <div className="liquid-glass border border-black/15 dark:border-white/15 bg-white/70 dark:bg-black/40 p-6 sm:p-8 rounded-3xl space-y-6 text-foreground backdrop-blur-xl shadow-xl dark:shadow-none">
+              <div className="flex flex-wrap justify-between items-center gap-4 border-b border-black/10 dark:border-white/10 pb-4">
+                <div>
+                  <h2 className="font-serif text-2xl font-bold">My Curation Orders</h2>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Track shipment delivery status, returns, and order history</p>
+                </div>
+                <Link
+                  to="/orders"
+                  className="text-xs uppercase font-bold text-accent hover:underline flex items-center gap-1"
+                >
+                  View Full Orders Portal <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
               </div>
+
+              {userOrders.length === 0 ? (
+                <div className="text-center py-12 space-y-4">
+                  <div className="w-16 h-16 rounded-full bg-accent/15 border border-accent/30 mx-auto flex items-center justify-center text-accent">
+                    <ListOrdered className="w-8 h-8" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="font-serif text-xl font-bold">No Orders Placed Yet</h3>
+                    <p className="text-xs text-muted-foreground">Explore our curated collections and place your first order.</p>
+                  </div>
+                  <Link
+                    to="/"
+                    className="inline-block bg-accent hover:bg-accent/90 text-white font-bold text-xs uppercase tracking-widest px-6 py-3 rounded-full transition-all shadow-md mt-2"
+                  >
+                    Explore Catalog
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {userOrders.map((ord: any) => (
+                    <div key={ord.id} className="liquid-glass border border-black/10 dark:border-white/10 bg-white/60 dark:bg-white/5 p-5 rounded-2xl space-y-4 shadow-sm dark:shadow-none">
+                      <div className="flex flex-wrap justify-between items-center gap-3 border-b border-black/5 dark:border-white/5 pb-3">
+                        <div>
+                          <span className="font-mono text-xs font-bold text-accent">Order #{ord.id}</span>
+                          <span className="text-[10px] text-muted-foreground ml-3 font-mono">{ord.date || ord.createdAt || "Recent"}</span>
+                        </div>
+                        <span className={`text-[10px] uppercase font-bold tracking-wider px-3 py-1 rounded-full border ${
+                          ord.status === "Delivered"
+                            ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+                            : ord.status === "Cancelled"
+                            ? "bg-rose-500/15 border-rose-500/30 text-rose-500"
+                            : "bg-amber-500/15 border-amber-500/30 text-amber-600 dark:text-amber-400"
+                        }`}>
+                          {ord.status || "Processing"}
+                        </span>
+                      </div>
+
+                      {/* Order Items */}
+                      <div className="space-y-3">
+                        {(ord.items || []).map((item: any, idx: number) => (
+                          <div key={idx} className="flex items-center gap-3 text-xs">
+                            {item.image && (
+                              <img src={item.image} alt={item.name} className="w-12 h-12 object-cover rounded-xl border border-black/10 dark:border-white/10 shrink-0" />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-semibold truncate text-foreground">{item.name}</h4>
+                              <p className="text-[11px] text-muted-foreground font-mono">Qty: {item.qty || 1} {item.selectedSize ? `• Size: ${item.selectedSize}` : ''}</p>
+                            </div>
+                            <div className="font-mono font-bold text-foreground shrink-0">
+                              ₹{((item.price || 0) * (item.qty || 1)).toLocaleString()}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="flex justify-between items-center border-t border-black/5 dark:border-white/5 pt-3 text-xs">
+                        <span className="text-muted-foreground font-medium">Total Amount:</span>
+                        <span className="font-mono text-sm font-bold text-accent">₹{(ord.totalAmount || ord.total || 0).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
+          {/* Tab: Maison Coupons (Merged with Wallet) */}
+          {(activeTab === "coupons" || activeTab === "wallet") && (
+            <div className="liquid-glass border border-black/15 dark:border-white/15 bg-white/70 dark:bg-black/40 p-6 sm:p-8 rounded-3xl space-y-8 text-foreground backdrop-blur-xl shadow-xl dark:shadow-none">
+              {/* Wallet Section (Top) */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-black/10 dark:border-white/10 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-full bg-accent/15 border border-accent/30 flex items-center justify-center text-accent">
+                      <WalletIcon className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="font-serif text-xl font-bold">My Maison Luxury Wallet</h3>
+                      <p className="text-[11px] text-muted-foreground">Digital balance for instant checkout & refunds</p>
+                    </div>
+                  </div>
+                </div>
 
+                <div className="bg-gradient-to-br from-accent/25 via-accent/10 to-black/40 dark:to-black/60 border border-accent/30 p-6 rounded-2xl space-y-4 shadow-lg text-foreground">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Available Balance</div>
+                      <div className="font-serif text-3xl sm:text-4xl font-bold text-accent mt-1">
+                        ₹{(state.wallets[user.id] ?? 0).toLocaleString()}
+                      </div>
+                    </div>
+                    <div className="px-3 py-1 rounded-full bg-accent/20 border border-accent/40 text-accent text-[10px] uppercase font-bold tracking-wider">
+                      Active Ledger
+                    </div>
+                  </div>
 
-          {/* Tab: Wallet */}
-          {activeTab === "wallet" && (
-            <div className="liquid-glass border border-white/15 p-8 rounded-3xl space-y-4 lg:h-full">
-              <h2 className="font-serif text-2xl">My Luxury Wallet</h2>
-              <div className="bg-gradient-to-br from-accent/20 to-black/40 border border-accent/20 p-6 rounded-2xl max-w-sm space-y-2">
-                <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Available Credits</div>
-                <div className="font-serif text-3xl font-bold text-accent">₹{(state.wallets[user.id] ?? 0).toLocaleString()}</div>
+                  {/* Add Gift Card Option */}
+                  <div className="pt-3 border-t border-black/10 dark:border-white/10 space-y-2">
+                    <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold block">
+                      Redeem Gift Card / Voucher
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={giftCardInput}
+                        onChange={(e) => setGiftCardInput(e.target.value.toUpperCase())}
+                        placeholder="e.g. GIFT500, MAISON1000, WELCOME2000"
+                        className="flex-1 bg-white dark:bg-black/50 border border-black/15 dark:border-white/15 px-4 py-2.5 text-xs outline-none focus:border-accent rounded-full text-foreground font-mono tracking-wider uppercase"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleRedeemGiftCard}
+                        disabled={isRedeeming}
+                        className="bg-accent hover:bg-accent/90 text-white font-bold text-xs uppercase tracking-wider px-6 py-2.5 rounded-full transition-all shadow-md cursor-pointer shrink-0 disabled:opacity-50"
+                      >
+                        {isRedeeming ? "Redeeming..." : "Redeem"}
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      Try test vouchers: <code className="text-accent font-mono font-bold">GIFT500</code>, <code className="text-accent font-mono font-bold">MAISON1000</code>, <code className="text-accent font-mono font-bold">WELCOME2000</code>, <code className="text-accent font-mono font-bold">GOLD5000</code>
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Coupons Section (Bottom) */}
+              <div className="space-y-4 pt-2">
+                <div className="flex items-center gap-2.5 border-b border-black/10 dark:border-white/10 pb-3">
+                  <div className="w-8 h-8 rounded-full bg-accent/15 border border-accent/30 flex items-center justify-center text-accent">
+                    <Tag className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-serif text-xl font-bold">Available Maison Coupons</h3>
+                    <p className="text-[11px] text-muted-foreground">Exclusive promotional offers for your curation orders</p>
+                  </div>
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-4">
+                  {state.coupons.map((c) => (
+                    <div key={c.code} className="border border-dashed border-accent/40 bg-white/60 dark:bg-white/5 p-5 flex flex-col justify-between rounded-2xl shadow-sm dark:shadow-none space-y-3">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <div className="font-mono text-lg font-bold tracking-widest text-accent">{c.code}</div>
+                          <div className="text-xs font-semibold text-foreground mt-0.5">{c.discount}% Discount on all curation orders</div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(c.code);
+                            toast.success(`Coupon code ${c.code} copied to clipboard!`);
+                          }}
+                          className="text-[10px] uppercase font-bold tracking-wider px-3 py-1 rounded-full border border-accent/30 text-accent hover:bg-accent hover:text-white transition-all cursor-pointer"
+                        >
+                          Copy Code
+                        </button>
+                      </div>
+                      <div className="flex justify-between items-center text-[10px] text-muted-foreground uppercase tracking-wider pt-2 border-t border-black/5 dark:border-white/5">
+                        <span>Status: <strong className="text-emerald-500 font-bold">Active</strong></span>
+                        <span>Expires: {c.expiryDate}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}
