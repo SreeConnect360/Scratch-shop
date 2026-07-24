@@ -61,7 +61,7 @@ function ShopWishlistPage() {
           <h1 className="mt-2 font-serif text-2xl sm:text-3xl md:text-5xl">My Wishlist Curation</h1>
         </div>
         <div className="flex gap-4">
-          <Link to="/account" className="flex items-center gap-2 text-xs uppercase tracking-widest font-bold text-muted-foreground hover:text-white transition-colors">
+          <Link to="/account" search={{ tab: "profile" } as any} className="flex items-center gap-2 text-xs uppercase tracking-widest font-bold text-muted-foreground hover:text-white transition-colors">
             <ArrowLeft className="w-4 h-4" /> Account
           </Link>
           <div className="w-px h-4 bg-white/10" />

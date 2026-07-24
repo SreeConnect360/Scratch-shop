@@ -3,7 +3,7 @@ import { usePortal, useCartTotal } from "@/lib/portal-state";
 import { BACKEND_URL } from "@/lib/config";
 import { FadeUp } from "@/components/motion/Reveal";
 import { PRODUCTS } from "@/lib/data";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { z } from "zod";
 import { MapPin, Tag, Heart, ShoppingBag, ListOrdered, User, Save, Trash2, Plus, Check, RotateCcw, Wallet as WalletIcon, Settings as SettingsIcon, ShieldCheck, Star, X, ArrowLeft, ArrowRight, AlertTriangle, LogOut, Search, ChevronDown, CheckCircle2, RefreshCw, KeyRound, Lock } from "lucide-react";
 import { StatusChip } from "@/components/layout/AdminLayout";
@@ -123,7 +123,7 @@ export const Route = createFileRoute("/_shop/account")({
 });
 
 function ShopDashboard() {
-  const { state, updateUser, addAddress, removeAddress, updateAddress, setMajorAddress, toggleShopWishlist, createOrder, addToShopCart, requestReturn, markNotificationsRead, addReview, signOut, redeemWalletGiftCard } = usePortal();
+  const { state, updateUser, deleteUser, addAddress, removeAddress, updateAddress, setMajorAddress, toggleShopWishlist, createOrder, addToShopCart, requestReturn, markNotificationsRead, addReview, signOut, redeemWalletGiftCard } = usePortal();
   const { triggerPopup } = useShopNotification();
   const { shopCount, shopTotal } = useCartTotal();
   const { tab } = Route.useSearch();
@@ -132,7 +132,7 @@ function ShopDashboard() {
 
   useEffect(() => {
     if (tab === "orders") {
-      navigate({ to: "/orders", replace: true });
+      navigate({ to: "/orders", search: { tab: "history" } as any, replace: true });
     } else if (tab === "wishlist") {
       navigate({ to: "/wishlist", replace: true });
     } else if (tab === "returns") {
@@ -757,7 +757,7 @@ function ShopDashboard() {
             </h2>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className="font-mono text-[11px] text-muted-foreground truncate">{user.email}</span>
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400 shrink-0" title="Email Verified via OTP" />
+              <span title="Email Verified via OTP"><ShieldCheck className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400 shrink-0" /></span>
             </div>
           </div>
         </div>
@@ -834,7 +834,7 @@ function ShopDashboard() {
                     key={t.id}
                     onClick={() => {
                       if (t.id === "orders") {
-                        navigate({ to: "/orders" });
+                        navigate({ to: "/orders", search: { tab: "history" } as any });
                       } else {
                         navigate({ to: "/account", search: { tab: t.id as any } });
                       }
@@ -906,7 +906,7 @@ function ShopDashboard() {
                         <span className="text-muted-foreground font-medium">Email:</span>
                         <div className="flex items-center gap-2">
                           <span className="font-mono text-foreground font-medium">{user.email}</span>
-                          <ShieldCheck className="w-4 h-4 text-emerald-500 dark:text-emerald-400 shrink-0" title="Email verified via OTP" />
+                          <span title="Email verified via OTP"><ShieldCheck className="w-4 h-4 text-emerald-500 dark:text-emerald-400 shrink-0" /></span>
                         </div>
                       </div>
                       <div className="flex justify-between items-center border-b border-black/5 dark:border-white/5 pb-2">
@@ -986,7 +986,7 @@ function ShopDashboard() {
                           readOnly
                           className="w-full bg-black/5 dark:bg-white/5 border border-black/15 dark:border-white/10 px-4 py-2.5 text-xs outline-none rounded-full text-foreground/80 cursor-not-allowed pr-10 font-mono"
                         />
-                        <ShieldCheck className="w-4 h-4 text-emerald-500 dark:text-emerald-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none shrink-0" title="Email verified via OTP" />
+                        <span title="Email verified via OTP" className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none shrink-0 flex items-center"><ShieldCheck className="w-4 h-4 text-emerald-500 dark:text-emerald-400" /></span>
                       </div>
                     </div>
 
@@ -1790,6 +1790,7 @@ function ShopDashboard() {
                 </div>
                 <Link
                   to="/orders"
+                  search={{ tab: "history" } as any}
                   className="text-xs uppercase font-bold text-accent hover:underline flex items-center gap-1"
                 >
                   View Full Orders Portal <ArrowRight className="w-3.5 h-3.5" />
