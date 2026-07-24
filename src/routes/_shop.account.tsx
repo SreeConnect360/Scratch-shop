@@ -77,37 +77,44 @@ const WORLD_COUNTRIES = [
   "Venezuela", "Vietnam", "Yemen", "Zambia", "Zimbabwe"
 ];
 
-const COUNTRY_CODES = [
-  { country: "India", code: "+91", flag: "🇮🇳" },
-  { country: "United States", code: "+1", flag: "🇺🇸" },
-  { country: "United Kingdom", code: "+44", flag: "🇬🇧" },
-  { country: "Canada", code: "+1", flag: "🇨🇦" },
-  { country: "Australia", code: "+61", flag: "🇦🇺" },
-  { country: "United Arab Emirates", code: "+971", flag: "🇦🇪" },
-  { country: "Singapore", code: "+65", flag: "🇸🇬" },
-  { country: "Germany", code: "+49", flag: "🇩🇪" },
-  { country: "France", code: "+33", flag: "🇫🇷" },
-  { country: "Italy", code: "+39", flag: "🇮🇹" },
-  { country: "Japan", code: "+81", flag: "🇯🇵" },
-  { country: "China", code: "+86", flag: "🇨🇳" },
-  { country: "Saudi Arabia", code: "+966", flag: "🇸🇦" },
-  { country: "Brazil", code: "+55", flag: "🇧🇷" },
-  { country: "South Korea", code: "+82", flag: "🇰🇷" },
-  { country: "Spain", code: "+34", flag: "🇪🇸" },
-  { country: "Netherlands", code: "+31", flag: "🇳🇱" },
-  { country: "Switzerland", code: "+41", flag: "🇨🇭" },
-  { country: "Sweden", code: "+46", flag: "🇸🇪" },
-  { country: "Mexico", code: "+52", flag: "🇲🇽" },
-  { country: "Russia", code: "+7", flag: "🇷🇺" },
-  { country: "Turkey", code: "+90", flag: "🇹🇷" },
-  { country: "Indonesia", code: "+62", flag: "🇮🇩" },
-  { country: "Malaysia", code: "+60", flag: "🇲🇾" },
-  { country: "Thailand", code: "+66", flag: "🇹🇭" },
-  { country: "Vietnam", code: "+84", flag: "🇻🇳" },
-  { country: "Philippines", code: "+63", flag: "🇵🇭" },
-  { country: "South Africa", code: "+27", flag: "🇿🇦" },
-  { country: "Nigeria", code: "+234", flag: "🇳🇬" },
-  { country: "Kenya", code: "+254", flag: "🇰🇪" },
+interface CountryCodeItem {
+  country: string;
+  code: string;
+  flag: string;
+  digits: number;
+}
+
+const COUNTRY_CODES: CountryCodeItem[] = [
+  { country: "India", code: "+91", flag: "🇮🇳", digits: 10 },
+  { country: "United States", code: "+1", flag: "🇺🇸", digits: 10 },
+  { country: "United Kingdom", code: "+44", flag: "🇬🇧", digits: 10 },
+  { country: "Canada", code: "+1", flag: "🇨🇦", digits: 10 },
+  { country: "Australia", code: "+61", flag: "🇦🇺", digits: 9 },
+  { country: "United Arab Emirates", code: "+971", flag: "🇦🇪", digits: 9 },
+  { country: "Singapore", code: "+65", flag: "🇸🇬", digits: 8 },
+  { country: "Germany", code: "+49", flag: "🇩🇪", digits: 10 },
+  { country: "France", code: "+33", flag: "🇫🇷", digits: 9 },
+  { country: "Italy", code: "+39", flag: "🇮🇹", digits: 10 },
+  { country: "Japan", code: "+81", flag: "🇯🇵", digits: 10 },
+  { country: "China", code: "+86", flag: "🇨🇳", digits: 11 },
+  { country: "Saudi Arabia", code: "+966", flag: "🇸🇦", digits: 9 },
+  { country: "Brazil", code: "+55", flag: "🇧🇷", digits: 11 },
+  { country: "South Korea", code: "+82", flag: "🇰🇷", digits: 10 },
+  { country: "Spain", code: "+34", flag: "🇪🇸", digits: 9 },
+  { country: "Netherlands", code: "+31", flag: "🇳🇱", digits: 9 },
+  { country: "Switzerland", code: "+41", flag: "🇨🇭", digits: 9 },
+  { country: "Sweden", code: "+46", flag: "🇸🇪", digits: 9 },
+  { country: "Mexico", code: "+52", flag: "🇲🇽", digits: 10 },
+  { country: "Russia", code: "+7", flag: "🇷🇺", digits: 10 },
+  { country: "Turkey", code: "+90", flag: "🇹🇷", digits: 10 },
+  { country: "Indonesia", code: "+62", flag: "🇮🇩", digits: 11 },
+  { country: "Malaysia", code: "+60", flag: "🇲🇾", digits: 9 },
+  { country: "Thailand", code: "+66", flag: "🇹🇭", digits: 9 },
+  { country: "Vietnam", code: "+84", flag: "🇻🇳", digits: 9 },
+  { country: "Philippines", code: "+63", flag: "🇵🇭", digits: 10 },
+  { country: "South Africa", code: "+27", flag: "🇿🇦", digits: 9 },
+  { country: "Nigeria", code: "+234", flag: "🇳🇬", digits: 10 },
+  { country: "Kenya", code: "+254", flag: "🇰🇪", digits: 9 },
 ];
 
 export const Route = createFileRoute("/_shop/account")({
@@ -253,6 +260,11 @@ function ShopDashboard() {
 
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
   const [countrySearch, setCountrySearch] = useState("");
+
+  // Active Phone Country & Digits Target
+  const activePhoneCountry = COUNTRY_CODES.find(c => c.code === phoneCountryCode);
+  const targetPhoneDigits = activePhoneCountry?.digits || 10;
+  const activeCountryName = activePhoneCountry?.country || "Selected Country";
 
   // Change Email Feature States
   const [showChangeEmailModal, setShowChangeEmailModal] = useState(false);
@@ -506,9 +518,25 @@ function ShopDashboard() {
 
   const handleUpdateProfile = (e: React.FormEvent) => {
     e.preventDefault();
-    updateUser(user.id, profileForm as any);
+
+    // Validate phone number length based on selected country code
+    if (phoneNumberOnly.trim()) {
+      if (phoneNumberOnly.trim().length !== targetPhoneDigits) {
+        toast.error(`${activeCountryName} (${phoneCountryCode}) phone number must be exactly ${targetPhoneDigits} digits.`);
+        return;
+      }
+    }
+
+    const fullPhone = phoneNumberOnly.trim() ? `${phoneCountryCode} ${phoneNumberOnly.trim()}` : "";
+    const updatedForm = {
+      ...profileForm,
+      phone: fullPhone,
+    };
+
+    updateUser(user.id, updatedForm as any);
     setShowSaveSuccessPopup(true);
     setIsEditing(false);
+    toast.success("Profile details updated successfully!");
   };
 
   const handleAddAddress = (e: React.FormEvent) => {
@@ -733,30 +761,32 @@ function ShopDashboard() {
           {/* Tab: Profile */}
           {isProfileTab && (
             <div className="space-y-6 animate-in fade-in duration-300">
-              {/* Profile Completeness Ring Card */}
-              <div className="liquid-glass border border-white/10 p-6 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-6">
-                <div className="space-y-2 text-center md:text-left">
-                  <h3 className="font-serif text-xl md:text-2xl">Curation Completeness</h3>
-                  <p className="text-xs text-muted-foreground max-w-md">
-                    Complete your personal styling information to receive curated collections and customized seasonal sizing recommendation updates.
-                  </p>
-                </div>
-                <div className="flex items-center gap-6">
-                  <div className="relative w-20 h-20 flex items-center justify-center">
-                    {/* SVG Progress Circle */}
-                    <svg className="w-full h-full transform -rotate-90">
-                      <circle cx="40" cy="40" r="34" className="stroke-white/10 fill-none" strokeWidth="6" />
-                      <circle cx="40" cy="40" r="34" className="stroke-accent fill-none transition-all duration-1000" strokeWidth="6" strokeDasharray="213.6" strokeDashoffset={213.6 - (213.6 * profileCompletionPercentage) / 100} />
-                    </svg>
-                    <span className="absolute text-sm font-bold">{profileCompletionPercentage}%</span>
+              {/* Profile Completeness Ring Card (Hidden automatically when profile reaches 100%) */}
+              {profileCompletionPercentage < 100 && (
+                <div className="liquid-glass border border-black/10 dark:border-white/10 bg-white/60 dark:bg-white/5 p-6 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm dark:shadow-none">
+                  <div className="space-y-2 text-center md:text-left">
+                    <h3 className="font-serif text-xl md:text-2xl">Curation Completeness</h3>
+                    <p className="text-xs text-muted-foreground max-w-md">
+                      Complete your personal styling information to receive curated collections and customized seasonal sizing recommendation updates.
+                    </p>
                   </div>
-                  {!isEditing && (
-                    <button onClick={() => setIsEditing(true)} className="text-xs uppercase bg-accent text-white px-5 py-2.5 rounded-full font-bold tracking-wider hover:bg-accent/90 transition-all cursor-pointer">
-                      Edit Profile
-                    </button>
-                  )}
+                  <div className="flex items-center gap-6">
+                    <div className="relative w-20 h-20 flex items-center justify-center">
+                      {/* SVG Progress Circle */}
+                      <svg className="w-full h-full transform -rotate-90">
+                        <circle cx="40" cy="40" r="34" className="stroke-white/10 fill-none" strokeWidth="6" />
+                        <circle cx="40" cy="40" r="34" className="stroke-accent fill-none transition-all duration-1000" strokeWidth="6" strokeDasharray="213.6" strokeDashoffset={213.6 - (213.6 * profileCompletionPercentage) / 100} />
+                      </svg>
+                      <span className="absolute text-sm font-bold">{profileCompletionPercentage}%</span>
+                    </div>
+                    {!isEditing && (
+                      <button onClick={() => setIsEditing(true)} className="text-xs uppercase bg-accent text-white px-5 py-2.5 rounded-full font-bold tracking-wider hover:bg-accent/90 transition-all cursor-pointer">
+                        Edit Profile
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {!isEditing ? (
                 <div className="grid sm:grid-cols-2 gap-6">
@@ -771,9 +801,7 @@ function ShopDashboard() {
                         <span className="text-muted-foreground font-medium">Email:</span>
                         <div className="flex items-center gap-2">
                           <span className="font-mono text-foreground font-medium">{user.email}</span>
-                          <div className="flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-500 dark:text-emerald-400" title="Email verified via OTP">
-                            <ShieldCheck className="w-3.5 h-3.5" />
-                          </div>
+                          <ShieldCheck className="w-4 h-4 text-emerald-500 dark:text-emerald-400 shrink-0" title="Email verified via OTP" />
                         </div>
                       </div>
                       <div className="flex justify-between items-center border-b border-black/5 dark:border-white/5 pb-2">
@@ -829,7 +857,7 @@ function ShopDashboard() {
                       />
                     </label>
 
-                    {/* Email with Verified Icon Badge & Change Email Button */}
+                    {/* Email with Verified Icon (Clean, no outline border) & Change Email Button */}
                     <div className="space-y-1.5">
                       <div className="flex justify-between items-center">
                         <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Email Address</span>
@@ -851,15 +879,13 @@ function ShopDashboard() {
                           type="email"
                           value={profileForm.email}
                           readOnly
-                          className="w-full bg-black/5 dark:bg-white/5 border border-black/15 dark:border-white/10 px-4 py-2.5 text-xs outline-none rounded-full text-foreground/80 cursor-not-allowed pr-12 font-mono"
+                          className="w-full bg-black/5 dark:bg-white/5 border border-black/15 dark:border-white/10 px-4 py-2.5 text-xs outline-none rounded-full text-foreground/80 cursor-not-allowed pr-10 font-mono"
                         />
-                        <div className="absolute right-3 flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-500 dark:text-emerald-400" title="Email Verified via OTP">
-                          <ShieldCheck className="w-3.5 h-3.5" />
-                        </div>
+                        <ShieldCheck className="w-4 h-4 text-emerald-500 dark:text-emerald-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none shrink-0" title="Email verified via OTP" />
                       </div>
                     </div>
 
-                    {/* Phone Number with Country Code Dropdown */}
+                    {/* Phone Number with Country Code Dropdown & Strict Digit Length Validation */}
                     <div className="space-y-1.5">
                       <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold block">Phone Number</span>
                       <div className="flex gap-2 relative">
@@ -898,6 +924,7 @@ function ShopDashboard() {
                                       type="button"
                                       onClick={() => {
                                         setPhoneCountryCode(item.code);
+                                        setPhoneNumberOnly(prev => prev.slice(0, item.digits));
                                         setShowCodeDropdown(false);
                                         setCodeSearch("");
                                       }}
@@ -909,7 +936,7 @@ function ShopDashboard() {
                                         <span className="text-sm">{item.flag}</span>
                                         <span className="truncate text-[11px]">{item.country}</span>
                                       </div>
-                                      <span className="font-mono text-[10px] font-bold text-muted-foreground shrink-0 ml-2">{item.code}</span>
+                                      <span className="font-mono text-[10px] font-bold text-muted-foreground shrink-0 ml-2">{item.code} ({item.digits}d)</span>
                                     </button>
                                   ))
                                 )}
@@ -918,15 +945,38 @@ function ShopDashboard() {
                           )}
                         </div>
 
-                        {/* Number input */}
-                        <input
-                          type="tel"
-                          value={phoneNumberOnly}
-                          onChange={e => setPhoneNumberOnly(e.target.value.replace(/[^\d\s-]/g, ""))}
-                          placeholder="9876543210"
-                          className="flex-1 min-w-0 bg-black/5 dark:bg-white/5 border border-black/15 dark:border-white/10 focus:border-accent px-4 py-2.5 text-xs outline-none rounded-full text-foreground font-mono"
-                        />
+                        {/* Number input with digit limitation & numeric restriction */}
+                        <div className="flex-1 min-w-0">
+                          <input
+                            type="tel"
+                            value={phoneNumberOnly}
+                            onChange={e => {
+                              const digitsOnly = e.target.value.replace(/\D/g, "");
+                              setPhoneNumberOnly(digitsOnly.slice(0, targetPhoneDigits));
+                            }}
+                            placeholder={`${targetPhoneDigits} digits (e.g. 9876543210)`}
+                            className={`w-full bg-black/5 dark:bg-white/5 border ${
+                              phoneNumberOnly.length > 0 && phoneNumberOnly.length < targetPhoneDigits
+                                ? "border-rose-500 focus:border-rose-500"
+                                : "border-black/15 dark:border-white/10 focus:border-accent"
+                            } px-4 py-2.5 text-xs outline-none rounded-full text-foreground font-mono`}
+                          />
+                        </div>
                       </div>
+
+                      {/* Live Validation Feedback */}
+                      {phoneNumberOnly.length > 0 && phoneNumberOnly.length < targetPhoneDigits && (
+                        <p className="text-[11px] text-rose-500 font-medium flex items-center gap-1 mt-1 pl-1">
+                          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                          <span>{activeCountryName} ({phoneCountryCode}) phone number must be exactly {targetPhoneDigits} digits ({phoneNumberOnly.length}/{targetPhoneDigits})</span>
+                        </p>
+                      )}
+                      {phoneNumberOnly.length === targetPhoneDigits && (
+                        <p className="text-[11px] text-emerald-500 dark:text-emerald-400 font-medium flex items-center gap-1 mt-1 pl-1">
+                          <Check className="w-3.5 h-3.5 shrink-0" />
+                          <span>Valid {activeCountryName} phone number ({targetPhoneDigits} digits)</span>
+                        </p>
+                      )}
                     </div>
 
                     <div className="grid sm:grid-cols-2 gap-4">
