@@ -148,31 +148,14 @@ function ShopLoginPage() {
       setIsGoogleLoading(false);
       setShowGoogleModal(true);
     },
-    onNonOAuthError: (err) => {
-      console.error("Non-OAuth error, launching modal fallback:", err);
-      setIsGoogleLoading(false);
-      setShowGoogleModal(true);
-    },
   });
 
   const handleGoogleLogin = () => {
     setError(null);
     setIsGoogleLoading(true);
-
-    const timer = setTimeout(() => {
-      setIsGoogleLoading((loading) => {
-        if (loading) {
-          setShowGoogleModal(true);
-          return false;
-        }
-        return loading;
-      });
-    }, 1500);
-
     try {
       googleLogin();
     } catch (err) {
-      clearTimeout(timer);
       console.warn("Failed to launch Google Login popup, switching to modal:", err);
       setIsGoogleLoading(false);
       setShowGoogleModal(true);
@@ -244,7 +227,11 @@ function ShopLoginPage() {
               </label>
               
               <div className="flex justify-end mt-2 px-2">
-                <Link to="/forgot-password" className="text-[10px] uppercase tracking-wider text-accent hover:underline font-bold transition-all">
+                <Link
+                  to="/forgot-password"
+                  search={email.trim() ? { email: email.trim() } : undefined}
+                  className="text-[10px] uppercase tracking-wider text-accent hover:underline font-bold transition-all"
+                >
                   Forgot Password?
                 </Link>
               </div>

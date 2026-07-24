@@ -1,5 +1,6 @@
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "@/hooks/use-theme";
+import logoMain from "@/assets/logo.png";
 import logoDark from "@/assets/logo-dark-theme.png";
 import logoLight from "@/assets/logo-light-theme.png";
 
@@ -21,9 +22,6 @@ export function ThemeToggle({ className = "" }: { className?: string }) {
 
 export function BrandLogo({ className = "" }: { className?: string }) {
   return (
-    <>
-      <img src={logoLight} alt="ReeVibes" className={`${className} dark:hidden`} suppressHydrationWarning />
-      <img src={logoDark} alt="ReeVibes" className={`${className} hidden dark:block`} suppressHydrationWarning />
-    </>
+    <img src={logoMain} alt="ReeVibes" className={`object-contain ${className}`} suppressHydrationWarning />
   );
 }

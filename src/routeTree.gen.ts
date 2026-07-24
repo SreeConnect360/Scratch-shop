@@ -29,9 +29,11 @@ import { Route as AdminLiveContestRouteImport } from './routes/admin.live-contes
 import { Route as AdminContestantsRouteImport } from './routes/admin.contestants'
 import { Route as AdminAbuseReportsRouteImport } from './routes/admin.abuse-reports'
 import { Route as ShopWishlistRouteImport } from './routes/_shop.wishlist'
+import { Route as ShopTermsRouteImport } from './routes/_shop.terms'
 import { Route as ShopShopRouteImport } from './routes/_shop.shop'
 import { Route as ShopSearchRouteImport } from './routes/_shop.search'
 import { Route as ShopRegisterRouteImport } from './routes/_shop.register'
+import { Route as ShopPrivacyRouteImport } from './routes/_shop.privacy'
 import { Route as ShopOrdersRouteImport } from './routes/_shop.orders'
 import { Route as ShopLoginRouteImport } from './routes/_shop.login'
 import { Route as ShopForgotPasswordRouteImport } from './routes/_shop.forgot-password'
@@ -169,6 +171,11 @@ const ShopWishlistRoute = ShopWishlistRouteImport.update({
   path: '/wishlist',
   getParentRoute: () => ShopRoute,
 } as any)
+const ShopTermsRoute = ShopTermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => ShopRoute,
+} as any)
 const ShopShopRoute = ShopShopRouteImport.update({
   id: '/shop',
   path: '/shop',
@@ -182,6 +189,11 @@ const ShopSearchRoute = ShopSearchRouteImport.update({
 const ShopRegisterRoute = ShopRegisterRouteImport.update({
   id: '/register',
   path: '/register',
+  getParentRoute: () => ShopRoute,
+} as any)
+const ShopPrivacyRoute = ShopPrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => ShopRoute,
 } as any)
 const ShopOrdersRoute = ShopOrdersRouteImport.update({
@@ -409,9 +421,11 @@ export interface FileRoutesByFullPath {
   '/forgot-password': typeof ShopForgotPasswordRoute
   '/login': typeof ShopLoginRoute
   '/orders': typeof ShopOrdersRoute
+  '/privacy': typeof ShopPrivacyRoute
   '/register': typeof ShopRegisterRoute
   '/search': typeof ShopSearchRoute
   '/shop': typeof ShopShopRoute
+  '/terms': typeof ShopTermsRoute
   '/wishlist': typeof ShopWishlistRoute
   '/admin/abuse-reports': typeof AdminAbuseReportsRoute
   '/admin/contestants': typeof AdminContestantsRoute
@@ -467,9 +481,11 @@ export interface FileRoutesByTo {
   '/forgot-password': typeof ShopForgotPasswordRoute
   '/login': typeof ShopLoginRoute
   '/orders': typeof ShopOrdersRoute
+  '/privacy': typeof ShopPrivacyRoute
   '/register': typeof ShopRegisterRoute
   '/search': typeof ShopSearchRoute
   '/shop': typeof ShopShopRoute
+  '/terms': typeof ShopTermsRoute
   '/wishlist': typeof ShopWishlistRoute
   '/admin/abuse-reports': typeof AdminAbuseReportsRoute
   '/admin/contestants': typeof AdminContestantsRoute
@@ -530,9 +546,11 @@ export interface FileRoutesById {
   '/_shop/forgot-password': typeof ShopForgotPasswordRoute
   '/_shop/login': typeof ShopLoginRoute
   '/_shop/orders': typeof ShopOrdersRoute
+  '/_shop/privacy': typeof ShopPrivacyRoute
   '/_shop/register': typeof ShopRegisterRoute
   '/_shop/search': typeof ShopSearchRoute
   '/_shop/shop': typeof ShopShopRoute
+  '/_shop/terms': typeof ShopTermsRoute
   '/_shop/wishlist': typeof ShopWishlistRoute
   '/admin/abuse-reports': typeof AdminAbuseReportsRoute
   '/admin/contestants': typeof AdminContestantsRoute
@@ -594,9 +612,11 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/orders'
+    | '/privacy'
     | '/register'
     | '/search'
     | '/shop'
+    | '/terms'
     | '/wishlist'
     | '/admin/abuse-reports'
     | '/admin/contestants'
@@ -652,9 +672,11 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/orders'
+    | '/privacy'
     | '/register'
     | '/search'
     | '/shop'
+    | '/terms'
     | '/wishlist'
     | '/admin/abuse-reports'
     | '/admin/contestants'
@@ -714,9 +736,11 @@ export interface FileRouteTypes {
     | '/_shop/forgot-password'
     | '/_shop/login'
     | '/_shop/orders'
+    | '/_shop/privacy'
     | '/_shop/register'
     | '/_shop/search'
     | '/_shop/shop'
+    | '/_shop/terms'
     | '/_shop/wishlist'
     | '/admin/abuse-reports'
     | '/admin/contestants'
@@ -933,6 +957,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShopWishlistRouteImport
       parentRoute: typeof ShopRoute
     }
+    '/_shop/terms': {
+      id: '/_shop/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof ShopTermsRouteImport
+      parentRoute: typeof ShopRoute
+    }
     '/_shop/shop': {
       id: '/_shop/shop'
       path: '/shop'
@@ -952,6 +983,13 @@ declare module '@tanstack/react-router' {
       path: '/register'
       fullPath: '/register'
       preLoaderRoute: typeof ShopRegisterRouteImport
+      parentRoute: typeof ShopRoute
+    }
+    '/_shop/privacy': {
+      id: '/_shop/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof ShopPrivacyRouteImport
       parentRoute: typeof ShopRoute
     }
     '/_shop/orders': {
@@ -1224,9 +1262,11 @@ interface ShopRouteChildren {
   ShopForgotPasswordRoute: typeof ShopForgotPasswordRoute
   ShopLoginRoute: typeof ShopLoginRoute
   ShopOrdersRoute: typeof ShopOrdersRoute
+  ShopPrivacyRoute: typeof ShopPrivacyRoute
   ShopRegisterRoute: typeof ShopRegisterRoute
   ShopSearchRoute: typeof ShopSearchRoute
   ShopShopRoute: typeof ShopShopRoute
+  ShopTermsRoute: typeof ShopTermsRoute
   ShopWishlistRoute: typeof ShopWishlistRoute
   ShopIndexRoute: typeof ShopIndexRoute
   ShopBrandBrandSlugRoute: typeof ShopBrandBrandSlugRoute
@@ -1242,9 +1282,11 @@ const ShopRouteChildren: ShopRouteChildren = {
   ShopForgotPasswordRoute: ShopForgotPasswordRoute,
   ShopLoginRoute: ShopLoginRoute,
   ShopOrdersRoute: ShopOrdersRoute,
+  ShopPrivacyRoute: ShopPrivacyRoute,
   ShopRegisterRoute: ShopRegisterRoute,
   ShopSearchRoute: ShopSearchRoute,
   ShopShopRoute: ShopShopRoute,
+  ShopTermsRoute: ShopTermsRoute,
   ShopWishlistRoute: ShopWishlistRoute,
   ShopIndexRoute: ShopIndexRoute,
   ShopBrandBrandSlugRoute: ShopBrandBrandSlugRoute,

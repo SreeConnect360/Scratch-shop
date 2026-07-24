@@ -36,13 +36,11 @@ export default function BottomNav({ setSearchOpen }: BottomNavProps) {
     active = ""; // other pages (e.g. categories, search, product)
   }
 
-  const wishlistCount = state.shopWishlist[state.user?.id || ""]?.length || 0;
-
   const items = [
     { key: "home", label: "Home", Icon: Home, to: "/" },
     { key: "cart", label: "Cart", Icon: ShoppingBag, to: "/cart" },
     { key: "search", label: "Search", Icon: Search, isAction: true },
-    { key: "wishlist", label: "Wishlist", Icon: Heart, to: "/wishlist", badge: wishlistCount },
+    { key: "wishlist", label: "Wishlist", Icon: Heart, to: "/wishlist" },
     { key: "account", label: "Account", Icon: User, to: "/account", search: { tab: "profile" } },
   ];
 
@@ -58,7 +56,6 @@ export default function BottomNav({ setSearchOpen }: BottomNavProps) {
         {items.map((item) => {
           const isSearch = item.key === "search";
           const isActive = active === item.key;
-          const count = item.badge || 0;
 
           if (isSearch) {
             return (
@@ -94,11 +91,6 @@ export default function BottomNav({ setSearchOpen }: BottomNavProps) {
                     isActive ? "text-gold" : "text-ink-muted"
                   )}
                 />
-                {count > 0 && (
-                  <span className="absolute -right-1.5 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-gold px-1 text-[9px] font-bold text-obsidian shadow-[0_2px_5px_rgba(0,0,0,0.35)]">
-                    {count}
-                  </span>
-                )}
               </motion.span>
               <span
                 className={cn(
@@ -126,7 +118,7 @@ export default function BottomNav({ setSearchOpen }: BottomNavProps) {
             <Link
               key={item.key}
               {...linkProps}
-              aria-label={count ? `${item.label}, ${count} items` : item.label}
+              aria-label={item.label}
               aria-current={isActive ? "page" : undefined}
               className={itemClasses}
             >

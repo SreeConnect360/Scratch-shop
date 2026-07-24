@@ -5,7 +5,7 @@ import { FadeUp } from "@/components/motion/Reveal";
 import { PRODUCTS } from "@/lib/data";
 import { useState, useEffect } from "react";
 import { z } from "zod";
-import { MapPin, Tag, Heart, ShoppingBag, ListOrdered, User, Save, Trash2, Plus, Check, RotateCcw, Wallet as WalletIcon, Settings as SettingsIcon, ShieldCheck, Star, X, ArrowLeft, AlertTriangle, LogOut } from "lucide-react";
+import { MapPin, Tag, Heart, ShoppingBag, ListOrdered, User, Save, Trash2, Plus, Check, RotateCcw, Wallet as WalletIcon, Settings as SettingsIcon, ShieldCheck, Star, X, ArrowLeft, AlertTriangle, LogOut, Search } from "lucide-react";
 import { StatusChip } from "@/components/layout/AdminLayout";
 import { toast } from "sonner";
 import { Map, MapMarker, MarkerContent } from "@/components/ui/map";
@@ -528,7 +528,6 @@ function ShopDashboard() {
               {[
                 { id: "profile", label: "Profile", icon: User },
                 { id: "orders", label: "My Orders", icon: ListOrdered, count: userOrders.length },
-                { id: "wishlist", label: "Wishlist Curation", icon: Heart, count: wishlistIds.length },
                 { id: "coupons", label: "Maison Coupons", icon: Tag, count: state.coupons.length },
                 { id: "addresses", label: "Address", icon: MapPin, count: userAddresses.length },
                 { id: "wallet", label: "Wallet", icon: WalletIcon },
@@ -540,8 +539,6 @@ function ShopDashboard() {
                     onClick={() => {
                       if (t.id === "orders") {
                         navigate({ to: "/orders" });
-                      } else if (t.id === "wishlist") {
-                        navigate({ to: "/wishlist" });
                       } else {
                         navigate({ to: "/account", search: { tab: t.id as any } });
                       }

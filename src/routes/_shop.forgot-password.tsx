@@ -3,23 +3,38 @@ import { useState, useEffect } from "react";
 import { usePortal } from "@/lib/portal-state";
 import { useTheme } from "@/hooks/use-theme";
 import { BrandLogo } from "@/components/theme/ThemeToggle";
-import { ArrowLeft, Sparkles, Mail, Lock, CheckCircle2, ShieldCheck, X, AlertCircle, ShieldAlert, Clock } from "lucide-react";
+import { ArrowLeft, Sparkles, Mail, Lock, CheckCircle2, ShieldCheck, X, AlertCircle, ShieldAlert, Clock, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { BACKEND_URL } from "@/lib/config";
+import { z } from "zod";
+
+const forgotPasswordSearchSchema = z.object({
+  email: z.string().optional(),
+});
 
 export const Route = createFileRoute("/_shop/forgot-password")({
+  validateSearch: (search) => forgotPasswordSearchSchema.parse(search),
   head: () => ({ meta: [{ title: "Forgot Password — ReeVibes" }] }),
   component: ShopForgotPasswordPage,
 });
 
 function ShopForgotPasswordPage() {
   const navigate = useNavigate();
+  const search = Route.useSearch();
   const { theme } = useTheme();
 
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(search?.email || "");
+
+  useEffect(() => {
+    if (search?.email) {
+      setEmail(search.email);
+    }
+  }, [search?.email]);
   const [step, setStep] = useState<"email" | "reset">("email");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
   // OTP Modal & Floating Alert states
   const [showOtpModal, setShowOtpModal] = useState(false);
@@ -319,32 +334,55 @@ function ShopForgotPasswordPage() {
               ) : (
                 /* STEP 3: RESET PASSWORD FORM */
                 <form onSubmit={handleResetSubmit} className="space-y-5">
-                  <label className="block">
+                  <label className="block relative">
                     <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold flex items-center gap-1.5">
                       <Lock className="w-3.5 h-3.5 text-accent" /> New Password
                     </span>
-                    <input
-                      type="password"
-                      placeholder="•••••••• (Min 6 characters)"
-                      value={password}
-                      onChange={e => setPassword(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 px-4 py-3 text-xs outline-none focus:border-accent rounded-full text-foreground mt-2 transition-all"
-                      required
-                    />
+                    <div className="relative mt-2">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        placeholder="•••••••• (Min 6 characters)"
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        className="w-full bg-white/5 border border-white/10 pl-4 pr-12 py-3 text-xs outline-none focus:border-accent rounded-full text-foreground transition-all"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </label>
 
-                  <label className="block">
+                  <label className="block relative">
                     <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold flex items-center gap-1.5">
-                      <Lock className="w-3.5 h-3.5 text-accent" /> Confirm Password
+                      <Lock className="w-3.5 h-3.5 text-accent" /> Re-enter Password
                     </span>
-                    <input
-                      type="password"
-                      placeholder="••••••••"
-                      value={confirmPassword}
-                      onChange={e => setConfirmPassword(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 px-4 py-3 text-xs outline-none focus:border-accent rounded-full text-foreground mt-2 transition-all"
-                      required
-                    />
+                    <div className="relative mt-2">
+                      <input
+                        type={showConfirmPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={confirmPassword}
+                        onChange={e => setConfirmPassword(e.target.value)}
+                        className="w-full bg-white/5 border border-white/10 pl-4 pr-12 py-3 text-xs outline-none focus:border-accent rounded-full text-foreground transition-all"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                      >
+                        {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    {confirmPassword.length > 0 && password !== confirmPassword && (
+                      <p className="text-[11px] text-rose-400 font-medium flex items-center gap-1.5 mt-2 px-2">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" /> Passwords do not match
+                      </p>
+                    )}
                   </label>
 
                   {error && <p className="text-xs text-rose-500 font-medium text-center">{error}</p>}

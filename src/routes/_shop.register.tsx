@@ -303,31 +303,14 @@ function ShopRegisterPage() {
       setIsGoogleLoading(false);
       setShowGoogleModal(true);
     },
-    onNonOAuthError: (err) => {
-      console.error("Non-OAuth error, launching modal fallback:", err);
-      setIsGoogleLoading(false);
-      setShowGoogleModal(true);
-    },
   });
 
   const handleGoogleSignup = () => {
     setError(null);
     setIsGoogleLoading(true);
-
-    const timer = setTimeout(() => {
-      setIsGoogleLoading((loading) => {
-        if (loading) {
-          setShowGoogleModal(true);
-          return false;
-        }
-        return loading;
-      });
-    }, 1500);
-
     try {
       googleLogin();
     } catch (err) {
-      clearTimeout(timer);
       console.warn("Failed to launch Google Signup popup, switching to modal:", err);
       setIsGoogleLoading(false);
       setShowGoogleModal(true);
@@ -537,7 +520,6 @@ function ShopRegisterPage() {
 
                   {password.length > 0 && (
                     <div className="mt-3 p-3 bg-white/5 border border-white/10 rounded-xl space-y-1.5 transition-all text-left">
-                      <p className="text-[10px] uppercase tracking-widest text-accent font-bold mb-1">Password Requirements</p>
                       {password.length >= 16 && (
                         <p className="text-[10px] text-rose-400 flex items-center gap-1.5">
                           • Maximum 16 characters reached
@@ -594,6 +576,11 @@ function ShopRegisterPage() {
                       {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
+                  {confirmPassword.length > 0 && password !== confirmPassword && (
+                    <p className="text-[11px] text-rose-400 font-medium flex items-center gap-1.5 mt-2 px-2">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" /> Passwords do not match
+                    </p>
+                  )}
                 </label>
 
                 {error && <p className="text-xs text-rose-500 font-medium text-center">{error}</p>}

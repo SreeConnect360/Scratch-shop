@@ -19,7 +19,9 @@ import {
   HelpCircle,
   CheckCircle2,
   CreditCard,
-  Wallet
+  Wallet,
+  X,
+  AlertCircle
 } from "lucide-react";
 import { toast } from "sonner";
 import { Map, MapMarker, MarkerContent } from "@/components/ui/map";
@@ -54,6 +56,7 @@ export function ShopCart() {
     addAddress,
     updateAddress,
     updateShopCartQty,
+    updateShopCartSizeAndQty,
     restoreToShopCart,
     addWalletCredit
   } = usePortal();
@@ -77,6 +80,140 @@ export function ShopCart() {
   // Undo Notification states
   const [lastRemovedItem, setLastRemovedItem] = useState<CartItem | null>(null);
   const [showUndoNotification, setShowUndoNotification] = useState(false);
+
+  // Combined Size & Quantity Selection Modal state
+  const [editItemModal, setEditItemModal] = useState<{
+    item: CartItem;
+    selectedSize: string;
+    qty: number;
+    customQtyInput: string;
+    errorMsg: string | null;
+    availableSizes: string[];
+    stockPerSize: Record<string, number>;
+    currentStock: number;
+  } | null>(null);
+
+  const handleOpenEditModal = (item: CartItem) => {
+    const catalogProduct = state.products?.find((p) => p.id === item.productId);
+    const stockPerSize: Record<string, number> = catalogProduct?.stockPerSize || {
+      S: 25,
+      M: 18,
+      L: 74,
+      XL: 53,
+    };
+    const availableSizes = catalogProduct?.sizes && catalogProduct.sizes.length > 0
+      ? catalogProduct.sizes
+      : Object.keys(stockPerSize).length > 0
+      ? Object.keys(stockPerSize)
+      : ["S", "M", "L", "XL"];
+
+    const currentSize = item.selectedSize || "M";
+    const currentStock = stockPerSize[currentSize] ?? 0;
+
+    setEditItemModal({
+      item,
+      selectedSize: currentSize,
+      qty: item.qty,
+      customQtyInput: String(item.qty),
+      errorMsg: null,
+      availableSizes,
+      stockPerSize,
+      currentStock,
+    });
+  };
+
+  const handleModalSelectSize = (newSize: string) => {
+    if (!editItemModal) return;
+    const newStock = editItemModal.stockPerSize[newSize] ?? 0;
+    let errorMsg: string | null = null;
+
+    if (editItemModal.qty > newStock) {
+      errorMsg = `Only ${newStock} units are available for the selected size.`;
+    }
+
+    setEditItemModal({
+      ...editItemModal,
+      selectedSize: newSize,
+      currentStock: newStock,
+      errorMsg,
+    });
+  };
+
+  const handleModalUpdateQty = (newQty: number) => {
+    if (!editItemModal) return;
+    let errorMsg: string | null = null;
+
+    if (newQty > editItemModal.currentStock) {
+      errorMsg = `Only ${editItemModal.currentStock} units are available for the selected size.`;
+    } else if (newQty <= 0) {
+      errorMsg = "Please enter a valid quantity.";
+    }
+
+    setEditItemModal({
+      ...editItemModal,
+      qty: newQty,
+      customQtyInput: String(newQty),
+      errorMsg,
+    });
+  };
+
+  const handleModalCustomQtyInput = (valStr: string) => {
+    if (!editItemModal) return;
+    const num = parseInt(valStr, 10);
+    let errorMsg: string | null = null;
+
+    if (isNaN(num) || num <= 0) {
+      errorMsg = "Please enter a valid quantity.";
+    } else if (num > editItemModal.currentStock) {
+      errorMsg = `Only ${editItemModal.currentStock} units are available for the selected size.`;
+    }
+
+    setEditItemModal({
+      ...editItemModal,
+      customQtyInput: valStr,
+      qty: isNaN(num) ? 0 : num,
+      errorMsg,
+    });
+  };
+
+  const handleModalSave = () => {
+    if (!editItemModal || editItemModal.errorMsg || editItemModal.qty <= 0) return;
+    
+    const { item, selectedSize, qty } = editItemModal;
+    const oldSize = item.selectedSize || "M";
+
+    updateShopCartSizeAndQty(item.productId, oldSize, selectedSize, qty);
+
+    if (oldSize !== selectedSize) {
+      const oldKey = `${item.productId}-${oldSize}`;
+      const newKey = `${item.productId}-${selectedSize}`;
+      setSelectedKeys((prev) =>
+        prev.map((k) => (k === oldKey ? newKey : k))
+      );
+    }
+
+    setEditItemModal(null);
+    toast.success(`Updated ${item.name} (Size: ${selectedSize}, Qty: ${qty})`);
+  };
+
+  const handleSingleBuyNow = (item: CartItem) => {
+    if (!user) {
+      toast.error("Please sign in to complete your purchase.");
+      navigate({ to: "/login" });
+      return;
+    }
+    const catalogProduct = state.products?.find((p) => p.id === item.productId);
+    const sizeStock = catalogProduct?.stockPerSize?.[item.selectedSize || "M"] ?? 10;
+
+    if (sizeStock === 0) {
+      toast.error(`Size ${item.selectedSize || "M"} is currently out of stock.`);
+      return;
+    }
+
+    setCheckoutItems([item]);
+    setCheckoutStep("address");
+    toast.success(`Proceeding to checkout with ${item.name}`);
+  };
 
   // Address Carousel States
   const [activeAddressIdx, setActiveAddressIdx] = useState(0);
@@ -840,18 +977,30 @@ export function ShopCart() {
               </div>
 
               {/* Cart List */}
-              <div className="liquid-glass overflow-hidden divide-y divide-white/10 dark:divide-white/10 rounded-3xl border border-white/10">
+              <div className="space-y-4">
                 {cartItems.map((item) => {
                   const itemKey = `${item.productId}-${item.selectedSize || "M"}`;
                   const isSelected = validSelectedKeys.includes(itemKey);
+
+                  const priceVal = Number(String(item.price).replace(/[^0-9.]/g, ""));
+                  const catalogProd = state.products?.find((p) => p.id === item.productId);
+                  const origPriceVal = catalogProd?.originalPrice
+                    ? Number(String(catalogProd.originalPrice).replace(/[^0-9.]/g, ""))
+                    : (catalogProd?.price && Number(String(catalogProd.price).replace(/[^0-9.]/g, "")) > priceVal
+                    ? Number(String(catalogProd.price).replace(/[^0-9.]/g, ""))
+                    : Math.round(priceVal * 1.25));
+                  const hasDiscount = origPriceVal > priceVal;
+                  const discountPct = catalogProd?.discount || (hasDiscount ? Math.round(((origPriceVal - priceVal) / origPriceVal) * 100) : 0);
+
                   return (
                     <div
                       key={itemKey}
-                      className={`p-6 flex flex-col sm:flex-row gap-6 items-start sm:items-center transition-all duration-300 ${
-                        isSelected ? "bg-white/[0.02]" : "opacity-60 hover:opacity-85"
+                      className={`liquid-glass relative p-4 sm:p-5 rounded-3xl border border-white/10 flex flex-row gap-3 sm:gap-5 items-start transition-all duration-300 ${
+                        isSelected ? "bg-white/[0.04] ring-1 ring-accent/30" : "opacity-75 hover:opacity-100"
                       }`}
                     >
-                      <div className="flex items-center self-stretch">
+                      {/* Checkbox */}
+                      <div className="flex items-center pt-1 shrink-0">
                         <input
                           type="checkbox"
                           checked={isSelected}
@@ -859,56 +1008,88 @@ export function ShopCart() {
                           className="w-4 h-4 rounded border-white/20 bg-white/5 text-accent focus:ring-accent focus:ring-offset-background accent-accent cursor-pointer"
                         />
                       </div>
+
+                      {/* Delete Icon - Top Right Corner */}
+                      <button
+                        type="button"
+                        aria-label="Remove item"
+                        onClick={() => handleRemoveItem(item)}
+                        className="absolute top-3 right-3 sm:top-4 sm:right-4 text-rose-400/80 hover:text-rose-400 p-2 rounded-full hover:bg-rose-500/10 border border-transparent transition-all cursor-pointer z-10"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+
+                      {/* Product Thumbnail */}
                       <img
                         src={item.image}
-                        className="w-20 aspect-[3/4] object-cover rounded-xl border border-white/10 shadow-md"
+                        alt={item.name}
+                        className="w-20 sm:w-28 aspect-[3/4] object-cover rounded-2xl border border-white/10 shadow-md shrink-0"
                       />
-                      <div className="flex-1 space-y-1">
-                        <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                          {item.house}
-                        </div>
-                        <h3 className="font-serif text-lg text-foreground hover:text-accent">
+
+                      {/* Right Details */}
+                      <div className="flex-1 min-w-0 pr-8 space-y-2">
+                        {item.house && (
+                          <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
+                            {item.house}
+                          </div>
+                        )}
+                        <h3 className="font-serif text-base sm:text-lg text-foreground hover:text-accent font-semibold leading-snug line-clamp-2">
                           <Link to="/product/$productId" params={{ productId: item.productId }}>
                             {item.name}
                           </Link>
                         </h3>
-                        <div className="text-xs text-muted-foreground">
-                          Size:{" "}
-                          <span className="font-semibold text-foreground uppercase">
-                            {item.selectedSize || "M"}
+
+                        {/* Pricing Section */}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-serif text-base sm:text-lg font-bold text-foreground">
+                            ₹{(priceVal * item.qty).toLocaleString()}
                           </span>
+                          {hasDiscount && (
+                            <>
+                              <span className="text-xs text-muted-foreground line-through font-mono">
+                                ₹{(origPriceVal * item.qty).toLocaleString()}
+                              </span>
+                              <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                                {discountPct}% OFF
+                              </span>
+                            </>
+                          )}
                         </div>
-                        
-                        {/* Interactive Quantity Selector - Max 10 */}
-                        <div className="flex items-center gap-2 mt-2">
-                          <span className="text-xs text-muted-foreground">Quantity:</span>
-                          <select
-                            value={item.qty}
-                            onChange={(e) => {
-                              const newQty = parseInt(e.target.value, 10);
-                              updateShopCartQty(item.productId, item.selectedSize || "M", newQty);
-                              toast.success(`Quantity updated to ${newQty}`);
-                            }}
-                            className="bg-white/5 dark:bg-white/5 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-foreground outline-none focus:border-accent"
+
+                        {/* Size & Quantity Pills (Triggers Combined Edit Modal) */}
+                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditModal(item)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-accent/40 rounded-xl text-xs font-medium text-foreground transition-all cursor-pointer"
                           >
-                            {[...Array(10)].map((_, i) => (
-                              <option key={i + 1} value={i + 1} className="bg-zinc-950 text-white">
-                                {i + 1}
-                              </option>
-                            ))}
-                          </select>
+                            <span className="text-muted-foreground">Size:</span>
+                            <span className="font-bold text-accent uppercase">{item.selectedSize || "M"}</span>
+                            <Edit2 className="w-3 h-3 text-accent/70 ml-0.5" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditModal(item)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-accent/40 rounded-xl text-xs font-medium text-foreground transition-all cursor-pointer"
+                          >
+                            <span className="text-muted-foreground">Qty:</span>
+                            <span className="font-bold text-accent">{item.qty}</span>
+                            <Edit2 className="w-3 h-3 text-accent/70 ml-0.5" />
+                          </button>
                         </div>
-                      </div>
-                      <div className="sm:text-right space-y-2 flex sm:flex-col items-center sm:items-end justify-between w-full sm:w-auto">
-                        <div className="font-serif text-base font-semibold">
-                          ₹{(Number(String(item.price).replace(/[^0-9.]/g, "")) * item.qty).toLocaleString()}
+
+                        {/* Buy Now Button */}
+                        <div className="pt-2">
+                          <button
+                            type="button"
+                            onClick={() => handleSingleBuyNow(item)}
+                            className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-accent via-gold to-accent-rose text-obsidian text-xs font-bold uppercase tracking-wider rounded-xl shadow-md hover:shadow-[0_0_15px_rgba(212,175,55,0.4)] transition-all cursor-pointer active:scale-95"
+                          >
+                            <ShoppingBag className="w-3.5 h-3.5" />
+                            Buy Now
+                          </button>
                         </div>
-                        <button
-                          onClick={() => handleRemoveItem(item)}
-                          className="text-rose-400 hover:text-rose-500 hover:scale-105 transition-all p-2 rounded-full hover:bg-rose-500/10 border border-transparent"
-                        >
-                          <Trash2 className="w-4.5 h-4.5" />
-                        </button>
                       </div>
                     </div>
                   );
@@ -1556,6 +1737,147 @@ export function ShopCart() {
                 Yes, Continue with Available Items
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Combined Size & Quantity Selection Modal */}
+      {editItemModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fadeIn">
+          <div className="liquid-glass relative w-full max-w-md p-6 rounded-3xl border border-white/15 shadow-[0_10px_40px_rgba(0,0,0,0.6)] space-y-6 text-foreground">
+            
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <div className="flex items-center gap-3 min-w-0 pr-4">
+                <img
+                  src={editItemModal.item.image}
+                  alt={editItemModal.item.name}
+                  className="w-12 h-16 object-cover rounded-xl border border-white/10 shrink-0"
+                />
+                <div className="min-w-0">
+                  <h3 className="font-serif text-base font-bold truncate">{editItemModal.item.name}</h3>
+                  {editItemModal.item.house && (
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold">{editItemModal.item.house}</p>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditItemModal(null)}
+                className="text-muted-foreground hover:text-foreground p-2 rounded-full hover:bg-white/10 transition-colors cursor-pointer shrink-0"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Size Selection Section */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold uppercase tracking-wider text-accent">Select Size</label>
+                <span className="text-[11px] text-muted-foreground">
+                  Available Stock: <span className="font-bold text-accent font-mono">{editItemModal.currentStock} units</span>
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+                {editItemModal.availableSizes.map((sz) => {
+                  const stock = editItemModal.stockPerSize[sz] ?? 0;
+                  const isSelected = editItemModal.selectedSize === sz;
+                  return (
+                    <button
+                      key={sz}
+                      type="button"
+                      onClick={() => handleModalSelectSize(sz)}
+                      className={`flex items-center justify-between p-3 rounded-2xl border text-xs font-semibold transition-all cursor-pointer ${
+                        isSelected
+                          ? "bg-accent/15 border-accent text-accent shadow-[0_0_12px_rgba(212,175,55,0.25)]"
+                          : stock > 0
+                          ? "bg-white/5 border-white/10 hover:border-white/25 text-foreground"
+                          : "bg-white/[0.02] border-white/5 text-muted-foreground/40 cursor-not-allowed"
+                      }`}
+                    >
+                      <span className="font-bold text-sm uppercase">{sz}</span>
+                      <span className="font-mono text-[11px] opacity-85">
+                        {stock > 0 ? `${stock}` : "Out of stock"}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Quantity Selection Section */}
+            <div className="space-y-3 pt-3 border-t border-white/10">
+              <label className="text-xs font-bold uppercase tracking-wider text-accent">Select Quantity</label>
+
+              <div className="flex items-center gap-3">
+                {/* Dropdown (1-10) */}
+                <div className="flex-1">
+                  <label className="text-[10px] text-muted-foreground block mb-1 font-semibold uppercase tracking-wider">Quick Selection</label>
+                  <select
+                    value={editItemModal.qty <= 10 ? editItemModal.qty : ""}
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        handleModalUpdateQty(parseInt(e.target.value, 10));
+                      }
+                    }}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs font-semibold text-foreground outline-none focus:border-accent"
+                  >
+                    {[...Array(10)].map((_, i) => (
+                      <option key={i + 1} value={i + 1} className="bg-zinc-950 text-white">
+                        {i + 1}
+                      </option>
+                    ))}
+                    {editItemModal.qty > 10 && (
+                      <option value={editItemModal.qty} className="bg-zinc-950 text-white">
+                        {editItemModal.qty} (Custom)
+                      </option>
+                    )}
+                  </select>
+                </div>
+
+                {/* Custom Input */}
+                <div className="w-32">
+                  <label className="text-[10px] text-muted-foreground block mb-1 font-semibold uppercase tracking-wider">Custom Qty</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max={editItemModal.currentStock}
+                    value={editItemModal.customQtyInput}
+                    onChange={(e) => handleModalCustomQtyInput(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-foreground outline-none focus:border-accent font-mono font-bold"
+                  />
+                </div>
+              </div>
+
+              {/* Stock Validation Alert */}
+              {editItemModal.errorMsg && (
+                <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-xs font-medium flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{editItemModal.errorMsg}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Footer Modal Actions */}
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => setEditItemModal(null)}
+                className="px-4 py-2.5 rounded-xl border border-white/10 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                disabled={Boolean(editItemModal.errorMsg) || editItemModal.qty <= 0}
+                onClick={handleModalSave}
+                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-accent to-accent-rose text-white text-xs font-bold uppercase tracking-wider shadow-md hover:scale-105 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Save / Update
+              </button>
+            </div>
+
           </div>
         </div>
       )}

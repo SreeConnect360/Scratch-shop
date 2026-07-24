@@ -1,7 +1,7 @@
 import { createFileRoute, Link, Outlet, useNavigate, useLocation } from "@tanstack/react-router";
 import { useState, useEffect, useRef, createContext, useContext, useMemo } from "react";
 import { usePortal, useCartTotal } from "@/lib/portal-state";
-import { Search, Heart, ShoppingBag, Bell, Sun, Moon, ArrowRight, User, X, Minus, Plus, Menu } from "lucide-react";
+import { Search, Heart, ShoppingBag, Bell, Sun, Moon, ArrowRight, User, X, Minus, Plus, Menu, LogOut, LogIn } from "lucide-react";
 import { BrandLogo, ThemeToggle } from "@/components/theme/ThemeToggle";
 import { toast } from "sonner";
 import AssistantLauncher from "@/components/ai-assistant/AssistantLauncher";
@@ -90,7 +90,7 @@ export const Route = createFileRoute("/_shop")({
 });
 
 function ShopLayout() {
-  const { state, toggleShopWishlist, removeFromShopCart, updateHomepageLayout, updateHomepageLayoutDraft, addToShopCart, markNotificationsRead, dismissNotification } = usePortal();
+  const { state, toggleShopWishlist, removeFromShopCart, updateHomepageLayout, updateHomepageLayoutDraft, addToShopCart, markNotificationsRead, dismissNotification, signOut } = usePortal();
   const { shopCount, shopTotal } = useCartTotal();
   const navigate = useNavigate();
   const location = useLocation();
@@ -101,6 +101,7 @@ function ShopLayout() {
   const [activeFooterPopup, setActiveFooterPopup] = useState<'about' | 'returns' | 'privacy' | 'terms' | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [showLogoutConfirmModal, setShowLogoutConfirmModal] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const barRef = useRef<HTMLElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -450,9 +451,8 @@ function ShopLayout() {
             {/* Logo */}
             <div className="flex items-center gap-10 z-10">
               {layout?.navigation?.visibleItems?.includes("Logo") !== false && (
-                <Link to="/" className="block transition-transform shrink-0 text-xl tracking-[0.3em] text-ink font-serif hover:opacity-90">
-                  S<span className="gold-text">REEVIBES</span>
-                  <div className="text-[7px] uppercase tracking-[0.25em] text-muted-foreground mt-1">House of Fashion</div>
+                <Link to="/" className="flex items-center transition-transform shrink-0 hover:opacity-90 py-1">
+                  <BrandLogo className="h-[31px] sm:h-[43px] w-auto max-w-[155px] sm:max-w-[215px] object-contain" />
                 </Link>
               )}
 
@@ -571,7 +571,7 @@ function ShopLayout() {
                 <Search size={18} strokeWidth={1.8} />
               </motion.button>
 
-              <Link to="/account" search={{ tab: "wishlist" as any }} className="hidden md:block">
+              <Link to="/wishlist" className="hidden md:block">
                 <motion.button
                   type="button"
                   whileHover={{ scale: 1.12, rotate: 4 }}
@@ -611,10 +611,8 @@ function ShopLayout() {
                       {[
                         { tab: "profile", label: "Profile" },
                         { tab: "orders", label: "My Orders" },
-                        { tab: "wishlist", label: "Wishlist Curation" },
                         { tab: "coupons", label: "Maison Coupons" },
                         { tab: "addresses", label: "Address" },
-                        { tab: "returns", label: "Returns & Refunds" },
                         { tab: "wallet", label: "Wallet" },
                       ].map((item) => (
                         <Link
@@ -626,6 +624,27 @@ function ShopLayout() {
                           {item.label}
                         </Link>
                       ))}
+
+                      <div className="border-t border-white/10 pt-1.5 mt-1.5">
+                        {state.user ? (
+                          <button
+                            type="button"
+                            onClick={() => setShowLogoutConfirmModal(true)}
+                            className="w-full text-left text-[11px] uppercase tracking-wider font-bold px-3 py-2 rounded-xl text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-all cursor-pointer flex items-center justify-between"
+                          >
+                            <span>Logout</span>
+                            <LogOut className="w-3.5 h-3.5" />
+                          </button>
+                        ) : (
+                          <Link
+                            to="/login"
+                            className="block text-[11px] uppercase tracking-wider font-bold px-3 py-2 rounded-xl text-accent hover:text-accent/80 hover:bg-accent/10 transition-all flex items-center justify-between"
+                          >
+                            <span>Sign In</span>
+                            <LogIn className="w-3.5 h-3.5" />
+                          </Link>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -853,9 +872,9 @@ function ShopLayout() {
             <div className="max-w-7xl mx-auto px-6 sm:px-10 lg:px-16">
               <div className="grid gap-10 sm:grid-cols-2 md:grid-cols-3">
                 <div className="space-y-3">
-                  <div className="text-xl tracking-[0.3em] text-ink font-serif hover:opacity-90 transition-opacity">
-                    R<span className="gold-text">EEVIBES</span>
-                  </div>
+                  <Link to="/" className="inline-block transition-opacity hover:opacity-90">
+                    <BrandLogo className="h-10 sm:h-12 w-auto max-w-[180px] sm:max-w-[220px] object-contain" />
+                  </Link>
                   <p className="leading-relaxed text-xs text-muted-foreground">{layout?.footer?.aboutText || "ReeVibes is a high-fidelity luxury e-commerce experience designed for global styling curators."}</p>
                 </div>
                 <div className="space-y-3">
@@ -863,8 +882,8 @@ function ShopLayout() {
                   <div className="flex flex-col gap-2">
                     <button onClick={() => setActiveFooterPopup('about')} className="hover:text-accent transition-colors text-left font-semibold cursor-pointer bg-transparent border-none p-0 outline-none text-xs text-muted-foreground">About Us</button>
                     <button onClick={() => setActiveFooterPopup('returns')} className="hover:text-accent transition-colors text-left font-semibold cursor-pointer bg-transparent border-none p-0 outline-none text-xs text-muted-foreground">Returns & Exchanges</button>
-                    <button onClick={() => setActiveFooterPopup('privacy')} className="hover:text-accent transition-colors text-left font-semibold cursor-pointer bg-transparent border-none p-0 outline-none text-xs text-muted-foreground">Privacy Policy</button>
-                    <button onClick={() => setActiveFooterPopup('terms')} className="hover:text-accent transition-colors text-left font-semibold cursor-pointer bg-transparent border-none p-0 outline-none text-xs text-muted-foreground">Terms of Service</button>
+                    <Link to="/privacy" className="hover:text-accent transition-colors text-left font-semibold text-xs text-muted-foreground">Privacy Policy</Link>
+                    <Link to="/terms" className="hover:text-accent transition-colors text-left font-semibold text-xs text-muted-foreground">Terms of Service</Link>
                   </div>
                 </div>
                 <div className="space-y-3 font-mono text-[11px] text-muted-foreground">
@@ -899,6 +918,47 @@ function ShopLayout() {
           type={activeFooterPopup}
           onClose={() => setActiveFooterPopup(null)}
         />
+      )}
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutConfirmModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="liquid-glass border border-white/20 p-6 sm:p-8 max-w-sm w-full rounded-3xl shadow-2xl space-y-6 text-center animate-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 mx-auto">
+              <LogOut className="w-6 h-6" />
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="font-serif text-xl sm:text-2xl font-bold text-foreground">Confirm Logout</h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Are you sure you want to log out of your ReeVibes account?
+              </p>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  signOut();
+                  setShowLogoutConfirmModal(false);
+                  toast.success("Successfully logged out.");
+                  navigate({ to: "/" });
+                }}
+                className="flex-1 bg-rose-500 hover:bg-rose-600 text-white font-bold py-3 rounded-full text-xs uppercase tracking-widest transition-transform active:scale-95 cursor-pointer shadow-lg"
+              >
+                Okay
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowLogoutConfirmModal(false)}
+                className="flex-1 border border-white/10 hover:bg-white/10 text-muted-foreground hover:text-foreground font-bold py-3 rounded-full text-xs uppercase tracking-widest transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Floating Bottom Popup */}

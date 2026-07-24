@@ -612,6 +612,7 @@ type Ctx = {
   toggleShopWishlist: (userId: string, productId: string) => void;
   recordProductView: (productId: string) => void;
   updateShopCartQty: (productId: string, selectedSize: string, qty: number) => void;
+  updateShopCartSizeAndQty: (productId: string, oldSize: string, newSize: string, qty: number) => void;
   restoreToShopCart: (item: CartItem) => void;
   reloadProducts: () => Promise<void>;
 };
@@ -2166,6 +2167,21 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ cart: JSON.stringify(shopCart) })
         }).catch(err => console.error("Failed to sync updateShopCartQty:", err));
+      }
+      return { ...s, shopCart };
+    }),
+    updateShopCartSizeAndQty: (productId, oldSize, newSize, qty) => setState(s => {
+      const shopCart = (s.shopCart || []).map(c =>
+        (c.productId === productId && (c.selectedSize || "M") === oldSize)
+          ? { ...c, selectedSize: newSize, qty }
+          : c
+      );
+      if (s.user) {
+        fetch(`${BACKEND_URL}/api/customers/${s.user.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cart: JSON.stringify(shopCart) })
+        }).catch(err => console.error("Failed to sync updateShopCartSizeAndQty:", err));
       }
       return { ...s, shopCart };
     }),
