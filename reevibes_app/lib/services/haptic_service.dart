@@ -3,9 +3,6 @@ import 'package:vibration/vibration.dart';
 import '../config/app_config.dart';
 
 /// Centralised haptic / vibration feedback service.
-///
-/// Provides semantic methods mapped to user actions.
-/// Falls back gracefully on devices without vibration hardware.
 class HapticService {
   HapticService._();
   static final HapticService instance = HapticService._();
@@ -13,46 +10,58 @@ class HapticService {
   bool _hasVibrator = false;
 
   Future<void> initialise() async {
-    final hasVib = await Vibration.hasVibrator();
-    _hasVibrator = hasVib == true;
+    try {
+      final hasVib = await Vibration.hasVibrator();
+      _hasVibrator = hasVib == true;
+    } catch (_) {
+      _hasVibrator = false;
+    }
   }
 
   bool get _enabled => AppConfig.enableHapticFeedback && _hasVibrator;
 
   /// Light tap – button press, navigation.
   Future<void> lightTap() async {
-    if (!_enabled) return;
-    await HapticFeedback.lightImpact();
+    try {
+      await HapticFeedback.lightImpact();
+    } catch (_) {}
   }
 
   /// Medium impact – add to cart, wishlist toggle.
   Future<void> mediumImpact() async {
-    if (!_enabled) return;
-    await HapticFeedback.mediumImpact();
+    try {
+      await HapticFeedback.mediumImpact();
+    } catch (_) {}
   }
 
   /// Heavy impact – order placed, payment success.
   Future<void> heavyImpact() async {
-    if (!_enabled) return;
-    await HapticFeedback.heavyImpact();
+    try {
+      await HapticFeedback.heavyImpact();
+    } catch (_) {}
   }
 
   /// Success pattern – double pulse.
   Future<void> success() async {
     if (!_enabled) return;
-    await Vibration.vibrate(pattern: [0, 40, 80, 40], intensities: [0, 180, 0, 255]);
+    try {
+      await Vibration.vibrate(pattern: [0, 40, 80, 40], intensities: [0, 180, 0, 255]);
+    } catch (_) {}
   }
 
   /// Error pattern – single long pulse.
   Future<void> error() async {
     if (!_enabled) return;
-    await Vibration.vibrate(duration: 150, amplitude: 200);
+    try {
+      await Vibration.vibrate(duration: 150, amplitude: 200);
+    } catch (_) {}
   }
 
   /// Selection changed.
   Future<void> selectionClick() async {
-    if (!_enabled) return;
-    await HapticFeedback.selectionClick();
+    try {
+      await HapticFeedback.selectionClick();
+    } catch (_) {}
   }
 
   /// Execute haptic by name (called from JS bridge).

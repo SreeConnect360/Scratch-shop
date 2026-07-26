@@ -3,9 +3,6 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:internet_connection_checker_plus/internet_connection_checker_plus.dart';
 
 /// Singleton service that monitors network connectivity.
-///
-/// Uses [connectivity_plus] for fast state changes and
-/// [internet_connection_checker_plus] to verify *actual* internet access.
 class ConnectivityService {
   ConnectivityService._();
   static final ConnectivityService instance = ConnectivityService._();
@@ -23,29 +20,50 @@ class ConnectivityService {
 
   StreamSubscription<List<ConnectivityResult>>? _sub;
 
-  /// Call once at app startup.
+  /// Call once at app startup safely without blocking main thread.
   Future<void> initialise() async {
-    _isConnected = await _internetChecker.hasInternetAccess;
-    _controller.add(_isConnected);
+    // Non-blocking background check
+    unawaited(_checkInitialConnection());
 
-    _sub = _connectivity.onConnectivityChanged.listen((results) async {
-      final hasNone = results.contains(ConnectivityResult.none);
-      if (hasNone) {
-        _isConnected = false;
-        _controller.add(false);
-      } else {
-        // Network adapter is up – verify actual internet
-        final hasInternet = await _internetChecker.hasInternetAccess;
-        _isConnected = hasInternet;
-        _controller.add(hasInternet);
-      }
-    });
+    try {
+      _sub = _connectivity.onConnectivityChanged.listen((results) async {
+        final hasNone = results.contains(ConnectivityResult.none);
+        if (hasNone) {
+          _isConnected = false;
+          _controller.add(false);
+        } else {
+          try {
+            final hasInternet = await _internetChecker.hasInternetAccess;
+            _isConnected = hasInternet;
+            _controller.add(hasInternet);
+          } catch (_) {
+            _isConnected = true;
+            _controller.add(true);
+          }
+        }
+      });
+    } catch (_) {}
   }
 
-  /// Force-check current connectivity (useful for retry buttons).
+  Future<void> _checkInitialConnection() async {
+    try {
+      _isConnected = await _internetChecker.hasInternetAccess;
+      _controller.add(_isConnected);
+    } catch (_) {
+      _isConnected = true;
+      _controller.add(true);
+    }
+  }
+
+  /// Force-check current connectivity.
   Future<bool> checkNow() async {
-    _isConnected = await _internetChecker.hasInternetAccess;
-    _controller.add(_isConnected);
+    try {
+      _isConnected = await _internetChecker.hasInternetAccess;
+      _controller.add(_isConnected);
+    } catch (_) {
+      _isConnected = true;
+      _controller.add(true);
+    }
     return _isConnected;
   }
 

@@ -7,43 +7,72 @@ class PermissionService {
 
   /// Request camera permission. Returns true if granted.
   Future<bool> requestCamera() async {
-    final status = await Permission.camera.request();
-    return status.isGranted;
+    try {
+      final status = await Permission.camera.request();
+      return status.isGranted;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Request storage/photos permission. Returns true if granted.
   Future<bool> requestStorage() async {
-    final status = await Permission.photos.request();
-    if (status.isGranted) return true;
-    // Fallback for older Android
-    final storageStatus = await Permission.storage.request();
-    return storageStatus.isGranted;
+    try {
+      final status = await Permission.photos.request();
+      if (status.isGranted) return true;
+      final storageStatus = await Permission.storage.request();
+      return storageStatus.isGranted;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Request location permission. Returns true if granted.
   Future<bool> requestLocation() async {
-    final status = await Permission.location.request();
-    return status.isGranted;
+    try {
+      final status = await Permission.location.request();
+      return status.isGranted;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Request notification permission (Android 13+). Returns true if granted.
   Future<bool> requestNotification() async {
-    final status = await Permission.notification.request();
-    return status.isGranted;
+    try {
+      final status = await Permission.notification.request();
+      return status.isGranted;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Check if camera is granted without requesting.
   Future<bool> isCameraGranted() async {
-    return await Permission.camera.isGranted;
+    try {
+      return await Permission.camera.isGranted;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Check if notification is granted.
   Future<bool> isNotificationGranted() async {
-    return await Permission.notification.isGranted;
+    try {
+      return await Permission.notification.isGranted;
+    } catch (_) {
+      return false;
+    }
   }
 
-  /// Request all essential permissions at startup.
+  /// Request essential permissions safely.
   Future<void> requestEssentialPermissions() async {
-    await requestNotification();
+    // Non-blocking safe check
+    try {
+      final status = await Permission.notification.status;
+      if (!status.isGranted && !status.isPermanentlyDenied) {
+        await Permission.notification.request();
+      }
+    } catch (_) {}
   }
 }
