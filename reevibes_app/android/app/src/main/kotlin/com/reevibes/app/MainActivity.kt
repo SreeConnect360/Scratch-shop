@@ -1,4 +1,4 @@
-package com.reevibes.reevibes_app
+package com.reevibes.app
 
 import io.flutter.embedding.android.FlutterActivity
 

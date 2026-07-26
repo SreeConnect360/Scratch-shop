@@ -22,8 +22,9 @@ android {
 
     defaultConfig {
         applicationId = "com.reevibes.app"
-        minSdk = 26
+        minSdk = 24
         targetSdk = 36
+        multiDexEnabled = true
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
@@ -43,8 +44,9 @@ android {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    implementation("androidx.multidex:multidex:2.0.1")
 }
 
 flutter {
-    source = "../.."
+    source = ".."
 }

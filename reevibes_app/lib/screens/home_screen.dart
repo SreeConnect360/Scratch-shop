@@ -5,11 +5,10 @@ import '../services/connectivity_service.dart';
 import '../services/haptic_service.dart';
 import '../services/notification_service.dart';
 import '../widgets/webview_widget.dart';
-import '../widgets/bottom_nav.dart';
 import 'offline_screen.dart';
 
-/// Main application screen containing the WebView, bottom navigation,
-/// connectivity monitoring, and offline fallback.
+/// Main application screen containing the WebView, connectivity monitoring,
+/// and offline fallback (Bottom navigation bar removed for mobile UI optimization).
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -19,7 +18,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final _webViewKey = GlobalKey<ReeVibesWebViewState>();
-  int _currentNavIndex = 0;
   bool _isOnline = true;
   bool _showOffline = false;
   StreamSubscription<bool>? _connectivitySub;
@@ -74,28 +72,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
-  void _onNavTap(int index, String path) {
-    setState(() => _currentNavIndex = index);
-    _webViewKey.currentState?.navigateTo(path);
-  }
-
-  void _onUrlChanged(String url) {
-    final path = Uri.tryParse(url)?.path ?? '/';
-    int newIndex = 0;
-    if (path.startsWith('/categories') || path.startsWith('/category') || path.startsWith('/brand')) {
-      newIndex = 1;
-    } else if (path.startsWith('/cart')) {
-      newIndex = 2;
-    } else if (path.startsWith('/wishlist')) {
-      newIndex = 3;
-    } else if (path.startsWith('/account') || path.startsWith('/login') || path.startsWith('/register')) {
-      newIndex = 4;
-    }
-    if (newIndex != _currentNavIndex && mounted) {
-      setState(() => _currentNavIndex = newIndex);
-    }
-  }
-
   /// Handle Android back button: navigate WebView history first, then show exit toast.
   Future<bool> _handleBackPress() async {
     final canGoBack = await _webViewKey.currentState?.canGoBack() ?? false;
@@ -142,7 +118,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       child: Scaffold(
         backgroundColor: const Color(0xFF0A0A0A),
         body: SafeArea(
-          bottom: false,
+          top: true,
+          bottom: true, // Complete screen fill, respecting device status bar and system navigation bar
           child: Column(
             children: [
               // Offline banner (shown inline when connectivity drops)
@@ -172,7 +149,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   ),
                 ),
 
-              // Main content area
+              // Main content area - fills 100% of remaining screen height
               Expanded(
                 child: _showOffline
                     ? OfflineScreen(
@@ -190,16 +167,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         backgroundColor: const Color(0xFF1A1A1A),
                         child: ReeVibesWebView(
                           key: _webViewKey,
-                          onUrlChanged: _onUrlChanged,
                         ),
                       ),
               ),
             ],
           ),
-        ),
-        bottomNavigationBar: BottomNav(
-          currentIndex: _currentNavIndex,
-          onTap: _onNavTap,
         ),
       ),
     );

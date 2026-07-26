@@ -6,13 +6,15 @@ import 'package:share_plus/share_plus.dart';
 import '../config/app_config.dart';
 import '../services/haptic_service.dart';
 import '../services/download_service.dart';
+import '../services/supabase_service.dart';
 import '../services/webview_bridge.dart';
 
 /// Core WebView widget that loads reevibes.com with full native integration.
 ///
 /// Features:
 /// - JavaScript enabled with cookie/session persistence
-/// - File upload via camera and gallery
+/// - Native Google Sign-In bridge & OAuth URL interception
+/// - Pinch-to-zoom & double-tap zoom disabled
 /// - External URL handling (payments, OAuth)
 /// - JS ↔ Flutter haptic bridge
 /// - Pull-to-refresh
@@ -62,7 +64,7 @@ class ReeVibesWebViewState extends State<ReeVibesWebView> {
           onPageFinished: (url) {
             setState(() => _isLoading = false);
             widget.onPageFinished?.call();
-            // Inject JS bridge after page load
+            // Inject JS bridge & zoom prevention scripts after page load
             _controller.runJavaScript(_bridge.injectedJavaScript);
             _controller.runJavaScript(_bridge.actionObserverScript);
           },
@@ -82,7 +84,6 @@ class ReeVibesWebViewState extends State<ReeVibesWebView> {
       )
       // Enable file chooser for uploads
       ..setOnJavaScriptAlertDialog((request) async {
-        // Handle JS alerts natively
         if (!mounted) return;
         await showDialog(
           context: context,
@@ -146,6 +147,13 @@ class ReeVibesWebViewState extends State<ReeVibesWebView> {
     );
 
     _controller.addJavaScriptChannel(
+      'FlutterGoogleSignIn',
+      onMessageReceived: (message) async {
+        await _performNativeGoogleSignIn();
+      },
+    );
+
+    _controller.addJavaScriptChannel(
       'FlutterConsole',
       onMessageReceived: (message) {
         debugPrint('WebView console: ${message.message}');
@@ -157,8 +165,28 @@ class ReeVibesWebViewState extends State<ReeVibesWebView> {
     widget.onControllerCreated?.call(_controller);
   }
 
+  Future<void> _performNativeGoogleSignIn() async {
+    try {
+      final response = await SupabaseService.instance.signInWithGoogleNative();
+      if (response != null && response.session != null) {
+        await HapticService.instance.success();
+        await _controller.reload();
+      }
+    } catch (e) {
+      debugPrint('Google Sign-In trigger error: $e');
+    }
+  }
+
   NavigationDecision _handleNavigation(NavigationRequest request) {
     final url = request.url;
+
+    // Check if Google Sign-In OAuth request is triggered in WebView
+    if (url.contains('accounts.google.com/gsi/') ||
+        url.contains('accounts.google.com/o/oauth2/v2/auth') ||
+        (url.contains('supabase.co/auth/v1/authorize') && url.contains('provider=google'))) {
+      _performNativeGoogleSignIn();
+      return NavigationDecision.prevent;
+    }
 
     // Check if URL should be opened externally
     for (final pattern in AppConfig.externalDomainPatterns) {
