@@ -30,7 +30,9 @@ dependencies:
   http: ^1.2.0
   cached_network_image: ^3.4.0
 
-  # ─── Notifications ──────────────────────────────────
+  # ─── Firebase & Push Notifications ───────────────────
+  firebase_core: ^3.8.1
+  firebase_messaging: ^15.1.6
   flutter_local_notifications: ^18.0.0
 
   # ─── Haptics ──────────────────────────────────────────
@@ -64,7 +66,7 @@ flutter_launcher_icons:
   android: true
   ios: false
   remove_alpha_ios: true
-  adaptive_icon_background: "#0A0A0A"
+  adaptive_icon_background: "#FFFFFF"
   adaptive_icon_foreground: "assets/images/icon_foreground.png"
   image_path: "assets/images/app_icon.png"
 

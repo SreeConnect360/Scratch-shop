@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "28862910574",
+    "project_id": "reevibes-app",
+    "storage_bucket": "reevibes-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:28862910574:android:e7e14e9c80b9b676b3d67f",
+        "android_client_info": {
+          "package_name": "com.reevibes.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCRboDrEmFVzHTa4LrojNCzAGrqD7Wk_I4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

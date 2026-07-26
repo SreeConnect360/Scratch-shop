@@ -1,7 +1,6 @@
 /// App-wide configuration constants for the ReeVibes Flutter application.
 ///
 /// All URLs, API keys, and feature flags are centralised here.
-/// Replace placeholder Supabase credentials with your real project values.
 class AppConfig {
   AppConfig._();
 
@@ -9,9 +8,10 @@ class AppConfig {
   static const String websiteUrl = 'https://reevibes.com';
   static const String backendUrl = 'https://scratch-render-sj9n.onrender.com';
 
-  // ─── Supabase (replace with your real credentials) ─────────
-  static const String supabaseUrl = 'https://YOUR_PROJECT_REF.supabase.co';
-  static const String supabaseAnonKey = 'YOUR_SUPABASE_ANON_KEY';
+  // ─── Supabase Credentials ──────────────────────────────────
+  static const String supabaseUrl = 'https://rofhcjedmviwzysipmav.supabase.co';
+  static const String supabaseAnonKey =
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJvZmhjamVkbXZpd3p5c2lwbWF2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyNDIxODYsImV4cCI6MjA5ODgxODE4Nn0.t-qUdbcR7y_M_2FzTuyN2fZyZswKuyvD4p931he3WyA';
 
   // ─── App Meta ──────────────────────────────────────────────
   static const String appName = 'ReeVibes';

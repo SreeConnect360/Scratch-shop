@@ -1,9 +1,15 @@
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-/// Push notification service using local notifications.
-///
-/// Designed to work with Supabase Realtime for order updates
-/// and promotional notifications.
+/// Top-level background message handler for Firebase Cloud Messaging.
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  // Background message received
+}
+
+/// Push notification service using Firebase Cloud Messaging & Local Notifications.
 class NotificationService {
   NotificationService._();
   static final NotificationService instance = NotificationService._();
@@ -11,10 +17,20 @@ class NotificationService {
   final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
   bool _initialised = false;
 
-  /// Initialise the notification plugin with Android channels.
+  /// Initialise Firebase & Local Notification plugin with Android channels.
   Future<void> initialise() async {
     if (_initialised) return;
 
+    // 1. Initialise Firebase Core
+    try {
+      await Firebase.initializeApp();
+      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+      await _initFirebaseMessaging();
+    } catch (e) {
+      // Graceful fallback if Firebase config is missing or uninitialised
+    }
+
+    // 2. Initialise Local Notifications
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
     const initSettings = InitializationSettings(android: androidSettings);
 
@@ -26,6 +42,37 @@ class NotificationService {
     // Create notification channels
     await _createChannels();
     _initialised = true;
+  }
+
+  Future<void> _initFirebaseMessaging() async {
+    final messaging = FirebaseMessaging.instance;
+
+    // Request notification permission for Android 13+
+    await messaging.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+
+    // Handle foreground messages
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      final notification = message.notification;
+      if (notification != null) {
+        showOrderNotification(
+          title: notification.title ?? 'ReeVibes Alert',
+          body: notification.body ?? '',
+          deepLink: message.data['deep_link'],
+        );
+      }
+    });
+
+    // Handle message tap when app opens from background
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      final deepLink = message.data['deep_link'];
+      if (deepLink != null && deepLink.toString().isNotEmpty) {
+        _pendingDeepLink = deepLink.toString();
+      }
+    });
   }
 
   Future<void> _createChannels() async {
@@ -59,8 +106,6 @@ class NotificationService {
   }
 
   void _onNotificationTapped(NotificationResponse response) {
-    // Deep link handling – payload contains the URL path
-    // This will be handled by the WebView navigation
     final payload = response.payload;
     if (payload != null && payload.isNotEmpty) {
       _pendingDeepLink = payload;
