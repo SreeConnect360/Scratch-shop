@@ -10,6 +10,7 @@ import { StatusChip } from "@/components/layout/AdminLayout";
 import { toast } from "sonner";
 import { Map, MapMarker, MarkerContent } from "@/components/ui/map";
 import { useShopNotification } from "./_shop";
+import { getCurrentLocation, reverseGeocodeCoordinates, fetchPincodeDetails } from "@/lib/locationService";
 
 const accountSearchSchema = z.object({
   tab: z.enum(["dashboard", "profile", "addresses", "coupons", "wishlist", "orders", "returns", "wallet", "settings", "ai-analytics"]).catch("profile"),
@@ -150,54 +151,36 @@ function ShopDashboard() {
   const [markerPos, setMarkerPos] = useState<[number, number] | null>(null);
   const [isLocating, setIsLocating] = useState(false);
 
-  // Reverse Geocoding
+  // Reverse Geocoding using locationService (DOES NOT auto-fill street address)
   const handleReverseGeocode = async (lng: number, lat: number) => {
     try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`, {
-        headers: { "User-Agent": "ReeVibes-Shop-Portal" }
-      });
-      const data = await res.json();
-      if (data && data.address) {
-        const addr = data.address;
-        const street = addr.road || addr.suburb || addr.neighbourhood || addr.amenity || addr.industrial || "";
-        const city = addr.city || addr.town || addr.village || addr.municipality || "";
-        const district = addr.county || addr.district || "";
-        const stateVal = addr.state || "";
-        const pincode = addr.postcode || "";
-
-        setAddrStreet(street);
-        setAddrCity(city);
-        setAddrDistrict(district);
-        setAddrState(stateVal);
-        setAddrPincode(pincode ? pincode.replace(/\D/g, "").slice(0, 6) : "");
-        toast.success("Location address resolved!");
-      }
+      const details = await reverseGeocodeCoordinates(lat, lng);
+      setAddrCity(details.city);
+      setAddrDistrict(details.district);
+      setAddrState(details.state);
+      setAddrPincode(details.pincode);
+      // NOTE: Street address field is deliberately left untouched for user manual entry
+      toast.success("Location address resolved! PIN code, State & City updated.");
     } catch (err) {
       console.error("Reverse geocoding error:", err);
+      toast.error("Could not resolve address details for this location. Please enter manually.");
     }
   };
 
-  // Detect location
-  const handleDetectLocation = () => {
-    if (!navigator.geolocation) {
-      toast.error("Geolocation is not supported by your browser.");
-      return;
-    }
+  // Detect location with high accuracy + network fallback
+  const handleDetectLocation = async () => {
     setIsLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { longitude, latitude } = position.coords;
-        setMapCenter([longitude, latitude]);
-        setMarkerPos([longitude, latitude]);
-        setIsLocating(false);
-        handleReverseGeocode(longitude, latitude);
-      },
-      (error) => {
-        setIsLocating(false);
-        toast.error("Failed to detect location. Please search or point manually.");
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
+    try {
+      const coords = await getCurrentLocation();
+      setMapCenter([coords.longitude, coords.latitude]);
+      setMarkerPos([coords.longitude, coords.latitude]);
+      await handleReverseGeocode(coords.longitude, coords.latitude);
+    } catch (err: any) {
+      console.error("Location detection error:", err);
+      toast.error(err.message || "Failed to detect location. Please enter your address manually.");
+    } finally {
+      setIsLocating(false);
+    }
   };
 
   // Forward Geocoding
@@ -428,34 +411,21 @@ function ShopDashboard() {
     }
   }, [user]);
 
-  // Fetch pin code details when pin code reaches 6 digits
+  // Fetch pin code details when pin code reaches 6 digits using locationService
   useEffect(() => {
     if (addrPincode.trim().length === 6 && /^\d+$/.test(addrPincode.trim())) {
       setIsFetchingPin(true);
-      fetch(`https://api.postalpincode.in/pincode/${addrPincode.trim()}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data && data[0] && data[0].Status === "Success" && data[0].PostOffice) {
-            const office = data[0].PostOffice[0];
-            setAddrCity(office.Name || office.Block || "");
-            
-            // Map reorganized Andhra Pradesh districts like Kakinada & Konaseema
-            let district = office.District || "";
-            if (addrPincode.trim() === "533001" || office.Name?.toLowerCase().includes("kakinada") || office.District?.toLowerCase().includes("kakinada")) {
-              district = "Kakinada";
-            } else if (office.District === "East Godavari") {
-              if (addrPincode.trim().startsWith("5330") || addrPincode.trim().startsWith("5334")) {
-                district = "Kakinada";
-              } else if (addrPincode.trim().startsWith("5332")) {
-                district = "Konaseema";
-              }
-            }
-            
-            setAddrDistrict(district);
-            setAddrState(office.State || "");
-            toast.success("India Pincode details retrieved!");
-            // Auto geocode when pincode matches
-            const query = `${office.Name || ""}, ${office.District || ""}, ${office.State || ""} - ${addrPincode.trim()}`;
+      fetchPincodeDetails(addrPincode.trim())
+        .then(details => {
+          if (details) {
+            setAddrCity(details.city);
+            setAddrDistrict(details.district);
+            setAddrState(details.state);
+            // NOTE: Street address is deliberately untouched when pin code is entered
+            toast.success("PIN Code details retrieved!");
+
+            // Auto geocode when pincode matches to update map view
+            const query = `${details.locality}, ${details.district}, ${details.state} - ${details.pincode}`;
             fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`, {
               headers: { "User-Agent": "ReeVibes-Shop-Portal" }
             })
@@ -467,20 +437,22 @@ function ShopDashboard() {
                   setMapCenter([lngNum, latNum]);
                   setMarkerPos([lngNum, latNum]);
                 }
-              });
+              })
+              .catch(() => {});
           } else {
-            toast.error("Invalid India pincode or not found.");
+            toast.error("PIN Code details not found. Please enter details manually.");
           }
         })
         .catch(err => {
           console.error(err);
-          toast.error("Error fetching pincode details. Please fill manually.");
+          toast.error("Error fetching PIN code details. Please fill manually.");
         })
         .finally(() => {
           setIsFetchingPin(false);
         });
     }
   }, [addrPincode]);
+
   const userAddresses = user ? (state.addresses?.[user.id] || []) : [];
 
   // Wishlist Items

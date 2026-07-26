@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Map, MapMarker, MarkerContent } from "@/components/ui/map";
+import { getCurrentLocation, reverseGeocodeCoordinates, fetchPincodeDetails } from "@/lib/locationService";
 
 const cartSearchSchema = z.object({
   buyNow: z.string().optional(),
@@ -240,21 +241,20 @@ export function ShopCart() {
   const [markerPos, setMarkerPos] = useState<[number, number] | null>(null);
   const [isLocating, setIsLocating] = useState(false);
 
-  // Fetch new pin code details when pin code reaches 6 digits
+  // Fetch new pin code details when pin code reaches 6 digits (DOES NOT auto-fill street address)
   useEffect(() => {
     if (newPincode.trim().length === 6 && /^\d+$/.test(newPincode.trim())) {
-      fetch(`https://api.postalpincode.in/pincode/${newPincode.trim()}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data && data[0] && data[0].Status === "Success" && data[0].PostOffice) {
-            const office = data[0].PostOffice[0];
-            setNewCity(office.Name || office.Block || "");
-            setNewDistrict(office.District || "");
-            setNewState(office.State || "");
+      fetchPincodeDetails(newPincode.trim())
+        .then(details => {
+          if (details) {
+            setNewCity(details.city);
+            setNewDistrict(details.district);
+            setNewState(details.state);
+            // NOTE: Street address field is left untouched
             toast.success("India Pincode details retrieved!");
             
             // Auto geocode
-            const query = `${office.Name || ""}, ${office.District || ""}, ${office.State || ""} - ${newPincode.trim()}`;
+            const query = `${details.locality}, ${details.district}, ${details.state} - ${details.pincode}`;
             fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`, {
               headers: { "User-Agent": "ReeVibes-Shop-Portal" }
             })
@@ -266,28 +266,28 @@ export function ShopCart() {
                   setMapCenter([lngNum, latNum]);
                   setMarkerPos([lngNum, latNum]);
                 }
-              });
+              })
+              .catch(() => {});
           }
         })
         .catch(console.error);
     }
   }, [newPincode]);
 
-  // Fetch edit pin code details when pin code reaches 6 digits
+  // Fetch edit pin code details when pin code reaches 6 digits (DOES NOT auto-fill street address)
   useEffect(() => {
     if (editPincode.trim().length === 6 && /^\d+$/.test(editPincode.trim())) {
-      fetch(`https://api.postalpincode.in/pincode/${editPincode.trim()}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data && data[0] && data[0].Status === "Success" && data[0].PostOffice) {
-            const office = data[0].PostOffice[0];
-            setEditCity(office.Name || office.Block || "");
-            setEditDistrict(office.District || "");
-            setEditState(office.State || "");
+      fetchPincodeDetails(editPincode.trim())
+        .then(details => {
+          if (details) {
+            setEditCity(details.city);
+            setEditDistrict(details.district);
+            setEditState(details.state);
+            // NOTE: Street address field is left untouched
             toast.success("India Pincode details retrieved!");
             
             // Auto geocode
-            const query = `${office.Name || ""}, ${office.District || ""}, ${office.State || ""} - ${editPincode.trim()}`;
+            const query = `${details.locality}, ${details.district}, ${details.state} - ${details.pincode}`;
             fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`, {
               headers: { "User-Agent": "ReeVibes-Shop-Portal" }
             })
@@ -299,70 +299,54 @@ export function ShopCart() {
                   setMapCenter([lngNum, latNum]);
                   setMarkerPos([lngNum, latNum]);
                 }
-              });
+              })
+              .catch(() => {});
           }
         })
         .catch(console.error);
     }
   }, [editPincode]);
 
-  // Reverse Geocoding
+  // Reverse Geocoding using locationService (DOES NOT auto-fill street address)
   const handleReverseGeocode = async (lng: number, lat: number) => {
     try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`, {
-        headers: { "User-Agent": "ReeVibes-Shop-Portal" }
-      });
-      const data = await res.json();
-      if (data && data.address) {
-        const addr = data.address;
-        const street = addr.road || addr.suburb || addr.neighbourhood || addr.amenity || addr.industrial || "";
-        const city = addr.city || addr.town || addr.village || addr.municipality || "";
-        const district = addr.county || addr.district || "";
-        const stateVal = addr.state || "";
-        const pincode = addr.postcode || "";
-
-        if (isEditingAddress) {
-          setEditStreet(street);
-          setEditCity(city);
-          setEditDistrict(district);
-          setEditState(stateVal);
-          setEditPincode(pincode ? pincode.replace(/\D/g, "").slice(0, 6) : "");
-        } else {
-          setNewStreet(street);
-          setNewCity(city);
-          setNewDistrict(district);
-          setNewState(stateVal);
-          setNewPincode(pincode ? pincode.replace(/\D/g, "").slice(0, 6) : "");
-        }
-        toast.success("Location address resolved!");
+      const details = await reverseGeocodeCoordinates(lat, lng);
+      if (isEditingAddress) {
+        setEditCity(details.city);
+        setEditDistrict(details.district);
+        setEditState(details.state);
+        setEditPincode(details.pincode);
+        // NOTE: editStreet is deliberately untouched
+      } else {
+        setNewCity(details.city);
+        setNewDistrict(details.district);
+        setNewState(details.state);
+        setNewPincode(details.pincode);
+        // NOTE: newStreet is deliberately untouched
       }
+      toast.success("Location address resolved! PIN code, State & City updated.");
     } catch (err) {
       console.error("Reverse geocoding error:", err);
+      toast.error("Could not resolve address details for this location. Please enter manually.");
     }
   };
 
-  // Detect location
-  const handleDetectLocation = () => {
-    if (!navigator.geolocation) {
-      toast.error("Geolocation is not supported by your browser.");
-      return;
-    }
+  // Detect location with high accuracy + network fallback
+  const handleDetectLocation = async () => {
     setIsLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { longitude, latitude } = position.coords;
-        setMapCenter([longitude, latitude]);
-        setMarkerPos([longitude, latitude]);
-        setIsLocating(false);
-        handleReverseGeocode(longitude, latitude);
-      },
-      (error) => {
-        setIsLocating(false);
-        toast.error("Failed to detect location. Please search or point manually.");
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
+    try {
+      const coords = await getCurrentLocation();
+      setMapCenter([coords.longitude, coords.latitude]);
+      setMarkerPos([coords.longitude, coords.latitude]);
+      await handleReverseGeocode(coords.longitude, coords.latitude);
+    } catch (err: any) {
+      console.error("Location detection error:", err);
+      toast.error(err.message || "Failed to detect location. Please enter your address manually.");
+    } finally {
+      setIsLocating(false);
+    }
   };
+
 
   // Forward Geocoding
   const handleGeocodeActiveAddress = async () => {
