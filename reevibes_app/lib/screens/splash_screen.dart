@@ -75,7 +75,7 @@ class _SplashScreenState extends State<SplashScreen>
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFFD4AF37).withValues(alpha: 0.3),
+                          color: const Color(0xFFD4AF37).withOpacity(0.3),
                           blurRadius: 30,
                           spreadRadius: 5,
                         ),
@@ -108,7 +108,7 @@ class _SplashScreenState extends State<SplashScreen>
                   Text(
                     'PREMIUM FASHION CURATION',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.5),
+                      color: Colors.white.withOpacity(0.5),
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 4,
@@ -122,7 +122,7 @@ class _SplashScreenState extends State<SplashScreen>
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
                       valueColor: AlwaysStoppedAnimation<Color>(
-                        const Color(0xFFD4AF37).withValues(alpha: 0.6),
+                        const Color(0xFFD4AF37).withOpacity(0.6),
                       ),
                     ),
                   ),

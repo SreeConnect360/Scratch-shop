@@ -1,12 +1,22 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
+const FirebaseOptions _androidFirebaseOptions = FirebaseOptions(
+  apiKey: 'AIzaSyCRboDrEmFVzHTa4LrojNCzAGrqD7Wk_I4',
+  appId: '1:28862910574:android:e7e14e9c80b9b676b3d67f',
+  messagingSenderId: '28862910574',
+  projectId: 'reevibes-app',
+  storageBucket: 'reevibes-app.firebasestorage.app',
+);
 
 /// Top-level background message handler for Firebase Cloud Messaging.
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
-  // Background message received
+  try {
+    await Firebase.initializeApp(options: _androidFirebaseOptions);
+  } catch (_) {}
 }
 
 /// Push notification service using Firebase Cloud Messaging & Local Notifications.
@@ -21,58 +31,69 @@ class NotificationService {
   Future<void> initialise() async {
     if (_initialised) return;
 
-    // 1. Initialise Firebase Core
+    // 1. Initialise Firebase Core safely
     try {
-      await Firebase.initializeApp();
+      if (Firebase.apps.isEmpty) {
+        await Firebase.initializeApp(options: _androidFirebaseOptions);
+      }
       FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
       await _initFirebaseMessaging();
     } catch (e) {
-      // Graceful fallback if Firebase config is missing or uninitialised
+      debugPrint('Firebase init warning: $e');
     }
 
-    // 2. Initialise Local Notifications
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const initSettings = InitializationSettings(android: androidSettings);
+    // 2. Initialise Local Notifications safely
+    try {
+      const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+      const initSettings = InitializationSettings(android: androidSettings);
 
-    await _plugin.initialize(
-      initSettings,
-      onDidReceiveNotificationResponse: _onNotificationTapped,
-    );
+      await _plugin.initialize(
+        initSettings,
+        onDidReceiveNotificationResponse: _onNotificationTapped,
+      );
 
-    // Create notification channels
-    await _createChannels();
+      // Create notification channels
+      await _createChannels();
+    } catch (e) {
+      debugPrint('Local Notifications init warning: $e');
+    }
+
     _initialised = true;
   }
 
   Future<void> _initFirebaseMessaging() async {
-    final messaging = FirebaseMessaging.instance;
+    try {
+      final messaging = FirebaseMessaging.instance;
 
-    // Request notification permission for Android 13+
-    await messaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
+      // Request notification permission for Android 13+
+      await messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
 
-    // Handle foreground messages
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      final notification = message.notification;
-      if (notification != null) {
-        showOrderNotification(
-          title: notification.title ?? 'ReeVibes Alert',
-          body: notification.body ?? '',
-          deepLink: message.data['deep_link'],
-        );
-      }
-    });
+      // Handle foreground messages
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        final notification = message.notification;
+        if (notification != null) {
+          showOrderNotification(
+            title: notification.title ?? 'ReeVibes Alert',
+            body: notification.body ?? '',
+            deepLink: message.data['deep_link'],
+          );
+        }
+      });
 
-    // Handle message tap when app opens from background
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      final deepLink = message.data['deep_link'];
-      if (deepLink != null && deepLink.toString().isNotEmpty) {
-        _pendingDeepLink = deepLink.toString();
-      }
-    });
+      // Handle message tap when app opens from background
+      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+        final deepLink = message.data['deep_link'];
+        if (deepLink != null && deepLink.toString().isNotEmpty) {
+          _pendingDeepLink = deepLink.toString();
+        }
+      });
+    } catch (e) {
+      debugPrint('FCM listener error: $e');
+    }
   }
 
   Future<void> _createChannels() async {
@@ -171,25 +192,27 @@ class NotificationService {
     required String body,
     String? payload,
   }) async {
-    final id = DateTime.now().millisecondsSinceEpoch.remainder(100000);
-    await _plugin.show(
-      id,
-      title,
-      body,
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          channelId,
-          channelId == 'orders'
-              ? 'Order Updates'
-              : channelId == 'promotions'
-                  ? 'Offers & Promotions'
-                  : 'Wishlist Alerts',
-          icon: '@mipmap/ic_launcher',
-          priority: channelId == 'orders' ? Priority.high : Priority.defaultPriority,
-          importance: channelId == 'orders' ? Importance.high : Importance.defaultImportance,
+    try {
+      final id = DateTime.now().millisecondsSinceEpoch.remainder(100000);
+      await _plugin.show(
+        id,
+        title,
+        body,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            channelId,
+            channelId == 'orders'
+                ? 'Order Updates'
+                : channelId == 'promotions'
+                    ? 'Offers & Promotions'
+                    : 'Wishlist Alerts',
+            icon: '@mipmap/ic_launcher',
+            priority: channelId == 'orders' ? Priority.high : Priority.defaultPriority,
+            importance: channelId == 'orders' ? Importance.high : Importance.defaultImportance,
+          ),
         ),
-      ),
-      payload: payload,
-    );
+        payload: payload,
+      );
+    } catch (_) {}
   }
 }

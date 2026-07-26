@@ -29,13 +29,13 @@ class BottomNav extends StatelessWidget {
         color: const Color(0xFF0D0D0D),
         border: Border(
           top: BorderSide(
-            color: Colors.white.withValues(alpha: 0.06),
+            color: Colors.white.withOpacity(0.06),
             width: 0.5,
           ),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.4),
+            color: Colors.black.withOpacity(0.4),
             blurRadius: 20,
             offset: const Offset(0, -4),
           ),
@@ -57,7 +57,7 @@ class BottomNav extends StatelessWidget {
                     HapticService.instance.selectionClick();
                     onTap(index, item.path);
                   },
-                  splashColor: const Color(0xFFD4AF37).withValues(alpha: 0.1),
+                  splashColor: const Color(0xFFD4AF37).withOpacity(0.1),
                   highlightColor: Colors.transparent,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -70,7 +70,7 @@ class BottomNav extends StatelessWidget {
                           size: 22,
                           color: isSelected
                               ? const Color(0xFFD4AF37)
-                              : Colors.white.withValues(alpha: 0.45),
+                              : Colors.white.withOpacity(0.45),
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -82,7 +82,7 @@ class BottomNav extends StatelessWidget {
                           letterSpacing: 0.8,
                           color: isSelected
                               ? const Color(0xFFD4AF37)
-                              : Colors.white.withValues(alpha: 0.4),
+                              : Colors.white.withOpacity(0.4),
                         ),
                       ),
                       // Active indicator dot

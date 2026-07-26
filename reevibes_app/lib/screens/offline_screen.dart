@@ -31,12 +31,12 @@ class OfflineScreen extends StatelessWidget {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      const Color(0xFFD4AF37).withValues(alpha: 0.15),
+                      const Color(0xFFD4AF37).withOpacity(0.15),
                       const Color(0xFF1A1A1A),
                     ],
                   ),
                   border: Border.all(
-                    color: const Color(0xFFD4AF37).withValues(alpha: 0.3),
+                    color: const Color(0xFFD4AF37).withOpacity(0.3),
                     width: 2,
                   ),
                 ),
@@ -61,7 +61,7 @@ class OfflineScreen extends StatelessWidget {
                 'Please connect to the internet to continue.\nCached content may still be available.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.6),
+                  color: Colors.white.withOpacity(0.6),
                   fontSize: 14,
                   height: 1.5,
                 ),
@@ -99,7 +99,7 @@ class OfflineScreen extends StatelessWidget {
               Text(
                 'Will auto-reconnect when internet is available',
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.35),
+                  color: Colors.white.withOpacity(0.35),
                   fontSize: 11,
                   letterSpacing: 0.5,
                 ),

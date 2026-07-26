@@ -150,20 +150,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
-                  color: const Color(0xFFD4AF37).withValues(alpha: 0.15),
+                  color: const Color(0xFFD4AF37).withOpacity(0.15),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
                         Icons.wifi_off_rounded,
                         size: 14,
-                        color: const Color(0xFFD4AF37).withValues(alpha: 0.8),
+                        color: const Color(0xFFD4AF37).withOpacity(0.8),
                       ),
                       const SizedBox(width: 8),
                       Text(
                         'You are offline',
                         style: TextStyle(
-                          color: const Color(0xFFD4AF37).withValues(alpha: 0.8),
+                          color: const Color(0xFFD4AF37).withOpacity(0.8),
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
