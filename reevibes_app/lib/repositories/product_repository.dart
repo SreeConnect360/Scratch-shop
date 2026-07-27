@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart' hide Category;
 import '../models/product.dart';
 import '../models/category.dart';
@@ -9,7 +10,7 @@ class ProductRepository {
   static final ProductRepository instance = ProductRepository._();
   ProductRepository._();
 
-  /// Default fallback curated products for offline browsing or empty DB
+  /// Default fallback curated products for offline browsing or initial empty DB state
   static final List<Product> _sampleProducts = [
     Product(
       id: 'p1',
@@ -131,11 +132,31 @@ class ProductRepository {
     Category(id: 'c6', name: 'Accessories', slug: 'accessories', imageUrl: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=800&q=80', itemCount: 22),
   ];
 
-  /// Fetch all products (with Supabase remote query & offline disk fallback)
+  /// Cache-First fetch with instant local return and background Supabase sync
   Future<List<Product>> fetchProducts() async {
+    final cached = CacheService.instance.getJson('products_list');
+    if (cached is List && cached.isNotEmpty) {
+      // Trigger background update silently
+      unawaited(_syncProductsFromRemote());
+      return cached.map((item) => Product.fromJson(item as Map<String, dynamic>)).toList();
+    }
+
+    final remote = await _syncProductsFromRemote();
+    if (remote != null && remote.isNotEmpty) {
+      return remote;
+    }
+
+    return _sampleProducts;
+  }
+
+  /// Sync products from remote Supabase
+  Future<List<Product>?> _syncProductsFromRemote() async {
     try {
       if (SupabaseService.instance.isInitialised) {
-        final dynamic response = await SupabaseService.instance.client.from('products').select();
+        final dynamic response = await SupabaseService.instance.client
+            .from('products')
+            .select()
+            .timeout(const Duration(seconds: 4));
         if (response is List && response.isNotEmpty) {
           final fetched = response.map((item) => Product.fromJson(item as Map<String, dynamic>)).toList();
           await CacheService.instance.putJson('products_list', response);
@@ -143,31 +164,45 @@ class ProductRepository {
         }
       }
     } catch (e) {
-      debugPrint('Error fetching products from Supabase (using cache/sample): $e');
+      debugPrint('Background products sync skipped/offline: $e');
     }
-
-    final cached = CacheService.instance.getJson('products_list');
-    if (cached is List && cached.isNotEmpty) {
-      return cached.map((item) => Product.fromJson(item as Map<String, dynamic>)).toList();
-    }
-
-    return _sampleProducts;
+    return null;
   }
 
-  /// Fetch categories list
+  /// Cache-First category fetch
   Future<List<Category>> fetchCategories() async {
-    try {
-      if (SupabaseService.instance.isInitialised) {
-        final dynamic response = await SupabaseService.instance.client.from('categories').select();
-        if (response is List && response.isNotEmpty) {
-          return response.map((item) => Category.fromJson(item as Map<String, dynamic>)).toList();
-        }
-      }
-    } catch (e) {
-      debugPrint('Error fetching categories: $e');
+    final cached = CacheService.instance.getJson('categories_list');
+    if (cached is List && cached.isNotEmpty) {
+      unawaited(_syncCategoriesFromRemote());
+      return cached.map((item) => Category.fromJson(item as Map<String, dynamic>)).toList();
+    }
+
+    final remote = await _syncCategoriesFromRemote();
+    if (remote != null && remote.isNotEmpty) {
+      return remote;
     }
 
     return _sampleCategories;
+  }
+
+  /// Sync categories from remote Supabase
+  Future<List<Category>?> _syncCategoriesFromRemote() async {
+    try {
+      if (SupabaseService.instance.isInitialised) {
+        final dynamic response = await SupabaseService.instance.client
+            .from('categories')
+            .select()
+            .timeout(const Duration(seconds: 4));
+        if (response is List && response.isNotEmpty) {
+          final fetched = response.map((item) => Category.fromJson(item as Map<String, dynamic>)).toList();
+          await CacheService.instance.putJson('categories_list', response);
+          return fetched;
+        }
+      }
+    } catch (e) {
+      debugPrint('Background categories sync skipped/offline: $e');
+    }
+    return null;
   }
 
   /// Search products by term

@@ -46,6 +46,8 @@ class ProductCard extends StatelessWidget {
                     child: CachedNetworkImage(
                       imageUrl: product.primaryImage,
                       fit: BoxFit.cover,
+                      memCacheWidth: 400,
+                      maxHeightDiskCache: 1000,
                       placeholder: (context, url) => const ShimmerContainer(),
                       errorWidget: (context, url, error) => Container(
                         color: AppColors.surfaceElevated,

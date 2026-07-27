@@ -4,6 +4,8 @@ import '../core/theme/app_colors.dart';
 import 'home_screen.dart';
 
 /// Luxury Splash Screen for ReeVibes.
+/// Adapts background to system theme (Dark: #0A0A0A, Light: #FFFFFF).
+/// Displays ONLY the brand logo at startup.
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -21,7 +23,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 1400),
     );
 
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
@@ -34,8 +36,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
     _controller.forward();
 
-    // Navigate to HomeScreen after 2 seconds
-    Future.delayed(const Duration(milliseconds: 2200), () {
+    // Navigate to HomeScreen after logo display
+    Future.delayed(const Duration(milliseconds: 1800), () {
       if (mounted) {
         Navigator.of(context).pushReplacement(
           PageRouteBuilder(
@@ -43,7 +45,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
             transitionsBuilder: (context, animation, secondaryAnimation, child) {
               return FadeTransition(opacity: animation, child: child);
             },
-            transitionDuration: const Duration(milliseconds: 600),
+            transitionDuration: const Duration(milliseconds: 500),
           ),
         );
       }
@@ -58,8 +60,13 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
+    // Detect system brightness mode (Dark vs Light)
+    final isDarkMode = MediaQuery.of(context).platformBrightness == Brightness.dark;
+    final backgroundColor = isDarkMode ? const Color(0xFF0A0A0A) : const Color(0xFFFFFFFF);
+    final titleTextColor = isDarkMode ? Colors.white : const Color(0xFF0A0A0A);
+
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: backgroundColor,
       body: Center(
         child: FadeTransition(
           opacity: _fadeAnimation,
@@ -68,18 +75,18 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Gold Brand Emblem
+                // Gold Brand Logo Emblem
                 Container(
-                  width: 72,
-                  height: 72,
+                  width: 84,
+                  height: 84,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: AppColors.goldGradient,
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.gold.withOpacity(0.4),
-                        blurRadius: 24,
-                        spreadRadius: 4,
+                        color: AppColors.gold.withOpacity(isDarkMode ? 0.4 : 0.25),
+                        blurRadius: 28,
+                        spreadRadius: 6,
                       ),
                     ],
                   ),
@@ -88,33 +95,23 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                       'RV',
                       style: TextStyle(
                         color: Colors.black,
-                        fontSize: 26,
+                        fontSize: 32,
                         fontWeight: FontWeight.w900,
-                        letterSpacing: 1.5,
+                        letterSpacing: 2.0,
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
 
+                // Brand Name Logo
                 Text(
                   'ReeVibes',
                   style: GoogleFonts.playfairDisplay(
-                    color: AppColors.textPrimary,
-                    fontSize: 36,
+                    color: titleTextColor,
+                    fontSize: 38,
                     fontWeight: FontWeight.bold,
-                    letterSpacing: 2.0,
-                  ),
-                ),
-                const SizedBox(height: 8),
-
-                Text(
-                  'PREMIUM FASHION CURATION',
-                  style: GoogleFonts.outfit(
-                    color: AppColors.gold,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 2.5,
+                    letterSpacing: 2.2,
                   ),
                 ),
               ],
