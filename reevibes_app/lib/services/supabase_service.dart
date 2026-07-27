@@ -4,7 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/app_config.dart';
 import 'cache_service.dart';
 
-/// Centralised Supabase service for authentication, Google OAuth, and session persistence.
+/// Centralised Supabase service for authentication, Google OAuth, session persistence, and API calls.
 class SupabaseService {
   SupabaseService._();
   static final SupabaseService instance = SupabaseService._();
@@ -12,7 +12,11 @@ class SupabaseService {
   bool _initialised = false;
   bool get isInitialised => _initialised;
 
-  final GoogleSignIn _googleSignIn = GoogleSignIn(
+  // Web Client ID required for Google OAuth on Android to obtain OpenID idToken
+  static const String _webClientId = '855678728689-s70vh2t24a6c7m48506416qcqt9htgfc.apps.googleusercontent.com';
+
+  late final GoogleSignIn _googleSignIn = GoogleSignIn(
+    serverClientId: _webClientId,
     scopes: ['email', 'profile'],
   );
 
@@ -30,7 +34,7 @@ class SupabaseService {
         _initialised = true;
 
         // Auto-cache active user profile on launch
-        await _cacheActiveUserProfile();
+        await syncActiveUserProfile();
       }
     } catch (e) {
       debugPrint('Supabase init warning (continuing with offline fallback): $e');
@@ -42,15 +46,21 @@ class SupabaseService {
   Future<AuthResponse?> signInWithGoogleNative() async {
     if (!_initialised) await initialise();
     try {
+      debugPrint('Starting native Google Sign-In with serverClientId: $_webClientId');
       final googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) return null; // User cancelled
+      if (googleUser == null) {
+        debugPrint('Google Sign-In cancelled by user.');
+        return null;
+      }
 
       final googleAuth = await googleUser.authentication;
       final accessToken = googleAuth.accessToken;
       final idToken = googleAuth.idToken;
 
+      debugPrint('Google Sign-In Success. Has ID Token: ${idToken != null}, Has Access Token: ${accessToken != null}');
+
       if (idToken == null) {
-        throw Exception('Google Sign-In failed: No ID Token retrieved.');
+        throw Exception('Google Sign-In failed: No ID Token returned from Google SDK.');
       }
 
       final response = await Supabase.instance.client.auth.signInWithIdToken(
@@ -59,17 +69,72 @@ class SupabaseService {
         accessToken: accessToken,
       );
 
+      debugPrint('Supabase Auth response received. User ID: ${response.user?.id}');
+
+      // Ensure profile exists in Database
+      if (response.user != null) {
+        await _ensureUserProfile(response.user!);
+      }
+
       // Cache user profile for offline persistence
-      await _cacheActiveUserProfile();
+      await syncActiveUserProfile();
       return response;
     } catch (e) {
       debugPrint('Google Sign-In error: $e');
-      return null;
+      rethrow;
     }
   }
 
+  /// Ensure user profile record exists in Supabase DB `profiles` table
+  Future<void> _ensureUserProfile(User user) async {
+    try {
+      final client = Supabase.instance.client;
+      final existing = await client.from('profiles').select().eq('id', user.id).maybeSingle();
+      if (existing == null) {
+        final name = user.userMetadata?['full_name'] ?? user.userMetadata?['name'] ?? user.email?.split('@').first ?? 'ReeVibes Member';
+        final avatar = user.userMetadata?['avatar_url'] ?? '';
+        await client.from('profiles').insert({
+          'id': user.id,
+          'email': user.email,
+          'full_name': name,
+          'avatar_url': avatar,
+          'role': 'customer',
+          'created_at': DateTime.now().toIso8601String(),
+        });
+      }
+    } catch (e) {
+      debugPrint('Warning: Could not sync profile to DB table: $e');
+    }
+  }
+
+  /// Sign in with Email and Password
+  Future<AuthResponse> signInWithEmail(String email, String password) async {
+    if (!_initialised) await initialise();
+    final response = await Supabase.instance.client.auth.signInWithPassword(
+      email: email,
+      password: password,
+    );
+    await syncActiveUserProfile();
+    return response;
+  }
+
+  /// Register with Email and Password
+  Future<AuthResponse> signUpWithEmail(String email, String password, String fullName) async {
+    if (!_initialised) await initialise();
+    final response = await Supabase.instance.client.auth.signUp(
+      email: email,
+      password: password,
+      data: {'full_name': fullName},
+    );
+    if (response.user != null) {
+      await _ensureUserProfile(response.user!);
+    }
+    await syncActiveUserProfile();
+    return response;
+  }
+
   /// Cache active user profile data locally for offline viewing.
-  Future<void> _cacheActiveUserProfile() async {
+  Future<void> syncActiveUserProfile() async {
     try {
       final user = currentUser;
       if (user != null) {
@@ -95,7 +160,7 @@ class SupabaseService {
       if (session != null && session.isExpired) {
         await Supabase.instance.client.auth.refreshSession();
       }
-      await _cacheActiveUserProfile();
+      await syncActiveUserProfile();
     } catch (e) {
       debugPrint('Sync session error: $e');
     }
@@ -134,4 +199,6 @@ class SupabaseService {
       debugPrint('Supabase sign out error: $e');
     }
   }
+
+  SupabaseClient get client => Supabase.instance.client;
 }

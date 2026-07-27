@@ -1,41 +1,52 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../core/theme/app_colors.dart';
+import 'home_screen.dart';
 
-/// Animated splash screen shown on cold launch while services initialise.
+/// Luxury Splash Screen for ReeVibes.
 class SplashScreen extends StatefulWidget {
-  final VoidCallback onInitialised;
-
-  const SplashScreen({super.key, required this.onInitialised});
+  const SplashScreen({super.key});
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen>
-    with SingleTickerProviderStateMixin {
+class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  late Animation<double> _fadeIn;
-  late Animation<double> _scale;
+  late Animation<double> _fadeAnimation;
+  late Animation<double> _scaleAnimation;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 1500),
     );
 
-    _fadeIn = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _controller, curve: const Interval(0, 0.6, curve: Curves.easeOut)),
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
     );
-    _scale = Tween<double>(begin: 0.8, end: 1).animate(
-      CurvedAnimation(parent: _controller, curve: const Interval(0, 0.6, curve: Curves.easeOutBack)),
+
+    _scaleAnimation = Tween<double>(begin: 0.85, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
     );
 
     _controller.forward();
 
-    // Transition to main screen after animation
-    Future.delayed(const Duration(milliseconds: 1800), () {
-      if (mounted) widget.onInitialised();
+    // Navigate to HomeScreen after 2 seconds
+    Future.delayed(const Duration(milliseconds: 2200), () {
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) => const HomeScreen(),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return FadeTransition(opacity: animation, child: child);
+            },
+            transitionDuration: const Duration(milliseconds: 600),
+          ),
+        );
+      }
     });
   }
 
@@ -48,86 +59,65 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0A0A),
+      backgroundColor: AppColors.background,
       body: Center(
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (context, child) => Opacity(
-            opacity: _fadeIn.value,
-            child: Transform.scale(
-              scale: _scale.value,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Logo container
-                  Container(
-                    width: 100,
-                    height: 100,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Color(0xFFD4AF37),
-                          Color(0xFFB8860B),
-                        ],
+        child: FadeTransition(
+          opacity: _fadeAnimation,
+          child: ScaleTransition(
+            scale: _scaleAnimation,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Gold Brand Emblem
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: AppColors.goldGradient,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.gold.withOpacity(0.4),
+                        blurRadius: 24,
+                        spreadRadius: 4,
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFFD4AF37).withOpacity(0.3),
-                          blurRadius: 30,
-                          spreadRadius: 5,
-                        ),
-                      ],
-                    ),
-                    child: const Center(
-                      child: Text(
-                        'R',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 48,
-                          fontWeight: FontWeight.w900,
-                          fontFamily: 'serif',
-                        ),
+                    ],
+                  ),
+                  child: const Center(
+                    child: Text(
+                      'RV',
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontSize: 26,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.5,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 24),
-                  // Brand name
-                  const Text(
-                    'ReeVibes',
-                    style: TextStyle(
-                      color: Color(0xFFD4AF37),
-                      fontSize: 32,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 3,
-                    ),
+                ),
+                const SizedBox(height: 24),
+
+                Text(
+                  'ReeVibes',
+                  style: GoogleFonts.playfairDisplay(
+                    color: AppColors.textPrimary,
+                    fontSize: 36,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 2.0,
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'PREMIUM FASHION CURATION',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.5),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 4,
-                    ),
+                ),
+                const SizedBox(height: 8),
+
+                Text(
+                  'PREMIUM FASHION CURATION',
+                  style: GoogleFonts.outfit(
+                    color: AppColors.gold,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 2.5,
                   ),
-                  const SizedBox(height: 48),
-                  // Loading indicator
-                  SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        const Color(0xFFD4AF37).withOpacity(0.6),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),

@@ -49,12 +49,20 @@ class HapticService {
     } catch (_) {}
   }
 
+  Future<void> successNotification() async {
+    await success();
+  }
+
   /// Error pattern – single long pulse.
   Future<void> error() async {
     if (!_enabled) return;
     try {
       await Vibration.vibrate(duration: 150, amplitude: 200);
     } catch (_) {}
+  }
+
+  Future<void> errorNotification() async {
+    await error();
   }
 
   /// Selection changed.

@@ -71,6 +71,14 @@ class CacheService {
     } catch (_) {}
   }
 
+  /// Delete a key from cache.
+  Future<void> deleteKey(String key) async {
+    if (_contentBox == null) return;
+    try {
+      await _contentBox?.delete(key);
+    } catch (_) {}
+  }
+
   /// Retrieve cached JSON for [key]. Returns `null` if expired or missing.
   dynamic getJson(String key, {Duration? maxAge, bool ignoreExpiration = false}) {
     if (_contentBox == null) return null;

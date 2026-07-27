@@ -1,14 +1,17 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../services/connectivity_service.dart';
+import '../core/theme/app_colors.dart';
 import '../services/haptic_service.dart';
-import '../services/notification_service.dart';
-import '../widgets/webview_widget.dart';
-import 'offline_screen.dart';
+import '../widgets/bottom_nav_bar.dart';
+import '../widgets/top_header_bar.dart';
+import 'home_tab_screen.dart';
+import 'cart_screen.dart';
+import 'search_screen.dart';
+import 'wishlist_screen.dart';
+import 'account_screen.dart';
+import 'notifications_screen.dart';
 
-/// Main application screen containing the WebView, connectivity monitoring,
-/// and offline fallback (Bottom navigation bar removed for mobile UI optimization).
+/// Main Application Host Screen holding the 5 Navigation Tabs and PageView.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -16,67 +19,37 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
-  final _webViewKey = GlobalKey<ReeVibesWebViewState>();
-  bool _isOnline = true;
-  bool _showOffline = false;
-  StreamSubscription<bool>? _connectivitySub;
+class _HomeScreenState extends State<HomeScreen> {
+  int _currentIndex = 0;
+  final PageController _pageController = PageController();
   DateTime? _lastBackPress;
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
+  final List<Widget> _tabs = const [
+    HomeTabScreen(),
+    CartScreen(),
+    SearchScreen(),
+    WishlistScreen(),
+    AccountScreen(),
+  ];
 
-    _isOnline = ConnectivityService.instance.isConnected;
-    _showOffline = !_isOnline;
-
-    _connectivitySub = ConnectivityService.instance.onConnectivityChanged.listen((connected) {
-      if (!mounted) return;
-      setState(() {
-        _isOnline = connected;
-        if (connected && _showOffline) {
-          _showOffline = false;
-          _webViewKey.currentState?.reload();
-        } else if (!connected) {
-          _showOffline = true;
-        }
-      });
-    });
-
-    // Check for pending deep links from notifications
-    _checkPendingDeepLinks();
-  }
-
-  void _checkPendingDeepLinks() {
-    final deepLink = NotificationService.instance.consumePendingDeepLink();
-    if (deepLink != null) {
-      Future.delayed(const Duration(milliseconds: 500), () {
-        _webViewKey.currentState?.navigateTo(deepLink);
-      });
+  void _onTabSelected(int index) {
+    if (_currentIndex != index) {
+      setState(() => _currentIndex = index);
+      _pageController.jumpToPage(index);
+      HapticService.instance.lightTap();
     }
   }
 
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _connectivitySub?.cancel();
-    super.dispose();
+  void _openSearchOverlay() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const SearchScreen()),
+    );
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      ConnectivityService.instance.checkNow();
-      _checkPendingDeepLinks();
-    }
-  }
-
-  /// Handle Android back button: navigate WebView history first, then show exit toast.
   Future<bool> _handleBackPress() async {
-    final canGoBack = await _webViewKey.currentState?.canGoBack() ?? false;
-    if (canGoBack) {
-      await _webViewKey.currentState?.goBack();
+    if (_currentIndex != 0) {
+      _onTabSelected(0);
       return false;
     }
 
@@ -86,15 +59,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
     _lastBackPress = now;
     await HapticService.instance.lightTap();
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text(
-            'Press back again to exit',
+            'Press back again to exit ReeVibes',
             style: TextStyle(color: Colors.white, fontSize: 13),
           ),
           duration: const Duration(seconds: 2),
-          backgroundColor: const Color(0xFF1A1A1A),
+          backgroundColor: AppColors.surfaceElevated,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           margin: const EdgeInsets.all(16),
@@ -108,7 +82,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
-      onPopInvokedWithResult: (bool didPop, dynamic result) async {
+      onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
         final shouldExit = await _handleBackPress();
         if (shouldExit && mounted) {
@@ -116,62 +90,32 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFF0A0A0A),
-        body: SafeArea(
-          top: true,
-          bottom: true, // Complete screen fill, respecting device status bar and system navigation bar
-          child: Column(
-            children: [
-              // Offline banner (shown inline when connectivity drops)
-              if (!_isOnline && !_showOffline)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
-                  color: const Color(0xFFD4AF37).withOpacity(0.15),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.wifi_off_rounded,
-                        size: 14,
-                        color: const Color(0xFFD4AF37).withOpacity(0.8),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'You are offline',
-                        style: TextStyle(
-                          color: const Color(0xFFD4AF37).withOpacity(0.8),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+        backgroundColor: AppColors.background,
 
-              // Main content area - fills 100% of remaining screen height
-              Expanded(
-                child: _showOffline
-                    ? OfflineScreen(
-                        onRetry: () {
-                          setState(() => _showOffline = false);
-                          _webViewKey.currentState?.reload();
-                        },
-                      )
-                    : RefreshIndicator(
-                        onRefresh: () async {
-                          await HapticService.instance.lightTap();
-                          await _webViewKey.currentState?.reload();
-                        },
-                        color: const Color(0xFFD4AF37),
-                        backgroundColor: const Color(0xFF1A1A1A),
-                        child: ReeVibesWebView(
-                          key: _webViewKey,
-                        ),
-                      ),
-              ),
-            ],
-          ),
+        // Top Navigation Bar (Shown on Home Tab)
+        appBar: _currentIndex == 0
+            ? TopHeaderBar(
+                onSearchTap: _openSearchOverlay,
+                onNotificationTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const NotificationsScreen()),
+                  );
+                },
+              )
+            : null,
+
+        body: PageView(
+          controller: _pageController,
+          physics: const NeverScrollableScrollPhysics(), // Managed by BottomNavBar
+          children: _tabs,
+        ),
+
+        // 5-Tab Floating Glass Navigation Dock
+        bottomNavigationBar: BottomNavBar(
+          currentIndex: _currentIndex,
+          onTap: _onTabSelected,
+          onSearchTap: _openSearchOverlay,
         ),
       ),
     );
