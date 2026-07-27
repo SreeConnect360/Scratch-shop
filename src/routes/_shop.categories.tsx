@@ -9,6 +9,7 @@ import { z } from "zod";
 import { QuickAddContext, useShopNotification } from "./_shop";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
+import { ProductCard } from "@/components/public/ProductCard";
 
 const categoriesSearchSchema = z.object({
   gender: z.enum(["Men", "Women", "Unisex", "All"]).optional(),
@@ -139,7 +140,7 @@ function parseStyleQuery(q: string): StyleFilters {
 }
 
 function CategoriesPage() {
-  const { state, toggleShopWishlist } = usePortal();
+  const { state, toggleShopWishlist, addToShopCart } = usePortal();
   const searchParams = Route.useSearch();
   const quickAdd = useContext(QuickAddContext);
   const navigate = useNavigate();
@@ -501,17 +502,14 @@ function CategoriesPage() {
             No items found matching the selected filters.
           </div>
         ) : (
-          filteredProducts.map((p, i) => {
-            const isWishlisted = userWishlist.includes(p.id);
+          filteredProducts.map((p) => {
             return (
-              <CategoryProductCard
+              <ProductCard
                 key={p.id}
                 p={p}
-                i={i}
-                state={state}
-                isWishlisted={isWishlisted}
                 toggleShopWishlist={toggleShopWishlist}
-                quickAdd={quickAdd}
+                addToShopCart={addToShopCart}
+                wishlist={userWishlist}
               />
             );
           })

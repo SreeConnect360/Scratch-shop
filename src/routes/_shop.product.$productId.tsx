@@ -21,6 +21,7 @@ import {
   Minus,
 } from "lucide-react";
 import { FadeUp } from "@/components/motion/Reveal";
+import { ProductCard } from "@/components/public/ProductCard";
 
 export const Route = createFileRoute("/_shop/product/$productId")({
   component: ProductDetail,
@@ -563,8 +564,8 @@ function ProductDetail() {
       </div>
 
       <div className="grid lg:grid-cols-12 gap-6 lg:gap-12 relative items-start">
-        {/* Left Side: Images sliders & Zoom (Sticky on both mobile and desktop) */}
-        <div className="lg:col-span-6 sticky top-4 lg:top-8 z-20 self-start flex flex-col-reverse lg:flex-row gap-2.5 lg:gap-4 w-full h-[45vh] max-h-[45vh] lg:h-[calc(100vh-8rem)] lg:max-h-[760px] bg-zinc-950 lg:bg-transparent p-2.5 lg:p-0 rounded-b-[2rem] lg:rounded-none border-b border-white/10 lg:border-none shadow-xl lg:shadow-none">
+        {/* Left Side: Images sliders & Zoom (Fixed position in flow on mobile, sticky on desktop) */}
+        <div className="lg:col-span-6 relative lg:sticky lg:top-8 z-10 lg:z-20 self-start flex flex-col-reverse lg:flex-row gap-2.5 lg:gap-4 w-full h-[48vh] sm:h-[55vh] max-h-[550px] lg:h-[calc(100vh-8rem)] lg:max-h-[760px] bg-zinc-950/40 lg:bg-transparent p-2.5 lg:p-0 rounded-2xl lg:rounded-none border border-white/10 lg:border-none shadow-md lg:shadow-none mx-auto">
           {/* Thumbnails — vertical column on the left (desktop), row below image (mobile) */}
           {mediaGallery.length > 1 && (
             <div
@@ -1167,7 +1168,7 @@ function ProductDetail() {
             {relatedProducts.map((p) => {
               const wishlist = state.shopWishlist[state.user?.id || ""] || [];
               return (
-                <RelatedProductCard
+                <ProductCard
                   key={p.id}
                   p={p}
                   toggleShopWishlist={toggleShopWishlist}

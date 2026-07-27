@@ -28,7 +28,7 @@ function SearchResultsPage() {
   // Force refetch backend products on search page load to ensure real DB products are evaluated
   useEffect(() => {
     if (reloadProducts) {
-      reloadProducts(true);
+      (reloadProducts as any)(true);
     }
   }, [reloadProducts]);
 
