@@ -12,6 +12,121 @@ import 'static_pages_screen.dart';
 class AccountScreen extends StatelessWidget {
   const AccountScreen({super.key});
 
+  void _showEditProfileDialog(BuildContext context) {
+    final auth = context.read<AuthProvider>();
+    final user = auth.userProfile;
+    if (user == null) return;
+
+    final nameController = TextEditingController(text: user.fullName);
+    final phoneController = TextEditingController(text: user.phone);
+    final dobController = TextEditingController(text: user.dob);
+    String selectedGender = user.gender.isNotEmpty ? user.gender : 'Unspecified';
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 20,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'EDIT PROFILE DETAILS',
+                        style: GoogleFonts.outfit(color: AppColors.gold, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, color: AppColors.textMuted),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text('FULL NAME', style: GoogleFonts.outfit(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: nameController,
+                    style: GoogleFonts.outfit(color: AppColors.textPrimary),
+                    decoration: const InputDecoration(hintText: 'Full Name'),
+                  ),
+                  const SizedBox(height: 14),
+                  Text('PHONE NUMBER', style: GoogleFonts.outfit(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: phoneController,
+                    keyboardType: TextInputType.phone,
+                    style: GoogleFonts.outfit(color: AppColors.textPrimary),
+                    decoration: const InputDecoration(hintText: '+91 98765 43210'),
+                  ),
+                  const SizedBox(height: 14),
+                  Text('GENDER', style: GoogleFonts.outfit(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<String>(
+                    value: ['Female', 'Male', 'Non-Binary', 'Unspecified'].contains(selectedGender) ? selectedGender : 'Unspecified',
+                    dropdownColor: AppColors.surfaceElevated,
+                    style: GoogleFonts.outfit(color: AppColors.textPrimary),
+                    items: ['Female', 'Male', 'Non-Binary', 'Unspecified']
+                        .map((g) => DropdownMenuItem(value: g, child: Text(g)))
+                        .toList(),
+                    onChanged: (val) => setModalState(() => selectedGender = val!),
+                  ),
+                  const SizedBox(height: 14),
+                  Text('DATE OF BIRTH', style: GoogleFonts.outfit(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: dobController,
+                    style: GoogleFonts.outfit(color: AppColors.textPrimary),
+                    decoration: const InputDecoration(hintText: 'YYYY-MM-DD'),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        final success = await auth.updateProfile(
+                          fullName: nameController.text.trim(),
+                          phone: phoneController.text.trim(),
+                          gender: selectedGender,
+                          dob: dobController.text.trim(),
+                        );
+                        if (context.mounted) {
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(success ? 'Profile updated successfully!' : 'Profile saved locally.'),
+                              backgroundColor: AppColors.surfaceElevated,
+                            ),
+                          );
+                        }
+                      },
+                      child: const Text('SAVE PROFILE CHANGES'),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authState = context.watch<AuthProvider>();
@@ -39,42 +154,63 @@ class AccountScreen extends StatelessWidget {
                 border: Border.all(color: AppColors.surfaceBorder),
               ),
               child: isAuthenticated
-                  ? Row(
+                  ? Column(
                       children: [
-                        CircleAvatar(
-                          radius: 30,
-                          backgroundColor: AppColors.goldGlow,
-                          backgroundImage: user?.avatarUrl.isNotEmpty == true ? NetworkImage(user!.avatarUrl) : null,
-                          child: user?.avatarUrl.isEmpty != false
-                              ? Text(
-                                  user?.fullName.substring(0, 1).toUpperCase() ?? 'U',
-                                  style: GoogleFonts.playfairDisplay(
-                                    color: AppColors.gold,
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.bold,
+                        Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 30,
+                              backgroundColor: AppColors.goldGlow,
+                              backgroundImage: user?.avatarUrl.isNotEmpty == true ? NetworkImage(user!.avatarUrl) : null,
+                              child: user?.avatarUrl.isEmpty != false
+                                  ? Text(
+                                      user?.fullName.substring(0, 1).toUpperCase() ?? 'U',
+                                      style: GoogleFonts.playfairDisplay(
+                                        color: AppColors.gold,
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    )
+                                  : null,
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    user?.fullName ?? 'ReeVibes Member',
+                                    style: GoogleFonts.playfairDisplay(
+                                      color: AppColors.textPrimary,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
-                                )
-                              : null,
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    user?.email ?? '',
+                                    style: GoogleFonts.outfit(color: AppColors.textMuted, fontSize: 12),
+                                  ),
+                                  if (user?.phone.isNotEmpty == true) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      user!.phone,
+                                      style: GoogleFonts.outfit(color: AppColors.textMuted, fontSize: 12),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                user?.fullName ?? 'ReeVibes Member',
-                                style: GoogleFonts.playfairDisplay(
-                                  color: AppColors.textPrimary,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                user?.email ?? '',
-                                style: GoogleFonts.outfit(color: AppColors.textMuted, fontSize: 12),
-                              ),
-                            ],
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 40,
+                          child: OutlinedButton.icon(
+                            onPressed: () => _showEditProfileDialog(context),
+                            icon: const Icon(Icons.edit_outlined, size: 16, color: AppColors.gold),
+                            label: const Text('EDIT PROFILE DETAILS'),
                           ),
                         ),
                       ],

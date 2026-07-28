@@ -5,7 +5,7 @@ import '../core/theme/app_colors.dart';
 import '../providers/auth_provider.dart';
 import 'login_screen.dart';
 
-/// Native Registration Screen.
+/// Native Registration Screen featuring Live Password Strength Indicator, Confirm Password, and Email OTP Verification.
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
@@ -18,39 +18,87 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  final _otpController = TextEditingController();
+
   bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
+  bool _isSendingOtp = false;
+
+  bool get _hasMinLength => _passwordController.text.length >= 6 && _passwordController.text.length < 16;
+  bool get _hasLowercase => _passwordController.text.contains(RegExp(r'[a-z]'));
+  bool get _hasUppercase => _passwordController.text.contains(RegExp(r'[A-Z]'));
+  bool get _hasNumber => _passwordController.text.contains(RegExp(r'[0-9]'));
+  bool get _hasSymbol => _passwordController.text.contains(RegExp(r'[^A-Za-z0-9]'));
+
+  double get _strengthScore {
+    int score = 0;
+    if (_hasMinLength) score++;
+    if (_hasLowercase) score++;
+    if (_hasUppercase) score++;
+    if (_hasNumber) score++;
+    if (_hasSymbol) score++;
+    return score / 5.0;
+  }
+
+  Color get _strengthColor {
+    final s = _strengthScore;
+    if (s <= 0.2) return Colors.red;
+    if (s <= 0.6) return Colors.orange;
+    if (s <= 0.8) return Colors.amber;
+    return Colors.green;
+  }
+
+  String get _strengthText {
+    final s = _strengthScore;
+    if (s <= 0.2) return 'Very Weak';
+    if (s <= 0.6) return 'Moderate';
+    if (s <= 0.8) return 'Strong';
+    return 'Very Strong';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _passwordController.addListener(() => setState(() {}));
+  }
 
   @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    _otpController.dispose();
     super.dispose();
   }
 
-  Future<void> _handleRegister() async {
+  Future<void> _startRegistrationWithOtp() async {
     if (!_formKey.currentState!.validate()) return;
-    final authProvider = context.read<AuthProvider>();
+    if (_passwordController.text != _confirmPasswordController.text) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Passwords do not match'), backgroundColor: AppColors.error),
+      );
+      return;
+    }
 
-    final success = await authProvider.signUpWithEmail(
-      _emailController.text.trim(),
-      _passwordController.text.trim(),
-      _nameController.text.trim(),
-    );
+    final authProvider = context.read<AuthProvider>();
+    final email = _emailController.text.trim();
+
+    setState(() => _isSendingOtp = true);
+
+    // 1. Send OTP to user email
+    final res = await authProvider.sendOtp(email, 'SIGNUP');
+
+    setState(() => _isSendingOtp = false);
 
     if (mounted) {
-      if (success) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Account created successfully! Welcome to ReeVibes.'),
-            backgroundColor: AppColors.surfaceElevated,
-          ),
-        );
+      if (res['success'] == true) {
+        _showOtpVerificationDialog(email);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(authProvider.errorMessage ?? 'Registration failed.'),
+            content: Text(res['message'] ?? 'Failed to send verification OTP'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -58,28 +106,144 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  void _showOtpVerificationDialog(String email) {
+    _otpController.clear();
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        bool isVerifying = false;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: AppColors.surface,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: Text(
+                'EMAIL OTP VERIFICATION',
+                style: GoogleFonts.outfit(color: AppColors.gold, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'We sent a 6-digit verification OTP code to:',
+                    style: GoogleFonts.outfit(color: AppColors.textSecondary, fontSize: 13),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    email,
+                    style: GoogleFonts.outfit(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _otpController,
+                    keyboardType: TextInputType.number,
+                    maxLength: 6,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.outfit(color: AppColors.textPrimary, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 6),
+                    decoration: const InputDecoration(
+                      hintText: '000000',
+                      hintStyle: TextStyle(color: AppColors.textMuted, letterSpacing: 6),
+                      counterText: '',
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isVerifying ? null : () => Navigator.pop(dialogContext),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: isVerifying
+                      ? null
+                      : () async {
+                          final otp = _otpController.text.trim();
+                          if (otp.length != 6) {
+                            ScaffoldMessenger.of(dialogContext).showSnackBar(
+                              const SnackBar(content: Text('Enter 6-digit OTP code'), backgroundColor: AppColors.error),
+                            );
+                            return;
+                          }
+
+                          setDialogState(() => isVerifying = true);
+
+                          final dialogNav = Navigator.of(dialogContext);
+                          final pageNav = Navigator.of(context);
+                          final messenger = ScaffoldMessenger.of(context);
+                          final dialogMessenger = ScaffoldMessenger.of(dialogContext);
+
+                          final authProvider = context.read<AuthProvider>();
+                          final verifyRes = await authProvider.verifyOtp(email, otp);
+
+                          if (verifyRes['success'] == true) {
+                            final regSuccess = await authProvider.signUpWithEmail(
+                              email,
+                              _passwordController.text.trim(),
+                              _nameController.text.trim(),
+                            );
+
+                            if (mounted) {
+                              dialogNav.pop(); // Close dialog
+                              if (regSuccess) {
+                                pageNav.pop(); // Close register screen
+                                messenger.showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Account verified & created successfully! Welcome to ReeVibes.'),
+                                    backgroundColor: AppColors.surfaceElevated,
+                                  ),
+                                );
+                              } else {
+                                messenger.showSnackBar(
+                                  SnackBar(
+                                    content: Text(authProvider.errorMessage ?? 'Registration failed.'),
+                                    backgroundColor: AppColors.error,
+                                  ),
+                                );
+                              }
+                            }
+                          } else {
+                            setDialogState(() => isVerifying = false);
+                            if (mounted) {
+                              dialogMessenger.showSnackBar(
+                                SnackBar(
+                                  content: Text(verifyRes['message'] ?? 'Invalid OTP code'),
+                                  backgroundColor: AppColors.error,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                  child: isVerifying
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+                      : const Text('VERIFY & REGISTER'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _handleGoogleSignIn() async {
     final authProvider = context.read<AuthProvider>();
     final success = await authProvider.signInWithGoogle();
 
-    if (mounted) {
-      if (success) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Signed in successfully with Google!'),
-            backgroundColor: AppColors.surfaceElevated,
-          ),
-        );
-      }
+    if (mounted && success) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Signed in successfully with Google!'),
+          backgroundColor: AppColors.surfaceElevated,
+        ),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final authState = context.watch<AuthProvider>();
-    final isLoading = authState.status == AuthStatus.authenticating;
-
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -105,13 +269,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Create an account to unlock tailored recommendations, member pricing, and priority drops.',
+                'Register with email verification to unlock tailored high-fashion curations and member privileges.',
                 style: GoogleFonts.outfit(
                   color: AppColors.textSecondary,
                   fontSize: 13,
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 28),
 
               // Full Name Input
               Text(
@@ -132,11 +296,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   return null;
                 },
                 decoration: const InputDecoration(
-                  hintText: 'Jane Doe',
+                  hintText: 'Sree V',
                   prefixIcon: Icon(Icons.person_outline_rounded, color: AppColors.textMuted, size: 20),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 18),
 
               // Email Input
               Text(
@@ -155,7 +319,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 style: GoogleFonts.outfit(color: AppColors.textPrimary),
                 validator: (val) {
                   if (val == null || val.trim().isEmpty) return 'Enter your email';
-                  if (!val.contains('@')) return 'Enter a valid email';
+                  if (!val.contains('@')) return 'Enter a valid email address';
                   return null;
                 },
                 decoration: const InputDecoration(
@@ -163,7 +327,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   prefixIcon: Icon(Icons.email_outlined, color: AppColors.textMuted, size: 20),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 18),
 
               // Password Input
               Text(
@@ -182,10 +346,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 style: GoogleFonts.outfit(color: AppColors.textPrimary),
                 validator: (val) {
                   if (val == null || val.length < 6) return 'Password must be at least 6 characters';
+                  if (val.length >= 16) return 'Password must be less than 16 characters';
+                  if (!_hasLowercase) return 'Must include at least one lowercase letter';
+                  if (!_hasUppercase) return 'Must include at least one uppercase letter';
+                  if (!_hasNumber) return 'Must include at least one number';
+                  if (!_hasSymbol) return 'Must include at least one symbol';
                   return null;
                 },
                 decoration: InputDecoration(
-                  hintText: 'At least 6 characters',
+                  hintText: 'Uppercase, lowercase, number & symbol',
                   prefixIcon: const Icon(Icons.lock_outline_rounded, color: AppColors.textMuted, size: 20),
                   suffixIcon: IconButton(
                     icon: Icon(
@@ -197,31 +366,90 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
               ),
+
+              // Live Password Strength Bar
+              if (_passwordController.text.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: _strengthScore,
+                          backgroundColor: AppColors.surfaceBorder,
+                          color: _strengthColor,
+                          minHeight: 4,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      _strengthText,
+                      style: GoogleFonts.outfit(color: _strengthColor, fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 18),
+
+              // Confirm Password Input
+              Text(
+                'CONFIRM PASSWORD',
+                style: GoogleFonts.outfit(
+                  color: AppColors.textMuted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.0,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _confirmPasswordController,
+                obscureText: _obscureConfirmPassword,
+                style: GoogleFonts.outfit(color: AppColors.textPrimary),
+                validator: (val) {
+                  if (val != _passwordController.text) return 'Passwords do not match';
+                  return null;
+                },
+                decoration: InputDecoration(
+                  hintText: 'Re-type password',
+                  prefixIcon: const Icon(Icons.lock_clock_outlined, color: AppColors.textMuted, size: 20),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscureConfirmPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                      color: AppColors.textMuted,
+                      size: 20,
+                    ),
+                    onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                  ),
+                ),
+              ),
               const SizedBox(height: 28),
 
-              // Register Button
+              // Send OTP & Register Button
               SizedBox(
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: isLoading ? null : _handleRegister,
-                  child: isLoading
+                  onPressed: _isSendingOtp ? null : _startRegistrationWithOtp,
+                  child: _isSendingOtp
                       ? const SizedBox(
                           width: 24,
                           height: 24,
                           child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2.5),
                         )
-                      : const Text('CREATE ACCOUNT'),
+                      : const Text('VERIFY EMAIL & REGISTER'),
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
 
               // Continue with Google
               SizedBox(
                 width: double.infinity,
                 height: 52,
                 child: OutlinedButton(
-                  onPressed: isLoading ? null : _handleGoogleSignIn,
+                  onPressed: _handleGoogleSignIn,
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: AppColors.surfaceBorder, width: 1.2),
                     backgroundColor: AppColors.surface,
@@ -248,7 +476,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 28),
 
               Center(
                 child: Row(

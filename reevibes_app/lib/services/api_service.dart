@@ -352,4 +352,142 @@ class ApiService {
       return false;
     }
   }
+
+  // ─── AUTHENTICATION & EMAIL OTP ENDPOINTS ─────────────────
+
+  /// Send Email OTP (type: "SIGNUP" or "FORGOT_PASSWORD")
+  Future<Map<String, dynamic>> sendOtp(String email, String type) async {
+    try {
+      final response = await _client
+          .post(
+            Uri.parse('${AppConfig.backendUrl}/api/auth/send-otp'),
+            headers: _headers,
+            body: jsonEncode({'email': email, 'type': type}),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return {'success': true, 'message': data['message'] ?? 'OTP sent successfully'};
+      } else {
+        return {'success': false, 'message': data['message'] ?? 'Failed to send OTP'};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: ${e.toString()}'};
+    }
+  }
+
+  /// Verify Email OTP
+  Future<Map<String, dynamic>> verifyOtp(String email, String otp) async {
+    try {
+      final response = await _client
+          .post(
+            Uri.parse('${AppConfig.backendUrl}/api/auth/verify-otp'),
+            headers: _headers,
+            body: jsonEncode({'email': email, 'otp': otp}),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return {'success': true, 'message': data['message'] ?? 'OTP verified successfully'};
+      } else {
+        return {'success': false, 'message': data['message'] ?? 'Invalid or expired OTP'};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: ${e.toString()}'};
+    }
+  }
+
+  /// Register user on Spring Boot backend
+  Future<Map<String, dynamic>> signUpBackend(String name, String email, String password) async {
+    try {
+      final response = await _client
+          .post(
+            Uri.parse('${AppConfig.backendUrl}/api/auth/signup'),
+            headers: _headers,
+            body: jsonEncode({'name': name, 'email': email, 'password': password}),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return {'success': true, 'user': data['user'], 'message': data['message']};
+      } else {
+        return {'success': false, 'message': data['message'] ?? 'Registration failed'};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: ${e.toString()}'};
+    }
+  }
+
+  /// Sign in user on Spring Boot backend
+  Future<Map<String, dynamic>> signInBackend(String email, String password) async {
+    try {
+      final response = await _client
+          .post(
+            Uri.parse('${AppConfig.backendUrl}/api/auth/signin'),
+            headers: _headers,
+            body: jsonEncode({'email': email, 'password': password}),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return {'success': true, 'user': data['user'], 'message': data['message']};
+      } else {
+        return {'success': false, 'message': data['message'] ?? 'Invalid credentials'};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: ${e.toString()}'};
+    }
+  }
+
+  /// Trigger Forgot Password OTP
+  Future<Map<String, dynamic>> forgotPassword(String email) async {
+    try {
+      final response = await _client
+          .post(
+            Uri.parse('${AppConfig.backendUrl}/api/auth/forgot-password'),
+            headers: _headers,
+            body: jsonEncode({'email': email}),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return {'success': true, 'message': data['message'] ?? 'Reset OTP sent'};
+      } else {
+        return {'success': false, 'message': data['message'] ?? 'Email not found'};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: ${e.toString()}'};
+    }
+  }
+
+  /// Reset Password with OTP
+  Future<Map<String, dynamic>> resetPassword(String email, String password, String confirmPassword) async {
+    try {
+      final response = await _client
+          .post(
+            Uri.parse('${AppConfig.backendUrl}/api/auth/reset-password'),
+            headers: _headers,
+            body: jsonEncode({
+              'email': email,
+              'password': password,
+              'confirmPassword': confirmPassword,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return {'success': true, 'message': data['message'] ?? 'Password reset successfully'};
+      } else {
+        return {'success': false, 'message': data['message'] ?? 'Password reset failed'};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: ${e.toString()}'};
+    }
+  }
 }
