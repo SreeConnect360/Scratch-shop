@@ -48,5 +48,5 @@ dependencies {
 }
 
 flutter {
-    source = ".."
+    source = "../.."
 }

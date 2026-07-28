@@ -3,6 +3,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/app_config.dart';
 import 'cache_service.dart';
+import 'api_service.dart';
 
 /// Centralised Supabase service for authentication, Google OAuth, session persistence, and API calls.
 class SupabaseService {
@@ -85,14 +86,18 @@ class SupabaseService {
     }
   }
 
-  /// Ensure user profile record exists in Supabase DB `profiles` table
+  /// Ensure user profile record exists in Supabase DB and Spring Boot backend
   Future<void> _ensureUserProfile(User user) async {
+    final name = user.userMetadata?['full_name'] ?? user.userMetadata?['name'] ?? user.email?.split('@').first ?? 'ReeVibes Member';
+    final avatar = user.userMetadata?['avatar_url'] ?? '';
+    final nameParts = name.trim().split(RegExp(r'\s+'));
+    final firstName = nameParts.isNotEmpty ? nameParts.first : 'ReeVibes';
+    final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : 'Member';
+
     try {
       final client = Supabase.instance.client;
       final existing = await client.from('profiles').select().eq('id', user.id).maybeSingle();
       if (existing == null) {
-        final name = user.userMetadata?['full_name'] ?? user.userMetadata?['name'] ?? user.email?.split('@').first ?? 'ReeVibes Member';
-        final avatar = user.userMetadata?['avatar_url'] ?? '';
         await client.from('profiles').insert({
           'id': user.id,
           'email': user.email,
@@ -105,6 +110,21 @@ class SupabaseService {
     } catch (e) {
       debugPrint('Warning: Could not sync profile to DB table: $e');
     }
+
+    try {
+      await ApiService.instance.syncCustomerRecord({
+        'id': 'USR-${user.id}',
+        'firstName': firstName,
+        'lastName': lastName,
+        'email': user.email ?? '',
+        'avatar': avatar,
+        'status': 'Active',
+        'roles': 'General',
+        'lastLogin': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      debugPrint('Warning: Could not sync customer to Spring Boot backend: $e');
+    }
   }
 
   /// Sign in with Email and Password
@@ -114,6 +134,9 @@ class SupabaseService {
       email: email,
       password: password,
     );
+    if (response.user != null) {
+      await _ensureUserProfile(response.user!);
+    }
     await syncActiveUserProfile();
     return response;
   }

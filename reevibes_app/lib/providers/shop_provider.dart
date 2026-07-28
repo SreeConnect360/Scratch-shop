@@ -1,10 +1,12 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/product.dart';
 import '../models/category.dart';
 import '../models/app_notification.dart';
 import '../repositories/product_repository.dart';
+import '../services/api_service.dart';
 
-/// Provider for Product Catalog, Categories, Search, Filters, and System Notifications.
+/// Provider for Product Catalog, Categories, Search, Filters, Dynamic Banners, and Real-Time Admin Sync.
 class ShopProvider extends ChangeNotifier {
   List<Product> _products = [];
   List<Product> get products => _products;
@@ -15,6 +17,9 @@ class ShopProvider extends ChangeNotifier {
   List<AppNotification> _notifications = [];
   List<AppNotification> get notifications => _notifications;
 
+  Map<String, dynamic>? _homepageLayout;
+  Map<String, dynamic>? get homepageLayout => _homepageLayout;
+
   bool _isLoading = false;
   bool get isLoading => _isLoading;
 
@@ -24,22 +29,49 @@ class ShopProvider extends ChangeNotifier {
   String _searchQuery = '';
   String get searchQuery => _searchQuery;
 
+  int? _currentSyncVersion;
+  Timer? _pollingTimer;
+
   ShopProvider() {
     loadCatalog();
+    _startVersionPolling();
   }
 
-  Future<void> loadCatalog() async {
-    _isLoading = true;
-    notifyListeners();
+  @override
+  void dispose() {
+    _pollingTimer?.cancel();
+    super.dispose();
+  }
+
+  /// Start background polling for real-time admin updates
+  void _startVersionPolling() {
+    _pollingTimer = Timer.periodic(const Duration(seconds: 15), (_) async {
+      final remoteVer = await ApiService.instance.fetchSyncVersion();
+      if (remoteVer != null && remoteVer != _currentSyncVersion) {
+        _currentSyncVersion = remoteVer;
+        await loadCatalog(silent: true);
+      }
+    });
+  }
+
+  Future<void> loadCatalog({bool silent = false}) async {
+    if (!silent) {
+      _isLoading = true;
+      notifyListeners();
+    }
 
     try {
       final fetchedProducts = await ProductRepository.instance.fetchProducts();
       final fetchedCategories = await ProductRepository.instance.fetchCategories();
+      final layout = await ApiService.instance.fetchHomepageLayout();
 
       _products = fetchedProducts;
       _categories = fetchedCategories;
+      if (layout != null) {
+        _homepageLayout = layout;
+      }
 
-      // Seed initial notification
+      // Seed initial notifications if empty
       if (_notifications.isEmpty) {
         _notifications = [
           AppNotification(
@@ -61,9 +93,45 @@ class ShopProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint('Error loading catalog: $e');
     } finally {
-      _isLoading = false;
+      if (!silent) {
+        _isLoading = false;
+      }
       notifyListeners();
     }
+  }
+
+  /// Get announcement text from layout
+  String get announcementText {
+    if (_homepageLayout != null && _homepageLayout!['announcement'] != null) {
+      final ann = _homepageLayout!['announcement'];
+      if (ann is Map && ann['text'] != null) {
+        return ann['text'].toString();
+      }
+    }
+    return 'COMPLIMENTARY EXPRESS DISPATCH ON ALL ORDERS ABOVE ₹15,000';
+  }
+
+  /// Get hero banners list from layout
+  List<Map<String, dynamic>> get heroBanners {
+    if (_homepageLayout != null && _homepageLayout!['heroBanners'] is List) {
+      return List<Map<String, dynamic>>.from(
+        (_homepageLayout!['heroBanners'] as List).map((e) => Map<String, dynamic>.from(e)),
+      );
+    }
+    return [
+      {
+        'title': 'THE AUTUMN ATELIER',
+        'subtitle': 'Curated Couture & High Fashion Pieces',
+        'imageUrl': 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=1200&q=80',
+        'ctaText': 'EXPLORE DROP',
+      },
+      {
+        'title': 'MODERN MINIMALISM',
+        'subtitle': 'Clean Lines & Timeless Silhouettes',
+        'imageUrl': 'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=1200&q=80',
+        'ctaText': 'VIEW COLLECTION',
+      },
+    ];
   }
 
   void selectCategory(String slug) {
@@ -83,7 +151,11 @@ class ShopProvider extends ChangeNotifier {
     }
     if (_searchQuery.trim().isNotEmpty) {
       final q = _searchQuery.trim().toLowerCase();
-      list = list.where((p) => p.name.toLowerCase().contains(q) || p.house.toLowerCase().contains(q) || p.category.toLowerCase().contains(q)).toList();
+      list = list.where((p) =>
+          p.name.toLowerCase().contains(q) ||
+          p.house.toLowerCase().contains(q) ||
+          p.category.toLowerCase().contains(q) ||
+          p.description.toLowerCase().contains(q)).toList();
     }
     return list;
   }

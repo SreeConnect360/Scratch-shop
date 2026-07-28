@@ -8,10 +8,11 @@ class AppConfig {
   static const String websiteUrl = 'https://reevibes.com';
   static const String backendUrl = 'https://scratch-render-sj9n.onrender.com';
 
-  // ─── Supabase Credentials ──────────────────────────────────
+  // ─── Supabase & Razorpay Credentials ─────────────────────
   static const String supabaseUrl = 'https://rofhcjedmviwzysipmav.supabase.co';
   static const String supabaseAnonKey =
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJvZmhjamVkbXZpd3p5c2lwbWF2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyNDIxODYsImV4cCI6MjA5ODgxODE4Nn0.t-qUdbcR7y_M_2FzTuyN2fZyZswKuyvD4p931he3WyA';
+  static const String razorpayKeyId = 'rzp_test_1DP5mmOlF5G5ag';
 
   // ─── App Meta ──────────────────────────────────────────────
   static const String appName = 'ReeVibes';

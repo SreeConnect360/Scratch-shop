@@ -10,9 +10,17 @@ import '../widgets/shimmer_loading.dart';
 import 'product_detail_screen.dart';
 import 'categories_screen.dart';
 
-/// Native Homepage Tab displaying Hero Banner, Live Countdown Bar, Categories Chips, Featured Couture, and Trending Grid.
-class HomeTabScreen extends StatelessWidget {
+/// Native Homepage Tab displaying Dynamic Announcement Bar, Hero Banners Carousel, Category Chips, and Backend Products Grid.
+class HomeTabScreen extends StatefulWidget {
   const HomeTabScreen({super.key});
+
+  @override
+  State<HomeTabScreen> createState() => _HomeTabScreenState();
+}
+
+class _HomeTabScreenState extends State<HomeTabScreen> {
+  final PageController _heroPageController = PageController();
+  int _activeHeroIndex = 0;
 
   void _openQuickAdd(BuildContext context, Product product) {
     showModalBottomSheet(
@@ -24,9 +32,16 @@ class HomeTabScreen extends StatelessWidget {
   }
 
   @override
+  void dispose() {
+    _heroPageController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final shopProvider = context.watch<ShopProvider>();
     final isLoading = shopProvider.isLoading;
+    final heroBanners = shopProvider.heroBanners;
 
     return RefreshIndicator(
       color: AppColors.gold,
@@ -37,72 +52,123 @@ class HomeTabScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. HERO BANNER
+            // 0. ANNOUNCEMENT BANNER
             Container(
-              height: 220,
               width: double.infinity,
-              margin: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                image: const DecorationImage(
-                  image: NetworkImage('https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=1200&q=80'),
-                  fit: BoxFit.cover,
-                ),
-              ),
-              child: Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.black.withOpacity(0.85),
-                      Colors.black.withOpacity(0.2),
-                    ],
-                    begin: Alignment.bottomLeft,
-                    end: Alignment.topRight,
-                  ),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.gold,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        'AUTUMN / WINTER 2026',
-                        style: GoogleFonts.outfit(
-                          color: Colors.black,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.1,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'The Royal Atelier Drop',
-                      style: GoogleFonts.playfairDisplay(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Hand-finished Italian wool & mulberry silk couture pieces.',
-                      style: GoogleFonts.outfit(
-                        color: AppColors.textSecondary,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: AppColors.gold,
+              child: Text(
+                shopProvider.announcementText.toUpperCase(),
+                textAlign: TextAlign.center,
+                style: GoogleFonts.outfit(
+                  color: Colors.black,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
                 ),
               ),
             ),
+
+            // 1. DYNAMIC HERO BANNER CAROUSEL
+            if (heroBanners.isNotEmpty)
+              SizedBox(
+                height: 220,
+                child: PageView.builder(
+                  controller: _heroPageController,
+                  onPageChanged: (idx) => setState(() => _activeHeroIndex = idx),
+                  itemCount: heroBanners.length,
+                  itemBuilder: (context, index) {
+                    final banner = heroBanners[index];
+                    final imgUrl = banner['imageUrl']?.toString() ?? 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=1200&q=80';
+                    final title = banner['title']?.toString() ?? 'THE ROYAL ATELIER';
+                    final subtitle = banner['subtitle']?.toString() ?? 'Curated High Fashion';
+
+                    return Container(
+                      margin: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(20),
+                        image: DecorationImage(
+                          image: NetworkImage(imgUrl),
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      child: Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(20),
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.black.withOpacity(0.85),
+                              Colors.black.withOpacity(0.2),
+                            ],
+                            begin: Alignment.bottomLeft,
+                            end: Alignment.topRight,
+                          ),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppColors.gold,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                'FEATURED COLLECTION',
+                                style: GoogleFonts.outfit(
+                                  color: Colors.black,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.1,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              title,
+                              style: GoogleFonts.playfairDisplay(
+                                color: Colors.white,
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              subtitle,
+                              style: GoogleFonts.outfit(
+                                color: AppColors.textSecondary,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+
+            // Hero Dots Indicator
+            if (heroBanners.length > 1)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(
+                  heroBanners.length,
+                  (index) => AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    width: _activeHeroIndex == index ? 20 : 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: _activeHeroIndex == index ? AppColors.gold : AppColors.surfaceBorder,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                ),
+              ),
+            const SizedBox(height: 16),
 
             // 2. CATEGORY CHIPS SCROLL
             Padding(

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'cart_item.dart';
 import 'address.dart';
 
@@ -70,44 +71,88 @@ class Order {
 
   factory Order.fromJson(Map<String, dynamic> json) {
     OrderStatus parseStatus(String? str) {
-      switch (str?.toLowerCase()) {
-        case 'confirmed':
-          return OrderStatus.confirmed;
-        case 'processing':
-          return OrderStatus.processing;
-        case 'shipped':
-          return OrderStatus.shipped;
-        case 'outfordelivery':
-        case 'out_for_delivery':
-          return OrderStatus.outForDelivery;
-        case 'delivered':
-          return OrderStatus.delivered;
-        case 'cancelled':
-          return OrderStatus.cancelled;
-        case 'returned':
-          return OrderStatus.returned;
-        default:
-          return OrderStatus.placed;
+      final val = str?.toLowerCase() ?? '';
+      if (val.contains('accept') || val.contains('confirm')) return OrderStatus.confirmed;
+      if (val.contains('process') || val.contains('pending')) return OrderStatus.processing;
+      if (val.contains('ship') || val.contains('ready') || val.contains('pickup')) return OrderStatus.shipped;
+      if (val.contains('out_for_delivery') || val.contains('delivery')) return OrderStatus.outForDelivery;
+      if (val.contains('deliver')) return OrderStatus.delivered;
+      if (val.contains('cancel')) return OrderStatus.cancelled;
+      if (val.contains('return')) return OrderStatus.returned;
+      return OrderStatus.placed;
+    }
+
+    // Parse items from itemsJson or items list
+    List<CartItem> parsedItems = [];
+    if (json['items'] is List) {
+      parsedItems = (json['items'] as List)
+          .map((i) => CartItem.fromJson(Map<String, dynamic>.from(i)))
+          .toList();
+    } else if (json['itemsJson'] != null && json['itemsJson'].toString().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(json['itemsJson'].toString());
+        if (decoded is List) {
+          parsedItems = decoded
+              .map((i) => CartItem.fromJson(Map<String, dynamic>.from(i)))
+              .toList();
+        }
+      } catch (e) {
+        // Fallback
       }
     }
 
+    // Parse address
+    Address parsedAddress;
+    if (json['shipping_address'] is Map) {
+      parsedAddress = Address.fromJson(Map<String, dynamic>.from(json['shipping_address']));
+    } else if (json['shippingAddress'] is Map) {
+      parsedAddress = Address.fromJson(Map<String, dynamic>.from(json['shippingAddress']));
+    } else {
+      final rawAddrStr = json['address']?.toString() ?? 'Default Delivery Address';
+      parsedAddress = Address(
+        id: 'addr_order',
+        fullName: 'Customer',
+        phone: '',
+        streetAddress: rawAddrStr,
+        city: '',
+        state: '',
+        zipCode: '',
+      );
+    }
+
+    double parseNum(dynamic val) {
+      if (val is num) return val.toDouble();
+      if (val is String) return double.tryParse(val) ?? 0.0;
+      return 0.0;
+    }
+
+    DateTime parseDate(dynamic val) {
+      if (val != null && val.toString().isNotEmpty) {
+        try {
+          return DateTime.parse(val.toString());
+        } catch (_) {}
+      }
+      return DateTime.now();
+    }
+
+    final idVal = json['id']?.toString() ?? '';
+    final orderNumVal = json['order_number']?.toString() ?? json['orderNumber']?.toString() ?? idVal;
+
     return Order(
-      id: json['id']?.toString() ?? '',
-      orderNumber: json['order_number']?.toString() ?? json['orderNumber']?.toString() ?? 'RV-${DateTime.now().millisecondsSinceEpoch}',
-      userId: json['user_id']?.toString() ?? '',
-      items: json['items'] is List
-          ? (json['items'] as List).map((i) => CartItem.fromJson(i as Map<String, dynamic>)).toList()
-          : [],
-      totalAmount: (json['total_amount'] ?? json['totalAmount'] ?? 0.0) as double,
-      discountAmount: (json['discount_amount'] ?? json['discountAmount'] ?? 0.0) as double,
-      shippingFee: (json['shipping_fee'] ?? json['shippingFee'] ?? 0.0) as double,
-      shippingAddress: Address.fromJson(json['shipping_address'] ?? json['shippingAddress'] ?? {}),
-      paymentMethod: json['payment_method']?.toString() ?? 'UPI',
-      paymentStatus: json['payment_status']?.toString() ?? 'SUCCESS',
+      id: idVal,
+      orderNumber: orderNumVal.isNotEmpty ? orderNumVal : 'RV-${DateTime.now().millisecondsSinceEpoch}',
+      userId: json['userId']?.toString() ?? json['user_id']?.toString() ?? '',
+      items: parsedItems,
+      totalAmount: parseNum(json['total'] ?? json['total_amount'] ?? json['totalAmount']),
+      discountAmount: parseNum(json['discount_amount'] ?? json['discountAmount']),
+      shippingFee: parseNum(json['shipping_fee'] ?? json['shippingFee']),
+      shippingAddress: parsedAddress,
+      paymentMethod: json['paymentMethod']?.toString() ?? json['payment_method']?.toString() ?? 'Razorpay Gateway',
+      paymentStatus: json['paymentStatus']?.toString() ?? json['payment_status']?.toString() ?? 'Paid',
       status: parseStatus(json['status']?.toString()),
-      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at'].toString()) : DateTime.now(),
-      estimatedDelivery: json['estimated_delivery'] != null ? DateTime.parse(json['estimated_delivery'].toString()) : null,
-      trackingNumber: json['tracking_number']?.toString(),
+      createdAt: parseDate(json['orderDate'] ?? json['order_date'] ?? json['created_at']),
+      estimatedDelivery: json['estimatedDeliveryDate'] != null ? parseDate(json['estimatedDeliveryDate']) : null,
+      trackingNumber: json['trackingNumber']?.toString() ?? json['tracking_number']?.toString(),
     );
   }
 

@@ -33,6 +33,9 @@ class OrderProvider extends ChangeNotifier {
     required double discountAmount,
     required Address shippingAddress,
     required String paymentMethod,
+    String? razorpayPaymentId,
+    String? razorpayOrderId,
+    String? razorpaySignature,
   }) async {
     _isLoading = true;
     notifyListeners();
@@ -44,6 +47,9 @@ class OrderProvider extends ChangeNotifier {
         discountAmount: discountAmount,
         shippingAddress: shippingAddress,
         paymentMethod: paymentMethod,
+        razorpayPaymentId: razorpayPaymentId,
+        razorpayOrderId: razorpayOrderId,
+        razorpaySignature: razorpaySignature,
       );
 
       _orders.insert(0, order);

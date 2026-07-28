@@ -55,8 +55,14 @@ class Product {
   factory Product.fromJson(Map<String, dynamic> json) {
     List<String> parseStringList(dynamic value) {
       if (value is List) {
-        return value.map((e) => e.toString()).toList();
+        return value.map((e) => e.toString()).where((s) => s.isNotEmpty).toList();
       } else if (value is String && value.isNotEmpty) {
+        if (value.startsWith('[') && value.endsWith(']')) {
+          try {
+            final List decoded = jsonDecode(value);
+            return decoded.map((e) => e.toString()).toList();
+          } catch (_) {}
+        }
         return [value];
       }
       return [];
@@ -64,8 +70,23 @@ class Product {
 
     double parseDouble(dynamic value, double fallback) {
       if (value is num) return value.toDouble();
-      if (value is String) return double.tryParse(value) ?? fallback;
+      if (value is String) {
+        final cleaned = value.replaceAll('₹', '').replaceAll(',', '').trim();
+        return double.tryParse(cleaned) ?? fallback;
+      }
       return fallback;
+    }
+
+    List<String> rawImages = parseStringList(json['images'] ?? json['image'] ?? json['img']);
+    List<String> cleanedImages = rawImages.map((img) {
+      if (img.startsWith('http://localhost:8081')) {
+        return img.replaceFirst('http://localhost:8081', 'https://scratch-render-sj9n.onrender.com');
+      }
+      return img;
+    }).where((img) => img.isNotEmpty).toList();
+
+    if (cleanedImages.isEmpty) {
+      cleanedImages = ['https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=800&q=80'];
     }
 
     return Product(
@@ -76,15 +97,15 @@ class Product {
       originalPrice: json['original_price'] != null || json['originalPrice'] != null
           ? parseDouble(json['original_price'] ?? json['originalPrice'], 0.0)
           : null,
-      category: json['category']?.toString() ?? 'Couture',
-      images: parseStringList(json['images'] ?? json['image']),
+      category: json['category']?.toString() ?? json['categoryName']?.toString() ?? 'Couture',
+      images: cleanedImages,
       description: json['description']?.toString() ?? 'Exquisite luxury craftsmanship.',
       sizes: parseStringList(json['sizes']).isEmpty ? ['S', 'M', 'L', 'XL'] : parseStringList(json['sizes']),
       colors: parseStringList(json['colors']).isEmpty ? ['Black', 'Gold', 'Nude'] : parseStringList(json['colors']),
       rating: parseDouble(json['rating'], 4.8),
       reviewCount: (json['review_count'] ?? json['reviewCount'] ?? 14) as int,
-      isFeatured: json['is_featured'] ?? json['isFeatured'] ?? false,
-      isTrending: json['is_trending'] ?? json['isTrending'] ?? false,
+      isFeatured: json['is_featured'] ?? json['isFeatured'] ?? json['featured'] ?? false,
+      isTrending: json['is_trending'] ?? json['isTrending'] ?? json['trending'] ?? false,
       stock: (json['stock'] ?? 10) as int,
       status: json['status']?.toString() ?? 'PUBLISHED',
       metadata: json['metadata'] as Map<String, dynamic>?,

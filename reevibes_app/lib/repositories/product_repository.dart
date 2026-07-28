@@ -4,6 +4,7 @@ import '../models/product.dart';
 import '../models/category.dart';
 import '../services/supabase_service.dart';
 import '../services/cache_service.dart';
+import '../services/api_service.dart';
 
 /// Repository for handling Product & Category data fetching, caching, and filtering.
 class ProductRepository {
@@ -132,77 +133,79 @@ class ProductRepository {
     Category(id: 'c6', name: 'Accessories', slug: 'accessories', imageUrl: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=800&q=80', itemCount: 22),
   ];
 
-  /// Cache-First fetch with instant local return and background Supabase sync
+  /// Fetch products from Spring Boot Backend with local caching fallback
   Future<List<Product>> fetchProducts() async {
+    // 1. Try remote fetch first
+    try {
+      final rawProducts = await ApiService.instance.fetchProducts();
+      final rawBuckets = await ApiService.instance.fetchBuckets();
+
+      if (rawProducts != null && rawProducts.isNotEmpty) {
+        Set<String> featuredIds = {};
+        Set<String> trendingIds = {};
+
+        if (rawBuckets != null) {
+          for (var b in rawBuckets) {
+            final id = b['id']?.toString() ?? '';
+            final pidsStr = b['productIds']?.toString() ?? '';
+            final pids = pidsStr.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toSet();
+
+            if (id == 'bkt-featured' || id.contains('featured')) {
+              featuredIds.addAll(pids);
+            }
+            if (id == 'bkt-trending' || id.contains('trending')) {
+              trendingIds.addAll(pids);
+            }
+          }
+        }
+
+        final products = rawProducts.map((pMap) {
+          final pid = pMap['id']?.toString() ?? '';
+          if (featuredIds.contains(pid)) pMap['is_featured'] = true;
+          if (trendingIds.contains(pid)) pMap['is_trending'] = true;
+          return Product.fromJson(pMap);
+        }).toList();
+
+        // Update local cache
+        await CacheService.instance.putJson('products_list', rawProducts);
+        return products;
+      }
+    } catch (e) {
+      debugPrint('Remote products fetch error: $e');
+    }
+
+    // 2. Try cache fallback
     final cached = CacheService.instance.getJson('products_list');
     if (cached is List && cached.isNotEmpty) {
-      // Trigger background update silently
-      unawaited(_syncProductsFromRemote());
-      return cached.map((item) => Product.fromJson(item as Map<String, dynamic>)).toList();
+      return cached.map((item) => Product.fromJson(Map<String, dynamic>.from(item))).toList();
     }
 
-    final remote = await _syncProductsFromRemote();
-    if (remote != null && remote.isNotEmpty) {
-      return remote;
-    }
-
+    // 3. Fallback sample products
     return _sampleProducts;
   }
 
-  /// Sync products from remote Supabase
-  Future<List<Product>?> _syncProductsFromRemote() async {
+  /// Fetch categories from homepage layout / backend or cache
+  Future<List<Category>> fetchCategories() async {
     try {
-      if (SupabaseService.instance.isInitialised) {
-        final dynamic response = await SupabaseService.instance.client
-            .from('products')
-            .select()
-            .timeout(const Duration(seconds: 4));
-        if (response is List && response.isNotEmpty) {
-          final fetched = response.map((item) => Product.fromJson(item as Map<String, dynamic>)).toList();
-          await CacheService.instance.putJson('products_list', response);
-          return fetched;
+      final layout = await ApiService.instance.fetchHomepageLayout();
+      if (layout != null && layout.containsKey('categories')) {
+        final rawCats = layout['categories'];
+        if (rawCats is List && rawCats.isNotEmpty) {
+          final cats = rawCats.map((c) => Category.fromJson(Map<String, dynamic>.from(c))).toList();
+          await CacheService.instance.putJson('categories_list', rawCats);
+          return cats;
         }
       }
     } catch (e) {
-      debugPrint('Background products sync skipped/offline: $e');
+      debugPrint('Remote categories fetch error: $e');
     }
-    return null;
-  }
 
-  /// Cache-First category fetch
-  Future<List<Category>> fetchCategories() async {
     final cached = CacheService.instance.getJson('categories_list');
     if (cached is List && cached.isNotEmpty) {
-      unawaited(_syncCategoriesFromRemote());
-      return cached.map((item) => Category.fromJson(item as Map<String, dynamic>)).toList();
-    }
-
-    final remote = await _syncCategoriesFromRemote();
-    if (remote != null && remote.isNotEmpty) {
-      return remote;
+      return cached.map((item) => Category.fromJson(Map<String, dynamic>.from(item))).toList();
     }
 
     return _sampleCategories;
-  }
-
-  /// Sync categories from remote Supabase
-  Future<List<Category>?> _syncCategoriesFromRemote() async {
-    try {
-      if (SupabaseService.instance.isInitialised) {
-        final dynamic response = await SupabaseService.instance.client
-            .from('categories')
-            .select()
-            .timeout(const Duration(seconds: 4));
-        if (response is List && response.isNotEmpty) {
-          final fetched = response.map((item) => Category.fromJson(item as Map<String, dynamic>)).toList();
-          await CacheService.instance.putJson('categories_list', response);
-          return fetched;
-        }
-      }
-    } catch (e) {
-      debugPrint('Background categories sync skipped/offline: $e');
-    }
-    return null;
   }
 
   /// Search products by term
@@ -210,6 +213,12 @@ class ProductRepository {
     final all = await fetchProducts();
     if (query.trim().isEmpty) return all;
     final term = query.toLowerCase().trim();
-    return all.where((p) => p.name.toLowerCase().contains(term) || p.house.toLowerCase().contains(term) || p.category.toLowerCase().contains(term)).toList();
+    return all
+        .where((p) =>
+            p.name.toLowerCase().contains(term) ||
+            p.house.toLowerCase().contains(term) ||
+            p.category.toLowerCase().contains(term) ||
+            p.description.toLowerCase().contains(term))
+        .toList();
   }
 }

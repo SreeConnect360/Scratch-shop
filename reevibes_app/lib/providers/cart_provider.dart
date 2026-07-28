@@ -4,6 +4,7 @@ import '../models/product.dart';
 import '../models/coupon.dart';
 import '../repositories/cart_repository.dart';
 import '../services/haptic_service.dart';
+import '../services/api_service.dart';
 
 /// Provider for managing Cart items, quantity updates, promo coupons, and price calculations.
 class CartProvider extends ChangeNotifier {
@@ -87,8 +88,32 @@ class CartProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  bool applyCoupon(String code) {
+  Future<bool> applyCoupon(String code) async {
     final cleanCode = code.trim().toUpperCase();
+    try {
+      final backendCoupons = await ApiService.instance.fetchCoupons();
+      if (backendCoupons != null && backendCoupons.isNotEmpty) {
+        final match = backendCoupons.firstWhere(
+          (c) => c['code']?.toString().toUpperCase() == cleanCode,
+          orElse: () => {},
+        );
+        if (match.isNotEmpty) {
+          final pct = (match['discountPercent'] ?? match['discount_percent'] ?? 10.0) as num;
+          _appliedCoupon = Coupon(
+            id: match['code']?.toString() ?? cleanCode,
+            code: cleanCode,
+            title: match['title']?.toString() ?? 'Atelier Perk',
+            description: match['description']?.toString() ?? 'Discount applied at checkout',
+            discountPercent: pct.toDouble(),
+            validUntil: DateTime.now().add(const Duration(days: 30)),
+          );
+          await HapticService.instance.successNotification();
+          notifyListeners();
+          return true;
+        }
+      }
+    } catch (_) {}
+
     if (cleanCode == 'REEVIBES10' || cleanCode == 'WELCOME10' || cleanCode == 'COUTURE20') {
       _appliedCoupon = Coupon(
         id: 'c_welcome',
@@ -98,11 +123,11 @@ class CartProvider extends ChangeNotifier {
         discountPercent: 10.0,
         validUntil: DateTime.now().add(const Duration(days: 30)),
       );
-      HapticService.instance.successNotification();
+      await HapticService.instance.successNotification();
       notifyListeners();
       return true;
     }
-    HapticService.instance.errorNotification();
+    await HapticService.instance.errorNotification();
     return false;
   }
 
