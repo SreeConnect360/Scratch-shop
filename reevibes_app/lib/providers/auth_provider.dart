@@ -119,7 +119,7 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // 1. Try Spring Boot backend sign in
+      // 1. Primary: Try Spring Boot backend sign in
       final backendRes = await ApiService.instance.signInBackend(email, password);
       if (backendRes['success'] == true) {
         final bUser = backendRes['user'];
@@ -130,34 +130,49 @@ class AuthProvider extends ChangeNotifier {
         );
         _status = AuthStatus.authenticated;
 
-        // Sync Supabase in background
+        // Try syncing Supabase in background silently
         try {
           await SupabaseService.instance.signInWithEmail(email, password);
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('Supabase background signin sync suppressed: $e');
+        }
 
         await HapticService.instance.successNotification();
         notifyListeners();
         return true;
       }
 
-      // 2. Fallback to Supabase sign in
-      final response = await SupabaseService.instance.signInWithEmail(email, password);
-      if (response.user != null) {
-        final user = response.user!;
-        _userProfile = UserProfile(
-          id: user.id,
-          email: user.email ?? '',
-          fullName: user.userMetadata?['full_name'] ?? user.email?.split('@').first ?? 'ReeVibes Member',
-        );
-        _status = AuthStatus.authenticated;
-        await HapticService.instance.successNotification();
-        notifyListeners();
-        return true;
+      // 2. Fallback: Supabase sign in
+      try {
+        final response = await SupabaseService.instance.signInWithEmail(email, password);
+        if (response.user != null) {
+          final user = response.user!;
+          _userProfile = UserProfile(
+            id: user.id,
+            email: user.email ?? '',
+            fullName: user.userMetadata?['full_name'] ?? user.email?.split('@').first ?? 'ReeVibes Member',
+          );
+          _status = AuthStatus.authenticated;
+          await HapticService.instance.successNotification();
+          notifyListeners();
+          return true;
+        }
+      } catch (e) {
+        debugPrint('Supabase fallback signin error: $e');
+        if (backendRes['message'] != null) {
+          _errorMessage = backendRes['message'].toString();
+        } else {
+          _errorMessage = 'Invalid email or password credentials.';
+        }
       }
     } catch (e) {
       _status = AuthStatus.error;
-      _errorMessage = e.toString().replaceAll('AuthException: ', '');
+      _errorMessage = 'Sign in failed. Please check your internet connection.';
       await HapticService.instance.errorNotification();
+    }
+    _status = AuthStatus.error;
+    if (_errorMessage == null || _errorMessage!.isEmpty) {
+      _errorMessage = 'Invalid email or password.';
     }
     notifyListeners();
     return false;
@@ -169,32 +184,51 @@ class AuthProvider extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
-    try {
-      // 1. Register in Spring Boot backend
-      final backendRes = await ApiService.instance.signUpBackend(fullName, email, password);
-      if (backendRes['success'] != true) {
-        _errorMessage = backendRes['message']?.toString() ?? 'Backend registration failed';
-      }
+    bool backendSuccess = false;
+    dynamic backendUser;
 
-      // 2. Register in Supabase
-      final response = await SupabaseService.instance.signUpWithEmail(email, password, fullName);
-      if (response.user != null || backendRes['success'] == true) {
-        final uid = response.user?.id ?? backendRes['user']?['id']?.toString() ?? 'usr-${DateTime.now().millisecondsSinceEpoch}';
-        _userProfile = UserProfile(
-          id: uid,
-          email: email,
-          fullName: fullName,
-        );
-        _status = AuthStatus.authenticated;
-        await HapticService.instance.successNotification();
-        notifyListeners();
-        return true;
+    try {
+      // 1. Primary: Register in Spring Boot backend
+      final backendRes = await ApiService.instance.signUpBackend(fullName, email, password);
+      if (backendRes['success'] == true) {
+        backendSuccess = true;
+        backendUser = backendRes['user'];
+      } else {
+        _errorMessage = backendRes['message']?.toString();
       }
     } catch (e) {
-      _status = AuthStatus.error;
-      _errorMessage = e.toString().replaceAll('AuthException: ', '');
-      await HapticService.instance.errorNotification();
+      debugPrint('Spring Boot signup error: $e');
     }
+
+    // 2. Try Supabase registration in background
+    String? supabaseUserId;
+    try {
+      final response = await SupabaseService.instance.signUpWithEmail(email, password, fullName);
+      if (response.user != null) {
+        supabaseUserId = response.user!.id;
+      }
+    } catch (e) {
+      debugPrint('Supabase signup rate limit suppressed: $e');
+    }
+
+    // If either Spring Boot or Supabase succeeded, user registration is SUCCESS!
+    if (backendSuccess || supabaseUserId != null) {
+      final uid = supabaseUserId ?? backendUser?['id']?.toString() ?? 'usr-${DateTime.now().millisecondsSinceEpoch}';
+      _userProfile = UserProfile(
+        id: uid,
+        email: email,
+        fullName: fullName,
+      );
+      _status = AuthStatus.authenticated;
+      _errorMessage = null;
+      await HapticService.instance.successNotification();
+      notifyListeners();
+      return true;
+    }
+
+    _status = AuthStatus.error;
+    _errorMessage ??= 'Registration failed. Email may already be registered.';
+    await HapticService.instance.errorNotification();
     notifyListeners();
     return false;
   }
