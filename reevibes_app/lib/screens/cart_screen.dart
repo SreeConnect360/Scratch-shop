@@ -195,15 +195,17 @@ class _CartScreenState extends State<CartScreen> {
                         ),
                         const SizedBox(width: 10),
                         ElevatedButton(
-                          onPressed: () {
+                          onPressed: () async {
                             if (_couponController.text.isNotEmpty) {
-                              final success = cart.applyCoupon(_couponController.text);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(success ? 'Coupon Applied!' : 'Invalid Coupon Code'),
-                                  backgroundColor: success ? AppColors.surfaceElevated : AppColors.error,
-                                ),
-                              );
+                              final success = await cart.applyCoupon(_couponController.text);
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(success ? 'Coupon Applied!' : 'Invalid Coupon Code'),
+                                    backgroundColor: success ? AppColors.surfaceElevated : AppColors.error,
+                                  ),
+                                );
+                              }
                             }
                           },
                           child: const Text('APPLY'),

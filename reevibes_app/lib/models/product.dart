@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 /// Product Data Model for ReeVibes Catalog.
 class Product {
   final String id;

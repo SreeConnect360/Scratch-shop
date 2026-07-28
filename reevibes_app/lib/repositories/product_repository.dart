@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/foundation.dart' hide Category;
 import '../models/product.dart';
 import '../models/category.dart';
-import '../services/supabase_service.dart';
 import '../services/cache_service.dart';
 import '../services/api_service.dart';
 

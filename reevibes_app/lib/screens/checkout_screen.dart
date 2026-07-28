@@ -134,6 +134,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     if (_selectedPaymentMethod == 'COD') {
       // Cash on delivery direct placement
+      if (!mounted) return;
       final orderProvider = context.read<OrderProvider>();
       final order = await orderProvider.placeOrder(
         items: List.from(cart.items),
