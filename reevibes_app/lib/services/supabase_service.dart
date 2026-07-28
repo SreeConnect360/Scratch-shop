@@ -43,47 +43,57 @@ class SupabaseService {
     }
   }
 
-  /// Perform native Google Sign-In and authenticate with Supabase.
+  /// Perform Google Sign-In via Native Google SDK or Supabase Web OAuth consent flow.
   Future<AuthResponse?> signInWithGoogleNative() async {
     if (!_initialised) await initialise();
+
+    // 1. Try Native Google Sign-In SDK
     try {
       debugPrint('Starting native Google Sign-In with serverClientId: $_webClientId');
       final googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) {
-        debugPrint('Google Sign-In cancelled by user.');
-        return null;
+      if (googleUser != null) {
+        final googleAuth = await googleUser.authentication;
+        final idToken = googleAuth.idToken;
+        final accessToken = googleAuth.accessToken;
+
+        if (idToken != null) {
+          final response = await Supabase.instance.client.auth.signInWithIdToken(
+            provider: OAuthProvider.google,
+            idToken: idToken,
+            accessToken: accessToken,
+          );
+
+          if (response.user != null) {
+            await _ensureUserProfile(response.user!);
+            await syncActiveUserProfile();
+            return response;
+          }
+        }
       }
+    } catch (e) {
+      debugPrint('Native Google Sign-In warning: $e. Falling back to Supabase OAuth...');
+    }
 
-      final googleAuth = await googleUser.authentication;
-      final accessToken = googleAuth.accessToken;
-      final idToken = googleAuth.idToken;
-
-      debugPrint('Google Sign-In Success. Has ID Token: ${idToken != null}, Has Access Token: ${accessToken != null}');
-
-      if (idToken == null) {
-        throw Exception('Google Sign-In failed: No ID Token returned from Google SDK.');
-      }
-
-      final response = await Supabase.instance.client.auth.signInWithIdToken(
-        provider: OAuthProvider.google,
-        idToken: idToken,
-        accessToken: accessToken,
+    // 2. Fallback: Supabase Web OAuth Consent Popup
+    try {
+      final bool webSuccess = await Supabase.instance.client.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: kIsWeb ? null : 'io.supabase.reevibes://login-callback',
       );
 
-      debugPrint('Supabase Auth response received. User ID: ${response.user?.id}');
-
-      // Ensure profile exists in Database
-      if (response.user != null) {
-        await _ensureUserProfile(response.user!);
+      if (webSuccess) {
+        final user = currentUser;
+        if (user != null) {
+          await _ensureUserProfile(user);
+          await syncActiveUserProfile();
+          return currentSession != null ? AuthResponse(session: currentSession!, user: user) : null;
+        }
       }
-
-      // Cache user profile for offline persistence
-      await syncActiveUserProfile();
-      return response;
     } catch (e) {
-      debugPrint('Google Sign-In error: $e');
-      rethrow;
+      debugPrint('Supabase OAuth error: $e');
     }
+
+    return null;
   }
 
   /// Ensure user profile record exists in Supabase DB and Spring Boot backend
