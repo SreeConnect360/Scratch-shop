@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -5,7 +6,7 @@ import '../core/theme/app_colors.dart';
 import '../providers/auth_provider.dart';
 import 'login_screen.dart';
 
-/// Native Registration Screen featuring Live Password Strength Indicator, Confirm Password, and Resilient Account Creation.
+/// Native Registration Screen featuring Email OTP Verification, Live Password Strength Indicator, Confirm Password, and Resilient Account Creation.
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
@@ -23,6 +24,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _isRegistering = false;
+  bool _isSendingOtp = false;
+  bool _emailVerified = false;
 
   bool get _hasMinLength => _passwordController.text.length >= 6 && _passwordController.text.length < 16;
   bool get _hasLowercase => _passwordController.text.contains(RegExp(r'[a-z]'));
@@ -71,8 +74,310 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
+  // Trigger Email OTP Send and open Verification Modal
+  Future<void> _handleSendOtp() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a valid email address first.'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSendingOtp = true);
+    final auth = context.read<AuthProvider>();
+    final res = await auth.sendOtp(email, 'SIGNUP');
+    setState(() => _isSendingOtp = false);
+
+    if (!mounted) return;
+
+    if (res['success'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(res['message'] ?? 'OTP sent to $email!'),
+          backgroundColor: AppColors.surfaceElevated,
+        ),
+      );
+      _showOtpModal(email);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(res['message'] ?? 'Failed to send OTP.'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+  }
+
+  // OTP Verification Modal Dialog with 30s Countdown Timer and Status Feedback
+  void _showOtpModal(String email) {
+    final otpController = TextEditingController();
+    int countdown = 30;
+    Timer? timer;
+    bool isVerifying = false;
+    bool isResending = false;
+    String? modalError;
+    String? modalSuccess;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            // Start 30s countdown timer for Resend button
+            timer ??= Timer.periodic(const Duration(seconds: 1), (t) {
+              if (countdown > 0) {
+                setModalState(() => countdown--);
+              } else {
+                t.cancel();
+              }
+            });
+
+            return AlertDialog(
+              backgroundColor: AppColors.surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+                side: const BorderSide(color: AppColors.surfaceBorder),
+              ),
+              title: Row(
+                children: [
+                  const Icon(Icons.shield_outlined, color: AppColors.gold, size: 22),
+                  const SizedBox(width: 10),
+                  Text(
+                    'VERIFY EMAIL OTP',
+                    style: GoogleFonts.outfit(
+                      color: AppColors.gold,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    'We sent a 6-digit verification code to:',
+                    style: GoogleFonts.outfit(color: AppColors.textMuted, fontSize: 12),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    email,
+                    style: GoogleFonts.outfit(
+                      color: AppColors.textPrimary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+
+                  // 6-Digit Code Input
+                  TextField(
+                    controller: otpController,
+                    keyboardType: TextInputType.number,
+                    maxLength: 6,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.outfit(
+                      color: AppColors.gold,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 8.0,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: '000000',
+                      hintStyle: GoogleFonts.outfit(
+                        color: AppColors.textMuted.withOpacity(0.3),
+                        fontSize: 24,
+                        letterSpacing: 8.0,
+                      ),
+                      counterText: '',
+                      contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Error / Success feedback messages
+                  if (modalError != null) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: AppColors.error.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.error.withOpacity(0.4)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.error_outline_rounded, color: AppColors.error, size: 16),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              modalError!,
+                              style: GoogleFonts.outfit(color: AppColors.error, fontSize: 12),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+
+                  if (modalSuccess != null) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.green.withOpacity(0.4)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.check_circle_outline_rounded, color: Colors.green, size: 16),
+                          const SizedBox(width: 8),
+                          Text(
+                            modalSuccess!,
+                            style: GoogleFonts.outfit(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+
+                  // Resend OTP Action & Timer
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      TextButton.icon(
+                        onPressed: (countdown > 0 || isResending || isVerifying)
+                            ? null
+                            : () async {
+                                setModalState(() {
+                                  isResending = true;
+                                  modalError = null;
+                                });
+                                final auth = context.read<AuthProvider>();
+                                final res = await auth.sendOtp(email, 'SIGNUP');
+                                setModalState(() {
+                                  isResending = false;
+                                  if (res['success'] == true) {
+                                    countdown = 30;
+                                    modalError = null;
+                                  } else {
+                                    modalError = res['message'] ?? 'Failed to resend OTP.';
+                                  }
+                                });
+                              },
+                        icon: isResending
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.gold),
+                              )
+                            : const Icon(Icons.refresh_rounded, size: 14, color: AppColors.gold),
+                        label: Text(
+                          isResending
+                              ? 'Sending...'
+                              : countdown > 0
+                                  ? 'Resend OTP (${countdown}s)'
+                                  : 'Resend OTP',
+                          style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          timer?.cancel();
+                          Navigator.pop(dialogContext);
+                        },
+                        child: Text(
+                          'Cancel',
+                          style: GoogleFonts.outfit(color: AppColors.textMuted, fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              actions: [
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: isVerifying
+                        ? null
+                        : () async {
+                            final code = otpController.text.trim();
+                            if (code.length != 6) {
+                              setModalState(() => modalError = 'Please enter a valid 6-digit OTP code.');
+                              return;
+                            }
+                            setModalState(() {
+                              isVerifying = true;
+                              modalError = null;
+                            });
+
+                            final auth = context.read<AuthProvider>();
+                            final res = await auth.verifyOtp(email, code);
+
+                            setModalState(() => isVerifying = false);
+
+                            if (res['success'] == true) {
+                              setModalState(() {
+                                modalSuccess = '✔ Email Verified!';
+                              });
+                              setState(() => _emailVerified = true);
+                              timer?.cancel();
+                              await Future.delayed(const Duration(milliseconds: 1000));
+                              if (dialogContext.mounted) {
+                                Navigator.pop(dialogContext);
+                              }
+                            } else {
+                              setModalState(() {
+                                modalError = res['message'] ?? 'Invalid OTP entered.';
+                              });
+                            }
+                          },
+                    child: isVerifying
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2.5),
+                          )
+                        : const Text('VERIFY CODE'),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // Handle Account Registration Submission
   Future<void> _handleRegister() async {
     if (!_formKey.currentState!.validate()) return;
+
+    if (!_emailVerified) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please verify your email address first!'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
     if (_passwordController.text != _confirmPasswordController.text) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Passwords do not match'), backgroundColor: AppColors.error),
@@ -96,7 +401,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Account created successfully! Welcome to ReeVibes.'),
+            content: Text('Account created successfully! Welcome to ReeVibes Atelier.'),
             backgroundColor: AppColors.surfaceElevated,
           ),
         );
@@ -186,7 +491,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 18),
 
-              // Email Input
+              // Email Input with Verify Action / Badge
               Text(
                 'EMAIL ADDRESS',
                 style: GoogleFonts.outfit(
@@ -197,19 +502,68 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              TextFormField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
-                style: GoogleFonts.outfit(color: AppColors.textPrimary),
-                validator: (val) {
-                  if (val == null || val.trim().isEmpty) return 'Enter your email';
-                  if (!val.contains('@')) return 'Enter a valid email address';
-                  return null;
-                },
-                decoration: const InputDecoration(
-                  hintText: 'name@example.com',
-                  prefixIcon: Icon(Icons.email_outlined, color: AppColors.textMuted, size: 20),
-                ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      style: GoogleFonts.outfit(color: AppColors.textPrimary),
+                      onChanged: (_) {
+                        if (_emailVerified) {
+                          setState(() => _emailVerified = false);
+                        }
+                      },
+                      validator: (val) {
+                        if (val == null || val.trim().isEmpty) return 'Enter your email';
+                        if (!val.contains('@')) return 'Enter a valid email address';
+                        return null;
+                      },
+                      decoration: const InputDecoration(
+                        hintText: 'name@example.com',
+                        prefixIcon: Icon(Icons.email_outlined, color: AppColors.textMuted, size: 20),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  SizedBox(
+                    height: 52,
+                    child: _emailVerified
+                        ? Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.green.withOpacity(0.4)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.check_circle_rounded, color: Colors.green, size: 16),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Verified',
+                                  style: GoogleFonts.outfit(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ElevatedButton(
+                            onPressed: _isSendingOtp ? null : _handleSendOtp,
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            child: _isSendingOtp
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2),
+                                  )
+                                : const Text('VERIFY'),
+                          ),
+                  ),
+                ],
               ),
               const SizedBox(height: 18),
 
@@ -311,7 +665,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: _isRegistering ? null : _handleRegister,
+                  onPressed: (_isRegistering || !_emailVerified) ? null : _handleRegister,
                   child: _isRegistering
                       ? const SizedBox(
                           width: 24,

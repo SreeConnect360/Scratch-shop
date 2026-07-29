@@ -32,15 +32,25 @@ class Coupon {
   }
 
   factory Coupon.fromJson(Map<String, dynamic> json) {
+    double parseNum(dynamic val, double fallback) {
+      if (val is num) return val.toDouble();
+      if (val is String) return double.tryParse(val) ?? fallback;
+      return fallback;
+    }
+
     return Coupon(
       id: json['id']?.toString() ?? '',
       code: json['code']?.toString() ?? 'WELCOME10',
       title: json['title']?.toString() ?? 'Special Offer',
       description: json['description']?.toString() ?? 'Get exclusive discount on your order.',
-      discountPercent: (json['discount_percent'] ?? json['discountPercent'] ?? 10.0) as double,
-      maxDiscountAmount: json['max_discount_amount'] != null ? (json['max_discount_amount'] as num).toDouble() : null,
-      minOrderAmount: (json['min_order_amount'] ?? json['minOrderAmount'] ?? 0.0) as double,
-      validUntil: json['valid_until'] != null ? DateTime.parse(json['valid_until'].toString()) : DateTime.now().add(const Duration(days: 30)),
+      discountPercent: parseNum(json['discount_percent'] ?? json['discountPercent'] ?? json['discount'], 10.0),
+      maxDiscountAmount: json['max_discount_amount'] != null || json['maxDiscount'] != null
+          ? parseNum(json['max_discount_amount'] ?? json['maxDiscount'], 0.0)
+          : null,
+      minOrderAmount: parseNum(json['min_order_amount'] ?? json['minOrderAmount'] ?? json['minSpend'], 0.0),
+      validUntil: json['valid_until'] != null || json['validUntil'] != null
+          ? DateTime.parse((json['valid_until'] ?? json['validUntil']).toString())
+          : DateTime.now().add(const Duration(days: 30)),
     );
   }
 

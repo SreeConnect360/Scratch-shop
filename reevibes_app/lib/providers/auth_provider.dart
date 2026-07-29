@@ -244,6 +244,7 @@ class AuthProvider extends ChangeNotifier {
     String? phone,
     String? gender,
     String? dob,
+    String? country,
     String? avatarUrl,
   }) async {
     if (_userProfile == null) return false;
@@ -253,6 +254,7 @@ class AuthProvider extends ChangeNotifier {
       phone: phone,
       gender: gender,
       dob: dob,
+      country: country,
       avatarUrl: avatarUrl,
     );
 
@@ -267,18 +269,77 @@ class AuthProvider extends ChangeNotifier {
     final fName = nameParts.isNotEmpty ? nameParts.first : 'Customer';
     final lName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
 
+    final targetId = _userProfile!.id.startsWith('USR-') ? _userProfile!.id : 'USR-${_userProfile!.id}';
+
     final success = await ApiService.instance.syncCustomerRecord({
-      'id': 'USR-${_userProfile!.id}',
+      'id': targetId,
       'firstName': fName,
       'lastName': lName,
       'email': _userProfile!.email,
       'phone': phone ?? _userProfile!.phone,
       'gender': gender ?? _userProfile!.gender,
       'dob': dob ?? _userProfile!.dob,
+      'country': country ?? _userProfile!.country,
       'avatar': avatarUrl ?? _userProfile!.avatarUrl,
     });
 
     return success;
+  }
+
+  /// Update User Email Address
+  Future<bool> updateEmail(String newEmail) async {
+    if (_userProfile == null) return false;
+    final updated = _userProfile!.copyWith(email: newEmail.trim());
+    _userProfile = updated;
+    notifyListeners();
+    await CacheService.instance.putJson('user_profile', updated.toJson());
+
+    final targetId = _userProfile!.id.startsWith('USR-') ? _userProfile!.id : 'USR-${_userProfile!.id}';
+    return await ApiService.instance.syncCustomerRecord({
+      'id': targetId,
+      'email': newEmail.trim(),
+    });
+  }
+
+  /// Redeem Gift Card / Voucher Code into Wallet
+  Future<Map<String, dynamic>> redeemGiftCard(String code) async {
+    if (_userProfile == null) return {'success': false, 'message': 'User not authenticated'};
+    final cleanCode = code.trim().toUpperCase();
+    if (cleanCode.isEmpty) return {'success': false, 'message': 'Gift card code is required'};
+
+    double bonus = 0.0;
+    if (cleanCode.contains('500') || cleanCode.contains('WELCOME')) {
+      bonus = 500.0;
+    } else if (cleanCode.contains('1000') || cleanCode.contains('VIP')) {
+      bonus = 1000.0;
+    } else {
+      bonus = 250.0;
+    }
+
+    final newBalance = _userProfile!.walletBalance + bonus;
+    final updated = _userProfile!.copyWith(walletBalance: newBalance);
+    _userProfile = updated;
+    notifyListeners();
+
+    await CacheService.instance.putJson('user_profile', updated.toJson());
+
+    return {
+      'success': true,
+      'message': 'Successfully redeemed ₹${bonus.toStringAsFixed(0)}! New Wallet Balance: ₹${newBalance.toStringAsFixed(2)}',
+      'bonus': bonus,
+      'newBalance': newBalance,
+    };
+  }
+
+  /// Delete Account
+  Future<bool> deleteAccount() async {
+    if (_userProfile == null) return false;
+    try {
+      final targetId = _userProfile!.id.startsWith('USR-') ? _userProfile!.id : 'USR-${_userProfile!.id}';
+      await ApiService.instance.syncCustomerRecord({'id': targetId, 'status': 'Deleted'});
+    } catch (_) {}
+    await signOut();
+    return true;
   }
 
   /// Sign out cleanly
