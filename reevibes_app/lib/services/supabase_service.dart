@@ -14,7 +14,7 @@ class SupabaseService {
   bool get isInitialised => _initialised;
 
   // Web Client ID required for Google OAuth on Android to obtain OpenID idToken
-  static const String _webClientId = '855678728689-s70vh2t24a6c7m48506416qcqt9htgfc.apps.googleusercontent.com';
+  static const String _webClientId = '855678728689-ei0i6duqodu28lud20fllq7ue1qsr3ad.apps.googleusercontent.com';
 
   late final GoogleSignIn _googleSignIn = GoogleSignIn(
     serverClientId: _webClientId,
