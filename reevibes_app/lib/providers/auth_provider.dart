@@ -287,17 +287,26 @@ class AuthProvider extends ChangeNotifier {
   }
 
   /// Update User Email Address
+  /// Update User Email Address while preserving all old email activity and syncing to updated account
   Future<bool> updateEmail(String newEmail) async {
     if (_userProfile == null) return false;
-    final updated = _userProfile!.copyWith(email: newEmail.trim());
+    final oldEmail = _userProfile!.email;
+    final cleanNewEmail = newEmail.trim().toLowerCase();
+    if (oldEmail.toLowerCase() == cleanNewEmail) return true;
+
+    final updated = _userProfile!.copyWith(email: cleanNewEmail);
     _userProfile = updated;
     notifyListeners();
     await CacheService.instance.putJson('user_profile', updated.toJson());
 
+    // 1. Preserve activity in Spring Boot backend
+    await ApiService.instance.changeEmail(oldEmail, cleanNewEmail);
+
+    // 2. Sync updated record
     final targetId = _userProfile!.id.startsWith('USR-') ? _userProfile!.id : 'USR-${_userProfile!.id}';
     return await ApiService.instance.syncCustomerRecord({
       'id': targetId,
-      'email': newEmail.trim(),
+      'email': cleanNewEmail,
     });
   }
 
@@ -342,12 +351,20 @@ class AuthProvider extends ChangeNotifier {
     return true;
   }
 
-  /// Sign out cleanly
-  Future<void> signOut() async {
+  /// Sign out cleanly and wipe all cart and wishlist items from memory and cache
+  Future<void> signOut({dynamic cartProvider, dynamic wishlistProvider}) async {
     await SupabaseService.instance.signOut();
     await CacheService.instance.deleteKey('user_profile');
     await CacheService.instance.deleteKey('reevibes_user_cart');
     await CacheService.instance.deleteKey('reevibes_user_wishlist');
+
+    try {
+      if (cartProvider != null) cartProvider.clearSession();
+    } catch (_) {}
+    try {
+      if (wishlistProvider != null) wishlistProvider.clearSession();
+    } catch (_) {}
+
     _userProfile = null;
     _status = AuthStatus.unauthenticated;
     await HapticService.instance.lightTap();

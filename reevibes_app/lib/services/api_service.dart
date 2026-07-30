@@ -552,4 +552,22 @@ class ApiService {
     }
     return null;
   }
+
+  /// Change customer email address while preserving all past activity
+  Future<bool> changeEmail(String oldEmail, String newEmail) async {
+    try {
+      final response = await _client
+          .put(
+            Uri.parse('${AppConfig.backendUrl}/api/customers/change-email'),
+            headers: _headers,
+            body: jsonEncode({'oldEmail': oldEmail, 'newEmail': newEmail}),
+          )
+          .timeout(const Duration(seconds: 8));
+
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('Error changing email: $e');
+      return false;
+    }
+  }
 }

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import '../core/theme/app_colors.dart';
 import '../models/user_profile.dart';
@@ -15,7 +16,6 @@ import '../providers/cart_provider.dart';
 import '../services/api_service.dart';
 import 'login_screen.dart';
 import 'orders_screen.dart';
-import 'notifications_screen.dart';
 import 'static_pages_screen.dart';
 
 /// Maison ReeVibes User Account Dashboard matching Website functionality, layout, and live backend sync.
@@ -42,7 +42,7 @@ class _AccountScreenState extends State<AccountScreen> with SingleTickerProvider
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 8, vsync: this);
+    _tabController = TabController(length: 6, vsync: this);
     _loadDashboardData();
   }
 
@@ -635,9 +635,7 @@ class _AccountScreenState extends State<AccountScreen> with SingleTickerProvider
             Tab(text: 'ADDRESSES'),
             Tab(text: 'ORDERS'),
             Tab(text: 'COUPONS'),
-            Tab(text: 'WISHLIST'),
             Tab(text: 'WALLET'),
-            Tab(text: 'NOTIFICATIONS'),
             Tab(text: 'SETTINGS'),
           ],
         ),
@@ -745,16 +743,10 @@ class _AccountScreenState extends State<AccountScreen> with SingleTickerProvider
                 // 4. MAISON COUPONS TAB
                 _buildCouponsTab(context),
 
-                // 5. WISHLIST TAB
-                _buildWishlistTab(context),
-
-                // 6. WALLET TAB
+                // 5. WALLET TAB
                 _buildWalletTab(context, user),
 
-                // 7. NOTIFICATIONS TAB
-                _buildNotificationsTab(context),
-
-                // 8. SETTINGS & SECURITY TAB
+                // 6. SETTINGS & SECURITY TAB
                 _buildSettingsTab(context),
               ],
             ),
@@ -972,6 +964,7 @@ class _AccountScreenState extends State<AccountScreen> with SingleTickerProvider
     final zipController = TextEditingController(text: existingAddress?.zipCode ?? '');
     final countryController = TextEditingController(text: existingAddress?.country ?? user?.country ?? 'India');
     bool isDefault = existingAddress?.isDefault ?? (_addresses.isEmpty);
+    bool isDetectingLocation = false;
 
     showModalBottomSheet(
       context: context,
@@ -983,6 +976,39 @@ class _AccountScreenState extends State<AccountScreen> with SingleTickerProvider
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
+            Future<void> detectCurrentLocation() async {
+              setModalState(() => isDetectingLocation = true);
+              try {
+                final response = await http.get(Uri.parse('https://ipapi.co/json/')).timeout(const Duration(seconds: 6));
+                if (response.statusCode == 200) {
+                  final data = jsonDecode(response.body);
+                  if (data is Map) {
+                    final pin = data['postal']?.toString() ?? data['zip']?.toString() ?? '';
+                    final cty = data['city']?.toString() ?? '';
+                    final st = data['region']?.toString() ?? data['state']?.toString() ?? '';
+                    final ctry = data['country_name']?.toString() ?? 'India';
+
+                    if (pin.isNotEmpty) zipController.text = pin;
+                    if (cty.isNotEmpty) cityController.text = cty;
+                    if (st.isNotEmpty) stateController.text = st;
+                    if (ctry.isNotEmpty) countryController.text = ctry;
+                    if (streetController.text.isEmpty && cty.isNotEmpty) {
+                      streetController.text = '$cty, $st';
+                    }
+
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Location detected & address auto-filled!'), backgroundColor: AppColors.surfaceElevated),
+                      );
+                    }
+                  }
+                }
+              } catch (e) {
+                debugPrint('Location detection error: $e');
+              }
+              setModalState(() => isDetectingLocation = false);
+            }
+
             return Padding(
               padding: EdgeInsets.only(
                 left: 20,
@@ -1008,7 +1034,29 @@ class _AccountScreenState extends State<AccountScreen> with SingleTickerProvider
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
+
+                    // USE CURRENT LOCATION BUTTON
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: isDetectingLocation ? null : detectCurrentLocation,
+                        icon: isDetectingLocation
+                            ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: AppColors.gold, strokeWidth: 2))
+                            : const Icon(Icons.my_location_rounded, size: 16, color: AppColors.gold),
+                        label: Text(
+                          isDetectingLocation ? 'DETECTING LOCATION...' : 'USE CURRENT LOCATION',
+                          style: GoogleFonts.outfit(color: AppColors.gold, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.8),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: AppColors.gold, width: 1.2),
+                          backgroundColor: AppColors.goldGlow.withOpacity(0.15),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
                     Text('FULL NAME', style: GoogleFonts.outfit(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 6),
                     TextField(controller: nameController, style: GoogleFonts.outfit(color: AppColors.textPrimary), decoration: const InputDecoration(hintText: 'Jane Doe')),
@@ -1586,82 +1634,6 @@ class _AccountScreenState extends State<AccountScreen> with SingleTickerProvider
     );
   }
 
-  // 4. WISHLIST TAB
-  Widget _buildWishlistTab(BuildContext context) {
-    final wishlist = context.watch<WishlistProvider>();
-    final items = wishlist.items;
-
-    if (items.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.favorite_border_rounded, color: AppColors.textMuted, size: 48),
-            const SizedBox(height: 12),
-            Text('Your Wishlist is Empty', style: GoogleFonts.playfairDisplay(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
-          ],
-        ),
-      );
-    }
-
-    return ListView.separated(
-      padding: const EdgeInsets.all(20),
-      itemCount: items.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 14),
-      itemBuilder: (context, index) {
-        final product = items[index];
-        return Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.surfaceBorder),
-          ),
-          child: Row(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.network(
-                  product.images.isNotEmpty ? product.images.first : '',
-                  width: 60,
-                  height: 60,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(width: 60, height: 60, color: AppColors.surfaceElevated),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(product.name, style: GoogleFonts.outfit(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 14)),
-                    const SizedBox(height: 2),
-                    Text('₹${product.price.toStringAsFixed(2)}', style: GoogleFonts.outfit(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 13)),
-                  ],
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.shopping_bag_outlined, color: AppColors.gold),
-                onPressed: () {
-                  context.read<CartProvider>().addToCart(product);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Added ${product.name} to Bag!'), backgroundColor: AppColors.surfaceElevated),
-                  );
-                },
-              ),
-              IconButton(
-                icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
-                onPressed: () {
-                  wishlist.removeFromWishlist(product.id);
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   // 5. WALLET TAB
   Widget _buildWalletTab(BuildContext context, UserProfile? user) {
     final balance = user?.walletBalance ?? 0.0;
@@ -1748,33 +1720,7 @@ class _AccountScreenState extends State<AccountScreen> with SingleTickerProvider
     );
   }
 
-  // 6. NOTIFICATIONS TAB
-  Widget _buildNotificationsTab(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.notifications_none_rounded, color: AppColors.gold, size: 48),
-            const SizedBox(height: 12),
-            Text('App Notifications', style: GoogleFonts.playfairDisplay(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            Text('Stay tuned for order tracking status and exclusive atelier updates.', style: GoogleFonts.outfit(color: AppColors.textMuted, fontSize: 12)),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const NotificationsScreen()));
-              },
-              child: const Text('OPEN NOTIFICATIONS CENTER'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // 7. SETTINGS & SECURITY TAB
+  // 6. SETTINGS & SECURITY TAB
   Widget _buildSettingsTab(BuildContext context) {
     final auth = context.read<AuthProvider>();
 
@@ -1868,7 +1814,10 @@ class _AccountScreenState extends State<AccountScreen> with SingleTickerProvider
                 );
 
                 if (confirm == true && context.mounted) {
-                  auth.signOut();
+                  auth.signOut(
+                    cartProvider: context.read<CartProvider>(),
+                    wishlistProvider: context.read<WishlistProvider>(),
+                  );
                 }
               },
               style: OutlinedButton.styleFrom(
