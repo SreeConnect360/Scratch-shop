@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../core/theme/app_colors.dart';
 import '../providers/auth_provider.dart';
+import '../services/api_service.dart';
 import 'login_screen.dart';
 
 /// Native Registration Screen featuring Email OTP Verification, Live Password Strength Indicator, Confirm Password, and Resilient Account Creation.
@@ -74,7 +75,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  // Trigger Email OTP Send and open Verification Modal
+  // Trigger Email OTP Send and open Verification Modal with Duplicate Avoidance
   Future<void> _handleSendOtp() async {
     final email = _emailController.text.trim();
     if (email.isEmpty || !email.contains('@')) {
@@ -88,6 +89,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     setState(() => _isSendingOtp = true);
+
+    // 1. DUPLICATE ACCOUNT CHECK
+    try {
+      final existingCust = await ApiService.instance.fetchCustomer(email);
+      if (existingCust != null && existingCust['email'] != null && existingCust['email'].toString().isNotEmpty) {
+        setState(() => _isSendingOtp = false);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('An account with email "$email" is already registered! Please sign in.'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+        return;
+      }
+    } catch (_) {}
+
+    if (!mounted) return;
     final auth = context.read<AuthProvider>();
     final res = await auth.sendOtp(email, 'SIGNUP');
     setState(() => _isSendingOtp = false);
@@ -491,7 +510,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 18),
 
-              // Email Input with Verify Action / Badge
+              // Email Input with Inline Verify Action / Verified Badge inside right side bar
               Text(
                 'EMAIL ADDRESS',
                 style: GoogleFonts.outfit(
@@ -502,68 +521,69 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      style: GoogleFonts.outfit(color: AppColors.textPrimary),
-                      onChanged: (_) {
-                        if (_emailVerified) {
-                          setState(() => _emailVerified = false);
-                        }
-                      },
-                      validator: (val) {
-                        if (val == null || val.trim().isEmpty) return 'Enter your email';
-                        if (!val.contains('@')) return 'Enter a valid email address';
-                        return null;
-                      },
-                      decoration: const InputDecoration(
-                        hintText: 'name@example.com',
-                        prefixIcon: Icon(Icons.email_outlined, color: AppColors.textMuted, size: 20),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  SizedBox(
-                    height: 52,
+              TextFormField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                style: GoogleFonts.outfit(color: AppColors.textPrimary),
+                onChanged: (_) {
+                  if (_emailVerified) {
+                    setState(() => _emailVerified = false);
+                  }
+                },
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty) return 'Enter your email';
+                  if (!val.contains('@')) return 'Enter a valid email address';
+                  return null;
+                },
+                decoration: InputDecoration(
+                  hintText: 'name@example.com',
+                  prefixIcon: const Icon(Icons.email_outlined, color: AppColors.textMuted, size: 20),
+                  suffixIcon: Padding(
+                    padding: const EdgeInsets.only(right: 6, top: 6, bottom: 6),
                     child: _emailVerified
                         ? Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
                               color: Colors.green.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(8),
                               border: Border.all(color: Colors.green.withOpacity(0.4)),
                             ),
                             child: Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.check_circle_rounded, color: Colors.green, size: 16),
-                                const SizedBox(width: 6),
+                                const Icon(Icons.check_circle_rounded, color: Colors.green, size: 14),
+                                const SizedBox(width: 4),
                                 Text(
                                   'Verified',
-                                  style: GoogleFonts.outfit(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold),
+                                  style: GoogleFonts.outfit(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold),
                                 ),
                               ],
                             ),
                           )
-                        : ElevatedButton(
+                        : TextButton(
                             onPressed: _isSendingOtp ? null : _handleSendOtp,
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            style: TextButton.styleFrom(
+                              backgroundColor: AppColors.goldGlow,
+                              foregroundColor: AppColors.gold,
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                side: const BorderSide(color: AppColors.gold, width: 1),
+                              ),
                             ),
                             child: _isSendingOtp
                                 ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2),
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(color: AppColors.gold, strokeWidth: 2),
                                   )
-                                : const Text('VERIFY'),
+                                : Text(
+                                    'VERIFY EMAIL',
+                                    style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.8),
+                                  ),
                           ),
                   ),
-                ],
+                ),
               ),
               const SizedBox(height: 18),
 

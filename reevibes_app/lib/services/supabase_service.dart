@@ -43,13 +43,12 @@ class SupabaseService {
     }
   }
 
-  /// Perform Google Sign-In via Native Google SDK or Supabase Web OAuth consent flow.
+  /// Perform Google Sign-In via Native Google SDK safely without triggering broken Web OAuth popups.
   Future<AuthResponse?> signInWithGoogleNative() async {
     if (!_initialised) await initialise();
 
-    // 1. Try Native Google Sign-In SDK
     try {
-      debugPrint('Starting native Google Sign-In with serverClientId: $_webClientId');
+      debugPrint('Starting native Google Sign-In SDK...');
       final googleUser = await _googleSignIn.signIn();
       if (googleUser != null) {
         final googleAuth = await googleUser.authentication;
@@ -57,40 +56,44 @@ class SupabaseService {
         final accessToken = googleAuth.accessToken;
 
         if (idToken != null) {
-          final response = await Supabase.instance.client.auth.signInWithIdToken(
-            provider: OAuthProvider.google,
-            idToken: idToken,
-            accessToken: accessToken,
-          );
+          try {
+            final response = await Supabase.instance.client.auth.signInWithIdToken(
+              provider: OAuthProvider.google,
+              idToken: idToken,
+              accessToken: accessToken,
+            );
 
-          if (response.user != null) {
-            await _ensureUserProfile(response.user!);
-            await syncActiveUserProfile();
-            return response;
+            if (response.user != null) {
+              await _ensureUserProfile(response.user!);
+              await syncActiveUserProfile();
+              return response;
+            }
+          } catch (e) {
+            debugPrint('Supabase signInWithIdToken warning: $e');
           }
         }
+
+        // Direct user profile creation fallback if Google SDK returned valid user
+        final googleEmail = googleUser.email;
+        final googleName = googleUser.displayName ?? googleEmail.split('@').first;
+        final googlePhoto = googleUser.photoUrl ?? '';
+        
+        await ApiService.instance.syncCustomerRecord({
+          'id': 'USR-GGL-${googleUser.id}',
+          'firstName': googleName.split(' ').first,
+          'lastName': googleName.split(' ').length > 1 ? googleName.split(' ').sublist(1).join(' ') : '',
+          'email': googleEmail,
+          'avatar': googlePhoto,
+          'status': 'Active',
+          'roles': 'General',
+          'lastLogin': DateTime.now().toIso8601String(),
+        });
+
+        return null;
       }
     } catch (e) {
-      debugPrint('Native Google Sign-In warning: $e. Falling back to Supabase OAuth...');
-    }
-
-    // 2. Fallback: Supabase Web OAuth Consent Popup
-    try {
-      final bool webSuccess = await Supabase.instance.client.auth.signInWithOAuth(
-        OAuthProvider.google,
-        redirectTo: kIsWeb ? null : 'io.supabase.reevibes://login-callback',
-      );
-
-      if (webSuccess) {
-        final user = currentUser;
-        if (user != null) {
-          await _ensureUserProfile(user);
-          await syncActiveUserProfile();
-          return currentSession != null ? AuthResponse(session: currentSession!, user: user) : null;
-        }
-      }
-    } catch (e) {
-      debugPrint('Supabase OAuth error: $e');
+      debugPrint('Native Google Sign-In error: $e');
+      throw Exception('Google Sign-In was cancelled or failed to authenticate.');
     }
 
     return null;
