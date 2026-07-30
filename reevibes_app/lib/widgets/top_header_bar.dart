@@ -14,11 +14,11 @@ class TopHeaderBar extends StatelessWidget implements PreferredSizeWidget {
     super.key,
     required this.onSearchTap,
     required this.onNotificationTap,
-    this.announcementText = 'COMPLIMENTARY EXPRESS SHIPPING ON ORDERS ABOVE ₹15,000',
+    this.announcementText,
   });
 
   @override
-  Size get preferredSize => Size.fromHeight(announcementText != null ? 88.0 : 60.0);
+  Size get preferredSize => const Size.fromHeight(60.0);
 
   @override
   Widget build(BuildContext context) {
@@ -27,24 +27,6 @@ class TopHeaderBar extends StatelessWidget implements PreferredSizeWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Optional Announcement Banner
-        if (announcementText != null)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-            color: AppColors.goldGlow,
-            child: Text(
-              announcementText!,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(
-                color: AppColors.gold,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.1,
-              ),
-            ),
-          ),
-
         // Main Glass Header
         Container(
           height: 60,

@@ -5,8 +5,10 @@ import 'package:provider/provider.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import '../core/theme/app_colors.dart';
 import '../models/product.dart';
+import '../providers/auth_provider.dart';
 import '../providers/cart_provider.dart';
 import '../providers/wishlist_provider.dart';
+import '../widgets/guest_auth_dialog.dart';
 import 'cart_screen.dart';
 
 /// Comprehensive Native Product Details Screen matching ReeVibes Website.
@@ -88,6 +90,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   color: isWishlisted ? AppColors.gold : Colors.white,
                 ),
                 onPressed: () {
+                  final auth = context.read<AuthProvider>();
+                  if (!auth.isAuthenticated) {
+                    GuestAuthDialog.show(context, actionTarget: 'your wishlist');
+                    return;
+                  }
                   context.read<WishlistProvider>().toggleWishlist(widget.product);
                 },
               ),
@@ -481,6 +488,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 child: OutlinedButton(
                   onPressed: isSelectedSizeAvailable
                       ? () {
+                          final auth = context.read<AuthProvider>();
+                          if (!auth.isAuthenticated) {
+                            GuestAuthDialog.show(context, actionTarget: 'your cart');
+                            return;
+                          }
                           context.read<CartProvider>().addToCart(
                                 widget.product,
                                 size: _selectedSize,
@@ -506,6 +518,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 child: ElevatedButton(
                   onPressed: isSelectedSizeAvailable
                       ? () async {
+                          final auth = context.read<AuthProvider>();
+                          if (!auth.isAuthenticated) {
+                            GuestAuthDialog.show(context, actionTarget: 'your cart');
+                            return;
+                          }
                           await context.read<CartProvider>().addToCart(
                                 widget.product,
                                 size: _selectedSize,

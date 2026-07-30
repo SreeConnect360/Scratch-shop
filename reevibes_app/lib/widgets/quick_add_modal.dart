@@ -4,7 +4,9 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../core/theme/app_colors.dart';
 import '../models/product.dart';
+import '../providers/auth_provider.dart';
 import '../providers/cart_provider.dart';
+import 'guest_auth_dialog.dart';
 
 /// Bottom Sheet modal for selecting size and color options before adding to cart.
 class QuickAddModal extends StatefulWidget {
@@ -178,6 +180,12 @@ class _QuickAddModalState extends State<QuickAddModal> {
             height: 50,
             child: ElevatedButton(
               onPressed: () {
+                final auth = context.read<AuthProvider>();
+                if (!auth.isAuthenticated) {
+                  Navigator.pop(context);
+                  GuestAuthDialog.show(context, actionTarget: 'your cart');
+                  return;
+                }
                 context.read<CartProvider>().addToCart(
                   widget.product,
                   size: _selectedSize,

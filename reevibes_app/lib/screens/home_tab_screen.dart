@@ -52,23 +52,6 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 0. ANNOUNCEMENT BANNER
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              color: AppColors.gold,
-              child: Text(
-                shopProvider.announcementText.toUpperCase(),
-                textAlign: TextAlign.center,
-                style: GoogleFonts.outfit(
-                  color: Colors.black,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.2,
-                ),
-              ),
-            ),
-
             // 1. DYNAMIC HERO BANNER CAROUSEL
             if (heroBanners.isNotEmpty)
               SizedBox(

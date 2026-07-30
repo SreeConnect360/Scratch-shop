@@ -490,4 +490,57 @@ class ApiService {
       return {'success': false, 'message': 'Network error: ${e.toString()}'};
     }
   }
+
+  /// Cancel an order on backend
+  Future<bool> cancelOrder(String orderId) async {
+    try {
+      final response = await _client
+          .put(
+            Uri.parse('${AppConfig.backendUrl}/api/orders/$orderId/status'),
+            headers: _headers,
+            body: jsonEncode({'status': 'Cancelled'}),
+          )
+          .timeout(const Duration(seconds: 8));
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('Error cancelling order: $e');
+      return false;
+    }
+  }
+
+  /// Submit a return request on backend
+  Future<bool> submitReturnRequest(Map<String, dynamic> payload) async {
+    try {
+      final response = await _client
+          .post(
+            Uri.parse('${AppConfig.backendUrl}/api/returns'),
+            headers: _headers,
+            body: jsonEncode(payload),
+          )
+          .timeout(const Duration(seconds: 8));
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      debugPrint('Error submitting return request: $e');
+      return false;
+    }
+  }
+
+  /// Fetch return requests from backend
+  Future<List<Map<String, dynamic>>?> fetchReturnRequests() async {
+    try {
+      final response = await _client
+          .get(Uri.parse('${AppConfig.backendUrl}/api/returns'), headers: _headers)
+          .timeout(const Duration(seconds: 8));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is List) {
+          return List<Map<String, dynamic>>.from(data.map((e) => Map<String, dynamic>.from(e)));
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching return requests: $e');
+    }
+    return null;
+  }
 }

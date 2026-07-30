@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -25,18 +26,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String _selectedPaymentMethod = 'RAZORPAY'; // 'RAZORPAY' or 'COD'
   late Razorpay _razorpay;
   bool _isProcessing = false;
-
-  final Address _defaultAddress = Address(
-    id: 'addr_1',
-    fullName: 'Sree',
-    phone: '+91 98765 43210',
-    streetAddress: 'Flat 402, ReeVibes Residency, Jubilee Hills',
-    city: 'Hyderabad',
-    state: 'Telangana',
-    zipCode: '500033',
-    country: 'India',
-    isDefault: true,
-  );
+  List<Address> _savedAddresses = [];
+  Address? _selectedAddress;
 
   @override
   void initState() {
@@ -45,6 +36,123 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
     _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
     _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
+    _loadUserAddresses();
+  }
+
+  Future<void> _loadUserAddresses() async {
+    final auth = context.read<AuthProvider>();
+    final user = auth.userProfile;
+    if (user != null) {
+      final cust = await ApiService.instance.fetchCustomer(user.id);
+      if (cust != null && cust['addresses'] != null && cust['addresses'].toString().isNotEmpty) {
+        try {
+          final decoded = jsonDecode(cust['addresses'].toString());
+          if (decoded is List && decoded.isNotEmpty) {
+            final addrs = decoded.map((a) => Address.fromJson(Map<String, dynamic>.from(a))).toList();
+            setState(() {
+              _savedAddresses = addrs;
+              _selectedAddress = addrs.firstWhere((a) => a.isDefault, orElse: () => addrs.first);
+            });
+            return;
+          }
+        } catch (_) {}
+      }
+
+      // Fallback default address built from profile details
+      final fallback = Address(
+        id: 'addr_default_${user.id}',
+        fullName: user.fullName.isNotEmpty ? user.fullName : 'Valued Member',
+        phone: user.phone.isNotEmpty ? user.phone : '+91 98765 43210',
+        streetAddress: '123 Atelier Boulevard',
+        city: 'Mumbai',
+        state: 'Maharashtra',
+        zipCode: '400001',
+        country: user.country.isNotEmpty ? user.country : 'India',
+        isDefault: true,
+      );
+      setState(() {
+        _savedAddresses = [fallback];
+        _selectedAddress = fallback;
+      });
+    }
+  }
+
+  void _showAddressSelectorModal() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (modalContext) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'SELECT DELIVERY ADDRESS',
+                        style: GoogleFonts.outfit(color: AppColors.gold, fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, color: AppColors.textMuted),
+                        onPressed: () => Navigator.pop(modalContext),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  if (_savedAddresses.isEmpty)
+                    Text('No saved addresses found.', style: GoogleFonts.outfit(color: AppColors.textMuted))
+                  else
+                    ..._savedAddresses.map((addr) {
+                      final isSelected = _selectedAddress?.id == addr.id;
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        decoration: BoxDecoration(
+                          color: isSelected ? AppColors.surfaceElevated : AppColors.background,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: isSelected ? AppColors.gold : AppColors.surfaceBorder),
+                        ),
+                        child: ListTile(
+                          onTap: () {
+                            setState(() => _selectedAddress = addr);
+                            Navigator.pop(modalContext);
+                          },
+                          leading: Icon(
+                            isSelected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+                            color: isSelected ? AppColors.gold : AppColors.textMuted,
+                          ),
+                          title: Row(
+                            children: [
+                              Text(addr.fullName, style: GoogleFonts.outfit(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 14)),
+                              if (addr.isDefault) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(color: AppColors.goldGlow, borderRadius: BorderRadius.circular(4)),
+                                  child: Text('DEFAULT', style: GoogleFonts.outfit(color: AppColors.gold, fontSize: 9, fontWeight: FontWeight.bold)),
+                                ),
+                              ],
+                            ],
+                          ),
+                          subtitle: Text(addr.formatted, style: GoogleFonts.outfit(color: AppColors.textSecondary, fontSize: 12)),
+                        ),
+                      );
+                    }),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -67,12 +175,26 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         );
       }
 
+      if (!mounted) return;
+      final auth = context.read<AuthProvider>();
+      final activeAddr = _selectedAddress ?? Address(
+        id: 'addr_default',
+        fullName: auth.userProfile?.fullName ?? 'Valued Member',
+        phone: auth.userProfile?.phone ?? '+91 98765 43210',
+        streetAddress: '123 Atelier Boulevard',
+        city: 'Mumbai',
+        state: 'Maharashtra',
+        zipCode: '400001',
+        country: 'India',
+        isDefault: true,
+      );
+
       // 2. Complete Order Placement on Backend
       final order = await orderProvider.placeOrder(
         items: List.from(cart.items),
         totalAmount: cart.grandTotal,
         discountAmount: cart.discountAmount,
-        shippingAddress: _defaultAddress,
+        shippingAddress: activeAddr,
         paymentMethod: 'Razorpay Gateway',
         razorpayPaymentId: response.paymentId,
         razorpayOrderId: response.orderId,
@@ -132,6 +254,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     setState(() => _isProcessing = true);
     await HapticService.instance.mediumImpact();
 
+    final activeAddr = _selectedAddress ?? Address(
+      id: 'addr_default',
+      fullName: auth.userProfile?.fullName ?? 'Valued Member',
+      phone: auth.userProfile?.phone ?? '+91 98765 43210',
+      streetAddress: '123 Atelier Boulevard',
+      city: 'Mumbai',
+      state: 'Maharashtra',
+      zipCode: '400001',
+      country: 'India',
+      isDefault: true,
+    );
+
     if (_selectedPaymentMethod == 'COD') {
       // Cash on delivery direct placement
       if (!mounted) return;
@@ -140,7 +274,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         items: List.from(cart.items),
         totalAmount: cart.grandTotal,
         discountAmount: cart.discountAmount,
-        shippingAddress: _defaultAddress,
+        shippingAddress: activeAddr,
         paymentMethod: 'Cash on Delivery',
       );
 
@@ -164,7 +298,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           'description': 'Luxury Fashion Purchase',
           if (rzpOrderId != null && rzpOrderId.isNotEmpty) 'order_id': rzpOrderId,
           'prefill': {
-            'contact': _defaultAddress.phone,
+            'contact': activeAddr.phone,
             'email': auth.userProfile?.email ?? 'customer@reevibes.com',
           },
           'theme': {
@@ -260,51 +394,80 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 1. SHIPPING ADDRESS
-            Text(
-              'SHIPPING ADDRESS',
-              style: GoogleFonts.outfit(
-                color: AppColors.gold,
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.2,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.surfaceBorder),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.location_on_outlined, color: AppColors.gold, size: 22),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _defaultAddress.fullName,
-                          style: GoogleFonts.outfit(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _defaultAddress.formatted,
-                          style: GoogleFonts.outfit(color: AppColors.textSecondary, fontSize: 12),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _defaultAddress.phone,
-                          style: GoogleFonts.outfit(color: AppColors.textMuted, fontSize: 12),
-                        ),
-                      ],
-                    ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'SHIPPING ADDRESS',
+                  style: GoogleFonts.outfit(
+                    color: AppColors.gold,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.2,
                   ),
-                ],
-              ),
+                ),
+                TextButton(
+                  onPressed: _showAddressSelectorModal,
+                  child: Text(
+                    'CHANGE',
+                    style: GoogleFonts.outfit(color: AppColors.gold, fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Builder(
+              builder: (context) {
+                final auth = context.watch<AuthProvider>();
+                final activeAddr = _selectedAddress ?? Address(
+                  id: 'addr_default',
+                  fullName: auth.userProfile?.fullName ?? 'Valued Member',
+                  phone: auth.userProfile?.phone ?? '+91 98765 43210',
+                  streetAddress: '123 Atelier Boulevard',
+                  city: 'Mumbai',
+                  state: 'Maharashtra',
+                  zipCode: '400001',
+                  country: 'India',
+                  isDefault: true,
+                );
+
+                return Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.surfaceBorder),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.location_on_outlined, color: AppColors.gold, size: 22),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              activeAddr.fullName,
+                              style: GoogleFonts.outfit(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              activeAddr.formatted,
+                              style: GoogleFonts.outfit(color: AppColors.textSecondary, fontSize: 12),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              activeAddr.phone,
+                              style: GoogleFonts.outfit(color: AppColors.textMuted, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 24),
 

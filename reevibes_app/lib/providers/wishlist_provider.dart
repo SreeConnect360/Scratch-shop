@@ -17,6 +17,15 @@ class WishlistProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> loadWishlistForUser() async {
+    await _loadWishlist();
+  }
+
+  void clearSession() {
+    _items.clear();
+    notifyListeners();
+  }
+
   int get itemCount => _items.length;
 
   bool isWishlisted(String productId) {

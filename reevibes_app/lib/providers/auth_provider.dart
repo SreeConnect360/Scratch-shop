@@ -346,6 +346,8 @@ class AuthProvider extends ChangeNotifier {
   Future<void> signOut() async {
     await SupabaseService.instance.signOut();
     await CacheService.instance.deleteKey('user_profile');
+    await CacheService.instance.deleteKey('reevibes_user_cart');
+    await CacheService.instance.deleteKey('reevibes_user_wishlist');
     _userProfile = null;
     _status = AuthStatus.unauthenticated;
     await HapticService.instance.lightTap();

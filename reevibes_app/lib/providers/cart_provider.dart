@@ -23,6 +23,16 @@ class CartProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> loadCartForUser() async {
+    await _loadCart();
+  }
+
+  void clearSession() {
+    _items.clear();
+    _appliedCoupon = null;
+    notifyListeners();
+  }
+
   int get itemCount => _items.fold(0, (sum, item) => sum + item.quantity);
 
   double get subtotal => _items.fold(0.0, (sum, item) => sum + item.totalPrice);

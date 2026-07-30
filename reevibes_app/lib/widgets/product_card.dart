@@ -5,7 +5,9 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../core/theme/app_colors.dart';
 import '../models/product.dart';
+import '../providers/auth_provider.dart';
 import '../providers/wishlist_provider.dart';
+import 'guest_auth_dialog.dart';
 import 'shimmer_loading.dart';
 
 /// Luxury Product Card displaying cached image, house brand, title, price, discount badge, and wishlist heart.
@@ -84,6 +86,11 @@ class ProductCard extends StatelessWidget {
                     right: 8,
                     child: GestureDetector(
                       onTap: () {
+                        final auth = context.read<AuthProvider>();
+                        if (!auth.isAuthenticated) {
+                          GuestAuthDialog.show(context, actionTarget: 'your wishlist');
+                          return;
+                        }
                         context.read<WishlistProvider>().toggleWishlist(product);
                       },
                       child: Container(

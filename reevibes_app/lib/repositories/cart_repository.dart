@@ -14,23 +14,27 @@ class CartRepository {
 
   Future<List<CartItem>> loadCart() async {
     try {
-      // 1. Check backend if user logged in
       final user = SupabaseService.instance.currentUser;
-      if (user != null) {
-        final cust = await ApiService.instance.fetchCustomer(user.id);
-        if (cust != null && cust['cart'] != null && cust['cart'].toString().isNotEmpty) {
-          try {
-            final decoded = jsonDecode(cust['cart'].toString());
-            if (decoded is List && decoded.isNotEmpty) {
-              final items = decoded.map((i) => CartItem.fromJson(Map<String, dynamic>.from(i))).toList();
-              await CacheService.instance.putJson(_cartCacheKey, decoded);
-              return items;
-            }
-          } catch (_) {}
-        }
+      if (user == null) {
+        // Guest user: clear local cache and return empty cart
+        await CacheService.instance.deleteKey(_cartCacheKey);
+        return [];
       }
 
-      // 2. Check local cache
+      // 1. Fetch user's saved cart from backend
+      final cust = await ApiService.instance.fetchCustomer(user.id);
+      if (cust != null && cust['cart'] != null && cust['cart'].toString().isNotEmpty) {
+        try {
+          final decoded = jsonDecode(cust['cart'].toString());
+          if (decoded is List) {
+            final items = decoded.map((i) => CartItem.fromJson(Map<String, dynamic>.from(i))).toList();
+            await CacheService.instance.putJson(_cartCacheKey, decoded);
+            return items;
+          }
+        } catch (_) {}
+      }
+
+      // 2. Fallback to cached cart for current logged-in user session
       final cached = CacheService.instance.getJson(_cartCacheKey);
       if (cached != null && cached is List) {
         return cached.map((i) => CartItem.fromJson(Map<String, dynamic>.from(i))).toList();
