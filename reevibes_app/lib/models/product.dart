@@ -12,6 +12,7 @@ class Product {
   final String gender;
   final String fabric; // Fabric / Material
   final String productType;
+  final String sku;
   final List<String> images;
   final String description;
   final List<String> sizes;
@@ -45,6 +46,7 @@ class Product {
     this.gender = 'Unisex',
     this.fabric = '100% Organic Silk & Cotton',
     this.productType = 'Couture',
+    this.sku = '',
     required this.images,
     required this.description,
     required this.sizes,
@@ -122,7 +124,7 @@ class Product {
         });
       } else {
         for (var s in parsedSizes) {
-          result[s] = defaultStock;
+          result[s.toUpperCase()] = defaultStock;
         }
       }
       return result;
@@ -141,32 +143,60 @@ class Product {
     }
 
     final parsedSizes = parseStringList(json['sizes']).isEmpty ? ['S', 'M', 'L', 'XL'] : parseStringList(json['sizes']);
-    final parsedStock = (json['stock'] ?? 10) as int;
+
+    int totalCalculatedStock = 0;
+    final stockVal = json['totalStock'] ?? json['stock'];
+    if (stockVal != null && stockVal is num) {
+      totalCalculatedStock = stockVal.toInt();
+    } else {
+      totalCalculatedStock = 10;
+    }
+
+    final sizeStockMap = parseSizeStock(
+      json['stockPerSize'] ?? json['sizeStock'] ?? json['size_stock'],
+      parsedSizes,
+      totalCalculatedStock > 0 ? (totalCalculatedStock / (parsedSizes.isNotEmpty ? parsedSizes.length : 1)).round() : 0,
+    );
+
+    // Sum stock if totalCalculatedStock was fallback
+    if (sizeStockMap.isNotEmpty && json['totalStock'] == null && json['stock'] == null) {
+      totalCalculatedStock = sizeStockMap.values.fold(0, (sum, count) => sum + count);
+    }
+
+    final price = parseDouble(json['price'], 0.0);
+    double? origPrice;
+    if (json['original_price'] != null || json['originalPrice'] != null) {
+      origPrice = parseDouble(json['original_price'] ?? json['originalPrice'], price);
+    } else if (json['discount'] != null) {
+      final discVal = parseDouble(json['discount'], 0.0);
+      if (discVal > 0 && discVal < 100) {
+        origPrice = price / (1.0 - (discVal / 100.0));
+      }
+    }
 
     return Product(
       id: json['id']?.toString() ?? '',
       name: json['name']?.toString() ?? json['title']?.toString() ?? 'Luxury Fashion Piece',
       house: json['house']?.toString() ?? json['brand']?.toString() ?? json['designer']?.toString() ?? 'ReeVibes Atelier',
-      price: parseDouble(json['price'], 0.0),
-      originalPrice: json['original_price'] != null || json['originalPrice'] != null
-          ? parseDouble(json['original_price'] ?? json['originalPrice'], 0.0)
-          : null,
+      price: price,
+      originalPrice: origPrice != null && origPrice > price ? origPrice : null,
       category: json['category']?.toString() ?? json['categoryName']?.toString() ?? 'Couture',
       subcategory: json['subcategory']?.toString() ?? json['subCategory']?.toString() ?? 'Apparel',
       gender: json['gender']?.toString() ?? 'Unisex',
       fabric: json['fabric']?.toString() ?? json['material']?.toString() ?? '100% Premium Pure Cotton & Silk',
       productType: json['productType']?.toString() ?? json['type']?.toString() ?? 'Atelier Couture',
+      sku: json['sku']?.toString() ?? '',
       images: cleanedImages,
       description: json['description']?.toString() ?? 'Exquisite luxury craftsmanship with tailored silhouette.',
       sizes: parsedSizes,
       colors: parseStringList(json['colors']).isEmpty ? ['Black', 'Gold', 'Nude'] : parseStringList(json['colors']),
-      sizeStock: parseSizeStock(json['sizeStock'] ?? json['size_stock'], parsedSizes, parsedStock),
+      sizeStock: sizeStockMap,
       rating: parseDouble(json['rating'], 4.8),
       reviewCount: (json['review_count'] ?? json['reviewCount'] ?? 14) as int,
       isFeatured: json['is_featured'] ?? json['isFeatured'] ?? json['featured'] ?? false,
       isTrending: json['is_trending'] ?? json['isTrending'] ?? json['trending'] ?? false,
-      stock: parsedStock,
-      status: json['status']?.toString() ?? 'PUBLISHED',
+      stock: totalCalculatedStock,
+      status: json['status']?.toString().toUpperCase() ?? 'PUBLISHED',
       careInstructions: json['careInstructions']?.toString() ?? json['care']?.toString() ?? 'Dry clean only. Store in protective garment bag.',
       countryOfOrigin: json['countryOfOrigin']?.toString() ?? json['origin']?.toString() ?? 'India',
       manufacturer: json['manufacturer']?.toString() ?? 'Atelier ReeVibes Crafts Ltd.',
@@ -192,6 +222,7 @@ class Product {
       'gender': gender,
       'fabric': fabric,
       'productType': productType,
+      'sku': sku,
       'images': images,
       'description': description,
       'sizes': sizes,

@@ -32,6 +32,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     super.initState();
     _selectedSize = widget.product.sizes.isNotEmpty ? widget.product.sizes.first : 'M';
     _selectedColor = widget.product.colors.isNotEmpty ? widget.product.colors.first : 'Black';
+
+    // Pick first available size if default size is out of stock
+    for (var s in widget.product.sizes) {
+      final count = widget.product.sizeStock[s.toUpperCase()] ?? widget.product.stock;
+      if (count > 0) {
+        _selectedSize = s;
+        break;
+      }
+    }
   }
 
   void _openHighResImageViewer(BuildContext context, String imageUrl) {
@@ -43,29 +52,29 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           children: [
             Center(
               child: InteractiveViewer(
-              panEnabled: true,
-              minScale: 0.8,
-              maxScale: 4.0,
-              child: Image.network(
-                imageUrl,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image_rounded, color: Colors.white, size: 64),
+                panEnabled: true,
+                minScale: 0.8,
+                maxScale: 4.0,
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image_rounded, color: Colors.white, size: 64),
+                ),
               ),
             ),
-          ),
-          Positioned(
-            top: 40,
-            right: 20,
-            child: IconButton(
-              icon: const Icon(Icons.close_rounded, color: Colors.white, size: 30),
-              onPressed: () => Navigator.pop(context),
+            Positioned(
+              top: 40,
+              right: 20,
+              child: IconButton(
+                icon: const Icon(Icons.close_rounded, color: Colors.white, size: 30),
+                onPressed: () => Navigator.pop(context),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -287,7 +296,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       Text(
                         isSelectedSizeAvailable ? 'In Stock ($sizeStockCount left)' : 'Out of Stock',
                         style: GoogleFonts.outfit(
-                          color: isSelectedSizeAvailable ? AppColors.gold : AppColors.error,
+                          color: isSelectedSizeAvailable ? AppColors.gold : Colors.redAccent,
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
                         ),
@@ -443,6 +452,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                 _buildDetailRow('Care Instructions', widget.product.careInstructions),
                                 _buildDetailRow('Country of Origin', widget.product.countryOfOrigin),
                                 _buildDetailRow('Manufacturer', widget.product.manufacturer),
+                                if (widget.product.sku.isNotEmpty) _buildDetailRow('SKU / Reference', widget.product.sku),
                                 const SizedBox(height: 16),
 
                                 // About This Item Section
@@ -507,7 +517,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           );
                         }
                       : null,
-                  child: const Text('ADD TO BAG'),
+                  child: Text(isSelectedSizeAvailable ? 'ADD TO BAG' : 'OUT OF STOCK'),
                 ),
               ),
             ),
@@ -536,7 +546,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           }
                         }
                       : null,
-                  child: const Text('BUY NOW'),
+                  child: Text(isSelectedSizeAvailable ? 'BUY NOW' : 'OUT OF STOCK'),
                 ),
               ),
             ),
@@ -547,6 +557,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Widget _buildDetailRow(String label, String value) {
+    if (value.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(

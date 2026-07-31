@@ -10,7 +10,7 @@ import '../providers/wishlist_provider.dart';
 import 'guest_auth_dialog.dart';
 import 'shimmer_loading.dart';
 
-/// Luxury Product Card displaying cached image, house brand, title, price, discount badge, and wishlist heart.
+/// Luxury Product Card displaying cached image, house brand, title, price, discount badge, out of stock badge, and wishlist heart.
 class ProductCard extends StatelessWidget {
   final Product product;
   final VoidCallback onTap;
@@ -27,6 +27,7 @@ class ProductCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final currencyFormatter = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
     final isWishlisted = context.watch<WishlistProvider>().isWishlisted(product.id);
+    final isOutOfStock = product.stock <= 0 || (product.sizeStock.isNotEmpty && product.sizeStock.values.every((v) => v <= 0));
 
     return GestureDetector(
       onTap: onTap,
@@ -59,7 +60,7 @@ class ProductCard extends StatelessWidget {
                   ),
 
                   // Discount Badge
-                  if (product.hasDiscount)
+                  if (product.hasDiscount && !isOutOfStock)
                     Positioned(
                       top: 10,
                       left: 10,
@@ -74,6 +75,28 @@ class ProductCard extends StatelessWidget {
                           style: GoogleFonts.outfit(
                             color: Colors.black,
                             fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                  // Out of Stock Overlay Badge
+                  if (isOutOfStock)
+                    Positioned(
+                      top: 10,
+                      left: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.redAccent,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'OUT OF STOCK',
+                          style: GoogleFonts.outfit(
+                            color: Colors.white,
+                            fontSize: 9,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -110,21 +133,22 @@ class ProductCard extends StatelessWidget {
                   ),
 
                   // Quick Add Button Overlay
-                  Positioned(
-                    bottom: 8,
-                    right: 8,
-                    child: GestureDetector(
-                      onTap: onQuickAdd,
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: const BoxDecoration(
-                          color: AppColors.gold,
-                          shape: BoxShape.circle,
+                  if (!isOutOfStock)
+                    Positioned(
+                      bottom: 8,
+                      right: 8,
+                      child: GestureDetector(
+                        onTap: onQuickAdd,
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: const BoxDecoration(
+                            color: AppColors.gold,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.add_rounded, color: Colors.black, size: 18),
                         ),
-                        child: const Icon(Icons.add_rounded, color: Colors.black, size: 18),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),

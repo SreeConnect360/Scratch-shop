@@ -8,7 +8,7 @@ import '../services/api_service.dart';
 
 enum AuthStatus { unauthenticated, authenticating, authenticated, error }
 
-/// Provider managing Strict Production User Authentication, Session State, and Real Database Sync.
+/// Provider managing User Authentication, Session State, Customer Directory Synchronization, and Real Database Sync.
 class AuthProvider extends ChangeNotifier {
   AuthStatus _status = AuthStatus.unauthenticated;
   AuthStatus get status => _status;
@@ -36,24 +36,41 @@ class AuthProvider extends ChangeNotifier {
         _userProfile = UserProfile.fromJson(cust);
       } else {
         _userProfile = UserProfile(
-          id: user.id,
+          id: user.id.startsWith('USR-') ? user.id : 'USR-${user.id}',
           email: user.email ?? '',
           fullName: user.userMetadata?['full_name'] ?? user.userMetadata?['name'] ?? user.email?.split('@').first ?? 'ReeVibes Member',
           avatarUrl: user.userMetadata?['avatar_url'] ?? '',
         );
       }
       _status = AuthStatus.authenticated;
+      _syncLastLogin();
     } else {
       // Check cached profile for persistent session
       final cachedJson = CacheService.instance.getJson('user_profile');
       if (cachedJson != null && cachedJson is Map<String, dynamic>) {
         _userProfile = UserProfile.fromJson(cachedJson);
         _status = AuthStatus.authenticated;
+        _syncLastLogin();
       } else {
         _status = AuthStatus.unauthenticated;
       }
     }
     notifyListeners();
+  }
+
+  Future<void> _syncLastLogin() async {
+    if (_userProfile == null) return;
+    try {
+      final targetId = _userProfile!.id.startsWith('USR-') ? _userProfile!.id : 'USR-${_userProfile!.id}';
+      final nowStr = DateTime.now().toIso8601String();
+      await ApiService.instance.syncCustomerRecord({
+        'id': targetId,
+        'email': _userProfile!.email,
+        'lastLogin': nowStr,
+      });
+    } catch (e) {
+      debugPrint('Error syncing lastLogin to backend: $e');
+    }
   }
 
   /// Trigger Email OTP dispatch from Spring Boot backend
@@ -90,13 +107,14 @@ class AuthProvider extends ChangeNotifier {
         _userProfile = cust != null
             ? UserProfile.fromJson(cust)
             : UserProfile(
-                id: user.id,
+                id: user.id.startsWith('USR-') ? user.id : 'USR-${user.id}',
                 email: user.email ?? '',
                 fullName: user.userMetadata?['full_name'] ?? user.userMetadata?['name'] ?? user.email?.split('@').first ?? 'ReeVibes Member',
                 avatarUrl: user.userMetadata?['avatar_url'] ?? '',
               );
         _status = AuthStatus.authenticated;
         await CacheService.instance.putJson('user_profile', _userProfile!.toJson());
+        await _syncLastLogin();
         await HapticService.instance.successNotification();
         notifyListeners();
         return true;
@@ -106,7 +124,6 @@ class AuthProvider extends ChangeNotifier {
       _errorMessage = e.toString().replaceAll('Exception: ', '').replaceAll('AuthException: ', '');
     }
 
-    // STRICT FAILURE IF GOOGLE OAUTH FAILS OR IS CANCELLED - NO DUMMY SESSION
     _status = AuthStatus.error;
     _errorMessage ??= 'Google Sign-In was cancelled or failed to authenticate.';
     await HapticService.instance.errorNotification();
@@ -125,13 +142,19 @@ class AuthProvider extends ChangeNotifier {
       final response = await SupabaseService.instance.signInWithEmail(email, password);
       if (response.user != null) {
         final user = response.user!;
-        _userProfile = UserProfile(
-          id: user.id,
-          email: user.email ?? email,
-          fullName: user.userMetadata?['full_name'] ?? user.email?.split('@').first ?? 'ReeVibes Member',
-        );
+        final cust = await ApiService.instance.fetchCustomer(user.id);
+        if (cust != null) {
+          _userProfile = UserProfile.fromJson(cust);
+        } else {
+          _userProfile = UserProfile(
+            id: user.id.startsWith('USR-') ? user.id : 'USR-${user.id}',
+            email: user.email ?? email,
+            fullName: user.userMetadata?['full_name'] ?? user.email?.split('@').first ?? 'ReeVibes Member',
+          );
+        }
         _status = AuthStatus.authenticated;
         await CacheService.instance.putJson('user_profile', _userProfile!.toJson());
+        await _syncLastLogin();
         await HapticService.instance.successNotification();
         notifyListeners();
         return true;
@@ -148,13 +171,20 @@ class AuthProvider extends ChangeNotifier {
       final backendRes = await ApiService.instance.signInBackend(email, password);
       if (backendRes['success'] == true && backendRes['user'] != null) {
         final bUser = backendRes['user'];
-        _userProfile = UserProfile(
-          id: bUser['id']?.toString() ?? 'usr-${DateTime.now().millisecondsSinceEpoch}',
-          email: bUser['email']?.toString() ?? email,
-          fullName: bUser['name']?.toString() ?? email.split('@').first,
-        );
+        final uid = bUser['id']?.toString() ?? 'usr-${DateTime.now().millisecondsSinceEpoch}';
+        final cust = await ApiService.instance.fetchCustomer(uid);
+        if (cust != null) {
+          _userProfile = UserProfile.fromJson(cust);
+        } else {
+          _userProfile = UserProfile(
+            id: uid.startsWith('USR-') ? uid : 'USR-$uid',
+            email: bUser['email']?.toString() ?? email,
+            fullName: bUser['name']?.toString() ?? email.split('@').first,
+          );
+        }
         _status = AuthStatus.authenticated;
         await CacheService.instance.putJson('user_profile', _userProfile!.toJson());
+        await _syncLastLogin();
         await HapticService.instance.successNotification();
         notifyListeners();
         return true;
@@ -165,7 +195,6 @@ class AuthProvider extends ChangeNotifier {
       debugPrint('Spring Boot signin error: $e');
     }
 
-    // STRICT AUTHENTICATION FAILURE - FAKE PASSWORDS WILL NEVER LOG IN
     _status = AuthStatus.error;
     _errorMessage ??= 'Invalid email or password. Please check your login credentials.';
     await HapticService.instance.errorNotification();
@@ -184,8 +213,9 @@ class AuthProvider extends ChangeNotifier {
       final response = await SupabaseService.instance.signUpWithEmail(email, password, fullName);
       if (response.user != null) {
         final user = response.user!;
+        final uid = user.id.startsWith('USR-') ? user.id : 'USR-${user.id}';
         _userProfile = UserProfile(
-          id: user.id,
+          id: uid,
           email: email,
           fullName: fullName,
         );
@@ -195,6 +225,7 @@ class AuthProvider extends ChangeNotifier {
         // Sync to Spring Boot backend customer database
         try {
           await ApiService.instance.signUpBackend(fullName, email, password);
+          await _syncLastLogin();
         } catch (_) {}
 
         await HapticService.instance.successNotification();
@@ -212,7 +243,8 @@ class AuthProvider extends ChangeNotifier {
       final backendRes = await ApiService.instance.signUpBackend(fullName, email, password);
       if (backendRes['success'] == true) {
         final bUser = backendRes['user'];
-        final uid = bUser?['id']?.toString() ?? 'usr-${DateTime.now().millisecondsSinceEpoch}';
+        final rawUid = bUser?['id']?.toString() ?? '${DateTime.now().millisecondsSinceEpoch}';
+        final uid = rawUid.startsWith('USR-') ? rawUid : 'USR-$rawUid';
         _userProfile = UserProfile(
           id: uid,
           email: email,
@@ -220,6 +252,7 @@ class AuthProvider extends ChangeNotifier {
         );
         _status = AuthStatus.authenticated;
         await CacheService.instance.putJson('user_profile', _userProfile!.toJson());
+        await _syncLastLogin();
         await HapticService.instance.successNotification();
         notifyListeners();
         return true;
@@ -230,7 +263,6 @@ class AuthProvider extends ChangeNotifier {
       debugPrint('Spring Boot signup error: $e');
     }
 
-    // STRICT REGISTRATION FAILURE - NO FAKE REGISTRATIONS
     _status = AuthStatus.error;
     _errorMessage ??= 'Registration failed. Email may already be registered or invalid.';
     await HapticService.instance.errorNotification();
@@ -238,7 +270,7 @@ class AuthProvider extends ChangeNotifier {
     return false;
   }
 
-  /// Update User Profile details and sync to backend
+  /// Update User Profile details and sync to backend Customer Directory
   Future<bool> updateProfile({
     String? fullName,
     String? phone,
@@ -261,10 +293,8 @@ class AuthProvider extends ChangeNotifier {
     _userProfile = updated;
     notifyListeners();
 
-    // Cache updated profile locally
     await CacheService.instance.putJson('user_profile', updated.toJson());
 
-    // Sync to Spring Boot backend
     final nameParts = (fullName ?? _userProfile!.fullName).trim().split(RegExp(r'\s+'));
     final fName = nameParts.isNotEmpty ? nameParts.first : 'Customer';
     final lName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
@@ -281,12 +311,12 @@ class AuthProvider extends ChangeNotifier {
       'dob': dob ?? _userProfile!.dob,
       'country': country ?? _userProfile!.country,
       'avatar': avatarUrl ?? _userProfile!.avatarUrl,
+      'lastLogin': DateTime.now().toIso8601String(),
     });
 
     return success;
   }
 
-  /// Update User Email Address
   /// Update User Email Address while preserving all old email activity and syncing to updated account
   Future<bool> updateEmail(String newEmail) async {
     if (_userProfile == null) return false;
@@ -307,6 +337,7 @@ class AuthProvider extends ChangeNotifier {
     return await ApiService.instance.syncCustomerRecord({
       'id': targetId,
       'email': cleanNewEmail,
+      'lastLogin': DateTime.now().toIso8601String(),
     });
   }
 

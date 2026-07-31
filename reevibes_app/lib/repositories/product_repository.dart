@@ -5,7 +5,7 @@ import '../models/category.dart';
 import '../services/cache_service.dart';
 import '../services/api_service.dart';
 
-/// Repository for handling Product & Category data fetching, caching, and filtering.
+/// Repository for handling Product & Category data fetching, caching, publishing status filtering, and bucket mapping.
 class ProductRepository {
   static final ProductRepository instance = ProductRepository._();
   ProductRepository._();
@@ -30,6 +30,7 @@ class ProductRepository {
       reviewCount: 38,
       isFeatured: true,
       isTrending: true,
+      status: 'PUBLISHED',
     ),
     Product(
       id: 'p2',
@@ -48,6 +49,7 @@ class ProductRepository {
       reviewCount: 24,
       isFeatured: true,
       isTrending: true,
+      status: 'PUBLISHED',
     ),
     Product(
       id: 'p3',
@@ -66,6 +68,7 @@ class ProductRepository {
       reviewCount: 19,
       isFeatured: false,
       isTrending: true,
+      status: 'PUBLISHED',
     ),
     Product(
       id: 'p4',
@@ -84,6 +87,7 @@ class ProductRepository {
       reviewCount: 42,
       isFeatured: true,
       isTrending: false,
+      status: 'PUBLISHED',
     ),
     Product(
       id: 'p5',
@@ -102,6 +106,7 @@ class ProductRepository {
       reviewCount: 15,
       isFeatured: false,
       isTrending: true,
+      status: 'PUBLISHED',
     ),
     Product(
       id: 'p6',
@@ -120,6 +125,7 @@ class ProductRepository {
       reviewCount: 31,
       isFeatured: true,
       isTrending: true,
+      status: 'PUBLISHED',
     ),
   ];
 
@@ -132,7 +138,7 @@ class ProductRepository {
     Category(id: 'c6', name: 'Accessories', slug: 'accessories', imageUrl: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=800&q=80', itemCount: 22),
   ];
 
-  /// Fetch products from Spring Boot Backend with local caching fallback
+  /// Fetch products from Spring Boot Backend with Publishing Workflow filtering
   Future<List<Product>> fetchProducts() async {
     // 1. Try remote fetch first
     try {
@@ -158,12 +164,18 @@ class ProductRepository {
           }
         }
 
-        final products = rawProducts.map((pMap) {
-          final pid = pMap['id']?.toString() ?? '';
-          if (featuredIds.contains(pid)) pMap['is_featured'] = true;
-          if (trendingIds.contains(pid)) pMap['is_trending'] = true;
-          return Product.fromJson(pMap);
-        }).toList();
+        final products = rawProducts
+            .map((pMap) {
+              final pid = pMap['id']?.toString() ?? '';
+              if (featuredIds.contains(pid)) pMap['is_featured'] = true;
+              if (trendingIds.contains(pid)) pMap['is_trending'] = true;
+              return Product.fromJson(pMap);
+            })
+            .where((p) {
+              final status = p.status.toUpperCase();
+              return status == 'PUBLISHED' || status == 'ACTIVE';
+            })
+            .toList();
 
         // Update local cache
         await CacheService.instance.putJson('products_list', rawProducts);
@@ -176,7 +188,13 @@ class ProductRepository {
     // 2. Try cache fallback
     final cached = CacheService.instance.getJson('products_list');
     if (cached is List && cached.isNotEmpty) {
-      return cached.map((item) => Product.fromJson(Map<String, dynamic>.from(item))).toList();
+      return cached
+          .map((item) => Product.fromJson(Map<String, dynamic>.from(item)))
+          .where((p) {
+            final status = p.status.toUpperCase();
+            return status == 'PUBLISHED' || status == 'ACTIVE';
+          })
+          .toList();
     }
 
     // 3. Fallback sample products

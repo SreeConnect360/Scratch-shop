@@ -28,11 +28,22 @@ class _QuickAddModalState extends State<QuickAddModal> {
     super.initState();
     _selectedSize = widget.product.sizes.isNotEmpty ? widget.product.sizes.first : 'M';
     _selectedColor = widget.product.colors.isNotEmpty ? widget.product.colors.first : 'Black';
+
+    // If first size is out of stock, pick first available size
+    for (var s in widget.product.sizes) {
+      final cnt = widget.product.sizeStock[s.toUpperCase()] ?? widget.product.stock;
+      if (cnt > 0) {
+        _selectedSize = s;
+        break;
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final currencyFormatter = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
+    final sizeStockCount = widget.product.sizeStock[_selectedSize.toUpperCase()] ?? widget.product.stock;
+    final isSelectedSizeAvailable = sizeStockCount > 0;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -110,33 +121,59 @@ class _QuickAddModalState extends State<QuickAddModal> {
           ),
           const SizedBox(height: 20),
 
-          // Size Selection
-          Text(
-            'SELECT SIZE',
-            style: GoogleFonts.outfit(
-              color: AppColors.textSecondary,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.0,
-            ),
+          // Size Selection Header with Availability Status
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'SELECT SIZE',
+                style: GoogleFonts.outfit(
+                  color: AppColors.textSecondary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.0,
+                ),
+              ),
+              Text(
+                isSelectedSizeAvailable ? 'In Stock ($sizeStockCount left)' : 'Sold Out',
+                style: GoogleFonts.outfit(
+                  color: isSelectedSizeAvailable ? AppColors.gold : Colors.redAccent,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
+            runSpacing: 8,
             children: widget.product.sizes.map((size) {
               final isSelected = size == _selectedSize;
+              final stockCount = widget.product.sizeStock[size.toUpperCase()] ?? widget.product.stock;
+              final isAvailable = stockCount > 0;
+
               return ChoiceChip(
-                label: Text(size),
+                label: Text(
+                  isAvailable ? '$size ($stockCount)' : '$size (Out)',
+                  style: TextStyle(
+                    color: !isAvailable
+                        ? AppColors.textMuted
+                        : isSelected
+                            ? Colors.black
+                            : AppColors.textPrimary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
                 selected: isSelected,
                 selectedColor: AppColors.gold,
-                backgroundColor: AppColors.surfaceElevated,
-                labelStyle: TextStyle(
-                  color: isSelected ? Colors.black : AppColors.textPrimary,
-                  fontWeight: FontWeight.bold,
-                ),
-                onSelected: (val) {
-                  if (val) setState(() => _selectedSize = size);
-                },
+                backgroundColor: isAvailable ? AppColors.surfaceElevated : AppColors.surfaceElevated.withOpacity(0.4),
+                onSelected: isAvailable
+                    ? (val) {
+                        if (val) setState(() => _selectedSize = size);
+                      }
+                    : null,
               );
             }).toList(),
           ),
@@ -179,29 +216,31 @@ class _QuickAddModalState extends State<QuickAddModal> {
             width: double.infinity,
             height: 50,
             child: ElevatedButton(
-              onPressed: () {
-                final auth = context.read<AuthProvider>();
-                if (!auth.isAuthenticated) {
-                  Navigator.pop(context);
-                  GuestAuthDialog.show(context, actionTarget: 'your cart');
-                  return;
-                }
-                context.read<CartProvider>().addToCart(
-                  widget.product,
-                  size: _selectedSize,
-                  color: _selectedColor,
-                  quantity: _quantity,
-                );
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('${widget.product.name} added to cart'),
-                    backgroundColor: AppColors.surfaceElevated,
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              },
-              child: const Text('ADD TO BAG'),
+              onPressed: isSelectedSizeAvailable
+                  ? () {
+                      final auth = context.read<AuthProvider>();
+                      if (!auth.isAuthenticated) {
+                        Navigator.pop(context);
+                        GuestAuthDialog.show(context, actionTarget: 'your cart');
+                        return;
+                      }
+                      context.read<CartProvider>().addToCart(
+                        widget.product,
+                        size: _selectedSize,
+                        color: _selectedColor,
+                        quantity: _quantity,
+                      );
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('${widget.product.name} (Size: $_selectedSize) added to bag'),
+                          backgroundColor: AppColors.surfaceElevated,
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
+                  : null,
+              child: Text(isSelectedSizeAvailable ? 'ADD TO BAG' : 'OUT OF STOCK'),
             ),
           ),
         ],

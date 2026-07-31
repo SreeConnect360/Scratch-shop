@@ -30,6 +30,7 @@ class Order {
   final DateTime createdAt;
   final DateTime? estimatedDelivery;
   final String? trackingNumber;
+  final String? courierPartner;
 
   Order({
     required this.id,
@@ -46,6 +47,7 @@ class Order {
     required this.createdAt,
     this.estimatedDelivery,
     this.trackingNumber,
+    this.courierPartner,
   });
 
   String get statusDisplay {
@@ -72,13 +74,13 @@ class Order {
   factory Order.fromJson(Map<String, dynamic> json) {
     OrderStatus parseStatus(String? str) {
       final val = str?.toLowerCase() ?? '';
-      if (val.contains('accept') || val.contains('confirm')) return OrderStatus.confirmed;
-      if (val.contains('process') || val.contains('pending')) return OrderStatus.processing;
-      if (val.contains('ship') || val.contains('ready') || val.contains('pickup')) return OrderStatus.shipped;
-      if (val.contains('out_for_delivery') || val.contains('delivery')) return OrderStatus.outForDelivery;
-      if (val.contains('deliver')) return OrderStatus.delivered;
       if (val.contains('cancel')) return OrderStatus.cancelled;
       if (val.contains('return')) return OrderStatus.returned;
+      if (val.contains('deliver')) return OrderStatus.delivered;
+      if (val.contains('out_for_delivery') || val.contains('out for delivery')) return OrderStatus.outForDelivery;
+      if (val.contains('ship') || val.contains('ready') || val.contains('pickup')) return OrderStatus.shipped;
+      if (val.contains('process') || val.contains('pending')) return OrderStatus.processing;
+      if (val.contains('accept') || val.contains('confirm')) return OrderStatus.confirmed;
       return OrderStatus.placed;
     }
 
@@ -153,6 +155,7 @@ class Order {
       createdAt: parseDate(json['orderDate'] ?? json['order_date'] ?? json['created_at']),
       estimatedDelivery: json['estimatedDeliveryDate'] != null ? parseDate(json['estimatedDeliveryDate']) : null,
       trackingNumber: json['trackingNumber']?.toString() ?? json['tracking_number']?.toString(),
+      courierPartner: json['courierPartner']?.toString() ?? json['courier_partner']?.toString(),
     );
   }
 
@@ -172,6 +175,7 @@ class Order {
       'created_at': createdAt.toIso8601String(),
       'estimated_delivery': estimatedDelivery?.toIso8601String(),
       'tracking_number': trackingNumber,
+      'courier_partner': courierPartner,
     };
   }
 }
