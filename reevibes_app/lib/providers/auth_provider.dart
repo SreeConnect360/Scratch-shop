@@ -100,18 +100,23 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await SupabaseService.instance.signInWithGoogleNative();
-      if (response != null && response.user != null) {
-        final user = response.user!;
-        final cust = await ApiService.instance.fetchCustomer(user.id);
+      final googleUserData = await SupabaseService.instance.signInWithGoogleNative();
+      if (googleUserData != null) {
+        final rawId = googleUserData['id']?.toString() ?? 'usr-${DateTime.now().millisecondsSinceEpoch}';
+        final email = googleUserData['email']?.toString() ?? '';
+        final name = googleUserData['name']?.toString() ?? email.split('@').first;
+        final avatar = googleUserData['avatar']?.toString() ?? '';
+
+        final cust = await ApiService.instance.fetchCustomer(rawId);
         _userProfile = cust != null
             ? UserProfile.fromJson(cust)
             : UserProfile(
-                id: user.id.startsWith('USR-') ? user.id : 'USR-${user.id}',
-                email: user.email ?? '',
-                fullName: user.userMetadata?['full_name'] ?? user.userMetadata?['name'] ?? user.email?.split('@').first ?? 'ReeVibes Member',
-                avatarUrl: user.userMetadata?['avatar_url'] ?? '',
+                id: rawId.startsWith('USR-') ? rawId : 'USR-$rawId',
+                email: email,
+                fullName: name,
+                avatarUrl: avatar,
               );
+
         _status = AuthStatus.authenticated;
         await CacheService.instance.putJson('user_profile', _userProfile!.toJson());
         await _syncLastLogin();

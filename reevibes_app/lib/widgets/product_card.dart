@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../core/theme/app_colors.dart';
 import '../models/product.dart';
 import '../providers/auth_provider.dart';
@@ -10,7 +12,7 @@ import '../providers/wishlist_provider.dart';
 import 'guest_auth_dialog.dart';
 import 'shimmer_loading.dart';
 
-/// Luxury Product Card displaying cached image, house brand, title, price, discount badge, out of stock badge, and wishlist heart.
+/// Luxury Product Card displaying cached image, house brand, title, price, discount badge, out of stock badge, share button, and wishlist heart.
 class ProductCard extends StatelessWidget {
   final Product product;
   final VoidCallback onTap;
@@ -22,6 +24,25 @@ class ProductCard extends StatelessWidget {
     required this.onTap,
     required this.onQuickAdd,
   });
+
+  void _shareProduct(BuildContext context) {
+    final productUrl = 'https://reevibes.com/product/${product.id}';
+    Clipboard.setData(ClipboardData(text: productUrl));
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Product link copied to clipboard: $productUrl'),
+        backgroundColor: AppColors.surfaceElevated,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+
+    Share.share(
+      'Check out ${product.name} by ${product.house} on ReeVibes!\n$productUrl',
+      subject: product.name,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +62,7 @@ class ProductCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image with Badges & Wishlist Heart Button
+            // Image with Badges & Share / Wishlist Buttons
             Expanded(
               child: Stack(
                 children: [
@@ -103,32 +124,57 @@ class ProductCard extends StatelessWidget {
                       ),
                     ),
 
-                  // Wishlist Heart Button
+                  // Top Right Action Buttons (Share & Wishlist Heart)
                   Positioned(
                     top: 8,
                     right: 8,
-                    child: GestureDetector(
-                      onTap: () {
-                        final auth = context.read<AuthProvider>();
-                        if (!auth.isAuthenticated) {
-                          GuestAuthDialog.show(context, actionTarget: 'your wishlist');
-                          return;
-                        }
-                        context.read<WishlistProvider>().toggleWishlist(product);
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: Colors.black45,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: AppColors.surfaceBorder),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Share Icon Button
+                        GestureDetector(
+                          onTap: () => _shareProduct(context),
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.black45,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: AppColors.surfaceBorder),
+                            ),
+                            child: const Icon(
+                              Icons.share_rounded,
+                              color: Colors.white,
+                              size: 16,
+                            ),
+                          ),
                         ),
-                        child: Icon(
-                          isWishlisted ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                          color: isWishlisted ? AppColors.gold : Colors.white,
-                          size: 18,
+                        const SizedBox(width: 6),
+
+                        // Wishlist Heart Button
+                        GestureDetector(
+                          onTap: () {
+                            final auth = context.read<AuthProvider>();
+                            if (!auth.isAuthenticated) {
+                              GuestAuthDialog.show(context, actionTarget: 'your wishlist');
+                              return;
+                            }
+                            context.read<WishlistProvider>().toggleWishlist(product);
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.black45,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: AppColors.surfaceBorder),
+                            ),
+                            child: Icon(
+                              isWishlisted ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                              color: isWishlisted ? AppColors.gold : Colors.white,
+                              size: 16,
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
                   ),
 

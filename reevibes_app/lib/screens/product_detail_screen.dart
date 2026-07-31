@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
+import 'package:share_plus/share_plus.dart';
 import '../core/theme/app_colors.dart';
 import '../models/product.dart';
 import '../providers/auth_provider.dart';
@@ -41,6 +43,25 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         break;
       }
     }
+  }
+
+  void _shareProduct(BuildContext context) {
+    final productUrl = 'https://reevibes.com/product/${widget.product.id}';
+    Clipboard.setData(ClipboardData(text: productUrl));
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Product link copied to clipboard: $productUrl'),
+        backgroundColor: AppColors.surfaceElevated,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+
+    Share.share(
+      'Check out ${widget.product.name} by ${widget.product.house} on ReeVibes!\n$productUrl',
+      subject: widget.product.name,
+    );
   }
 
   void _openHighResImageViewer(BuildContext context, String imageUrl) {
@@ -93,6 +114,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             pinned: true,
             backgroundColor: AppColors.background,
             actions: [
+              IconButton(
+                icon: const Icon(Icons.share_rounded, color: Colors.white),
+                onPressed: () => _shareProduct(context),
+              ),
               IconButton(
                 icon: Icon(
                   isWishlisted ? Icons.favorite_rounded : Icons.favorite_border_rounded,

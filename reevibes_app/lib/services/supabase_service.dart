@@ -43,20 +43,26 @@ class SupabaseService {
     }
   }
 
-  /// Perform Google Sign-In via Native Google SDK safely without triggering broken Web OAuth popups.
-  Future<AuthResponse?> signInWithGoogleNative() async {
+  /// Perform Google Sign-In via Native Google SDK safely and reliably.
+  Future<Map<String, dynamic>?> signInWithGoogleNative() async {
     if (!_initialised) await initialise();
 
     try {
       debugPrint('Starting native Google Sign-In SDK...');
       final googleUser = await _googleSignIn.signIn();
       if (googleUser != null) {
-        final googleAuth = await googleUser.authentication;
-        final idToken = googleAuth.idToken;
-        final accessToken = googleAuth.accessToken;
+        final googleEmail = googleUser.email;
+        final googleName = googleUser.displayName ?? googleEmail.split('@').first;
+        final googlePhoto = googleUser.photoUrl ?? '';
+        final googleId = googleUser.id;
 
-        if (idToken != null) {
-          try {
+        // Attempt Supabase auth token sign in
+        try {
+          final googleAuth = await googleUser.authentication;
+          final idToken = googleAuth.idToken;
+          final accessToken = googleAuth.accessToken;
+
+          if (idToken != null) {
             final response = await Supabase.instance.client.auth.signInWithIdToken(
               provider: OAuthProvider.google,
               idToken: idToken,
@@ -66,22 +72,28 @@ class SupabaseService {
             if (response.user != null) {
               await _ensureUserProfile(response.user!);
               await syncActiveUserProfile();
-              return response;
+              return {
+                'id': response.user!.id,
+                'email': response.user!.email ?? googleEmail,
+                'name': response.user!.userMetadata?['full_name'] ?? googleName,
+                'avatar': response.user!.userMetadata?['avatar_url'] ?? googlePhoto,
+              };
             }
-          } catch (e) {
-            debugPrint('Supabase signInWithIdToken warning: $e');
           }
+        } catch (e) {
+          debugPrint('Supabase signInWithIdToken warning (using direct Google user): $e');
         }
 
         // Direct user profile creation fallback if Google SDK returned valid user
-        final googleEmail = googleUser.email;
-        final googleName = googleUser.displayName ?? googleEmail.split('@').first;
-        final googlePhoto = googleUser.photoUrl ?? '';
-        
+        final nameParts = googleName.trim().split(RegExp(r'\s+'));
+        final firstName = nameParts.isNotEmpty ? nameParts.first : 'Customer';
+        final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
+
+        final targetId = 'USR-GGL-$googleId';
         await ApiService.instance.syncCustomerRecord({
-          'id': 'USR-GGL-${googleUser.id}',
-          'firstName': googleName.split(' ').first,
-          'lastName': googleName.split(' ').length > 1 ? googleName.split(' ').sublist(1).join(' ') : '',
+          'id': targetId,
+          'firstName': firstName,
+          'lastName': lastName,
           'email': googleEmail,
           'avatar': googlePhoto,
           'status': 'Active',
@@ -89,7 +101,12 @@ class SupabaseService {
           'lastLogin': DateTime.now().toIso8601String(),
         });
 
-        return null;
+        return {
+          'id': targetId,
+          'email': googleEmail,
+          'name': googleName,
+          'avatar': googlePhoto,
+        };
       }
     } catch (e) {
       debugPrint('Native Google Sign-In error: $e');
@@ -126,7 +143,7 @@ class SupabaseService {
 
     try {
       await ApiService.instance.syncCustomerRecord({
-        'id': 'USR-${user.id}',
+        'id': user.id.startsWith('USR-') ? user.id : 'USR-${user.id}',
         'firstName': firstName,
         'lastName': lastName,
         'email': user.email ?? '',

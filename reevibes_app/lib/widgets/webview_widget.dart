@@ -168,7 +168,7 @@ class ReeVibesWebViewState extends State<ReeVibesWebView> {
   Future<void> _performNativeGoogleSignIn() async {
     try {
       final response = await SupabaseService.instance.signInWithGoogleNative();
-      if (response != null && response.session != null) {
+      if (response != null && response['email'] != null) {
         await HapticService.instance.success();
         await _controller.reload();
       }

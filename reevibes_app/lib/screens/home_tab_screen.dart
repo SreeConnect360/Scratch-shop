@@ -9,6 +9,7 @@ import '../widgets/quick_add_modal.dart';
 import '../widgets/shimmer_loading.dart';
 import '../widgets/announcement_bar.dart';
 import '../widgets/chatbot_fab.dart';
+import '../repositories/product_repository.dart';
 import 'product_detail_screen.dart';
 import 'categories_screen.dart';
 import 'search_screen.dart';
@@ -43,8 +44,21 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
     );
   }
 
-  void _handleBannerRedirect(String? url) {
+  void _handleBannerRedirect(String? url) async {
     if (url == null || url.isEmpty) return;
+    if (url.contains('product')) {
+      final parts = url.split('/');
+      final pid = parts.isNotEmpty ? parts.last : '';
+      if (pid.isNotEmpty) {
+        final products = await ProductRepository.instance.fetchProducts();
+        final matched = products.firstWhere(
+          (p) => p.id == pid || p.id == 'p$pid',
+          orElse: () => products.first,
+        );
+        if (mounted) _navigateToProduct(context, matched);
+        return;
+      }
+    }
     if (url.contains('categories')) {
       Navigator.push(
         context,
