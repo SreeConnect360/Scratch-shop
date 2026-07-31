@@ -177,38 +177,6 @@ class _QuickAddModalState extends State<QuickAddModal> {
               );
             }).toList(),
           ),
-          const SizedBox(height: 16),
-
-          // Color Selection
-          Text(
-            'SELECT COLOR',
-            style: GoogleFonts.outfit(
-              color: AppColors.textSecondary,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.0,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            children: widget.product.colors.map((color) {
-              final isSelected = color == _selectedColor;
-              return ChoiceChip(
-                label: Text(color),
-                selected: isSelected,
-                selectedColor: AppColors.gold,
-                backgroundColor: AppColors.surfaceElevated,
-                labelStyle: TextStyle(
-                  color: isSelected ? Colors.black : AppColors.textPrimary,
-                  fontWeight: FontWeight.bold,
-                ),
-                onSelected: (val) {
-                  if (val) setState(() => _selectedColor = color);
-                },
-              );
-            }).toList(),
-          ),
           const SizedBox(height: 24),
 
           // Add to Cart Action Button

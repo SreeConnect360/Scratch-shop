@@ -351,38 +351,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       );
                     }).toList(),
                   ),
-                  const SizedBox(height: 20),
-
-                  // Color Selection
-                  Text(
-                    'SELECT COLOR',
-                    style: GoogleFonts.outfit(
-                      color: AppColors.textMuted,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.0,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 10,
-                    children: widget.product.colors.map((col) {
-                      final isSelected = col == _selectedColor;
-                      return ChoiceChip(
-                        label: Text(col),
-                        selected: isSelected,
-                        selectedColor: AppColors.gold,
-                        backgroundColor: AppColors.surface,
-                        labelStyle: TextStyle(
-                          color: isSelected ? Colors.black : AppColors.textPrimary,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        onSelected: (val) {
-                          if (val) setState(() => _selectedColor = col);
-                        },
-                      );
-                    }).toList(),
-                  ),
                   const SizedBox(height: 24),
                   const Divider(color: AppColors.surfaceBorder),
                   const SizedBox(height: 16),

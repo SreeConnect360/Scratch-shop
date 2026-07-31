@@ -348,12 +348,35 @@ class AuthProvider extends ChangeNotifier {
     if (cleanCode.isEmpty) return {'success': false, 'message': 'Gift card code is required'};
 
     double bonus = 0.0;
-    if (cleanCode.contains('500') || cleanCode.contains('WELCOME')) {
-      bonus = 500.0;
-    } else if (cleanCode.contains('1000') || cleanCode.contains('VIP')) {
-      bonus = 1000.0;
-    } else {
-      bonus = 250.0;
+
+    // Check backend coupons first
+    try {
+      final coupons = await ApiService.instance.fetchCoupons();
+      if (coupons != null) {
+        final matched = coupons.firstWhere(
+          (c) => (c['code'] ?? '').toString().toUpperCase() == cleanCode,
+          orElse: () => {},
+        );
+        if (matched.isNotEmpty) {
+          final discVal = matched['discount'] ?? matched['amount'] ?? matched['discountValue'] ?? 500;
+          if (discVal is num) {
+            bonus = discVal.toDouble();
+          } else {
+            bonus = double.tryParse(discVal.toString()) ?? 500.0;
+          }
+        }
+      }
+    } catch (_) {}
+
+    // Fallback bonus rule for gift cards
+    if (bonus <= 0) {
+      if (cleanCode.contains('500') || cleanCode.contains('WELCOME')) {
+        bonus = 500.0;
+      } else if (cleanCode.contains('1000') || cleanCode.contains('VIP')) {
+        bonus = 1000.0;
+      } else {
+        bonus = 250.0;
+      }
     }
 
     final newBalance = _userProfile!.walletBalance + bonus;
@@ -363,9 +386,22 @@ class AuthProvider extends ChangeNotifier {
 
     await CacheService.instance.putJson('user_profile', updated.toJson());
 
+    // Sync updated wallet balance to Spring Boot backend customer directory
+    try {
+      final targetId = _userProfile!.id.startsWith('USR-') ? _userProfile!.id : 'USR-${_userProfile!.id}';
+      await ApiService.instance.syncCustomerRecord({
+        'id': targetId,
+        'email': _userProfile!.email,
+        'walletBalance': newBalance,
+        'lastLogin': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      debugPrint('Error syncing wallet balance to backend: $e');
+    }
+
     return {
       'success': true,
-      'message': 'Successfully redeemed ₹${bonus.toStringAsFixed(0)}! New Wallet Balance: ₹${newBalance.toStringAsFixed(2)}',
+      'message': 'Successfully redeemed code $cleanCode! Added ₹${bonus.toStringAsFixed(0)} to your wallet. New Balance: ₹${newBalance.toStringAsFixed(2)}',
       'bonus': bonus,
       'newBalance': newBalance,
     };
