@@ -44,9 +44,9 @@ function PhotographyPage() {
       try {
         const raw = window.localStorage.getItem("reevibes:best-photography:portfolio");
         if (raw) {
-          const list: BestPhotographyPortfolio[] = JSON.parse(raw);
+          const list = JSON.parse(raw);
           // Filter to show only active, published BEST PHOTOGRAPHY records
-          setPortfolio(list.filter(item => item.publishStatus === "published"));
+          setPortfolio(Array.isArray(list) ? list.filter((item: any) => item.publishStatus === "published") : []);
         } else {
           setPortfolio([]);
         }

@@ -374,7 +374,7 @@ function ShopLayout() {
 
   // User notifications & wishlist count
   const user = state.user;
-  const unreadNotifCount = state.notifications.filter(n => n.unread).length;
+  const unreadNotifCount = (state.notifications || []).filter(n => n.unread).length;
 
   const twoDaysMs = 2 * 24 * 3600 * 1000;
   const visibleNotifications = (state.notifications || []).filter(n => {

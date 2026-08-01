@@ -641,8 +641,8 @@ function ShopHome() {
         );
 
       case "flashSale":
-        const fs = layout.flashSale;
-        const fsProducts = products.filter(p => fs.products.includes(p.id));
+        const fs = layout?.flashSale || {};
+        const fsProducts = products.filter(p => (fs.products || []).includes(p.id));
         if (fsProducts.length === 0) return null;
 
         return (
@@ -686,7 +686,7 @@ function ShopHome() {
         );
 
       case "trending":
-        const trendingCuration = layout.trending;
+        const trendingCuration = layout?.trending || {};
         let trendingProductsList = [];
         if (trendingCuration.autoMode) {
           trendingProductsList = [...products].sort((a, b) => {
@@ -695,7 +695,7 @@ function ShopHome() {
             return scoreB - scoreA;
           }).slice(0, 3);
         } else {
-          trendingProductsList = products.filter(p => trendingCuration.manualProducts.includes(p.id));
+          trendingProductsList = products.filter(p => (trendingCuration.manualProducts || []).includes(p.id));
         }
 
         return (
@@ -820,12 +820,12 @@ function ShopHome() {
         );
 
       case "bestSellers":
-        const bsConfig = layout.bestSellers;
+        const bsConfig = layout?.bestSellers || {};
         let bsProducts = [];
         if (bsConfig.autoMode) {
           bsProducts = products.slice(1, 4); // Simulated best sellers
         } else {
-          bsProducts = products.filter(p => bsConfig.manualProducts.includes(p.id));
+          bsProducts = products.filter(p => (bsConfig.manualProducts || []).includes(p.id));
         }
 
         return (
@@ -883,8 +883,8 @@ function ShopHome() {
         );
 
       case "influencerPicks":
-        const inf = layout.influencerPicks;
-        const infProducts = products.filter(p => inf.products.includes(p.id));
+        const inf = layout?.influencerPicks || {};
+        const infProducts = products.filter(p => (inf.products || []).includes(p.id));
         if (infProducts.length === 0) return null;
 
         return (
@@ -1137,9 +1137,9 @@ function ShopHome() {
           const bucket = state.buckets?.find(b => b.id === bucketSection.id);
           if (!bucket) return null;
           
-          const starProd = products.find((p) => p.id === bucket.starProductId) || products.find((p) => bucket.productIds.includes(p.id));
+          const starProd = products.find((p) => p.id === bucket.starProductId) || products.find((p) => (bucket.productIds || []).includes(p.id));
           const thumbnail = starProd?.image || "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=400&h=500&q=80";
-          const bucketProducts = products.filter(p => bucket.productIds.includes(p.id));
+          const bucketProducts = products.filter(p => (bucket.productIds || []).includes(p.id));
 
           return (
             <section key={sectionId} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-16 space-y-8">
@@ -1267,7 +1267,7 @@ function ShopHome() {
         </div>
       )}
 
-      {layout.sectionOrder
+      {(layout?.sectionOrder || [])
         .filter((sectionId: string) => ["hero", "recentlyViewed"].includes(sectionId) || sectionId.startsWith("section-") || sectionId.startsWith("subbanner-"))
         .map((sectionId: string) => {
           return (

@@ -550,7 +550,17 @@ function load(): PortalState {
     if (prods.length > 0 && prods.some((p: any) => p.id === "pr1" || p.id === "prw9" || p.id === "prm1")) {
       prods = prods.filter((p: any) => !p.id.startsWith("pr1") && !p.id.startsWith("pr2") && !p.id.startsWith("pr3") && !p.id.startsWith("pr4") && !p.id.startsWith("pr5") && !p.id.startsWith("pr6") && !p.id.startsWith("prm") && !p.id.startsWith("prw"));
     }
-    return { ...DEFAULT, ...parsed, products: prods };
+    const merged = { ...DEFAULT, ...parsed };
+    return {
+      ...merged,
+      products: prods,
+      notifications: Array.isArray(merged.notifications) ? merged.notifications : DEFAULT.notifications,
+      returns: Array.isArray(merged.returns) ? merged.returns : DEFAULT.returns,
+      users: Array.isArray(merged.users) ? merged.users : DEFAULT.users,
+      contests: Array.isArray(merged.contests) ? merged.contests : DEFAULT.contests,
+      applications: Array.isArray(merged.applications) ? merged.applications : DEFAULT.applications,
+      homepageLayout: merged.homepageLayout || DEFAULT.homepageLayout,
+    };
   } catch {
     return { ...DEFAULT, products: [] };
   }

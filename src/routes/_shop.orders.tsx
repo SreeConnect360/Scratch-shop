@@ -133,7 +133,7 @@ function ShopOrdersPage() {
               : "border-transparent text-muted-foreground hover:text-foreground"
           }`}
         >
-          <RotateCcw className="w-4 h-4" /> Returns & Refunds ({state.returns.filter(r => r.customerId === user.id).length})
+          <RotateCcw className="w-4 h-4" /> Returns & Refunds ({(state.returns || []).filter(r => r.customerId === user.id).length})
         </button>
       </div>
 
