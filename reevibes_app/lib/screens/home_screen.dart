@@ -1,17 +1,19 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../core/theme/app_colors.dart';
+import '../services/connectivity_service.dart';
 import '../services/haptic_service.dart';
-import '../widgets/bottom_nav_bar.dart';
-import '../widgets/top_header_bar.dart';
-import 'home_tab_screen.dart';
-import 'cart_screen.dart';
-import 'search_screen.dart';
-import 'wishlist_screen.dart';
-import 'account_screen.dart';
-import 'notifications_screen.dart';
+import '../widgets/webview_widget.dart';
+import 'offline_screen.dart';
 
-/// Main Application Host Screen holding the 5 Navigation Tabs and PageView.
+/// Main Host Screen for the ReeVibes Mobile Web Application.
+///
+/// Features:
+/// - Loads the live reevibes.com mobile experience directly
+/// - Auto-detects connectivity & seamlessly presents OfflineScreen if offline
+/// - Handles Android hardware back button (WebView history vs app exit)
+/// - Integrated pull-to-refresh & luxury dark UI styling
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -20,36 +22,35 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _currentIndex = 0;
-  final PageController _pageController = PageController();
+  final GlobalKey<ReeVibesWebViewState> _webKey = GlobalKey<ReeVibesWebViewState>();
   DateTime? _lastBackPress;
+  bool _isConnected = true;
+  StreamSubscription<bool>? _connectivitySub;
 
-  final List<Widget> _tabs = const [
-    HomeTabScreen(),
-    CartScreen(),
-    SearchScreen(),
-    WishlistScreen(),
-    AccountScreen(),
-  ];
-
-  void _onTabSelected(int index) {
-    if (_currentIndex != index) {
-      setState(() => _currentIndex = index);
-      _pageController.jumpToPage(index);
-      HapticService.instance.lightTap();
-    }
+  @override
+  void initState() {
+    super.initState();
+    _isConnected = ConnectivityService.instance.isConnected;
+    _connectivitySub = ConnectivityService.instance.onConnectivityChanged.listen((connected) {
+      if (mounted) {
+        setState(() => _isConnected = connected);
+        if (connected) {
+          _webKey.currentState?.reload();
+        }
+      }
+    });
   }
 
-  void _openSearchOverlay() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const SearchScreen()),
-    );
+  @override
+  void dispose() {
+    _connectivitySub?.cancel();
+    super.dispose();
   }
 
   Future<bool> _handleBackPress() async {
-    if (_currentIndex != 0) {
-      _onTabSelected(0);
+    final webState = _webKey.currentState;
+    if (webState != null && await webState.canGoBack()) {
+      await webState.goBack();
       return false;
     }
 
@@ -91,31 +92,22 @@ class _HomeScreenState extends State<HomeScreen> {
       },
       child: Scaffold(
         backgroundColor: AppColors.background,
-
-        // Top Navigation Bar (Shown on Home Tab)
-        appBar: _currentIndex == 0
-            ? TopHeaderBar(
-                onSearchTap: _openSearchOverlay,
-                onNotificationTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const NotificationsScreen()),
-                  );
-                },
-              )
-            : null,
-
-        body: PageView(
-          controller: _pageController,
-          physics: const NeverScrollableScrollPhysics(), // Managed by BottomNavBar
-          children: _tabs,
-        ),
-
-        // 5-Tab Floating Glass Navigation Dock
-        bottomNavigationBar: BottomNavBar(
-          currentIndex: _currentIndex,
-          onTap: _onTabSelected,
-          onSearchTap: _openSearchOverlay,
+        body: SafeArea(
+          top: false,
+          bottom: false,
+          child: !_isConnected
+              ? OfflineScreen(
+                  onRetry: () async {
+                    final connected = await ConnectivityService.instance.checkNow();
+                    if (connected && mounted) {
+                      setState(() => _isConnected = true);
+                      _webKey.currentState?.reload();
+                    }
+                  },
+                )
+              : ReeVibesWebView(
+                  key: _webKey,
+                ),
         ),
       ),
     );

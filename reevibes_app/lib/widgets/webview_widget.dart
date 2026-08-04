@@ -246,7 +246,21 @@ class ReeVibesWebViewState extends State<ReeVibesWebView> {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        WebViewWidget(controller: _controller),
+        RefreshIndicator(
+          color: const Color(0xFFD4AF37),
+          backgroundColor: const Color(0xFF141414),
+          onRefresh: () async {
+            await HapticService.instance.lightTap();
+            await _controller.reload();
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: SizedBox(
+              height: MediaQuery.of(context).size.height,
+              child: WebViewWidget(controller: _controller),
+            ),
+          ),
+        ),
         // Progress bar
         if (_isLoading)
           Positioned(
@@ -257,7 +271,7 @@ class ReeVibesWebViewState extends State<ReeVibesWebView> {
               value: _progress > 0 ? _progress : null,
               backgroundColor: Colors.transparent,
               valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFD4AF37)),
-              minHeight: 2,
+              minHeight: 3,
             ),
           ),
       ],

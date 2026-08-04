@@ -432,7 +432,7 @@ function ShopLayout() {
         )}
 
         <Particles />
-        <BottomNav setSearchOpen={setSearchOpen} />
+        {!isProductPage && <BottomNav setSearchOpen={setSearchOpen} />}
         <SearchOverlay isOpen={searchOpen} onClose={() => setSearchOpen(false)} products={products} />
 
         {/* Premium Full-Width Liquid Glass Header (flush top, left, right) */}

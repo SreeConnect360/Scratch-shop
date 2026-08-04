@@ -217,8 +217,8 @@ public class ShopPortalController {
         // Preserve all past order activities linked to old email
         List<ShopOrder> orders = orderRepository.findAll();
         for (ShopOrder o : orders) {
-            if (oldEmail.equalsIgnoreCase(o.getCustomerEmail())) {
-                o.setCustomerEmail(newEmail.toLowerCase());
+            if (oldEmail.equalsIgnoreCase(o.getUserId())) {
+                o.setUserId(newEmail.toLowerCase());
                 orderRepository.save(o);
             }
         }
