@@ -230,15 +230,25 @@ class ReeVibesWebViewState extends State<ReeVibesWebView> {
     await _controller.reload();
   }
 
-  /// Check if WebView can go back.
+  /// Check if WebView or SPA Router can go back.
   Future<bool> canGoBack() async {
-    return await _controller.canGoBack();
+    final nativeCanGoBack = await _controller.canGoBack();
+    if (nativeCanGoBack) return true;
+    try {
+      final res = await _controller.runJavaScriptReturningResult('window.history.length > 1');
+      if (res == true || res.toString() == 'true' || (res is int && res > 1)) {
+        return true;
+      }
+    } catch (_) {}
+    return false;
   }
 
-  /// Go back in WebView history.
+  /// Go back in WebView / SPA history.
   Future<void> goBack() async {
     if (await _controller.canGoBack()) {
       await _controller.goBack();
+    } else {
+      await _controller.runJavaScript('window.history.back();');
     }
   }
 

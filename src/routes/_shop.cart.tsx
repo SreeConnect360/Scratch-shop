@@ -328,6 +328,15 @@ export function ShopCart() {
     outOfStockItems: Array<{ item: CartItem; maxAvailable: number; reason: string }>;
   } | null>(null);
 
+  // Full-screen Order Confirmation state
+  const [confirmedOrder, setConfirmedOrder] = useState<{
+    orderId: string;
+    total: number;
+    walletUsed: number;
+    razorpayPaid: number;
+    itemsCount: number;
+  } | null>(null);
+
   // Automatically select all items on load or when new items are added
   useEffect(() => {
     if (isBuyNow && search.productId && search.size) {
@@ -655,7 +664,7 @@ export function ShopCart() {
 
     // Case 1: Covered 100% by Wallet
     if (netOnlinePayable === 0) {
-      createOrder(user.id, {
+      const createdOrderId = createOrder(user.id, {
         items: checkoutItems,
         total: finalTotal,
         address: selectedAddressText,
@@ -666,8 +675,14 @@ export function ShopCart() {
         paymentMethod: "ReeVibes Wallet"
       });
 
-      toast.success(`Thank you! Order placed successfully. Paid ₹${finalTotal.toLocaleString()} via Maison Wallet.`);
-      navigate({ to: "/account", search: { tab: "orders" } as any });
+      toast.success(`Thank you! Order placed successfully.`);
+      setConfirmedOrder({
+        orderId: createdOrderId || `ORD-${Math.floor(1000 + Math.random() * 9000)}`,
+        total: finalTotal,
+        walletUsed: finalTotal,
+        razorpayPaid: 0,
+        itemsCount: checkoutItems.length
+      });
       return;
     }
 
@@ -730,7 +745,7 @@ export function ShopCart() {
                 return verifyRes.json();
               })
               .then(() => {
-                createOrder(user.id, {
+                const createdOrderId = createOrder(user.id, {
                   items: checkoutItems,
                   total: finalTotal,
                   address: selectedAddressText,
@@ -744,12 +759,14 @@ export function ShopCart() {
                   razorpaySignature: response.razorpay_signature
                 });
 
-                toast.success(
-                  effectiveWalletUsed > 0
-                    ? `Payment verified! Paid ₹${effectiveWalletUsed.toLocaleString()} via Wallet & ₹${netOnlinePayable.toLocaleString()} via Razorpay.`
-                    : "Payment verified successfully!"
-                );
-                navigate({ to: "/account", search: { tab: "orders" } as any });
+                toast.success("Payment verified successfully!");
+                setConfirmedOrder({
+                  orderId: createdOrderId || `ORD-${Math.floor(1000 + Math.random() * 9000)}`,
+                  total: finalTotal,
+                  walletUsed: effectiveWalletUsed,
+                  razorpayPaid: netOnlinePayable,
+                  itemsCount: checkoutItems.length
+                });
               })
               .catch((err: any) => {
                 toast.error(err.message || "Payment verification failed.");
@@ -779,7 +796,7 @@ export function ShopCart() {
       .catch((err: any) => {
         toast.dismiss(loadingToast);
         console.warn("Razorpay API order creation fallback:", err);
-        createOrder(user.id, {
+        const createdOrderId = createOrder(user.id, {
           items: checkoutItems,
           total: finalTotal,
           address: selectedAddressText,
@@ -791,12 +808,14 @@ export function ShopCart() {
           razorpayPaymentId: `pay_sim_${Math.random().toString(36).slice(2, 9)}`
         });
 
-        toast.success(
-          effectiveWalletUsed > 0
-            ? `Order confirmed! ₹${effectiveWalletUsed.toLocaleString()} paid via Wallet + ₹${netOnlinePayable.toLocaleString()} online via Razorpay.`
-            : "Order confirmed successfully!"
-        );
-        navigate({ to: "/account", search: { tab: "orders" } as any });
+        toast.success("Order confirmed successfully!");
+        setConfirmedOrder({
+          orderId: createdOrderId || `ORD-${Math.floor(1000 + Math.random() * 9000)}`,
+          total: finalTotal,
+          walletUsed: effectiveWalletUsed,
+          razorpayPaid: netOnlinePayable,
+          itemsCount: checkoutItems.length
+        });
       });
   };
 
@@ -1784,6 +1803,98 @@ export function ShopCart() {
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* Fullscreen Order Confirmed Emerald Animation Overlay */}
+      {confirmedOrder && (
+        <div className="fixed inset-0 z-[300] bg-gradient-to-br from-emerald-950 via-emerald-900 to-black flex flex-col items-center justify-center p-6 text-center text-white overflow-hidden animate-in fade-in duration-300">
+          {/* Glowing background light effects */}
+          <div className="absolute -top-32 -left-32 w-96 h-96 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-accent/20 rounded-full blur-3xl pointer-events-none" />
+
+          {/* Animated Glowing Tick Mark Circle */}
+          <div className="relative flex items-center justify-center mb-6">
+            <div className="w-28 h-28 sm:w-36 sm:h-36 rounded-full bg-emerald-500/20 border-2 border-emerald-400/60 flex items-center justify-center shadow-[0_0_80px_rgba(16,185,129,0.6)] animate-pulse">
+              <div className="w-20 h-20 sm:w-26 sm:h-26 rounded-full bg-emerald-500/30 border border-emerald-300/80 flex items-center justify-center shadow-inner">
+                <CheckCircle2 className="w-12 h-12 sm:w-16 sm:h-16 text-emerald-300 stroke-[2.5]" />
+              </div>
+            </div>
+          </div>
+
+          {/* Typography */}
+          <div className="space-y-2 max-w-lg">
+            <div className="inline-block px-4 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-[10px] font-mono font-bold uppercase tracking-widest mb-1">
+              Payment Successful • Order Placed
+            </div>
+            <h1 className="font-serif text-3xl sm:text-5xl font-bold tracking-widest text-emerald-300 uppercase drop-shadow-md">
+              Order Confirmed!
+            </h1>
+            <p className="text-xs sm:text-sm text-emerald-100/80 leading-relaxed font-sans">
+              Thank you for your order! Your curation is being processed and prepared for shipping.
+            </p>
+          </div>
+
+          {/* Order Summary Card */}
+          <div className="mt-8 w-full max-w-md bg-white/10 backdrop-blur-xl border border-white/15 rounded-3xl p-6 text-left space-y-4 shadow-2xl">
+            <div className="flex justify-between items-center border-b border-white/10 pb-3">
+              <span className="text-xs text-emerald-200/70 uppercase tracking-wider font-semibold">Order Reference:</span>
+              <span className="font-mono text-sm font-bold text-accent">#{confirmedOrder.orderId}</span>
+            </div>
+
+            <div className="space-y-2 text-xs">
+              <div className="flex justify-between text-emerald-100/90">
+                <span>Items Purchased:</span>
+                <span className="font-bold text-white">{confirmedOrder.itemsCount} Items</span>
+              </div>
+
+              {confirmedOrder.walletUsed > 0 && (
+                <div className="flex justify-between text-accent font-medium">
+                  <span>Paid via Maison Wallet:</span>
+                  <span className="font-mono">₹{confirmedOrder.walletUsed.toLocaleString()}</span>
+                </div>
+              )}
+
+              {confirmedOrder.razorpayPaid > 0 && (
+                <div className="flex justify-between text-emerald-100/90">
+                  <span>Paid Online (Razorpay):</span>
+                  <span className="font-mono text-white">₹{confirmedOrder.razorpayPaid.toLocaleString()}</span>
+                </div>
+              )}
+
+              <div className="flex justify-between text-white font-bold pt-2 border-t border-white/10 text-sm">
+                <span>Total Amount Paid:</span>
+                <span className="font-mono text-emerald-300">₹{confirmedOrder.total.toLocaleString()}</span>
+              </div>
+            </div>
+
+            <div className="pt-2 flex items-center justify-between text-[11px] text-emerald-200/80 font-mono">
+              <span>Estimated Delivery:</span>
+              <span className="text-accent font-bold">Today Evening / Tomorrow</span>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="mt-8 flex flex-col sm:flex-row gap-3 w-full max-w-md">
+            <button
+              onClick={() => {
+                setConfirmedOrder(null);
+                navigate({ to: "/account", search: { tab: "orders" } as any });
+              }}
+              className="flex-1 bg-accent hover:bg-accent/90 text-white font-bold text-xs uppercase tracking-widest py-3.5 rounded-full shadow-lg transition-all hover:scale-105 cursor-pointer"
+            >
+              View Order Details
+            </button>
+            <button
+              onClick={() => {
+                setConfirmedOrder(null);
+                navigate({ to: "/categories" });
+              }}
+              className="flex-1 bg-white/10 hover:bg-white/20 text-white border border-white/15 font-bold text-xs uppercase tracking-widest py-3.5 rounded-full transition-all cursor-pointer"
+            >
+              Continue Shopping
+            </button>
           </div>
         </div>
       )}

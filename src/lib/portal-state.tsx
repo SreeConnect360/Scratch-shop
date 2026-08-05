@@ -186,6 +186,7 @@ export type PortalState = {
   products: Product[];
   returns: ReturnRequest[];
   wallets: Record<string, number>; // userId -> balance (INR)
+  userRedeemedGiftCards: Record<string, string[]>; // userId -> redeemed gift card codes
   vendors: Vendor[];
   productReviews: Record<string, ProductReview[]>; // productId -> reviews
   adminMode: "Contest" | "Shop";
@@ -534,6 +535,7 @@ const DEFAULT: PortalState = {
     }
   ],
   wallets: DEFAULT_WALLETS,
+  userRedeemedGiftCards: {},
   walletGiftCards: DEFAULT_WALLET_GIFT_CARDS,
   vendors: DEFAULT_VENDORS,
   productReviews: DEFAULT_REVIEWS,
@@ -566,6 +568,7 @@ function load(): PortalState {
       applications: Array.isArray(merged.applications) ? merged.applications : DEFAULT.applications,
       homepageLayout: merged.homepageLayout || DEFAULT.homepageLayout,
       userNotifications: merged.userNotifications || {},
+      userRedeemedGiftCards: merged.userRedeemedGiftCards || {},
     };
   } catch {
     return { ...DEFAULT, products: [] };
@@ -643,7 +646,7 @@ type Ctx = {
   updateAddress: (userId: string, index: number, address: string) => void;
   setMajorAddress: (userId: string, address: string) => void;
   toggleWishlist: (userId: string, productId: string) => void;
-  createOrder: (userId: string, order: { items: CartItem[]; total: number; address: string; appliedCoupon?: string; paymentStatus?: string; razorpayPaymentId?: string; razorpayOrderId?: string; razorpaySignature?: string; walletAmountUsed?: number; razorpayAmountPaid?: number; paymentMethod?: string }) => void;
+  createOrder: (userId: string, order: { items: CartItem[]; total: number; address: string; appliedCoupon?: string; paymentStatus?: string; razorpayPaymentId?: string; razorpayOrderId?: string; razorpaySignature?: string; walletAmountUsed?: number; razorpayAmountPaid?: number; paymentMethod?: string }) => string;
   deductWalletBalance: (userId: string, amount: number) => void;
   updateOrderStatus: (userId: string, orderId: string, status: string, patch?: any) => void;
   acceptOrder: (userId: string, orderId: string) => Promise<any>;
@@ -1577,6 +1580,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           userNotifications: nextUserNotifs
         };
       });
+      return orderId;
     },
 
     deductWalletBalance: (userId, amount) => {
@@ -2132,9 +2136,10 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         return { success: false, message: "Gift card usage limit has been reached." };
       }
 
-      // Check if User already redeemed
-      if (targetCard.redeemedUsers?.includes(userId)) {
-        return { success: false, message: "You have already redeemed this gift card code." };
+      // Check if User already redeemed this gift card code on their account
+      const userRedeemedList = state.userRedeemedGiftCards?.[userId] || [];
+      if (userRedeemedList.includes(code) || targetCard.redeemedUsers?.includes(userId)) {
+        return { success: false, message: "You have already redeemed this gift card code once on your account." };
       }
 
       // Successful redemption
@@ -2142,12 +2147,14 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       const isNowFullyRedeemed = targetCard.usageType === "custom" && targetCard.usageLimit !== undefined && nextUsedCount >= targetCard.usageLimit;
       const nextStatus = isNowFullyRedeemed ? "Fully Redeemed" : targetCard.status;
       const nextRedeemedUsers = [...(targetCard.redeemedUsers || []), userId];
+      const nextUserRedeemedCards = Array.from(new Set([...userRedeemedList, code]));
       const currentWalletBal = state.wallets[userId] ?? 0;
       const newWalletBal = currentWalletBal + targetCard.amount;
 
       setState(s => ({
         ...s,
         wallets: { ...s.wallets, [userId]: newWalletBal },
+        userRedeemedGiftCards: { ...s.userRedeemedGiftCards, [userId]: nextUserRedeemedCards },
         walletGiftCards: (s.walletGiftCards || []).map(g => g.id === targetCard.id ? {
           ...g,
           usedCount: nextUsedCount,
