@@ -17,6 +17,10 @@ import {
   ShieldCheck,
   RotateCcw,
   X,
+  Plus,
+  Minus,
+  ChevronDown,
+  Maximize2,
   Sparkles,
   CheckCircle2,
   ChevronLeft,
@@ -253,12 +257,14 @@ function ProductDetail() {
   };
 
   const handleShare = async () => {
-    const shareUrl = `https://reevibes.com/product/${product.id}`;
+    const shareUrl = typeof window !== "undefined"
+      ? `${window.location.origin}/product/${product.id}`
+      : `https://reevibes.com/product/${product.id}`;
     try {
       await navigator.clipboard.writeText(shareUrl);
-      toast.success("Product link copied to clipboard!");
+      toast.success(`Copied product link: ${shareUrl}`);
     } catch {
-      toast.success("Product link copied to clipboard!");
+      toast.success(`Copied product link: ${shareUrl}`);
     }
   };
 
