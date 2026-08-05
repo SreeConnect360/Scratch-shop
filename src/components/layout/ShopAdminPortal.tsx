@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { usePortal, useCartTotal } from "@/lib/portal-state";
+import { usePortal, useCartTotal, DEFAULT_HOMEPAGE_LAYOUT } from "@/lib/portal-state";
 import { Link } from "@tanstack/react-router";
 import {
   ShoppingBag, Truck, RefreshCw, Users, Ticket, Star, Store, BarChart3,
@@ -360,11 +360,42 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
   };
 
   useEffect(() => {
-    if (state && state.homepageLayoutDraft && !draftLayout) {
-      const layoutCopy = { ...state.homepageLayoutDraft };
-      if (!layoutCopy.chatbot) {
-        layoutCopy.chatbot = { enabled: true };
-      }
+    if (state && !draftLayout) {
+      const base = state.homepageLayoutDraft || state.homepageLayout || {};
+      const layoutCopy: any = {
+        ...DEFAULT_HOMEPAGE_LAYOUT,
+        ...base,
+        announcement: { ...DEFAULT_HOMEPAGE_LAYOUT.announcement, ...(base.announcement || {}) },
+        hero: { ...DEFAULT_HOMEPAGE_LAYOUT.hero, ...(base.hero || {}) },
+        categories: { ...DEFAULT_HOMEPAGE_LAYOUT.categories, ...(base.categories || {}) },
+        trending: { ...DEFAULT_HOMEPAGE_LAYOUT.trending, ...(base.trending || {}) },
+        newArrivals: { ...DEFAULT_HOMEPAGE_LAYOUT.newArrivals, ...(base.newArrivals || base.newArrival || {}) },
+        campaign: { ...DEFAULT_HOMEPAGE_LAYOUT.campaign, ...(base.campaign || {}) },
+        collections: { ...DEFAULT_HOMEPAGE_LAYOUT.collections, ...(base.collections || {}) },
+        bestSellers: { ...DEFAULT_HOMEPAGE_LAYOUT.bestSellers, ...(base.bestSellers || {}) },
+        limitedStock: { ...DEFAULT_HOMEPAGE_LAYOUT.limitedStock, ...(base.limitedStock || {}) },
+        influencerPicks: { ...DEFAULT_HOMEPAGE_LAYOUT.influencerPicks, ...(base.influencerPicks || {}) },
+        recentlyViewed: { ...DEFAULT_HOMEPAGE_LAYOUT.recentlyViewed, ...(base.recentlyViewed || {}) },
+        brandStory: { ...DEFAULT_HOMEPAGE_LAYOUT.brandStory, ...(base.brandStory || {}) },
+        chatbot: { enabled: true, ...(base.chatbot || {}) }
+      };
+
+      const standardKeys = [
+        "announcement", "hero", "categories", "trending", "newArrivals",
+        "campaign", "collections", "bestSellers", "limitedStock",
+        "influencerPicks", "recentlyViewed", "brandStory", "chatbot"
+      ];
+      
+      let existingOrder = Array.isArray(base.sectionOrder) ? [...base.sectionOrder] : [...DEFAULT_HOMEPAGE_LAYOUT.sectionOrder];
+      existingOrder = existingOrder.filter(k => !["recommended", "flashSale", "lookbook", "newsletter", "navigation", "footer"].includes(k));
+
+      standardKeys.forEach(k => {
+        if (!existingOrder.includes(k)) {
+          existingOrder.push(k);
+        }
+      });
+
+      layoutCopy.sectionOrder = existingOrder;
       setDraftLayout(layoutCopy);
     }
   }, [state, draftLayout]);
