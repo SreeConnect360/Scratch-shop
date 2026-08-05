@@ -487,27 +487,28 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
     const sampleMarkup = p.productInfo || `*#Product Details#*\n**Specifications & Details**\n*Material Composition : ${p.material || "100% Organic Cotton"}*\n*Fabric Type : ${p.fabric || p.category || "Apparel"}*\n*Care Instructions : Dry clean only.*\n*Country of Origin : India*\n*Manufacturer : Atelier ReeVibes Crafts Ltd.*\n*SKU / Reference : ${p.sku || `SKU-${p.id}`}*`;
 
     const productDraft = {
+      ...p,
       id: p.id,
-      name: p.name,
+      name: p.name || "",
       house: p.house || p.brand || "",
-      price: p.price,
-      image: p.image,
+      price: p.price || "",
+      image: p.image || "",
       tag: p.tag || "",
-      tags: p.tags || tagList,
+      tags: Array.isArray(p.tags) ? [...p.tags] : (tagList || []),
       gender: p.gender || "Women",
       category: p.category || "Tops",
-      categoriesList: p.categoriesList || (p.category ? [p.category] : []),
-      sizes: p.sizes || ["S", "M", "L"],
-      stockPerSize: p.stockPerSize || { S: 10, M: 10, L: 10 },
+      categoriesList: Array.isArray(p.categoriesList) ? [...p.categoriesList] : (p.category ? [p.category] : []),
+      sizes: Array.isArray(p.sizes) ? [...p.sizes] : ["S", "M", "L"],
+      stockPerSize: p.stockPerSize ? { ...p.stockPerSize } : { S: 10, M: 10, L: 10 },
       sku: p.sku || `SKU-${Math.floor(10000 + Math.random()*90000)}`,
-      originalPrice: p.originalPrice || p.price,
+      originalPrice: p.originalPrice || p.price || "",
       description: p.description || "",
       overviewTitle: p.overviewTitle || "ATELIER OVERVIEW",
       customRating: p.customRating !== undefined ? p.customRating : 4.8,
       customReviewCount: p.customReviewCount !== undefined ? p.customReviewCount : 14,
       material: p.material || "",
       color: p.color || "",
-      images: p.images || [],
+      images: Array.isArray(p.images) ? [...p.images] : (p.image ? [p.image] : []),
       discountLimitBuyers: p.discountLimitBuyers,
       discountExpiryDate: p.discountExpiryDate || "",
       discountBuyersCount: p.discountBuyersCount || 0,
@@ -830,39 +831,46 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
   };
 
   const handleSaveImportedProducts = (publishLive = true) => {
-    importedProducts.forEach((p) => {
-      const actual = parseFloat(String(p.originalPrice || "").replace(/[^0-9.]/g, ""));
-      const disc = parseFloat(String(p.price || "").replace(/[^0-9.]/g, ""));
-      const discountPct = (actual && disc && actual > disc) ? Math.round(((actual - disc) / actual) * 100) : 0;
-      
-      const finalForm = {
-        ...p,
-        discount: discountPct,
-        status: publishLive ? "PUBLISHED" : "UNPUBLISHED",
-        visibility: publishLive ? "VISIBLE" : "HIDDEN"
-      };
-      if (editingProduct) {
-        updateProduct(editingProduct.id, finalForm);
-      } else {
-        createProduct(finalForm);
-      }
-    });
-    setIsReviewingImports(false);
-    setImportedProducts([]);
     if (editingProduct) {
-      triggerModal("success", "Product Updated", "The product has been successfully updated in the catalog.", () => {});
+      const p = importedProducts[0];
+      if (p) {
+        const actual = parseFloat(String(p.originalPrice || "").replace(/[^0-9.]/g, ""));
+        const disc = parseFloat(String(p.price || "").replace(/[^0-9.]/g, ""));
+        const discountPct = (actual && disc && actual > disc) ? Math.round(((actual - disc) / actual) * 100) : 0;
+        
+        const finalForm = {
+          ...p,
+          discount: discountPct,
+          status: publishLive ? "PUBLISHED" : "UNPUBLISHED",
+          visibility: publishLive ? "VISIBLE" : "HIDDEN"
+        };
+        updateProduct(editingProduct.id, finalForm);
+      }
+      setIsReviewingImports(false);
+      setImportedProducts([]);
       setEditingProduct(null);
-    } else if (isManualCreate) {
+      triggerModal("success", "Product Updated", "The product has been successfully updated in the catalog.", () => {});
+    } else {
+      importedProducts.forEach((p) => {
+        const actual = parseFloat(String(p.originalPrice || "").replace(/[^0-9.]/g, ""));
+        const disc = parseFloat(String(p.price || "").replace(/[^0-9.]/g, ""));
+        const discountPct = (actual && disc && actual > disc) ? Math.round(((actual - disc) / actual) * 100) : 0;
+        
+        const finalForm = {
+          ...p,
+          discount: discountPct,
+          status: publishLive ? "PUBLISHED" : "UNPUBLISHED",
+          visibility: publishLive ? "VISIBLE" : "HIDDEN"
+        };
+        createProduct(finalForm);
+      });
+      setIsReviewingImports(false);
+      setImportedProducts([]);
       const msg = publishLive
         ? `Successfully created and published ${importedProducts.length} new products to the catalog.`
         : `Successfully created ${importedProducts.length} new draft products (unpublished) in the catalog.`;
       triggerModal("success", "Products Created", msg, () => {});
       setIsManualCreate(false);
-    } else {
-      const msg = publishLive
-        ? `Successfully imported and published ${importedProducts.length} products to the catalog.`
-        : `Successfully imported ${importedProducts.length} draft products (unpublished) to the catalog.`;
-      triggerModal("success", "Products Imported", msg, () => {});
     }
   };
 

@@ -386,10 +386,33 @@ function ProductDetail() {
     }
   };
 
-  // Related products
-  const relatedProducts = products
-    .filter((p) => p.id !== product.id && p.category === product.category && (!p.status || p.status === "PUBLISHED" || p.status === "published"))
-    .slice(0, 4);
+  // Related products calculation
+  const relatedProducts = useMemo(() => {
+    if (!products || products.length === 0) return [];
+    
+    // 1. Same category, type, or gender matches
+    let matches = products.filter((p) =>
+      p.id !== product.id &&
+      (!p.status || p.status === "PUBLISHED" || p.status === "published") &&
+      (
+        (p.category && product.category && p.category.toLowerCase() === product.category.toLowerCase()) ||
+        (p.type && product.type && p.type.toLowerCase() === product.type.toLowerCase()) ||
+        (p.gender && product.gender && p.gender.toLowerCase() === product.gender.toLowerCase())
+      )
+    );
+
+    // 2. If fewer than 4 matches, fill with other published products
+    if (matches.length < 4) {
+      const remaining = products.filter((p) =>
+        p.id !== product.id &&
+        (!p.status || p.status === "PUBLISHED" || p.status === "published") &&
+        !matches.some((m) => m.id === p.id)
+      );
+      matches = [...matches, ...remaining];
+    }
+
+    return matches.slice(0, 4);
+  }, [products, product?.id, product?.category, product?.type, product?.gender]);
 
   return (
     <div className={cn("min-h-screen pb-28 pt-2 sm:pt-6 transition-colors duration-300", isDark ? "bg-[#0A0A0A] text-white" : "bg-[#F9FAFB] text-slate-900")}>
