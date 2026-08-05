@@ -2722,7 +2722,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                 <div className="space-y-2 max-h-[380px] overflow-y-auto pr-2 divide-y divide-white/5 scrollbar-thin">
                   {(() => {
                     const rawList = (draftLayout.sectionOrder || []).filter(
-                      (id: string) => id !== "navigation" && id !== "footer"
+                      (id: string) => !["navigation", "footer", "recommended", "flashSale", "lookbook", "newsletter"].includes(id)
                     );
                     const filteredList = rawList.includes("chatbot") ? rawList : [...rawList, "chatbot"];
                     return filteredList.map((secId: string, idx: number) => {
@@ -3853,6 +3853,30 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             onChange={(e) => setDraftLayout({
                               ...draftLayout,
                               brandStory: { ...draftLayout.brandStory, text: e.target.value }
+                            })}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-muted-foreground font-semibold">Redirect Link Box Text (CTA Button Label)</label>
+                          <input
+                            className="w-full bg-surface border border-border-subtle p-2 outline-none text-foreground"
+                            placeholder="Discover Our Story"
+                            value={draftLayout.brandStory.buttonText ?? draftLayout.brandStory.linkText ?? "Discover Our Story"}
+                            onChange={(e) => setDraftLayout({
+                              ...draftLayout,
+                              brandStory: { ...draftLayout.brandStory, buttonText: e.target.value, linkText: e.target.value }
+                            })}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-muted-foreground font-semibold">Redirect Link URL Target</label>
+                          <input
+                            className="w-full bg-surface border border-border-subtle p-2 outline-none text-foreground font-mono"
+                            placeholder="/categories"
+                            value={draftLayout.brandStory.redirectUrl ?? draftLayout.brandStory.linkUrl ?? "/categories"}
+                            onChange={(e) => setDraftLayout({
+                              ...draftLayout,
+                              brandStory: { ...draftLayout.brandStory, redirectUrl: e.target.value, linkUrl: e.target.value }
                             })}
                           />
                         </div>

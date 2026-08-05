@@ -269,7 +269,6 @@ export const DEFAULT_HOMEPAGE_LAYOUT = {
     "navigation",
     "hero",
     "categories",
-    "flashSale",
     "trending",
     "newArrivals",
     "campaign",
@@ -279,11 +278,8 @@ export const DEFAULT_HOMEPAGE_LAYOUT = {
     "limitedStock",
     "influencerPicks",
     "reviews",
-    "lookbook",
     "recentlyViewed",
-    "recommended",
     "brandStory",
-    "newsletter",
     "footer"
   ],
   announcement: {
@@ -414,7 +410,9 @@ export const DEFAULT_HOMEPAGE_LAYOUT = {
     text: "Founded in 2024, ReeVibes represents the intersection of digital pageantry and premium avant-garde apparel. Every piece is curated to tell a story of visual elegance and structural perfection.",
     image1: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=500&h=600&q=80",
     image2: "https://images.unsplash.com/photo-1479064555552-3ef4979f8908?auto=format&fit=crop&w=500&h=600&q=80",
-    videoUrl: ""
+    videoUrl: "",
+    buttonText: "Discover Our Story",
+    redirectUrl: "/categories"
   },
   newsletter: {
     enabled: true,

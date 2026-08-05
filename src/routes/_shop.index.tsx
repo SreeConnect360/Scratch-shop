@@ -616,9 +616,7 @@ function ShopHome() {
         );
 
       case "flashSale":
-        const fs = layout?.flashSale || {};
-        const fsProducts = products.filter(p => (fs.products || []).includes(p.id));
-        if (fsProducts.length === 0) return null;
+        return null;
 
         return (
           <section key={sectionId} className="max-w-7xl mx-auto px-3 sm:px-5 space-y-8">
@@ -914,30 +912,12 @@ function ShopHome() {
         );
 
       case "recommended":
-        const rec = layout.recommended;
-        const recProducts = products.slice(0, 3); // Cured list
-
-        return (
-          <section key={sectionId} className="max-w-7xl mx-auto px-3 sm:px-5 space-y-6">
-            <div className="border-b border-white/10 pb-2">
-              <h3 className="font-serif text-lg tracking-wider">Recommended For You</h3>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-8 items-start">
-              {recProducts.map(p => (
-                <ProductCard
-                  key={p.id}
-                  p={p}
-                  toggleShopWishlist={toggleShopWishlist}
-                  addToShopCart={addToShopCart}
-                  wishlist={state.shopWishlist[state.user?.id || ""]}
-                />
-              ))}
-            </div>
-          </section>
-        );
+        return null;
 
       case "brandStory":
         const story = layout.brandStory;
+        const storyLink = story?.redirectUrl || story?.linkUrl || "/categories";
+        const storyBtnText = story?.buttonText || story?.linkText || "Discover Our Story";
         return (
           <section key={sectionId} ref={brandStoryRef} id="brand-story" className="relative py-16 md:py-20">
             <div className="section-shell grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
@@ -1010,9 +990,9 @@ function ShopHome() {
                 </dl>
 
                 <div className="pt-4">
-                  <Link to="/categories">
+                  <Link to={storyLink}>
                     <MagneticButton variant="glass">
-                      Discover Collection <ArrowRight size={14} aria-hidden="true" />
+                      {storyBtnText} <ArrowRight size={14} aria-hidden="true" />
                     </MagneticButton>
                   </Link>
                 </div>
@@ -1022,6 +1002,7 @@ function ShopHome() {
         );
 
       case "newsletter":
+        return null;
         const news = layout.newsletter;
         return (
           <section key={sectionId} id="newsletter" aria-labelledby="newsletter-heading" className="relative py-16 md:py-20">
