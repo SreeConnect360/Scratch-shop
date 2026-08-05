@@ -27,6 +27,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { ProductCard } from "@/components/public/ProductCard";
+import type { ProductSection, ProductSectionRow } from "@/lib/data";
 
 export const Route = createFileRoute("/_shop/product/$productId")({
   component: ProductDetail,
@@ -74,6 +75,31 @@ function parseProductInfo(text: string) {
   }
 
   return sections.filter((s) => s.lines.length > 0);
+}
+
+function getProductDisplaySections(product: any): ProductSection[] {
+  if (product?.productSections && Array.isArray(product.productSections) && product.productSections.length > 0) {
+    return product.productSections;
+  }
+  const legacyRows: ProductSectionRow[] = [
+    { label: "Material Composition", value: product.material || "100% Organic Cotton" },
+    { label: "Fabric Type", value: product.fabric || product.category || "Apparel" },
+    { label: "Care Instructions", value: product.care || "Dry clean only." },
+    { label: "Country of Origin", value: "India" },
+    { label: "Manufacturer", value: "Atelier ReeVibes Crafts Ltd." },
+    { label: "SKU / Reference", value: product.sku || `SKU-${product.id}` }
+  ].filter((r: any) => Boolean(r.value));
+
+  if (legacyRows.length === 0) return [];
+
+  return [
+    {
+      id: "sec-default",
+      title: "Product Details",
+      subtitle: "Specifications & Details",
+      rows: legacyRows
+    }
+  ];
 }
 
 function renderKeyValueRow(key: string, value: string) {
@@ -161,6 +187,17 @@ function ProductDetail() {
   // Size details & stocks
   const availableSizes = product?.sizes || ["S", "M", "L", "XL"];
   const stockPerSize = (product as any)?.stockPerSize || { S: 12, M: 5, L: 10, XL: 4 };
+
+  const displaySections = getProductDisplaySections(product);
+  const [openSectionIds, setOpenSectionIds] = useState<string[]>(() =>
+    displaySections.length > 0 ? [displaySections[0].id || "sec-0"] : []
+  );
+
+  const toggleSectionOpen = (id: string) => {
+    setOpenSectionIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
 
   const [selectedSize, setSelectedSize] = useState<string>("S");
   const [quantity, setQuantity] = useState(1);
@@ -582,7 +619,7 @@ function ProductDetail() {
                 {product.house || "REEVIBES ATELIER"}
               </span>
               <span className={cn("px-3 py-1 rounded-full text-[11px] font-semibold border tracking-wide", isDark ? "bg-white/5 border-white/10 text-slate-300" : "bg-slate-100 border-slate-200 text-slate-700")}>
-                {product.category ? `${product.category} • Apparel` : "Apparel"}
+                {product.type ? `${product.type} • Apparel` : (product.category ? `${product.category} • Apparel` : "Apparel")}
               </span>
             </div>
 
@@ -762,75 +799,60 @@ function ProductDetail() {
               </p>
             </div>
 
-            {/* Collapsible Product Information Accordion */}
-            <div className="border border-border/60 rounded-2xl overflow-hidden bg-card/40 transition-colors">
-              <button
-                type="button"
-                onClick={() => setIsProductInfoOpen((prev) => !prev)}
-                className="w-full p-4 flex items-center justify-between text-left font-bold text-sm sm:text-base text-foreground cursor-pointer hover:bg-accent/5 transition-colors"
-              >
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-[#D4AF37]" />
-                  <span>Product Information</span>
-                </div>
-                <ChevronDown
-                  className={cn("w-5 h-5 text-[#D4AF37] transition-transform duration-300", isProductInfoOpen && "rotate-180")}
-                />
-              </button>
+            {/* Dynamic Expandable Product Information Accordions */}
+            {displaySections.length > 0 && (
+              <div className="space-y-3">
+                {displaySections.map((sec, idx) => {
+                  const secId = sec.id || `sec-${idx}`;
+                  const isOpen = openSectionIds.includes(secId);
 
-              <AnimatePresence>
-                {isProductInfoOpen && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.25 }}
-                    className="overflow-hidden border-t border-border/40 p-4 space-y-4 text-xs sm:text-sm"
-                  >
-                    {/* Sub-section 1: Product Details */}
-                    <div className="space-y-2">
-                      <h4 className="font-bold text-xs uppercase tracking-widest text-[#D4AF37]">
-                        Product Details
-                      </h4>
-                      {renderKeyValueRow("Material Composition", (product as any).material || "100% Organic Cotton")}
-                      {renderKeyValueRow("Fabric Type", (product as any).fabric || "Casual T-Shirt")}
-                      {renderKeyValueRow("Care Instructions", (product as any).care || "Dry clean only. Store in protective garment bag.")}
-                      {renderKeyValueRow("Country of Origin", "India")}
-                      {renderKeyValueRow("Manufacturer", "Atelier ReeVibes Crafts Ltd.")}
-                      {renderKeyValueRow("SKU / Reference", product.sku || `SKU-${product.id}`)}
+                  return (
+                    <div key={secId} className="border border-border/60 rounded-2xl overflow-hidden bg-card/40 transition-colors">
+                      <button
+                        type="button"
+                        onClick={() => toggleSectionOpen(secId)}
+                        className="w-full p-4 flex items-center justify-between text-left font-bold text-sm sm:text-base text-foreground cursor-pointer hover:bg-accent/5 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-[#D4AF37]" />
+                          <span>{sec.title}</span>
+                        </div>
+                        <ChevronDown
+                          className={cn("w-5 h-5 text-[#D4AF37] transition-transform duration-300", isOpen && "rotate-180")}
+                        />
+                      </button>
+
+                      <AnimatePresence>
+                        {isOpen && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.25 }}
+                            className="overflow-hidden border-t border-border/40 p-4 space-y-3 text-xs sm:text-sm"
+                          >
+                            {sec.subtitle && (
+                              <p className="text-xs text-muted-foreground italic font-medium">
+                                {sec.subtitle}
+                              </p>
+                            )}
+
+                            <div className="space-y-1">
+                              {sec.rows && sec.rows.map((row, rIdx) => (
+                                <div key={rIdx} className="grid grid-cols-3 py-2 border-b border-border/40 last:border-0 text-xs sm:text-sm">
+                                  <span className="font-semibold text-muted-foreground col-span-1 pr-2">{row.label}</span>
+                                  <span className="text-foreground font-medium col-span-2">{row.value}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
-
-                    {/* Sub-section 2: About This Item */}
-                    <div className="space-y-2 pt-2 border-t border-border/30">
-                      <h4 className="font-bold text-xs uppercase tracking-widest text-[#D4AF37]">
-                        About This Item
-                      </h4>
-                      {renderKeyValueRow("Fit", (product as any).fit || "Regular Fit")}
-                      {renderKeyValueRow("Sleeve Type", (product as any).sleeve || "Full Sleeve")}
-                      {renderKeyValueRow("Neck Type", (product as any).neck || "V-Neck")}
-                      {renderKeyValueRow("Pattern", (product as any).pattern || "Solid Luxury Weave")}
-                      {renderKeyValueRow("Occasion", (product as any).occasion || "Celebration & Evening Wear")}
-                      {renderKeyValueRow("Gender", "Unisex")}
-                      {renderKeyValueRow("Collection", "ReeVibes Heritage Collection")}
-                    </div>
-
-                    {/* Parse dynamic specs if present */}
-                    {(product as any).specifications && (
-                      <div className="pt-2 border-t border-border/30">
-                        {parseProductInfo((product as any).specifications).map((sec, i) => (
-                          <div key={i} className="mb-3">
-                            <h5 className="font-semibold text-foreground mb-1">{sec.heading}</h5>
-                            {sec.lines.map((l, j) => (
-                              <div key={j}>{renderLine(l)}</div>
-                            ))}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Delivery Pincode Checker */}
             <div className="border border-border/60 rounded-2xl p-4 space-y-3 bg-card/30">

@@ -138,15 +138,29 @@ export const SPONSORS: Sponsor[] = [
   { id: "s6", name: "Velvet & Co.", tier: "Partner", logo: "V&Co" },
 ];
 
+export type ProductSectionRow = {
+  label: string;
+  value: string;
+};
+
+export type ProductSection = {
+  id: string;
+  title: string;
+  subtitle?: string;
+  rows: ProductSectionRow[];
+};
+
 export type Product = {
   id: string;
   name: string;
   house: string;
   price: string;
   image: string;
+  images?: string[];
   tag?: string;
+  tags?: string[];
   gender: "Men" | "Women" | "Unisex";
-  category: "Shirts" | "T-Shirts" | "Tops" | "Bottoms" | "Accessories" | "Couture";
+  category: "Shirts" | "T-Shirts" | "Tops" | "Bottoms" | "Accessories" | "Couture" | string;
   sku?: string;
   sizes?: string[];
   stockPerSize?: Record<string, number>;
@@ -157,7 +171,20 @@ export type Product = {
   discountExpiryDate?: string;
   discountBuyersCount?: number;
   productInfo?: string;
+  productSections?: ProductSection[];
+  type?: string;
+  fabric?: string;
+  material?: string;
+  color?: string;
+  collections?: string;
   visibility?: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  seoKeywords?: string;
+  isFeatured?: boolean;
+  isNewArrival?: boolean;
+  isTrending?: boolean;
+  isRecommended?: boolean;
 };
 
 export const PRODUCTS: Product[] = [
