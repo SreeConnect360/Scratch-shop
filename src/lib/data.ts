@@ -150,6 +150,70 @@ export type ProductSection = {
   rows: ProductSectionRow[];
 };
 
+export function parseProductInfoMarkup(text: string): ProductSection[] {
+  if (!text || !text.trim()) return [];
+  const lines = text.split(/\r?\n/);
+  const sections: ProductSection[] = [];
+  let currentSection: ProductSection | null = null;
+
+  for (let rawLine of lines) {
+    let line = rawLine.trim();
+    if (!line) continue;
+
+    // Section Title: *#Title#* or #Title# or *#Title
+    const isHeaderLine = line.includes("#") && (line.startsWith("*#") || line.startsWith("#"));
+    if (isHeaderLine) {
+      const cleanTitle = line.replace(/[*#]/g, "").trim();
+      if (cleanTitle) {
+        currentSection = {
+          id: `sec-${sections.length}-${Date.now()}`,
+          title: cleanTitle,
+          subtitle: "",
+          rows: []
+        };
+        sections.push(currentSection);
+        continue;
+      }
+    }
+
+    if (!currentSection) {
+      currentSection = {
+        id: `sec-${sections.length}-${Date.now()}`,
+        title: "Product Details",
+        subtitle: "",
+        rows: []
+      };
+      sections.push(currentSection);
+    }
+
+    // Subtitle: **Subtitle**
+    if (line.startsWith("**") && line.endsWith("**")) {
+      const cleanSub = line.substring(2, line.length - 2).trim();
+      if (cleanSub) {
+        currentSection.subtitle = cleanSub;
+        continue;
+      }
+    }
+
+    // Label : Value row: *Label : Value* or Label : Value
+    let cleanRowLine = line;
+    if (cleanRowLine.startsWith("*") && cleanRowLine.endsWith("*") && !cleanRowLine.startsWith("**")) {
+      cleanRowLine = cleanRowLine.substring(1, cleanRowLine.length - 1).trim();
+    }
+
+    if (cleanRowLine.includes(":")) {
+      const parts = cleanRowLine.split(":");
+      const label = parts[0].trim().replace(/^\*/, "").trim();
+      const value = parts.slice(1).join(":").trim().replace(/\*$/, "").trim();
+      if (label && value) {
+        currentSection.rows.push({ label, value });
+      }
+    }
+  }
+
+  return sections.filter(s => s.rows.length > 0 || Boolean(s.subtitle));
+}
+
 export type Product = {
   id: string;
   name: string;
@@ -172,6 +236,9 @@ export type Product = {
   discountBuyersCount?: number;
   productInfo?: string;
   productSections?: ProductSection[];
+  customRating?: number;
+  customReviewCount?: number;
+  overviewTitle?: string;
   type?: string;
   fabric?: string;
   material?: string;

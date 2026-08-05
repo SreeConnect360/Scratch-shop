@@ -483,23 +483,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
   const handleEditProduct = (p: any) => {
     setEditingProduct(p);
     const tagList = p.tag ? p.tag.split(",").map((t: string) => t.trim()).filter(Boolean) : [];
-    const defaultSections = (p.productSections && p.productSections.length > 0)
-      ? p.productSections
-      : [
-          {
-            id: `sec-${Date.now()}-1`,
-            title: "Product Details",
-            subtitle: "Specifications & Details",
-            rows: [
-              { label: "Material Composition", value: p.material || "100% Organic Cotton" },
-              { label: "Fabric Type", value: p.fabric || p.category || "Apparel" },
-              { label: "Care Instructions", value: "Dry clean only." },
-              { label: "Country of Origin", value: "India" },
-              { label: "Manufacturer", value: "Atelier ReeVibes Crafts Ltd." },
-              { label: "SKU / Reference", value: p.sku || `SKU-${p.id}` }
-            ].filter((r: any) => Boolean(r.value))
-          }
-        ];
+    const sampleMarkup = p.productInfo || `*#Product Details#*\n**Specifications & Details**\n*Material Composition : ${p.material || "100% Organic Cotton"}*\n*Fabric Type : ${p.fabric || p.category || "Apparel"}*\n*Care Instructions : Dry clean only.*\n*Country of Origin : India*\n*Manufacturer : Atelier ReeVibes Crafts Ltd.*\n*SKU / Reference : ${p.sku || `SKU-${p.id}`}*`;
 
     const productDraft = {
       id: p.id,
@@ -517,6 +501,9 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
       sku: p.sku || `SKU-${Math.floor(10000 + Math.random()*90000)}`,
       originalPrice: p.originalPrice || p.price,
       description: p.description || "",
+      overviewTitle: p.overviewTitle || "ATELIER OVERVIEW",
+      customRating: p.customRating !== undefined ? p.customRating : 4.8,
+      customReviewCount: p.customReviewCount !== undefined ? p.customReviewCount : 14,
       material: p.material || "",
       color: p.color || "",
       images: p.images || [],
@@ -534,8 +521,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
       isNewArrival: p.isNewArrival || false,
       isTrending: p.isTrending || false,
       isRecommended: p.isRecommended || false,
-      productInfo: p.productInfo || "",
-      productSections: defaultSections
+      productInfo: sampleMarkup
     };
     setImportedProducts([productDraft]);
     setCurrentImportIndex(0);
@@ -4776,196 +4762,112 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                           </div>
                         </div>
 
-                        {/* Dynamic Expandable Product Information Sections Builder */}
-                        <div className="space-y-3 pt-2 border-t border-black/10 dark:border-white/10">
+                        {/* Ratings & Customer Reviews Controls */}
+                        <div className="grid grid-cols-2 gap-3 pt-2 border-t border-black/10 dark:border-white/10">
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Product Rating (0.0 - 5.0)</label>
+                              <span className="text-xs font-mono font-bold text-amber-400">
+                                {currentItem.customRating !== undefined && currentItem.customRating !== null ? Number(currentItem.customRating).toFixed(1) : "None"}
+                              </span>
+                            </div>
+                            <input
+                              type="range"
+                              min="0"
+                              max="5"
+                              step="0.1"
+                              className="w-full accent-amber-400 cursor-pointer h-2 bg-surface rounded-lg"
+                              value={currentItem.customRating ?? 4.8}
+                              onChange={e => updateImportedProductField("customRating", parseFloat(e.target.value))}
+                            />
+                            <div className="flex items-center gap-1 text-amber-400 pt-0.5">
+                              {[...Array(5)].map((_, i) => {
+                                const score = currentItem.customRating ?? 4.8;
+                                const fill = i + 1 <= score ? 1 : (i < score ? 0.5 : 0);
+                                return (
+                                  <Star
+                                    key={i}
+                                    className={cn("w-3.5 h-3.5 text-amber-400", fill > 0 ? "fill-amber-400" : "fill-transparent")}
+                                  />
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Customer Reviews Count</label>
+                            <input
+                              type="number"
+                              min="0"
+                              placeholder="e.g. 14"
+                              className="w-full bg-surface border border-black/10 dark:border-white/10 p-2 text-xs text-foreground rounded-lg outline-none font-mono focus:border-accent"
+                              value={currentItem.customReviewCount ?? ""}
+                              onChange={e => updateImportedProductField("customReviewCount", e.target.value === "" ? undefined : parseInt(e.target.value) || 0)}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Atelier Overview Section */}
+                        <div className="space-y-2 pt-2 border-t border-black/10 dark:border-white/10">
+                          <div className="space-y-1">
+                            <label className="text-[10px] uppercase font-bold tracking-wider text-accent">Atelier Overview Title</label>
+                            <input
+                              type="text"
+                              placeholder="ATELIER OVERVIEW"
+                              className="w-full bg-surface border border-black/10 dark:border-white/10 p-2 text-xs text-foreground rounded-lg outline-none focus:border-accent"
+                              value={currentItem.overviewTitle || "ATELIER OVERVIEW"}
+                              onChange={e => updateImportedProductField("overviewTitle", e.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Atelier Overview Description</label>
+                            <textarea
+                              rows={2}
+                              placeholder="Relaxed fit linen shirt perfect for summer outings and casual styling."
+                              className="w-full bg-surface border border-black/10 dark:border-white/10 p-2.5 text-xs text-foreground rounded-lg outline-none focus:border-accent resize-y leading-normal font-sans"
+                              value={currentItem.description || ""}
+                              onChange={e => updateImportedProductField("description", e.target.value)}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Simplified Markup Format Product Information Textarea */}
+                        <div className="space-y-2 pt-2 border-t border-black/10 dark:border-white/10">
                           <div className="flex items-center justify-between">
                             <div>
-                              <label className="text-[10px] uppercase font-bold tracking-wider text-accent block">Product Information Sections</label>
-                              <p className="text-[10px] text-muted-foreground">Add expandable accordion sections with subtitles & Label : Value rows</p>
+                              <label className="text-[10px] uppercase font-bold tracking-wider text-accent block">Product Information Markup</label>
+                              <p className="text-[10px] text-muted-foreground">
+                                Use <code className="text-gold">*#Title#*</code> for accordion headers, <code className="text-gold">**Subtitle**</code> for subtitles, and <code className="text-gold">*Label : Value*</code> for rows.
+                              </p>
                             </div>
                             <button
                               type="button"
                               onClick={() => {
-                                const currentSections = Array.isArray(currentItem.productSections) ? [...currentItem.productSections] : [];
-                                const newSec = {
-                                  id: `sec-${Date.now()}-${Math.floor(Math.random()*1000)}`,
-                                  title: "Product Details",
-                                  subtitle: "Premium specifications",
-                                  rows: [
-                                    { label: "Material Composition", value: "100% Organic Cotton" },
-                                    { label: "Fabric Type", value: "Organic Cotton" },
-                                    { label: "Care Instructions", value: "Dry clean only." }
-                                  ]
-                                };
-                                updateImportedProductField("productSections", [...currentSections, newSec]);
+                                const sampleMarkup = `*#Product Details#*\n**Premium Quality Specifications**\n*Material Composition : 100% Organic Cotton*\n*Fabric Type : Organic Cotton*\n*Care Instructions : Dry clean only.*\n\n*#Manufacturing Information#*\n**Production & Origin**\n*Country of Origin : India*\n*Manufacturer : Atelier ReeVibes Crafts Ltd.*\n*SKU / Reference : SKU-55006*\n\n*#Shipping & Warranty#*\n**Delivery Information**\n*Shipping Time : 3–5 Business Days*\n*Warranty : 12 Months*\n*Return Policy : 7-Day Easy Returns*`;
+                                updateImportedProductField("productInfo", sampleMarkup);
                               }}
-                              className="bg-accent/20 hover:bg-accent text-accent hover:text-white px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer"
+                              className="text-[10px] text-accent hover:underline uppercase font-bold cursor-pointer"
                             >
-                              <Plus className="w-3.5 h-3.5" /> Add Section
+                              Load Template
                             </button>
                           </div>
+                          <textarea
+                            rows={10}
+                            placeholder={`*#Product Details#*
+**Premium Quality Specifications**
+*Material Composition : 100% Organic Cotton*
+*Fabric Type : Organic Cotton*
+*Care Instructions : Dry clean only.*
 
-                          {/* Sections List */}
-                          <div className="space-y-4 max-h-[450px] overflow-y-auto pr-1 scrollbar-thin">
-                            {(currentItem.productSections || []).map((sec: any, secIdx: number) => (
-                              <div key={sec.id || secIdx} className="border border-black/10 dark:border-white/10 rounded-xl p-3 bg-black/5 dark:bg-white/5 space-y-3 relative">
-                                {/* Section Header Controls */}
-                                <div className="flex items-center justify-between gap-2 border-b border-black/10 dark:border-white/10 pb-2">
-                                  <span className="text-[10px] uppercase font-bold text-accent">Section #{secIdx + 1}</span>
-                                  <div className="flex items-center gap-1">
-                                    {/* Move Up */}
-                                    <button
-                                      type="button"
-                                      disabled={secIdx === 0}
-                                      onClick={() => {
-                                        const list = [...(currentItem.productSections || [])];
-                                        const temp = list[secIdx - 1];
-                                        list[secIdx - 1] = list[secIdx];
-                                        list[secIdx] = temp;
-                                        updateImportedProductField("productSections", list);
-                                      }}
-                                      className="p-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer font-bold"
-                                      title="Move Up"
-                                    >
-                                      ↑
-                                    </button>
-                                    {/* Move Down */}
-                                    <button
-                                      type="button"
-                                      disabled={secIdx === (currentItem.productSections || []).length - 1}
-                                      onClick={() => {
-                                        const list = [...(currentItem.productSections || [])];
-                                        const temp = list[secIdx + 1];
-                                        list[secIdx + 1] = list[secIdx];
-                                        list[secIdx] = temp;
-                                        updateImportedProductField("productSections", list);
-                                      }}
-                                      className="p-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer font-bold"
-                                      title="Move Down"
-                                    >
-                                      ↓
-                                    </button>
-                                    {/* Delete Section */}
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const list = (currentItem.productSections || []).filter((_: any, idx: number) => idx !== secIdx);
-                                        updateImportedProductField("productSections", list);
-                                      }}
-                                      className="p-1 text-rose-400 hover:text-rose-500 text-xs cursor-pointer ml-1"
-                                      title="Delete Section"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
-                                </div>
-
-                                {/* Section Title & Subtitle */}
-                                <div className="grid grid-cols-2 gap-2">
-                                  <div className="space-y-1">
-                                    <label className="text-[9px] uppercase font-bold text-muted-foreground">Section Title</label>
-                                    <input
-                                      type="text"
-                                      placeholder="e.g. Product Details"
-                                      className="w-full bg-surface border border-black/10 dark:border-white/10 p-1.5 text-xs text-foreground rounded-lg outline-none focus:border-accent"
-                                      value={sec.title || ""}
-                                      onChange={e => {
-                                        const list = [...(currentItem.productSections || [])];
-                                        list[secIdx] = { ...list[secIdx], title: e.target.value };
-                                        updateImportedProductField("productSections", list);
-                                      }}
-                                    />
-                                  </div>
-                                  <div className="space-y-1">
-                                    <label className="text-[9px] uppercase font-bold text-muted-foreground">Optional Subtitle</label>
-                                    <input
-                                      type="text"
-                                      placeholder="e.g. Premium specifications"
-                                      className="w-full bg-surface border border-black/10 dark:border-white/10 p-1.5 text-xs text-foreground rounded-lg outline-none focus:border-accent"
-                                      value={sec.subtitle || ""}
-                                      onChange={e => {
-                                        const list = [...(currentItem.productSections || [])];
-                                        list[secIdx] = { ...list[secIdx], subtitle: e.target.value };
-                                        updateImportedProductField("productSections", list);
-                                      }}
-                                    />
-                                  </div>
-                                </div>
-
-                                {/* Label : Value Rows */}
-                                <div className="space-y-2 pt-1">
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-[9px] uppercase font-bold text-muted-foreground">Label : Value Rows</span>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const list = [...(currentItem.productSections || [])];
-                                        const rows = [...(list[secIdx].rows || []), { label: "", value: "" }];
-                                        list[secIdx] = { ...list[secIdx], rows };
-                                        updateImportedProductField("productSections", list);
-                                      }}
-                                      className="text-[9px] text-accent hover:underline uppercase font-bold cursor-pointer"
-                                    >
-                                      + Add Row
-                                    </button>
-                                  </div>
-
-                                  <div className="space-y-1.5">
-                                    {(sec.rows || []).map((row: any, rIdx: number) => (
-                                      <div key={rIdx} className="flex items-center gap-2">
-                                        <input
-                                          type="text"
-                                          placeholder="Label (e.g. Material)"
-                                          className="w-1/2 bg-surface border border-black/10 dark:border-white/10 p-1.5 text-xs text-foreground rounded-lg outline-none focus:border-accent"
-                                          value={row.label || ""}
-                                          onChange={e => {
-                                            const list = [...(currentItem.productSections || [])];
-                                            const rows = [...(list[secIdx].rows || [])];
-                                            rows[rIdx] = { ...rows[rIdx], label: e.target.value };
-                                            list[secIdx] = { ...list[secIdx], rows };
-                                            updateImportedProductField("productSections", list);
-                                          }}
-                                        />
-                                        <span className="text-muted-foreground font-bold">:</span>
-                                        <input
-                                          type="text"
-                                          placeholder="Value (e.g. 100% Cotton)"
-                                          className="w-1/2 bg-surface border border-black/10 dark:border-white/10 p-1.5 text-xs text-foreground rounded-lg outline-none focus:border-accent"
-                                          value={row.value || ""}
-                                          onChange={e => {
-                                            const list = [...(currentItem.productSections || [])];
-                                            const rows = [...(list[secIdx].rows || [])];
-                                            rows[rIdx] = { ...rows[rIdx], value: e.target.value };
-                                            list[secIdx] = { ...list[secIdx], rows };
-                                            updateImportedProductField("productSections", list);
-                                          }}
-                                        />
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            const list = [...(currentItem.productSections || [])];
-                                            const rows = (list[secIdx].rows || []).filter((_: any, idx: number) => idx !== rIdx);
-                                            list[secIdx] = { ...list[secIdx], rows };
-                                            updateImportedProductField("productSections", list);
-                                          }}
-                                          className="text-rose-400 hover:text-rose-500 p-1 cursor-pointer"
-                                          title="Remove Row"
-                                        >
-                                          <X className="w-3.5 h-3.5" />
-                                        </button>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-
-                            {(!currentItem.productSections || currentItem.productSections.length === 0) && (
-                              <div className="text-center py-4 text-xs text-muted-foreground border border-dashed border-black/10 dark:border-white/10 rounded-xl">
-                                No custom sections configured yet. Click "Add Section" to create one.
-                              </div>
-                            )}
-                          </div>
+*#Manufacturing Information#*
+**Production & Origin**
+*Country of Origin : India*
+*Manufacturer : Atelier ReeVibes Crafts Ltd.*
+*SKU / Reference : SKU-55006*`}
+                            className="w-full bg-surface border border-black/10 dark:border-white/10 p-3 text-xs text-foreground rounded-lg outline-none focus:border-accent font-mono leading-relaxed resize-y min-h-[200px]"
+                            value={currentItem.productInfo || ""}
+                            onChange={e => updateImportedProductField("productInfo", e.target.value)}
+                          />
                         </div>
                       </div>
 

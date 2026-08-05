@@ -25,9 +25,10 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Lock
 } from "lucide-react";
 import { ProductCard } from "@/components/public/ProductCard";
-import type { ProductSection, ProductSectionRow } from "@/lib/data";
+import { parseProductInfoMarkup, type ProductSection } from "@/lib/data";
 
 export const Route = createFileRoute("/_shop/product/$productId")({
   component: ProductDetail,
@@ -78,28 +79,14 @@ function parseProductInfo(text: string) {
 }
 
 function getProductDisplaySections(product: any): ProductSection[] {
+  if (product?.productInfo && typeof product.productInfo === "string" && product.productInfo.trim()) {
+    const parsed = parseProductInfoMarkup(product.productInfo);
+    if (parsed.length > 0) return parsed;
+  }
   if (product?.productSections && Array.isArray(product.productSections) && product.productSections.length > 0) {
     return product.productSections;
   }
-  const legacyRows: ProductSectionRow[] = [
-    { label: "Material Composition", value: product.material || "100% Organic Cotton" },
-    { label: "Fabric Type", value: product.fabric || product.category || "Apparel" },
-    { label: "Care Instructions", value: product.care || "Dry clean only." },
-    { label: "Country of Origin", value: "India" },
-    { label: "Manufacturer", value: "Atelier ReeVibes Crafts Ltd." },
-    { label: "SKU / Reference", value: product.sku || `SKU-${product.id}` }
-  ].filter((r: any) => Boolean(r.value));
-
-  if (legacyRows.length === 0) return [];
-
-  return [
-    {
-      id: "sec-default",
-      title: "Product Details",
-      subtitle: "Specifications & Details",
-      rows: legacyRows
-    }
-  ];
+  return [];
 }
 
 function renderKeyValueRow(key: string, value: string) {
@@ -199,9 +186,16 @@ function ProductDetail() {
     );
   };
 
-  const [selectedSize, setSelectedSize] = useState<string>("S");
+  const [selectedSize, setSelectedSize] = useState<string>(() => availableSizes[0] || "S");
   const [quantity, setQuantity] = useState(1);
   const [isProductInfoOpen, setIsProductInfoOpen] = useState(true);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
+  useEffect(() => {
+    if (availableSizes && availableSizes.length > 0) {
+      setSelectedSize(availableSizes[0]);
+    }
+  }, [product?.id]);
 
   // Delivery Pincode state
   const [pincode, setPincode] = useState("");
@@ -273,20 +267,24 @@ function ProductDetail() {
   const currentSizeStock = stockPerSize[selectedSize] ?? 8;
   const totalStock = Object.values(stockPerSize).reduce((acc: number, cur: any) => acc + (Number(cur) || 0), 0);
 
-  // Reviews
+  // Reviews & Rating overrides
   const reviews = state.productReviews[product.id] || [];
   const approvedReviews = reviews.filter((r) => r.status === "Approved");
-  const averageRating =
-    approvedReviews.length > 0
-      ? (approvedReviews.reduce((sum, r) => sum + r.rating, 0) / approvedReviews.length).toFixed(1)
-      : "4.8";
 
-  const totalReviewsCount = approvedReviews.length > 0 ? approvedReviews.length : 14;
+  const effectiveRating = product.customRating !== undefined && product.customRating !== null && product.customRating > 0
+    ? Number(product.customRating).toFixed(1)
+    : (approvedReviews.length > 0
+        ? (approvedReviews.reduce((sum, r) => sum + r.rating, 0) / approvedReviews.length).toFixed(1)
+        : null);
+
+  const effectiveReviewCount = product.customReviewCount !== undefined && product.customReviewCount !== null && product.customReviewCount > 0
+    ? Number(product.customReviewCount)
+    : (approvedReviews.length > 0 ? approvedReviews.length : null);
 
   // Actions
   const handleWishlistToggle = () => {
     if (!userId) {
-      toast.error("Please sign in to save pieces to your wishlist.");
+      setShowAuthModal(true);
       return;
     }
     toggleShopWishlist(userId, product.id);
@@ -306,6 +304,10 @@ function ProductDetail() {
   };
 
   const handleAddToCart = () => {
+    if (!userId) {
+      setShowAuthModal(true);
+      return;
+    }
     if (!selectedSize) {
       toast.error("Please select a size before adding to bag.");
       return;
@@ -330,6 +332,10 @@ function ProductDetail() {
   };
 
   const handleBuyNow = () => {
+    if (!userId) {
+      setShowAuthModal(true);
+      return;
+    }
     if (!selectedSize) {
       toast.error("Please select a size before proceeding.");
       return;
@@ -618,9 +624,11 @@ function ProductDetail() {
               <span className="text-xs font-bold uppercase tracking-[0.25em] text-[#D4AF37]">
                 {product.house || "REEVIBES ATELIER"}
               </span>
-              <span className={cn("px-3 py-1 rounded-full text-[11px] font-semibold border tracking-wide", isDark ? "bg-white/5 border-white/10 text-slate-300" : "bg-slate-100 border-slate-200 text-slate-700")}>
-                {product.type ? `${product.type} • Apparel` : (product.category ? `${product.category} • Apparel` : "Apparel")}
-              </span>
+              {(product.type || product.category) && (
+                <span className={cn("px-3 py-1 rounded-full text-[11px] font-semibold border tracking-wide", isDark ? "bg-white/5 border-white/10 text-slate-300" : "bg-slate-100 border-slate-200 text-slate-700")}>
+                  {product.type || product.category}
+                </span>
+              )}
             </div>
 
             {/* Product Title */}
@@ -628,16 +636,25 @@ function ProductDetail() {
               {product.name}
             </h1>
 
-            {/* Rating Stars & Customer Reviews */}
-            <div className="flex items-center gap-2 text-xs sm:text-sm">
-              <div className="flex items-center text-amber-400">
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />
-                ))}
+            {/* Rating Stars & Customer Reviews (Auto-hidden if empty/unconfigured) */}
+            {(effectiveRating || effectiveReviewCount) && (
+              <div className="flex items-center gap-2 text-xs sm:text-sm">
+                <div className="flex items-center text-amber-400">
+                  {[...Array(5)].map((_, i) => {
+                    const score = Number(effectiveRating || 5);
+                    const fill = i + 1 <= score ? 1 : (i < score ? 0.5 : 0);
+                    return (
+                      <Star
+                        key={i}
+                        className={cn("w-4 h-4 text-amber-400", fill > 0 ? "fill-amber-400" : "fill-transparent")}
+                      />
+                    );
+                  })}
+                </div>
+                {effectiveRating && <span className="font-bold text-foreground">{effectiveRating}</span>}
+                {effectiveReviewCount && <span className="text-muted-foreground">({effectiveReviewCount} Customer Reviews)</span>}
               </div>
-              <span className="font-bold text-foreground">{averageRating}</span>
-              <span className="text-muted-foreground">({totalReviewsCount} Customer Reviews)</span>
-            </div>
+            )}
 
             {/* Pricing Box */}
             <div className="flex flex-col gap-1 pt-1">
@@ -789,15 +806,17 @@ function ProductDetail() {
             <div className="h-px w-full bg-border/40" />
 
             {/* Atelier Overview Section */}
-            <div className="flex flex-col gap-2">
-              <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                ATELIER OVERVIEW
-              </span>
-              <p className="text-xs sm:text-sm text-foreground/90 leading-relaxed font-sans">
-                {(product as any).description ||
-                  "A premium quality daily-wear classic cotton t-shirt with breathable fabric. Crafted for elegant drape and luxury everyday comfort."}
-              </p>
-            </div>
+            {(product.overviewTitle || product.description) && (
+              <div className="flex flex-col gap-2">
+                <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                  {product.overviewTitle || "ATELIER OVERVIEW"}
+                </span>
+                <p className="text-xs sm:text-sm text-foreground/90 leading-relaxed font-sans">
+                  {product.description ||
+                    "A premium quality daily-wear classic cotton t-shirt with breathable fabric. Crafted for elegant drape and luxury everyday comfort."}
+                </p>
+              </div>
+            )}
 
             {/* Dynamic Expandable Product Information Accordions */}
             {displaySections.length > 0 && (
@@ -965,6 +984,80 @@ function ProductDetail() {
         </div>
       </div>
 
+      {/* Sign in required Modal Popup */}
+      <AnimatePresence>
+        {showAuthModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowAuthModal(false)}
+            className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm bg-[#18181B] border border-white/10 rounded-3xl p-6 sm:p-8 text-center space-y-6 shadow-2xl"
+            >
+              {/* Lock Icon inside Gold Circle */}
+              <div className="w-16 h-16 rounded-full bg-[#D4AF37]/15 border border-[#D4AF37]/30 flex items-center justify-center mx-auto text-[#D4AF37]">
+                <Lock className="w-8 h-8" />
+              </div>
+
+              {/* Title & Body Description */}
+              <div className="space-y-2">
+                <h3 className="font-serif text-2xl font-bold text-white tracking-tight">
+                  Sign in required
+                </h3>
+                <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed max-w-xs mx-auto font-sans">
+                  Please sign in or create an account to save items to your cart and continue shopping.
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="space-y-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAuthModal(false);
+                    navigate({
+                      to: "/login",
+                      search: { redirect: typeof window !== "undefined" ? window.location.pathname : "" } as any
+                    });
+                  }}
+                  className="w-full py-3.5 px-4 rounded-2xl bg-[#D4AF37] text-black font-extrabold text-sm uppercase tracking-wider hover:bg-[#c49f2f] transition-all cursor-pointer shadow-lg shadow-[#D4AF37]/20 active:scale-95"
+                >
+                  Sign In
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAuthModal(false);
+                    navigate({
+                      to: "/register",
+                      search: { redirect: typeof window !== "undefined" ? window.location.pathname : "" } as any
+                    });
+                  }}
+                  className="w-full py-3.5 px-4 rounded-2xl border-2 border-[#D4AF37] text-[#D4AF37] font-extrabold text-sm uppercase tracking-wider hover:bg-[#D4AF37]/10 transition-all cursor-pointer bg-transparent active:scale-95"
+                >
+                  Register
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowAuthModal(false)}
+                  className="w-full pt-2 text-sm text-zinc-400 font-semibold hover:text-white transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
