@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
@@ -96,49 +97,49 @@ public class ShopPortalController {
     @Transactional
     public ResponseEntity<List<PlatformUser>> getCustomers() {
         List<User> authUsers = authUserRepository.findAll();
-        List<PlatformUser> result = new java.util.ArrayList<>();
         List<PlatformUser> platformUsers = userRepository.findAll();
         
-        // Clean up platform users that are not registered users (e.g. demo users)
+        // Clean up legacy seeder demo accounts (@reevibes.com) from database
         for (PlatformUser pu : platformUsers) {
-            boolean isRegistered = authUsers.stream()
-                .anyMatch(au -> au.getEmail().equalsIgnoreCase(pu.getEmail()));
-            if (!isRegistered) {
+            if (pu.getEmail() != null && pu.getEmail().toLowerCase().endsWith("@reevibes.com")) {
                 userRepository.delete(pu);
             }
         }
         
-        // Ensure every registered user has a PlatformUser record and align ID to USR-{id}
+        // Refresh list after purging demo accounts
+        platformUsers = userRepository.findAll();
+
+        // Ensure every registered auth user has a corresponding PlatformUser record
         for (User au : authUsers) {
-            String targetId = "USR-" + au.getId();
-            PlatformUser pu = userRepository.findByEmailIgnoreCase(au.getEmail()).orElse(null);
+            if (au.getEmail() == null || au.getEmail().toLowerCase().endsWith("@reevibes.com")) continue;
             
-            if (pu == null) {
-                pu = new PlatformUser();
-                pu.setId(targetId);
-                String fullName = au.getName();
+            String email = au.getEmail().toLowerCase();
+            boolean exists = platformUsers.stream()
+                .anyMatch(pu -> pu.getEmail() != null && pu.getEmail().equalsIgnoreCase(email));
+            
+            if (!exists) {
+                PlatformUser pu = new PlatformUser();
+                pu.setId("USR-" + au.getId());
+                String fullName = au.getName() != null ? au.getName() : "";
                 String[] parts = fullName.split("\\s+", 2);
-                pu.setFirstName(parts[0]);
+                pu.setFirstName(parts[0].isEmpty() ? "User" : parts[0]);
                 pu.setLastName(parts.length > 1 ? parts[1] : "");
-                pu.setEmail(au.getEmail().toLowerCase());
+                pu.setEmail(email);
                 pu.setPhone("");
                 pu.setCountry("");
                 pu.setDob("");
                 pu.setGender("");
                 pu.setStatus("Active");
                 pu.setRoles("General");
-                pu = userRepository.save(pu);
-            } else {
-                // If ID is not aligned, align it
-                if (!pu.getId().equals(targetId)) {
-                    userRepository.delete(pu);
-                    pu.setId(targetId);
-                    pu = userRepository.save(pu);
-                }
+                userRepository.save(pu);
             }
-            result.add(pu);
         }
         
+        // Return all real customer accounts
+        List<PlatformUser> result = userRepository.findAll().stream()
+            .filter(pu -> pu.getEmail() != null && !pu.getEmail().toLowerCase().endsWith("@reevibes.com"))
+            .collect(Collectors.toList());
+            
         return ResponseEntity.ok(result);
     }
 

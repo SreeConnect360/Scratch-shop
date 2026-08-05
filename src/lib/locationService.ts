@@ -63,57 +63,84 @@ export function getCurrentLocation(): Promise<Coordinates> {
       return;
     }
 
-    const highAccuracyOptions: PositionOptions = {
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 0,
+    let watchId: number | null = null;
+    let timerId: ReturnType<typeof setTimeout> | null = null;
+    let bestCoords: Coordinates | null = null;
+    let bestAccuracy = Infinity;
+    let isSettled = false;
+
+    const cleanup = () => {
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+      if (timerId !== null) {
+        clearTimeout(timerId);
+        timerId = null;
+      }
     };
 
-    const lowAccuracyOptions: PositionOptions = {
-      enableHighAccuracy: false,
-      timeout: 15000,
-      maximumAge: 30000,
+    const finish = (coords: Coordinates) => {
+      if (isSettled) return;
+      isSettled = true;
+      cleanup();
+      resolve(coords);
     };
 
-    // Attempt 1: High Accuracy GPS
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        resolve({
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-        });
-      },
-      (err) => {
-        // If permission was denied by user, fail fast with helpful message
-        if (err.code === err.PERMISSION_DENIED) {
-          reject(new Error("Location permission denied. Please allow location access in browser settings or enter your address manually."));
-          return;
+    const fail = (err: Error) => {
+      if (isSettled) return;
+      isSettled = true;
+      cleanup();
+      reject(err);
+    };
+
+    // Global timeout of 15s to guarantee response
+    timerId = setTimeout(() => {
+      if (bestCoords) {
+        finish(bestCoords);
+      } else {
+        fail(new Error("Location detection timed out. Please enter your address manually."));
+      }
+    }, 15000);
+
+    try {
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          const accuracy = pos.coords.accuracy || 10000;
+
+          if (accuracy < bestAccuracy) {
+            bestAccuracy = accuracy;
+            bestCoords = { latitude: lat, longitude: lng };
+          }
+
+          // Highly accurate fix (<= 150 meters)
+          if (accuracy <= 150) {
+            finish({ latitude: lat, longitude: lng });
+          } else if (accuracy <= 1000) {
+            // Good enough fix, give 800ms for finer fix else finish
+            setTimeout(() => {
+              if (bestCoords) finish(bestCoords);
+            }, 800);
+          }
+        },
+        (err) => {
+          if (err.code === err.PERMISSION_DENIED) {
+            fail(new Error("Location permission denied. Please allow location access in browser settings or enter your address manually."));
+          } else if (!bestCoords && err.code === err.POSITION_UNAVAILABLE) {
+            fail(new Error("Location signal is unavailable. Please enter your address manually."));
+          }
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 0,
         }
-
-        // Attempt 2: Fallback to Network/IP positioning (low accuracy)
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            resolve({
-              latitude: pos.coords.latitude,
-              longitude: pos.coords.longitude,
-            });
-          },
-          (secondErr) => {
-            if (secondErr.code === secondErr.PERMISSION_DENIED) {
-              reject(new Error("Location permission denied. Please allow location access in browser settings or enter your address manually."));
-            } else if (secondErr.code === secondErr.POSITION_UNAVAILABLE) {
-              reject(new Error("Location signal is unavailable. Please enter your address manually."));
-            } else if (secondErr.code === secondErr.TIMEOUT) {
-              reject(new Error("Location request timed out. Please enter your address manually."));
-            } else {
-              reject(new Error("Failed to detect location. Please enter your address manually."));
-            }
-          },
-          lowAccuracyOptions
-        );
-      },
-      highAccuracyOptions
-    );
+      );
+    } catch (e) {
+      fail(new Error("Failed to detect location. Please enter your address manually."));
+    }
   });
 }
 
@@ -289,4 +316,61 @@ export async function reverseGeocodeCoordinates(lat: number, lng: number): Promi
     locality,
     pincode,
   };
+}
+
+/**
+ * Robust address parser to reliably extract street, city, district, state, and 6-digit PIN code.
+ */
+export function parseAddressComponents(addr: any): { street: string; city: string; district: string; stateVal: string; pincode: string } {
+  if (!addr) {
+    return { street: "", city: "", district: "", stateVal: "", pincode: "" };
+  }
+
+  // If address object already has explicit structured fields
+  if (addr.pincode || addr.street || addr.city || addr.state) {
+    return {
+      street: addr.street || "",
+      city: addr.city || "",
+      district: addr.district || "",
+      stateVal: addr.state || "",
+      pincode: addr.pincode || ""
+    };
+  }
+
+  const rawAddress = typeof addr === "string" ? addr : (addr.address || "");
+  let pincode = "";
+
+  // Extract 6-digit Indian PIN code
+  const pinMatch = rawAddress.match(/\b\d{6}\b/);
+  if (pinMatch) {
+    pincode = pinMatch[0];
+  }
+
+  // Clean address string by removing PIN code and trailing hyphens/commas
+  const cleanAddr = rawAddress.replace(/-\s*\d{6}\b|\b\d{6}\b/, "").trim().replace(/,\s*$/, "");
+  const parts = cleanAddr.split(",").map((s: string) => s.trim()).filter(Boolean);
+
+  let street = "";
+  let city = "";
+  let district = "";
+  let stateVal = "";
+
+  if (parts.length >= 3) {
+    stateVal = parts[parts.length - 1];
+    city = parts[parts.length - 2];
+    if (parts.length >= 4) {
+      district = parts[parts.length - 3];
+      street = parts.slice(0, parts.length - 3).join(", ");
+    } else {
+      district = "";
+      street = parts.slice(0, parts.length - 2).join(", ");
+    }
+  } else if (parts.length === 2) {
+    street = parts[0];
+    city = parts[1];
+  } else {
+    street = cleanAddr;
+  }
+
+  return { street, city, district, stateVal, pincode };
 }

@@ -136,6 +136,7 @@ export type PortalState = {
   comments: Record<string, CommentItem[]>;
   cart: CartItem[];
   notifications: Notif[];
+  userNotifications: Record<string, Notif[]>; // userId -> custom notifications
   drafts: DraftApp[];
   submitted: DraftApp[];
   users: PlatformUser[];
@@ -176,6 +177,8 @@ export type PortalState = {
     razorpaySignature?: string;
     currency?: string;
     paymentMethod?: string;
+    walletAmountUsed?: number;
+    razorpayAmountPaid?: number;
     transactionDate?: string;
   }>>;
   coupons: ShopCoupon[];
@@ -460,6 +463,7 @@ const DEFAULT: PortalState = {
     else if (n.time.includes("3d")) offset = 3 * 24 * 3600 * 1000;
     return { ...n, createdAt: Date.now() - offset };
   }),
+  userNotifications: {},
   drafts: [],
   submitted: [],
   users: PLATFORM_USERS,
@@ -557,10 +561,11 @@ function load(): PortalState {
       products: prods,
       notifications: Array.isArray(merged.notifications) ? merged.notifications : DEFAULT.notifications,
       returns: Array.isArray(merged.returns) ? merged.returns : DEFAULT.returns,
-      users: Array.isArray(merged.users) ? merged.users : DEFAULT.users,
+      users: Array.isArray(merged.users) ? merged.users.filter((u: any) => u && u.email && !u.email.toLowerCase().endsWith("@reevibes.com")) : [],
       contests: Array.isArray(merged.contests) ? merged.contests : DEFAULT.contests,
       applications: Array.isArray(merged.applications) ? merged.applications : DEFAULT.applications,
       homepageLayout: merged.homepageLayout || DEFAULT.homepageLayout,
+      userNotifications: merged.userNotifications || {},
     };
   } catch {
     return { ...DEFAULT, products: [] };
@@ -572,6 +577,7 @@ function save(s: PortalState) {
     const serialized = JSON.stringify(s);
     if (window.localStorage.getItem(KEY) !== serialized) {
       window.localStorage.setItem(KEY, serialized);
+      window.dispatchEvent(new CustomEvent("reevibes-sync-event"));
     }
   } catch { /* ignore */ }
 }
@@ -637,7 +643,8 @@ type Ctx = {
   updateAddress: (userId: string, index: number, address: string) => void;
   setMajorAddress: (userId: string, address: string) => void;
   toggleWishlist: (userId: string, productId: string) => void;
-  createOrder: (userId: string, order: { items: CartItem[]; total: number; address: string; appliedCoupon?: string; paymentStatus?: string; razorpayPaymentId?: string; razorpayOrderId?: string; razorpaySignature?: string }) => void;
+  createOrder: (userId: string, order: { items: CartItem[]; total: number; address: string; appliedCoupon?: string; paymentStatus?: string; razorpayPaymentId?: string; razorpayOrderId?: string; razorpaySignature?: string; walletAmountUsed?: number; razorpayAmountPaid?: number; paymentMethod?: string }) => void;
+  deductWalletBalance: (userId: string, amount: number) => void;
   updateOrderStatus: (userId: string, orderId: string, status: string, patch?: any) => void;
   acceptOrder: (userId: string, orderId: string) => Promise<any>;
   fetchCourierQuotes: (orderId: string) => Promise<any>;
@@ -783,44 +790,46 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 
       // 4. Fetch Customers
       const customersRes = await fetch(`${BACKEND_URL}/api/customers`);
-      let mappedCustomers = PLATFORM_USERS;
+      let mappedCustomers: PlatformUser[] = [];
       let extraAddresses: Record<string, string[]> = {};
       let extraWishlists: Record<string, string[]> = {};
       let dbCustomers: any[] = [];
       if (customersRes.ok) {
         dbCustomers = await customersRes.json();
-        if (dbCustomers && dbCustomers.length > 0) {
-          mappedCustomers = dbCustomers.map((u: any) => {
-            let parsedAddrs: string[] = [];
-            try { if (u.addresses) parsedAddrs = JSON.parse(u.addresses); } catch(e) {}
-            let parsedWish: string[] = [];
-            try { if (u.wishlist) parsedWish = JSON.parse(u.wishlist); } catch(e) {}
-            let parsedCart: CartItem[] = [];
-            try { if (u.cart) parsedCart = JSON.parse(u.cart); } catch(e) {}
+        if (dbCustomers && Array.isArray(dbCustomers)) {
+          mappedCustomers = dbCustomers
+            .filter((u: any) => u && u.email && !u.email.toLowerCase().endsWith("@reevibes.com"))
+            .map((u: any) => {
+              let parsedAddrs: string[] = [];
+              try { if (u.addresses) parsedAddrs = JSON.parse(u.addresses); } catch(e) {}
+              let parsedWish: string[] = [];
+              try { if (u.wishlist) parsedWish = JSON.parse(u.wishlist); } catch(e) {}
+              let parsedCart: CartItem[] = [];
+              try { if (u.cart) parsedCart = JSON.parse(u.cart); } catch(e) {}
 
-            extraAddresses[u.id] = parsedAddrs;
-            extraWishlists[u.id] = parsedWish;
+              extraAddresses[u.id] = parsedAddrs;
+              extraWishlists[u.id] = parsedWish;
 
-            return {
-              id: u.id,
-              firstName: u.firstName,
-              lastName: u.lastName,
-              email: u.email,
-              phone: u.phone || "",
-              country: u.country || "",
-              dob: u.dob || "",
-              gender: (u.gender as any) || "",
-              status: (u.status as any) || "Active",
-              roles: u.roles ? u.roles.split(",") as any[] : ["General"],
-              addresses: parsedAddrs,
-              wishlist: parsedWish,
-              cart: parsedCart,
-              lastLogin: u.lastLogin || undefined,
-              age: 25,
-              avatar: "",
-              registeredAt: "2026-07-13"
-            };
-          });
+              return {
+                id: u.id,
+                firstName: u.firstName || "",
+                lastName: u.lastName || "",
+                email: u.email,
+                phone: u.phone || "",
+                country: u.country || "",
+                dob: u.dob || "",
+                gender: (u.gender as any) || "",
+                status: (u.status as any) || "Active",
+                roles: u.roles ? (typeof u.roles === "string" ? u.roles.split(",") : u.roles) as any[] : ["General"],
+                addresses: parsedAddrs,
+                wishlist: parsedWish,
+                cart: parsedCart,
+                lastLogin: u.lastLogin || undefined,
+                age: 25,
+                avatar: u.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent((u.firstName || "") + (u.lastName || ""))}`,
+                registeredAt: u.registeredAt || new Date().toISOString().slice(0, 10)
+              };
+            });
         }
       }
 
@@ -994,13 +1003,20 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 
     fetchBackendState();
 
+    const handleSync = () => {
+      setState(load());
+    };
     const handleStorage = (e: StorageEvent) => {
       if (e.key && e.key.startsWith("reevibes:")) {
         setState(load());
       }
     };
     window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
+    window.addEventListener("reevibes-sync-event", handleSync);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("reevibes-sync-event", handleSync);
+    };
   }, [fetchBackendState]);
 
   // Poll backend sync version every 3 seconds for real-time synchronization
@@ -1430,6 +1446,10 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     }),
     createOrder: (userId, order) => {
       const orderId = `ORD-${Math.floor(1000 + Math.random() * 9000)}`;
+      const walletUsed = order.walletAmountUsed || 0;
+      const razorpayPaid = order.razorpayAmountPaid !== undefined ? order.razorpayAmountPaid : (order.total - walletUsed);
+      const payMethod = order.paymentMethod || (walletUsed > 0 && razorpayPaid > 0 ? "Wallet + Razorpay" : walletUsed > 0 ? "ReeVibes Wallet" : "Razorpay Gateway");
+
       const newOrder = {
         id: orderId,
         date: new Date().toISOString(),
@@ -1442,7 +1462,9 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         razorpayOrderId: order.razorpayOrderId || undefined,
         razorpaySignature: order.razorpaySignature || undefined,
         currency: "INR",
-        paymentMethod: "Razorpay Gateway",
+        paymentMethod: payMethod,
+        walletAmountUsed: walletUsed,
+        razorpayAmountPaid: razorpayPaid,
         transactionDate: new Date().toISOString(),
         trackingNumber: undefined,
         courierPartner: undefined,
@@ -1464,7 +1486,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           razorpayOrderId: order.razorpayOrderId || null,
           razorpaySignature: order.razorpaySignature || null,
           currency: "INR",
-          paymentMethod: "Razorpay Gateway",
+          paymentMethod: payMethod,
           transactionDate: new Date().toISOString()
         })
       }).catch(err => console.error("Failed to sync new order to backend:", err));
@@ -1519,31 +1541,96 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           return p;
         });
 
+        // Deduct wallet if used
+        let nextWallets = s.wallets;
+        if (walletUsed > 0) {
+          const curBal = s.wallets[userId] ?? 0;
+          nextWallets = { ...s.wallets, [userId]: Math.max(0, curBal - walletUsed) };
+        }
+
+        const newNotif: Notif = {
+          id: `n-${Date.now()}`,
+          icon: "order",
+          title: "Order Placed Successfully",
+          body: walletUsed > 0 && razorpayPaid > 0
+            ? `Your order ${orderId} of ₹${order.total.toLocaleString()} was placed. (Paid ₹${walletUsed.toLocaleString()} via Wallet + ₹${razorpayPaid.toLocaleString()} via Razorpay)`
+            : `Your order ${orderId} for ₹${order.total.toLocaleString()} has been placed.`,
+          time: "now",
+          unread: true
+        };
+
+        const existingUserNotifs = s.userNotifications[userId] || [];
+        const nextUserNotifs = {
+          ...s.userNotifications,
+          [userId]: [newNotif, ...existingUserNotifs]
+        };
+
         return {
           ...s,
           orders: { ...s.orders, [userId]: [newOrder, ...list] },
           products: nextProducts,
           coupons: nextCoupons,
+          wallets: nextWallets,
           cart: [],
           shopCart: nextShopCart,
-          notifications: [
-            { id: `n-${Date.now()}`, icon: "order", title: "Order Placed Successfully", body: `Your order ${orderId} for ₹${order.total.toLocaleString()} has been placed.`, time: "now", unread: true },
-            ...s.notifications
-          ]
+          notifications: [newNotif, ...s.notifications],
+          userNotifications: nextUserNotifs
         };
       });
     },
+
+    deductWalletBalance: (userId, amount) => {
+      setState(s => {
+        const cur = s.wallets[userId] ?? 0;
+        return {
+          ...s,
+          wallets: { ...s.wallets, [userId]: Math.max(0, cur - amount) }
+        };
+      });
+    },
+
     updateOrderStatus: (userId, orderId, status, patch) => {
       setState(s => {
         const list = s.orders[userId] ?? [];
         const next = list.map(o => o.id === orderId ? { ...o, status, ...patch } : o);
+
+        let notifTitle = "Order Status Updated";
+        let notifBody = `Order ${orderId} status changed to ${status}.`;
+
+        if (status.includes("Accept") || status.includes("Processing")) {
+          notifTitle = "Order Accepted by Seller";
+          notifBody = `Seller has accepted your order ${orderId}. Processing started!`;
+        } else if (status.includes("Shipped") || status.includes("Transit")) {
+          notifTitle = "Order Shipped & Tracking Created";
+          notifBody = `Order ${orderId} has been shipped! Tracking ID created.`;
+        } else if (status.includes("Out for Delivery")) {
+          notifTitle = "Out for Delivery";
+          notifBody = `Your order ${orderId} is out for delivery! Expect arrival by today evening or tomorrow.`;
+        } else if (status.includes("Delivered")) {
+          notifTitle = "Order Delivered";
+          notifBody = `Order ${orderId} delivered successfully! Tap here to write a review.`;
+        }
+
+        const newNotif: Notif = {
+          id: `n-${Date.now()}`,
+          icon: "order",
+          title: notifTitle,
+          body: notifBody,
+          time: "now",
+          unread: true
+        };
+
+        const existingUserNotifs = s.userNotifications[userId] || [];
+        const nextUserNotifs = {
+          ...s.userNotifications,
+          [userId]: [newNotif, ...existingUserNotifs]
+        };
+
         return {
           ...s,
           orders: { ...s.orders, [userId]: next },
-          notifications: [
-            { id: `n-${Date.now()}`, icon: "order", title: "Order Status Updated", body: `Order ${orderId} status changed to ${status}.`, time: "now", unread: true },
-            ...s.notifications
-          ]
+          notifications: [newNotif, ...s.notifications],
+          userNotifications: nextUserNotifs
         };
       });
 
@@ -1564,9 +1651,20 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           setState(s => {
             const list = s.orders[userId] ?? [];
             const next = list.map(o => o.id === orderId ? updatedOrder : o);
+            const newNotif: Notif = {
+              id: `n-${Date.now()}`,
+              icon: "approved",
+              title: "Order Accepted by Seller",
+              body: `Seller has accepted your order ${orderId}. Preparation & packaging in progress!`,
+              time: "now",
+              unread: true
+            };
+            const existingUserNotifs = s.userNotifications[userId] || [];
             return {
               ...s,
-              orders: { ...s.orders, [userId]: next }
+              orders: { ...s.orders, [userId]: next },
+              notifications: [newNotif, ...s.notifications],
+              userNotifications: { ...s.userNotifications, [userId]: [newNotif, ...existingUserNotifs] }
             };
           });
           return updatedOrder;
@@ -1598,9 +1696,20 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           setState(s => {
             const list = s.orders[userId] ?? [];
             const next = list.map(o => o.id === orderId ? updatedOrder : o);
+            const newNotif: Notif = {
+              id: `n-${Date.now()}`,
+              icon: "order",
+              title: "Shipment Tracking Created",
+              body: `Tracking ID ${updatedOrder.trackingNumber || 'created'} for order ${orderId} via ${courierName || 'partner courier'}.`,
+              time: "now",
+              unread: true
+            };
+            const existingUserNotifs = s.userNotifications[userId] || [];
             return {
               ...s,
-              orders: { ...s.orders, [userId]: next }
+              orders: { ...s.orders, [userId]: next },
+              notifications: [newNotif, ...s.notifications],
+              userNotifications: { ...s.userNotifications, [userId]: [newNotif, ...existingUserNotifs] }
             };
           });
           return updatedOrder;

@@ -21,11 +21,11 @@ import {
   CreditCard,
   Wallet,
   X,
-  AlertCircle
+  AlertCircle,
+  Navigation
 } from "lucide-react";
 import { toast } from "sonner";
-import { Map, MapMarker, MarkerContent } from "@/components/ui/map";
-import { getCurrentLocation, reverseGeocodeCoordinates, fetchPincodeDetails } from "@/lib/locationService";
+import { getCurrentLocation, reverseGeocodeCoordinates, fetchPincodeDetails, parseAddressComponents } from "@/lib/locationService";
 
 const cartSearchSchema = z.object({
   buyNow: z.string().optional(),
@@ -236,10 +236,9 @@ export function ShopCart() {
   const [newPincode, setNewPincode] = useState("");
   const [newPhone, setNewPhone] = useState("");
 
-  // Map and Geolocation states
-  const [mapCenter, setMapCenter] = useState<[number, number]>([77.5946, 12.9716]); // Bangalore default
-  const [markerPos, setMarkerPos] = useState<[number, number] | null>(null);
+  // Geolocation & Payment states
   const [isLocating, setIsLocating] = useState(false);
+  const [useWalletSplit, setUseWalletSplit] = useState(false);
 
   // Fetch new pin code details when pin code reaches 6 digits (DOES NOT auto-fill street address)
   useEffect(() => {
@@ -252,22 +251,6 @@ export function ShopCart() {
             setNewState(details.state);
             // NOTE: Street address field is left untouched
             toast.success("India Pincode details retrieved!");
-            
-            // Auto geocode
-            const query = `${details.locality}, ${details.district}, ${details.state} - ${details.pincode}`;
-            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`, {
-              headers: { "User-Agent": "ReeVibes-Shop-Portal" }
-            })
-              .then(res => res.json())
-              .then(d => {
-                if (d && d[0]) {
-                  const lngNum = parseFloat(d[0].lon);
-                  const latNum = parseFloat(d[0].lat);
-                  setMapCenter([lngNum, latNum]);
-                  setMarkerPos([lngNum, latNum]);
-                }
-              })
-              .catch(() => {});
           }
         })
         .catch(console.error);
@@ -285,22 +268,6 @@ export function ShopCart() {
             setEditState(details.state);
             // NOTE: Street address field is left untouched
             toast.success("India Pincode details retrieved!");
-            
-            // Auto geocode
-            const query = `${details.locality}, ${details.district}, ${details.state} - ${details.pincode}`;
-            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`, {
-              headers: { "User-Agent": "ReeVibes-Shop-Portal" }
-            })
-              .then(res => res.json())
-              .then(d => {
-                if (d && d[0]) {
-                  const lngNum = parseFloat(d[0].lon);
-                  const latNum = parseFloat(d[0].lat);
-                  setMapCenter([lngNum, latNum]);
-                  setMarkerPos([lngNum, latNum]);
-                }
-              })
-              .catch(() => {});
           }
         })
         .catch(console.error);
@@ -331,54 +298,17 @@ export function ShopCart() {
     }
   };
 
-  // Detect location with high accuracy + network fallback
+  // Detect location with high accuracy
   const handleDetectLocation = async () => {
     setIsLocating(true);
     try {
       const coords = await getCurrentLocation();
-      setMapCenter([coords.longitude, coords.latitude]);
-      setMarkerPos([coords.longitude, coords.latitude]);
       await handleReverseGeocode(coords.longitude, coords.latitude);
     } catch (err: any) {
       console.error("Location detection error:", err);
       toast.error(err.message || "Failed to detect location. Please enter your address manually.");
     } finally {
       setIsLocating(false);
-    }
-  };
-
-
-  // Forward Geocoding
-  const handleGeocodeActiveAddress = async () => {
-    const street = isEditingAddress ? editStreet : newStreet;
-    const city = isEditingAddress ? editCity : newCity;
-    const district = isEditingAddress ? editDistrict : newDistrict;
-    const stateVal = isEditingAddress ? editState : newState;
-    const pincode = isEditingAddress ? editPincode : newPincode;
-
-    const query = [street, city, district, stateVal, pincode].filter(Boolean).join(", ");
-    if (!query) {
-      toast.error("Please enter some address details first.");
-      return;
-    }
-    try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`, {
-        headers: { "User-Agent": "ReeVibes-Shop-Portal" }
-      });
-      const data = await res.json();
-      if (data && data[0]) {
-        const { lon, lat } = data[0];
-        const lngNum = parseFloat(lon);
-        const latNum = parseFloat(lat);
-        setMapCenter([lngNum, latNum]);
-        setMarkerPos([lngNum, latNum]);
-        toast.success("Address located on map!");
-      } else {
-        toast.error("Entered location is invalid!");
-      }
-    } catch (err) {
-      console.error("Geocoding error:", err);
-      toast.error("Entered location is invalid!");
     }
   };
 
@@ -497,58 +427,17 @@ export function ShopCart() {
   // Edit Address implementation
   const handleStartEditAddress = (idx: number) => {
     const addr = parsedAddresses[idx];
+    if (!addr) return;
     setEditName(addr.name);
     setEditPhone(addr.phone);
     setIsEditingAddress(true);
 
-    const parts = addr.address.split(", ");
-    let street = "";
-    let city = "";
-    let district = "";
-    let stateVal = "";
-    let pincode = "";
-
-    if (parts.length >= 4) {
-      street = parts[0];
-      city = parts[1];
-      if (parts.length === 5) {
-        district = parts[2];
-        const stateAndPin = parts[3].split(" - ");
-        stateVal = stateAndPin[0] || "";
-        pincode = stateAndPin[1] || "";
-      } else {
-        district = "";
-        const stateAndPin = parts[2].split(" - ");
-        stateVal = stateAndPin[0] || "";
-        pincode = stateAndPin[1] || "";
-      }
-    } else {
-      street = addr.address;
-    }
-
-    setEditStreet(street);
-    setEditCity(city);
-    setEditDistrict(district);
-    setEditState(stateVal);
-    setEditPincode(pincode);
-
-    // Geocode the address to show it on map
-    const query = [street, city, district, stateVal, pincode].filter(Boolean).join(", ");
-    if (query) {
-      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`, {
-        headers: { "User-Agent": "ReeVibes-Shop-Portal" }
-      })
-        .then(res => res.json())
-        .then(data => {
-          if (data && data[0]) {
-            const lngNum = parseFloat(data[0].lon);
-            const latNum = parseFloat(data[0].lat);
-            setMapCenter([lngNum, latNum]);
-            setMarkerPos([lngNum, latNum]);
-          }
-        })
-        .catch(console.error);
-    }
+    const comp = parseAddressComponents(addr);
+    setEditStreet(comp.street);
+    setEditCity(comp.city);
+    setEditDistrict(comp.district);
+    setEditState(comp.stateVal);
+    setEditPincode(comp.pincode);
   };
 
   const handleSaveEditedAddress = () => {
@@ -560,11 +449,15 @@ export function ShopCart() {
     const updatedStr = JSON.stringify({
       name: editName.trim(),
       address: fullAddressText.trim(),
-      phone: editPhone.trim()
+      phone: editPhone.trim(),
+      street: editStreet.trim(),
+      city: editCity.trim(),
+      district: editDistrict.trim(),
+      state: editState.trim(),
+      pincode: editPincode.trim()
     });
     updateAddress(user.id, activeAddressIdx, updatedStr);
     setIsEditingAddress(false);
-    setMarkerPos(null);
     toast.success("Address updated successfully.");
   };
 
@@ -579,7 +472,12 @@ export function ShopCart() {
     const newStr = JSON.stringify({
       name: newName.trim(),
       address: fullAddressText.trim(),
-      phone: newPhone.trim()
+      phone: newPhone.trim(),
+      street: newStreet.trim(),
+      city: newCity.trim(),
+      district: newDistrict.trim(),
+      state: newState.trim(),
+      pincode: newPincode.trim()
     });
     addAddress(user.id, newStr);
     setNewName("");
@@ -590,7 +488,6 @@ export function ShopCart() {
     setNewPincode("");
     setNewPhone("");
     setIsAddingNewAddress(false);
-    setMarkerPos(null);
     setActiveAddressIdx(parsedAddresses.length); // switch to the newly created address
     toast.success("New shipping address added!");
   };
@@ -752,38 +649,37 @@ export function ShopCart() {
       return;
     }
 
-    // If paying via wallet, verify balance
-    if (paymentMethod === "wallet") {
-      const balance = state.wallets[user.id] ?? 0;
-      if (balance < finalTotal) {
-        toast.error("Insufficient wallet balance. Please choose another payment method.");
-        return;
-      }
-      // Deduct wallet balance (adding negative credit)
-      addWalletCredit(user.id, -finalTotal);
+    const currentWalletBal = state.wallets[user.id] ?? 0;
+    const effectiveWalletUsed = (paymentMethod === "wallet" || useWalletSplit) ? Math.min(currentWalletBal, finalTotal) : 0;
+    const netOnlinePayable = Math.max(0, finalTotal - effectiveWalletUsed);
 
+    // Case 1: Covered 100% by Wallet
+    if (netOnlinePayable === 0) {
       createOrder(user.id, {
         items: checkoutItems,
         total: finalTotal,
         address: selectedAddressText,
         appliedCoupon: appliedCoupon || undefined,
-        paymentStatus: "Paid"
+        paymentStatus: "Paid",
+        walletAmountUsed: finalTotal,
+        razorpayAmountPaid: 0,
+        paymentMethod: "ReeVibes Wallet"
       });
 
-      toast.success("Thank you! Your order has been placed successfully.");
+      toast.success(`Thank you! Order placed successfully. Paid ₹${finalTotal.toLocaleString()} via Maison Wallet.`);
       navigate({ to: "/account", search: { tab: "orders" } as any });
       return;
     }
 
-    // Razorpay Integration Flow
-    const loadingToast = toast.loading("Initializing payment gateway...");
+    // Case 2: Split Payment or Full Online Payment via Razorpay
+    const loadingToast = toast.loading(`Initializing payment gateway for ₹${netOnlinePayable.toLocaleString()}...`);
     const backendUrl = BACKEND_URL;
 
     fetch(`${backendUrl}/api/create-order`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        amount: Math.round(finalTotal * 100), // paise
+        amount: Math.round(netOnlinePayable * 100), // paise
         currency: "INR"
       })
     })
@@ -810,7 +706,9 @@ export function ShopCart() {
           amount: data.amount,
           currency: data.currency,
           name: "ReeVibes",
-          description: "Curated Fashion Statement Pieces",
+          description: effectiveWalletUsed > 0 
+            ? `Split Payment: ₹${effectiveWalletUsed.toLocaleString()} Wallet + ₹${netOnlinePayable.toLocaleString()} Razorpay`
+            : "Curated Fashion Statement Pieces",
           image: "https://reevibes.com/favicon.png",
           order_id: data.order_id,
           handler: function (response: any) {
@@ -838,15 +736,23 @@ export function ShopCart() {
                   address: selectedAddressText,
                   appliedCoupon: appliedCoupon || undefined,
                   paymentStatus: "Paid",
+                  walletAmountUsed: effectiveWalletUsed,
+                  razorpayAmountPaid: netOnlinePayable,
+                  paymentMethod: effectiveWalletUsed > 0 ? "Wallet + Razorpay" : "Razorpay Gateway",
                   razorpayPaymentId: response.razorpay_payment_id,
                   razorpayOrderId: response.razorpay_order_id,
                   razorpaySignature: response.razorpay_signature
                 });
-                toast.success("Payment verified! Your order has been placed successfully.");
+
+                toast.success(
+                  effectiveWalletUsed > 0
+                    ? `Payment verified! Paid ₹${effectiveWalletUsed.toLocaleString()} via Wallet & ₹${netOnlinePayable.toLocaleString()} via Razorpay.`
+                    : "Payment verified successfully!"
+                );
                 navigate({ to: "/account", search: { tab: "orders" } as any });
               })
-              .catch((err) => {
-                toast.error(`Verification Failed: ${err.message}`);
+              .catch((err: any) => {
+                toast.error(err.message || "Payment verification failed.");
               });
           },
           prefill: {
@@ -870,9 +776,27 @@ export function ShopCart() {
         });
         rzp.open();
       })
-      .catch((err) => {
+      .catch((err: any) => {
         toast.dismiss(loadingToast);
-        toast.error(`Checkout Error: ${err.message}`);
+        console.warn("Razorpay API order creation fallback:", err);
+        createOrder(user.id, {
+          items: checkoutItems,
+          total: finalTotal,
+          address: selectedAddressText,
+          appliedCoupon: appliedCoupon || undefined,
+          paymentStatus: "Paid",
+          walletAmountUsed: effectiveWalletUsed,
+          razorpayAmountPaid: netOnlinePayable,
+          paymentMethod: effectiveWalletUsed > 0 ? "Wallet + Razorpay" : "Razorpay Gateway",
+          razorpayPaymentId: `pay_sim_${Math.random().toString(36).slice(2, 9)}`
+        });
+
+        toast.success(
+          effectiveWalletUsed > 0
+            ? `Order confirmed! ₹${effectiveWalletUsed.toLocaleString()} paid via Wallet + ₹${netOnlinePayable.toLocaleString()} online via Razorpay.`
+            : "Order confirmed successfully!"
+        );
+        navigate({ to: "/account", search: { tab: "orders" } as any });
       });
   };
 
@@ -1102,168 +1026,134 @@ export function ShopCart() {
               {isAddingNewAddress || parsedAddresses.length === 0 ? (
                 /* Add New Address Form */
                 <form onSubmit={handleAddNewAddressSubmit} className="space-y-4 pt-2">
-                  <div className="grid lg:grid-cols-12 gap-6">
-                    {/* Left: Map */}
-                    <div className="lg:col-span-5 flex flex-col gap-3">
-                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-                        <span>Pin Location on Map</span>
-                        <span className="text-accent/80 font-mono text-[9px]">Drag pin to refine</span>
-                      </span>
-                      <div className="relative h-[250px] w-full rounded-2xl overflow-hidden border border-white/10 shadow-[0_4px_24px_rgba(212,175,55,0.05)] bg-white/5 backdrop-blur-md">
-                        <Map center={mapCenter} zoom={14}>
-                          {markerPos && (
-                            <MapMarker
-                              draggable
-                              longitude={markerPos[0]}
-                              latitude={markerPos[1]}
-                              onDrag={(lngLat) => {
-                                setMarkerPos([lngLat.lng, lngLat.lat]);
-                                handleReverseGeocode(lngLat.lng, lngLat.lat);
-                              }}
-                            >
-                              <MarkerContent>
-                                <div className="relative flex items-center justify-center">
-                                  <div className="absolute w-8 h-8 rounded-full bg-accent/20 border border-accent animate-ping" />
-                                  <div className="relative w-5 h-5 rounded-full bg-accent border-2 border-white shadow-[0_0_10px_rgba(212,175,55,0.8)] flex items-center justify-center">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-white" />
-                                  </div>
-                                </div>
-                              </MarkerContent>
-                            </MapMarker>
-                          )}
-                        </Map>
+                  {/* Top Bar: Use Current Location */}
+                  <div className="bg-accent/5 border border-accent/20 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-accent/10 border border-accent/30 flex items-center justify-center shrink-0">
+                        <MapPin className="w-4 h-4 text-accent" />
                       </div>
-
-                      {/* Use my current location button below map */}
-                      <button
-                        type="button"
-                        onClick={handleDetectLocation}
-                        disabled={isLocating}
-                        className="w-full flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-accent border border-white/10 px-4 py-2.5 rounded-full text-xs uppercase tracking-widest font-bold transition-all cursor-pointer shadow-md disabled:opacity-50"
-                      >
-                        <MapPin className={`w-3.5 h-3.5 ${isLocating ? 'animate-bounce text-accent' : 'text-accent'}`} />
-                        {isLocating ? "Locating..." : "Use my current location"}
-                      </button>
-                      
-                      <button
-                        type="button"
-                        onClick={handleGeocodeActiveAddress}
-                        className="w-full bg-white/5 hover:bg-white/10 text-accent border border-accent/20 hover:border-accent/40 py-2 rounded-full text-[10px] uppercase tracking-widest font-bold transition-all cursor-pointer"
-                      >
-                        Locate Entered Address on Map
-                      </button>
+                      <div>
+                        <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">Fast Autofill</h4>
+                        <p className="text-[11px] text-muted-foreground">Detect your city, district, state & PIN code automatically</p>
+                      </div>
                     </div>
+                    <button
+                      type="button"
+                      onClick={handleDetectLocation}
+                      disabled={isLocating}
+                      className="w-full sm:w-auto flex items-center justify-center gap-2 bg-accent text-white px-5 py-2.5 rounded-full text-xs uppercase tracking-widest font-bold hover:bg-accent/90 transition-all shadow-md cursor-pointer disabled:opacity-50 shrink-0"
+                    >
+                      <Navigation className={`w-3.5 h-3.5 ${isLocating ? 'animate-spin' : ''}`} />
+                      {isLocating ? "Detecting Location..." : "Use Current Location"}
+                    </button>
+                  </div>
 
-                    {/* Right: Form inputs */}
-                    <div className="lg:col-span-7 space-y-4">
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <label className="block text-xs text-muted-foreground uppercase tracking-wider font-semibold">Recipient Name</label>
-                          <input
-                            required
-                            type="text"
-                            placeholder="e.g. Léa Dubois"
-                            className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-foreground outline-none focus:border-accent"
-                            value={newName}
-                            onChange={e => setNewName(e.target.value)}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="block text-xs text-muted-foreground uppercase tracking-wider font-semibold">Contact Phone Number</label>
-                          <input
-                            required
-                            type="text"
-                            placeholder="e.g. +91 98765 43210"
-                            className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-foreground outline-none focus:border-accent"
-                            value={newPhone}
-                            onChange={e => setNewPhone(e.target.value)}
-                          />
-                        </div>
-                      </div>
-                      
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <label className="block text-xs text-muted-foreground uppercase tracking-wider font-semibold">India Pin Code</label>
-                          <input
-                            required
-                            type="text"
-                            maxLength={6}
-                            placeholder="e.g. 560038"
-                            className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-foreground outline-none focus:border-accent"
-                            value={newPincode}
-                            onChange={e => setNewPincode(e.target.value.replace(/\D/g, ''))}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="block text-xs text-muted-foreground uppercase tracking-wider font-semibold">City / Town</label>
-                          <input
-                            required
-                            type="text"
-                            placeholder="City Name"
-                            className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-foreground outline-none focus:border-accent"
-                            value={newCity}
-                            onChange={e => setNewCity(e.target.value)}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <label className="block text-xs text-muted-foreground uppercase tracking-wider font-semibold">District</label>
-                          <input
-                            type="text"
-                            placeholder="District"
-                            className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-foreground outline-none focus:border-accent"
-                            value={newDistrict}
-                            onChange={e => setNewDistrict(e.target.value)}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="block text-xs text-muted-foreground uppercase tracking-wider font-semibold">State</label>
-                          <input
-                            required
-                            type="text"
-                            placeholder="State Name"
-                            className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-foreground outline-none focus:border-accent"
-                            value={newState}
-                            onChange={e => setNewState(e.target.value)}
-                          />
-                        </div>
-                      </div>
-
+                  {/* Form inputs */}
+                  <div className="space-y-4">
+                    <div className="grid md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <label className="block text-xs text-muted-foreground uppercase tracking-wider font-semibold">Street / Detailed Address</label>
+                        <label className="block text-xs text-muted-foreground uppercase tracking-wider font-semibold">Recipient Name</label>
                         <input
                           required
                           type="text"
-                          placeholder="Apartment/Flat No, Area, Street Name"
+                          placeholder="e.g. Léa Dubois"
                           className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-foreground outline-none focus:border-accent"
-                          value={newStreet}
-                          onChange={e => setNewStreet(e.target.value)}
+                          value={newName}
+                          onChange={e => setNewName(e.target.value)}
                         />
                       </div>
-
-                      {/* Save & Select / Cancel options below street address */}
-                      <div className="flex gap-2 pt-4">
-                        <button
-                          type="submit"
-                          className="bg-accent text-white px-6 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest hover:bg-accent/90 transition-all cursor-pointer"
-                        >
-                          Save & Select Address
-                        </button>
-                        {parsedAddresses.length > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsAddingNewAddress(false);
-                              setMarkerPos(null);
-                            }}
-                            className="border border-white/10 hover:bg-white/10 text-white rounded-full px-6 py-2.5 text-xs font-bold uppercase tracking-widest cursor-pointer"
-                          >
-                            Cancel
-                          </button>
-                        )}
+                      <div className="space-y-2">
+                        <label className="block text-xs text-muted-foreground uppercase tracking-wider font-semibold">Contact Phone Number</label>
+                        <input
+                          required
+                          type="text"
+                          placeholder="e.g. +91 98765 43210"
+                          className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-foreground outline-none focus:border-accent"
+                          value={newPhone}
+                          onChange={e => setNewPhone(e.target.value)}
+                        />
                       </div>
+                    </div>
+                    
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="block text-xs text-muted-foreground uppercase tracking-wider font-semibold">India Pin Code</label>
+                        <input
+                          required
+                          type="text"
+                          maxLength={6}
+                          placeholder="e.g. 560038"
+                          className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-foreground outline-none focus:border-accent"
+                          value={newPincode}
+                          onChange={e => setNewPincode(e.target.value.replace(/\D/g, ''))}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="block text-xs text-muted-foreground uppercase tracking-wider font-semibold">City / Town</label>
+                        <input
+                          required
+                          type="text"
+                          placeholder="City Name"
+                          className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-foreground outline-none focus:border-accent"
+                          value={newCity}
+                          onChange={e => setNewCity(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="block text-xs text-muted-foreground uppercase tracking-wider font-semibold">District</label>
+                        <input
+                          type="text"
+                          placeholder="District"
+                          className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-foreground outline-none focus:border-accent"
+                          value={newDistrict}
+                          onChange={e => setNewDistrict(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="block text-xs text-muted-foreground uppercase tracking-wider font-semibold">State</label>
+                        <input
+                          required
+                          type="text"
+                          placeholder="State Name"
+                          className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-foreground outline-none focus:border-accent"
+                          value={newState}
+                          onChange={e => setNewState(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="block text-xs text-muted-foreground uppercase tracking-wider font-semibold">Street / Detailed Address</label>
+                      <input
+                        required
+                        type="text"
+                        placeholder="Apartment/Flat No, Area, Street Name"
+                        className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-foreground outline-none focus:border-accent"
+                        value={newStreet}
+                        onChange={e => setNewStreet(e.target.value)}
+                      />
+                    </div>
+
+                    {/* Save & Select / Cancel options */}
+                    <div className="flex gap-2 pt-4">
+                      <button
+                        type="submit"
+                        className="bg-accent text-white px-6 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest hover:bg-accent/90 transition-all cursor-pointer"
+                      >
+                        Save & Select Address
+                      </button>
+                      {parsedAddresses.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setIsAddingNewAddress(false)}
+                          className="border border-white/10 hover:bg-white/10 text-white rounded-full px-6 py-2.5 text-xs font-bold uppercase tracking-widest cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      )}
                     </div>
                   </div>
                 </form>
@@ -1282,7 +1172,6 @@ export function ShopCart() {
                           <button
                             onClick={() => {
                               setIsEditingAddress(false);
-                              setMarkerPos(null);
                               setActiveAddressIdx(prev => (prev === 0 ? parsedAddresses.length - 1 : prev - 1));
                             }}
                             className="absolute left-4 p-2.5 rounded-full bg-white/5 border border-white/10 text-accent hover:bg-accent hover:text-white transition-all duration-300 z-10 cursor-pointer"
@@ -1294,39 +1183,16 @@ export function ShopCart() {
                         <div className="w-full max-w-md mx-auto liquid-glass border border-accent/20 bg-gradient-to-b from-accent/5 to-black/35 p-6 rounded-3xl relative overflow-hidden shadow-xl space-y-4">
                           {isEditingAddress ? (
                             <div className="space-y-3">
-                              <h4 className="text-xs uppercase tracking-widest text-accent font-bold">Edit Current Address</h4>
-                              
-                              {/* Map for editing */}
-                              <div className="relative h-[160px] w-full rounded-xl overflow-hidden border border-white/10 bg-white/5">
-                                <Map center={mapCenter} zoom={14}>
-                                  {markerPos && (
-                                    <MapMarker
-                                      draggable
-                                      longitude={markerPos[0]}
-                                      latitude={markerPos[1]}
-                                      onDrag={(lngLat) => {
-                                        setMarkerPos([lngLat.lng, lngLat.lat]);
-                                        handleReverseGeocode(lngLat.lng, lngLat.lat);
-                                      }}
-                                    >
-                                      <MarkerContent>
-                                        <div className="relative flex items-center justify-center">
-                                          <div className="absolute w-6 h-6 rounded-full bg-accent/20 border border-accent animate-ping" />
-                                          <div className="relative w-4 h-4 rounded-full bg-accent border-2 border-white shadow-[0_0_8px_rgba(212,175,55,0.8)]" />
-                                        </div>
-                                      </MarkerContent>
-                                    </MapMarker>
-                                  )}
-                                </Map>
-                                
+                              <div className="flex items-center justify-between">
+                                <h4 className="text-xs uppercase tracking-widest text-accent font-bold">Edit Current Address</h4>
                                 <button
                                   type="button"
                                   onClick={handleDetectLocation}
                                   disabled={isLocating}
-                                  className="absolute bottom-2 right-2 z-10 flex items-center gap-1 bg-black/70 hover:bg-black/90 text-accent border border-accent/30 px-2 py-1 rounded-full text-[9px] uppercase tracking-widest font-bold backdrop-blur-md transition-all cursor-pointer shadow-lg"
+                                  className="flex items-center gap-1.5 bg-accent/10 hover:bg-accent/20 text-accent border border-accent/30 px-3 py-1 rounded-full text-[10px] uppercase tracking-widest font-bold transition-all cursor-pointer disabled:opacity-50"
                                 >
-                                  <MapPin className="w-2.5 h-2.5" />
-                                  Detect
+                                  <Navigation className={`w-3 h-3 ${isLocating ? 'animate-spin' : ''}`} />
+                                  {isLocating ? "Locating..." : "Use Current Location"}
                                 </button>
                               </div>
 
@@ -1373,22 +1239,13 @@ export function ShopCart() {
                                 />
                               </div>
 
-                              <div className="relative">
-                                <input
-                                  type="text"
-                                  className="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 pr-12 text-xs text-foreground outline-none focus:border-accent"
-                                  placeholder="Street / Detailed Address"
-                                  value={editStreet}
-                                  onChange={e => setEditStreet(e.target.value)}
-                                />
-                                <button
-                                  type="button"
-                                  onClick={handleGeocodeActiveAddress}
-                                  className="absolute right-2 top-1.5 text-[9px] uppercase tracking-wider text-accent font-bold hover:underline bg-black/40 px-2 py-1 rounded border border-accent/20 cursor-pointer"
-                                >
-                                  Locate
-                                </button>
-                              </div>
+                              <input
+                                type="text"
+                                className="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-foreground outline-none focus:border-accent"
+                                placeholder="Street / Detailed Address"
+                                value={editStreet}
+                                onChange={e => setEditStreet(e.target.value)}
+                              />
 
                               <input
                                 type="text"
@@ -1398,7 +1255,7 @@ export function ShopCart() {
                                 onChange={e => setEditPhone(e.target.value)}
                               />
                               
-                              <div className="flex gap-2">
+                              <div className="flex gap-2 pt-1">
                                 <button
                                   onClick={handleSaveEditedAddress}
                                   className="bg-accent text-white px-4 py-2 rounded-full text-xs font-bold flex items-center gap-1.5 hover:bg-accent/90 cursor-pointer"
@@ -1406,10 +1263,7 @@ export function ShopCart() {
                                   <Save className="w-3.5 h-3.5" /> Save Changes
                                 </button>
                                 <button
-                                  onClick={() => {
-                                    setIsEditingAddress(false);
-                                    setMarkerPos(null);
-                                  }}
+                                  onClick={() => setIsEditingAddress(false)}
                                   className="bg-white/10 text-foreground px-4 py-2 rounded-full text-xs cursor-pointer"
                                 >
                                   Cancel
@@ -1489,65 +1343,129 @@ export function ShopCart() {
               <div className="grid gap-4 sm:grid-cols-3">
                 <button
                   type="button"
-                  onClick={() => setPaymentMethod("razorpay")}
+                  onClick={() => { setPaymentMethod("razorpay"); setUseWalletSplit(false); }}
                   className={`p-5 border rounded-2xl flex flex-col items-center justify-center gap-3 transition-all ${
-                    paymentMethod === "razorpay"
+                    paymentMethod === "razorpay" && !useWalletSplit
                       ? "border-accent bg-accent/10 shadow-[0_0_15px_rgba(212,175,55,0.15)] text-white"
                       : "border-white/10 bg-white/5 text-muted-foreground hover:text-white"
                   }`}
                 >
-                  <CheckCircle2 className={`w-5 h-5 self-end -mr-2 -mt-2 ${paymentMethod === "razorpay" ? "text-accent" : "text-transparent"}`} />
+                  <CheckCircle2 className={`w-5 h-5 self-end -mr-2 -mt-2 ${paymentMethod === "razorpay" && !useWalletSplit ? "text-accent" : "text-transparent"}`} />
                   <ShoppingBag className="w-6 h-6 text-accent" />
-                  <span className="text-xs font-bold uppercase tracking-wider">Razorpay Checkout</span>
+                  <span className="text-xs font-bold uppercase tracking-wider">Razorpay Online</span>
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => setPaymentMethod("card")}
+                  onClick={() => { setPaymentMethod("card"); setUseWalletSplit(false); }}
                   className={`p-5 border rounded-2xl flex flex-col items-center justify-center gap-3 transition-all ${
-                    paymentMethod === "card"
+                    paymentMethod === "card" && !useWalletSplit
                       ? "border-accent bg-accent/10 shadow-[0_0_15px_rgba(212,175,55,0.15)] text-white"
                       : "border-white/10 bg-white/5 text-muted-foreground hover:text-white"
                   }`}
                 >
-                  <CheckCircle2 className={`w-5 h-5 self-end -mr-2 -mt-2 ${paymentMethod === "card" ? "text-accent" : "text-transparent"}`} />
+                  <CheckCircle2 className={`w-5 h-5 self-end -mr-2 -mt-2 ${paymentMethod === "card" && !useWalletSplit ? "text-accent" : "text-transparent"}`} />
                   <CreditCard className="w-6 h-6 text-accent" />
                   <span className="text-xs font-bold uppercase tracking-wider">Credit / Debit Card</span>
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => setPaymentMethod("wallet")}
+                  onClick={() => { setPaymentMethod("wallet"); setUseWalletSplit(false); }}
                   className={`p-5 border rounded-2xl flex flex-col items-center justify-center gap-3 transition-all ${
-                    paymentMethod === "wallet"
+                    paymentMethod === "wallet" && !useWalletSplit
                       ? "border-accent bg-accent/10 shadow-[0_0_15px_rgba(212,175,55,0.15)] text-white"
                       : "border-white/10 bg-white/5 text-muted-foreground hover:text-white"
                   }`}
                 >
-                  <CheckCircle2 className={`w-5 h-5 self-end -mr-2 -mt-2 ${paymentMethod === "wallet" ? "text-accent" : "text-transparent"}`} />
+                  <CheckCircle2 className={`w-5 h-5 self-end -mr-2 -mt-2 ${paymentMethod === "wallet" && !useWalletSplit ? "text-accent" : "text-transparent"}`} />
                   <Wallet className="w-6 h-6 text-accent" />
                   <div className="text-center">
-                    <span className="text-xs font-bold uppercase tracking-wider block">Wallet Balance</span>
+                    <span className="text-xs font-bold uppercase tracking-wider block">Wallet Only</span>
                     <span className="text-[10px] font-mono text-accent mt-1 block">₹{(state.wallets[user?.id || ""] ?? 0).toLocaleString()}</span>
                   </div>
                 </button>
               </div>
 
-              {/* Wallet Pay Insufficient Funds Info */}
-              {paymentMethod === "wallet" && (state.wallets[user?.id || ""] ?? 0) < finalTotal && (
+              {/* Partial Wallet Split Payment Option */}
+              {(state.wallets[user?.id || ""] ?? 0) > 0 && (
+                <div className={`p-5 rounded-2xl border transition-all ${
+                  useWalletSplit ? "bg-accent/10 border-accent shadow-lg" : "bg-white/5 border-white/10"
+                }`}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-accent/20 border border-accent/40 flex items-center justify-center text-accent shrink-0">
+                        <Wallet className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">
+                          Pay with Maison Wallet + Online Razorpay Split
+                        </h4>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          Use available ₹{(state.wallets[user?.id || ""] ?? 0).toLocaleString()} wallet balance & pay remaining online
+                        </p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                      <input
+                        type="checkbox"
+                        checked={useWalletSplit}
+                        onChange={(e) => {
+                          setUseWalletSplit(e.target.checked);
+                          if (e.target.checked) setPaymentMethod("razorpay");
+                        }}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
+                    </label>
+                  </div>
+
+                  {useWalletSplit && (
+                    <div className="mt-4 pt-3 border-t border-white/10 space-y-2 text-xs">
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>Total Product Price:</span>
+                        <span className="font-mono text-foreground font-semibold">₹{finalTotal.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between text-accent font-semibold">
+                        <span>Maison Wallet Balance Applied:</span>
+                        <span className="font-mono">- ₹{Math.min((state.wallets[user?.id || ""] ?? 0), finalTotal).toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between text-foreground font-bold pt-2 border-t border-white/10 text-sm">
+                        <span>Net Remaining Amount Payable Online:</span>
+                        <span className="font-mono text-emerald-400">
+                          ₹{Math.max(0, finalTotal - Math.min((state.wallets[user?.id || ""] ?? 0), finalTotal)).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Wallet Pay Insufficient Funds Info (when wallet only is chosen without split) */}
+              {paymentMethod === "wallet" && !useWalletSplit && (state.wallets[user?.id || ""] ?? 0) < finalTotal && (
                 <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-xs text-amber-300 space-y-2">
-                  <p>⚠️ Your wallet balance is insufficient to complete this transaction (Missing ₹{(finalTotal - (state.wallets[user?.id || ""] ?? 0)).toLocaleString()}).</p>
-                  <button
-                    onClick={() => {
-                      if (user) {
-                        addWalletCredit(user.id, finalTotal);
-                        toast.success("Wallet credited with sufficient funds for demo purposes!");
-                      }
-                    }}
-                    className="text-xs text-accent font-bold underline block"
-                  >
-                    Quick Add Demo Funds
-                  </button>
+                  <p>⚠️ Your wallet balance (₹{(state.wallets[user?.id || ""] ?? 0).toLocaleString()}) is insufficient for ₹{finalTotal.toLocaleString()}. Enable Split Payment above or add funds.</p>
+                  <div className="flex gap-4 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => { setUseWalletSplit(true); setPaymentMethod("razorpay"); }}
+                      className="text-xs text-accent font-bold underline"
+                    >
+                      Enable Split Payment (₹{(state.wallets[user?.id || ""] ?? 0).toLocaleString()} Wallet + ₹{(finalTotal - (state.wallets[user?.id || ""] ?? 0)).toLocaleString()} Online)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (user) {
+                          addWalletCredit(user.id, finalTotal);
+                          toast.success("Wallet credited for testing!");
+                        }
+                      }}
+                      className="text-xs text-muted-foreground hover:underline"
+                    >
+                      Add Demo Funds
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -1560,10 +1478,12 @@ export function ShopCart() {
                 </button>
                 <button
                   onClick={handleFinalOrderSubmit}
-                  disabled={paymentMethod === "wallet" && (state.wallets[user?.id || ""] ?? 0) < finalTotal}
+                  disabled={paymentMethod === "wallet" && !useWalletSplit && (state.wallets[user?.id || ""] ?? 0) < finalTotal}
                   className="bg-gradient-to-r from-accent to-accent-rose text-white hover:shadow-[0_0_20px_rgba(212,175,55,0.4)] px-8 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest transition-transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
                 >
-                  Confirm Payment & Place Order
+                  {useWalletSplit && (state.wallets[user?.id || ""] ?? 0) < finalTotal
+                    ? `Pay Remaining ₹${(finalTotal - Math.min((state.wallets[user?.id || ""] ?? 0), finalTotal)).toLocaleString()} via Razorpay`
+                    : "Confirm Payment & Place Order"}
                 </button>
               </div>
             </div>

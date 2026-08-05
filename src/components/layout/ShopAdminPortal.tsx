@@ -5709,31 +5709,39 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-subtle text-sm">
-                {customersList.map(c => {
-                  const bal = state.wallets[c.id] ?? 0;
-                  const orderCount = state.orders[c.id]?.length ?? 0;
-                  return (
-                    <tr key={c.id} className="hover:bg-surface-2/40">
-                      <td className="py-4">
-                        <button
-                          onClick={() => { setSelectedCustomerDetails(c); setDossierTab("details"); }}
-                          className="font-mono text-xs text-accent hover:underline text-left cursor-pointer"
-                        >
-                          {c.id}
-                        </button>
-                      </td>
-                      <td className="py-4 font-semibold">{c.firstName} {c.lastName}</td>
-                      <td className="py-4">
-                        <div>{c.email}</div>
-                        <div className="text-xs text-muted-foreground">{c.phone}</div>
-                      </td>
-                      <td className="py-4 font-serif font-semibold text-accent">₹{bal.toLocaleString()}</td>
-                      <td className="py-4 text-right font-semibold pr-2">
-                        {orderCount}
-                      </td>
-                    </tr>
-                  );
-                })}
+                {customersList.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-8 text-center text-muted-foreground text-sm">
+                      No registered user accounts found in the Customers Directory.
+                    </td>
+                  </tr>
+                ) : (
+                  customersList.map(c => {
+                    const bal = state.wallets[c.id] ?? 0;
+                    const orderCount = state.orders[c.id]?.length ?? 0;
+                    return (
+                      <tr key={c.id} className="hover:bg-surface-2/40">
+                        <td className="py-4">
+                          <button
+                            onClick={() => { setSelectedCustomerDetails(c); setDossierTab("details"); }}
+                            className="font-mono text-xs text-accent hover:underline text-left cursor-pointer"
+                          >
+                            {c.id}
+                          </button>
+                        </td>
+                        <td className="py-4 font-semibold">{c.firstName} {c.lastName}</td>
+                        <td className="py-4">
+                          <div>{c.email}</div>
+                          <div className="text-xs text-muted-foreground">{c.phone}</div>
+                        </td>
+                        <td className="py-4 font-serif font-semibold text-accent">₹{bal.toLocaleString()}</td>
+                        <td className="py-4 text-right font-semibold pr-2">
+                          {orderCount}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>

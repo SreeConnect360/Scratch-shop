@@ -22,6 +22,7 @@ import {
   ChevronDown,
   Maximize2,
   Sparkles,
+  ShoppingCart,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -554,10 +555,42 @@ function ProductDetail() {
                 <ArrowLeft className="w-5 h-5" />
               </button>
 
-              <div className="flex items-center gap-2 pointer-events-auto">
+              {/* Desktop top-right overlay (Share button only) */}
+              <div className="hidden md:flex items-center gap-2 pointer-events-auto">
                 <button
                   type="button"
                   onClick={handleShare}
+                  className="p-2.5 rounded-full bg-black/40 dark:bg-black/60 text-white backdrop-blur-md hover:scale-105 transition-all border border-white/20 shadow-lg cursor-pointer"
+                  title="Share product link"
+                >
+                  <Share2 className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Mobile top-right overlay (Wishlist icon first, Share icon below) */}
+              <div className="flex md:hidden flex-col gap-2 pointer-events-auto items-center">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleWishlistToggle();
+                  }}
+                  className={cn(
+                    "p-2.5 rounded-full backdrop-blur-md hover:scale-105 transition-all border shadow-lg cursor-pointer",
+                    isFavorite
+                      ? "bg-red-500/80 text-white border-red-400"
+                      : "bg-black/40 dark:bg-black/60 text-white border-white/20"
+                  )}
+                  title={isFavorite ? "Remove from Wishlist" : "Add to Wishlist"}
+                >
+                  <Heart className={cn("w-5 h-5", isFavorite && "fill-current text-white")} />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleShare();
+                  }}
                   className="p-2.5 rounded-full bg-black/40 dark:bg-black/60 text-white backdrop-blur-md hover:scale-105 transition-all border border-white/20 shadow-lg cursor-pointer"
                   title="Share product link"
                 >
@@ -850,7 +883,7 @@ function ProductDetail() {
                 onClick={handleBuyNow}
                 className="w-full py-3.5 px-4 rounded-xl bg-[#D4AF37] text-black font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-[#D4AF37]/25 hover:bg-[#c49f2f] transition-all duration-200 cursor-pointer active:scale-95 flex items-center justify-center gap-2"
               >
-                <Sparkles className="w-4 h-4 fill-current" />
+                <ShoppingCart className="w-4 h-4" />
                 <span>BUY NOW</span>
               </button>
             </div>
@@ -1159,7 +1192,7 @@ function ProductDetail() {
             onClick={handleBuyNow}
             className="flex-1 py-3.5 sm:py-4 px-4 rounded-xl bg-[#D4AF37] text-black font-extrabold text-xs sm:text-sm uppercase tracking-wider shadow-lg shadow-[#D4AF37]/25 hover:bg-[#c49f2f] transition-all duration-200 cursor-pointer active:scale-95 flex items-center justify-center gap-2"
           >
-            <Sparkles className="w-4 h-4 fill-current" />
+            <ShoppingCart className="w-4 h-4" />
             <span>BUY NOW</span>
           </button>
 

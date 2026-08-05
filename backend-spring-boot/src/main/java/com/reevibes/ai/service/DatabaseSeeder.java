@@ -77,32 +77,11 @@ public class DatabaseSeeder implements CommandLineRunner {
 
     @Transactional
     public void seedPlatformUsers() {
-        if (platformUserRepository.count() == 0) {
-            String[] first = {"Anaïs","Sofia","Amara","Yuna","Camila","Zara","Isabela","Naomi","Aaliyah","Lucia","Mei","Olivia","Inés","Chiamaka","Lara","Valentina","Élise","Kenji","Adaeze","Marco","Léa","Hiro","Ada","Carlos","Sara"};
-            String[] last  = {"Laurent","Marchetti","Okafor","Park","Reyes","Hadid","Costa","Bergström","Khan","Romano","Tanaka","Bennett","Vidal","Eze","Petrov","Cruz","Moreau","Watanabe","Nwosu","Bellucci","Dubois","Nakamura","Eze","Mendes","Cohen"};
-            String[] countries = {"Maharashtra","Karnataka","Gujarat","West Bengal","Telangana","Delhi","Kerala","Tamil Nadu","Rajasthan","Maharashtra","Gujarat","Uttar Pradesh","Bihar","Punjab","Assam","Odisha","Maharashtra","Karnataka","Delhi","Tamil Nadu","Maharashtra","Karnataka","Delhi","Tamil Nadu","Maharashtra"};
-            
-            for (int i = 0; i < first.length; i++) {
-                String fn = first[i];
-                String ln = last[i];
-                String id = "USR-" + (1000 + i);
-                String email = fn.toLowerCase().replaceAll("[^a-z]", "") + "." + ln.toLowerCase().replaceAll("[^a-z]", "") + "@reevibes.com";
-                String country = countries[i];
-                int year = 1995 + (i % 12);
-                String dob = year + "-" + String.format("%02d", (i % 9) + 1) + "-" + String.format("%02d", 10 + (i % 18));
-                String phone = "+" + (30 + (i % 60)) + " " + (100 + i) + " " + (1000 + i * 7);
-                String gender = "Female";
-                String status = (i % 11 == 0) ? "Invited" : (i % 17 == 0) ? "Suspended" : "Active";
-                
-                String roles = "General";
-                if (i < 16) roles += ",Contestant";
-                if (i >= 16 && i <= 19) roles += ",Photographer";
-                if (i == 20) roles += ",Admin";
-                if (i == 21) roles += ",Applications,Ratings";
-                if (i == 22) roles += ",Casting Call,Judgements";
-
-                PlatformUser user = new PlatformUser(id, fn, ln, email, phone, country, dob, gender, status, roles, null, null, null, null);
-                platformUserRepository.save(user);
+        // Do not seed demo users for Customers Directory; purge demo users if any exist
+        List<PlatformUser> platformUsers = platformUserRepository.findAll();
+        for (PlatformUser pu : platformUsers) {
+            if (pu.getEmail() != null && pu.getEmail().toLowerCase().endsWith("@reevibes.com")) {
+                platformUserRepository.delete(pu);
             }
         }
     }

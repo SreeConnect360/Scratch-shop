@@ -5,12 +5,11 @@ import { FadeUp } from "@/components/motion/Reveal";
 import { PRODUCTS } from "@/lib/data";
 import { useState, useEffect, useMemo } from "react";
 import { z } from "zod";
-import { MapPin, Tag, Heart, ShoppingBag, ListOrdered, User, Save, Trash2, Plus, Check, RotateCcw, Wallet as WalletIcon, Settings as SettingsIcon, ShieldCheck, Star, X, ArrowLeft, ArrowRight, AlertTriangle, LogOut, Search, ChevronDown, CheckCircle2, RefreshCw, KeyRound, Lock } from "lucide-react";
+import { MapPin, Navigation, Tag, Heart, ShoppingBag, ListOrdered, User, Save, Trash2, Plus, Check, RotateCcw, Wallet as WalletIcon, Settings as SettingsIcon, ShieldCheck, Star, X, ArrowLeft, ArrowRight, AlertTriangle, LogOut, Search, ChevronDown, CheckCircle2, RefreshCw, KeyRound, Lock } from "lucide-react";
 import { StatusChip } from "@/components/layout/AdminLayout";
 import { toast } from "sonner";
-import { Map, MapMarker, MarkerContent } from "@/components/ui/map";
 import { useShopNotification } from "./_shop";
-import { getCurrentLocation, reverseGeocodeCoordinates, fetchPincodeDetails } from "@/lib/locationService";
+import { getCurrentLocation, reverseGeocodeCoordinates, fetchPincodeDetails, parseAddressComponents } from "@/lib/locationService";
 
 const accountSearchSchema = z.object({
   tab: z.enum(["dashboard", "profile", "addresses", "coupons", "wishlist", "orders", "returns", "wallet", "settings", "ai-analytics"]).catch("profile"),
@@ -146,9 +145,7 @@ function ShopDashboard() {
   const [editingAddrIndex, setEditingAddrIndex] = useState<number | null>(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
-  // Map and Geolocation states
-  const [mapCenter, setMapCenter] = useState<[number, number]>([77.5946, 12.9716]); // Bangalore default
-  const [markerPos, setMarkerPos] = useState<[number, number] | null>(null);
+  // Geolocation state
   const [isLocating, setIsLocating] = useState(false);
 
   // Reverse Geocoding using locationService (DOES NOT auto-fill street address)
@@ -167,47 +164,17 @@ function ShopDashboard() {
     }
   };
 
-  // Detect location with high accuracy + network fallback
+  // Detect location with high accuracy
   const handleDetectLocation = async () => {
     setIsLocating(true);
     try {
       const coords = await getCurrentLocation();
-      setMapCenter([coords.longitude, coords.latitude]);
-      setMarkerPos([coords.longitude, coords.latitude]);
       await handleReverseGeocode(coords.longitude, coords.latitude);
     } catch (err: any) {
       console.error("Location detection error:", err);
       toast.error(err.message || "Failed to detect location. Please enter your address manually.");
     } finally {
       setIsLocating(false);
-    }
-  };
-
-  // Forward Geocoding
-  const handleGeocodeAddress = async () => {
-    const query = [addrStreet, addrCity, addrDistrict, addrState, addrPincode].filter(Boolean).join(", ");
-    if (!query) {
-      toast.error("Please enter some address details first.");
-      return;
-    }
-    try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`, {
-        headers: { "User-Agent": "ReeVibes-Shop-Portal" }
-      });
-      const data = await res.json();
-      if (data && data[0]) {
-        const { lon, lat } = data[0];
-        const lngNum = parseFloat(lon);
-        const latNum = parseFloat(lat);
-        setMapCenter([lngNum, latNum]);
-        setMarkerPos([lngNum, latNum]);
-        toast.success("Address located on map!");
-      } else {
-        toast.error("Entered location is invalid!");
-      }
-    } catch (err) {
-      console.error("Geocoding error:", err);
-      toast.error("Entered location is invalid!");
     }
   };
 
@@ -423,22 +390,6 @@ function ShopDashboard() {
             setAddrState(details.state);
             // NOTE: Street address is deliberately untouched when pin code is entered
             toast.success("PIN Code details retrieved!");
-
-            // Auto geocode when pincode matches to update map view
-            const query = `${details.locality}, ${details.district}, ${details.state} - ${details.pincode}`;
-            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`, {
-              headers: { "User-Agent": "ReeVibes-Shop-Portal" }
-            })
-              .then(res => res.json())
-              .then(d => {
-                if (d && d[0]) {
-                  const lngNum = parseFloat(d[0].lon);
-                  const latNum = parseFloat(d[0].lat);
-                  setMapCenter([lngNum, latNum]);
-                  setMarkerPos([lngNum, latNum]);
-                }
-              })
-              .catch(() => {});
           } else {
             toast.error("PIN Code details not found. Please enter details manually.");
           }
@@ -561,7 +512,12 @@ function ShopDashboard() {
     const newStr = JSON.stringify({
       name: addrName.trim(),
       address: fullAddressText.trim(),
-      phone: addrPhone.trim()
+      phone: addrPhone.trim(),
+      street: addrStreet.trim(),
+      city: addrCity.trim(),
+      district: addrDistrict.trim(),
+      state: addrState.trim(),
+      pincode: addrPincode.trim()
     });
     
     if (editingAddrIndex !== null) {
@@ -579,7 +535,6 @@ function ShopDashboard() {
     setAddrCity("");
     setAddrDistrict("");
     setAddrState("");
-    setMarkerPos(null);
     setShowAddressForm(false);
   };
 
@@ -601,57 +556,15 @@ function ShopDashboard() {
     setAddrName(parsed.name);
     setAddrPhone(parsed.phone);
     
-    const parts = parsed.address.split(", ");
-    let street = "";
-    let city = "";
-    let district = "";
-    let stateVal = "";
-    let pincode = "";
-
-    if (parts.length >= 4) {
-      street = parts[0];
-      city = parts[1];
-      if (parts.length === 5) {
-        district = parts[2];
-        const stateAndPin = parts[3].split(" - ");
-        stateVal = stateAndPin[0] || "";
-        pincode = stateAndPin[1] || "";
-      } else {
-        district = "";
-        const stateAndPin = parts[2].split(" - ");
-        stateVal = stateAndPin[0] || "";
-        pincode = stateAndPin[1] || "";
-      }
-    } else {
-      street = parsed.address;
-    }
-
-    setAddrStreet(street);
-    setAddrCity(city);
-    setAddrDistrict(district);
-    setAddrState(stateVal);
-    setAddrPincode(pincode);
+    const comp = parseAddressComponents(parsed);
+    setAddrStreet(comp.street);
+    setAddrCity(comp.city);
+    setAddrDistrict(comp.district);
+    setAddrState(comp.stateVal);
+    setAddrPincode(comp.pincode);
     setEditingAddrIndex(index);
     setShowAddressForm(true);
     toast.info("Address loaded into edit form.");
-
-    // Geocode edited address to show it on map
-    const query = [street, city, district, stateVal, pincode].filter(Boolean).join(", ");
-    if (query) {
-      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`, {
-        headers: { "User-Agent": "ReeVibes-Shop-Portal" }
-      })
-        .then(res => res.json())
-        .then(data => {
-          if (data && data[0]) {
-            const lngNum = parseFloat(data[0].lon);
-            const latNum = parseFloat(data[0].lat);
-            setMapCenter([lngNum, latNum]);
-            setMarkerPos([lngNum, latNum]);
-          }
-        })
-        .catch(console.error);
-    }
   };
 
   const handlePlaceOrder = () => {
@@ -1463,7 +1376,6 @@ function ShopDashboard() {
                     setAddrCity("");
                     setAddrDistrict("");
                     setAddrState("");
-                    setMarkerPos(null);
                   }}
                   className="w-full bg-white/5 border border-dashed border-white/20 hover:border-accent/40 p-5 rounded-2xl flex items-center justify-center gap-2 text-accent font-bold hover:bg-white/10 hover:shadow-[0_0_15px_rgba(212,175,55,0.1)] transition-all cursor-pointer text-xs uppercase tracking-widest"
                 >
@@ -1473,220 +1385,196 @@ function ShopDashboard() {
 
               {/* Toggleable Add/Edit Form */}
               {(showAddressForm || editingAddrIndex !== null) && (
-                <form onSubmit={handleAddAddress} className="pt-6 border-b border-white/10 pb-6 space-y-4">
-                  <div className="grid lg:grid-cols-12 gap-6">
-                    {/* Left Column: Interactive Map */}
-                    <div className="lg:col-span-5 flex flex-col gap-3">
-                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-                        <span>Pin Location on Map</span>
-                        <span className="text-accent/80 font-mono text-[9px]">Drag pin to refine</span>
-                      </span>
-                      <div className="relative h-[280px] w-full rounded-2xl overflow-hidden border border-white/10 shadow-[0_4px_24px_rgba(212,175,55,0.05)] bg-white/5 backdrop-blur-md">
-                        <Map center={mapCenter} zoom={14}>
-                          {markerPos && (
-                            <MapMarker
-                              draggable
-                              longitude={markerPos[0]}
-                              latitude={markerPos[1]}
-                              onDrag={(lngLat) => {
-                                setMarkerPos([lngLat.lng, lngLat.lat]);
-                                handleReverseGeocode(lngLat.lng, lngLat.lat);
-                              }}
-                            >
-                              <MarkerContent>
-                                <div className="relative flex items-center justify-center">
-                                  <div className="absolute w-8 h-8 rounded-full bg-accent/20 border border-accent animate-ping" />
-                                  <div className="relative w-5 h-5 rounded-full bg-accent border-2 border-white shadow-[0_0_10px_rgba(212,175,55,0.8)] flex items-center justify-center">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-white" />
-                                  </div>
-                                </div>
-                              </MarkerContent>
-                            </MapMarker>
-                          )}
-                        </Map>
+                <form onSubmit={handleAddAddress} className="pt-4 border-b border-white/10 pb-6 space-y-5">
+                  {/* Top Bar: Use Current Location */}
+                  <div className="bg-accent/5 border border-accent/20 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-accent/10 border border-accent/30 flex items-center justify-center shrink-0">
+                        <MapPin className="w-4 h-4 text-accent" />
                       </div>
-
-                      {/* Detect Location Button below Map */}
-                      <button
-                        type="button"
-                        onClick={handleDetectLocation}
-                        disabled={isLocating}
-                        className="w-full flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-accent border border-white/10 px-4 py-2.5 rounded-full text-xs uppercase tracking-widest font-bold transition-all cursor-pointer shadow-md disabled:opacity-50"
-                      >
-                        <MapPin className={`w-3.5 h-3.5 ${isLocating ? 'animate-bounce text-accent' : 'text-accent'}`} />
-                        {isLocating ? "Locating..." : "Use my current location"}
-                      </button>
+                      <div>
+                        <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">Fast Autofill</h4>
+                        <p className="text-[11px] text-muted-foreground">Detect your city, district, state & PIN code automatically</p>
+                      </div>
                     </div>
+                    <button
+                      type="button"
+                      onClick={handleDetectLocation}
+                      disabled={isLocating}
+                      className="w-full sm:w-auto flex items-center justify-center gap-2 bg-accent text-white px-5 py-2.5 rounded-full text-xs uppercase tracking-widest font-bold hover:bg-accent/90 transition-all shadow-md cursor-pointer disabled:opacity-50 shrink-0"
+                    >
+                      <Navigation className={`w-3.5 h-3.5 ${isLocating ? 'animate-spin' : ''}`} />
+                      {isLocating ? "Detecting Location..." : "Use Current Location"}
+                    </button>
+                  </div>
 
-                    {/* Right Column: Address Form Fields */}
-                    <div className="lg:col-span-7 space-y-4">
-                      <div className="grid sm:grid-cols-2 gap-4">
-                        <label className="block">
-                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Recipient Name</span>
-                          <input
-                            required
-                            type="text"
-                            placeholder="e.g. Sree Connect"
-                            className="w-full bg-white/5 border border-white/10 px-4 py-2.5 text-xs outline-none focus:border-accent rounded-full text-foreground mt-1.5"
-                            value={addrName}
-                            onChange={e => setAddrName(e.target.value)}
-                          />
-                        </label>
-                        
-                        <label className="block">
-                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Contact Phone</span>
-                          <input
-                            required
-                            type="text"
-                            placeholder="e.g. +91 98765 43210"
-                            className="w-full bg-white/5 border border-white/10 px-4 py-2.5 text-xs outline-none focus:border-accent rounded-full text-foreground mt-1.5"
-                            value={addrPhone}
-                            onChange={e => setAddrPhone(e.target.value)}
-                          />
-                        </label>
-                      </div>
-
-                      <div className="grid sm:grid-cols-2 gap-4">
-                        <label className="block">
-                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-                            <span>India Pin Code</span>
-                            {isFetchingPin && <span className="text-[9px] text-accent animate-pulse">Fetching...</span>}
-                          </span>
-                          <input
-                            required
-                            type="text"
-                            maxLength={6}
-                            placeholder="e.g. 560038"
-                            className="w-full bg-white/5 border border-white/10 px-4 py-2.5 text-xs outline-none focus:border-accent rounded-full text-foreground mt-1.5"
-                            value={addrPincode}
-                            onChange={e => setAddrPincode(e.target.value.replace(/\D/g, ''))}
-                          />
-                        </label>
-
-                        <label className="block">
-                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">City / Town</span>
-                          <input
-                            required
-                            type="text"
-                            placeholder="City Name"
-                            className="w-full bg-white/5 border border-white/10 px-4 py-2.5 text-xs outline-none focus:border-accent rounded-full text-foreground mt-1.5"
-                            value={addrCity}
-                            onChange={e => setAddrCity(e.target.value)}
-                          />
-                        </label>
-                      </div>
-
-                      <div className="grid sm:grid-cols-2 gap-4">
-                        <label className="block">
-                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">District</span>
-                          <input
-                            type="text"
-                            placeholder="District"
-                            className="w-full bg-white/5 border border-white/10 px-4 py-2.5 text-xs outline-none focus:border-accent rounded-full text-foreground mt-1.5"
-                            value={addrDistrict}
-                            onChange={e => setAddrDistrict(e.target.value)}
-                          />
-                        </label>
-
-                        {/* Searchable State Dropdown */}
-                        <label className="block relative">
-                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">State</span>
-                          <div className="relative mt-1.5">
-                            <button
-                              type="button"
-                              onClick={() => setShowStateDropdown(!showStateDropdown)}
-                              className="w-full bg-white/5 border border-white/10 px-4 py-2.5 text-xs text-left outline-none focus:border-accent rounded-full text-foreground flex justify-between items-center cursor-pointer"
-                            >
-                              <span>{addrState || "Select State"}</span>
-                              <span className="text-muted-foreground text-[8px]">▼</span>
-                            </button>
-                            
-                            {showStateDropdown && (
-                              <div className="absolute top-full left-0 right-0 mt-2 bg-zinc-950 border border-white/15 rounded-2xl overflow-hidden shadow-2xl z-50 p-3 space-y-2 max-h-60 flex flex-col">
-                                <div className="relative flex items-center bg-white/5 border border-white/10 rounded-full px-3 py-1">
-                                  <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                                  <input
-                                    type="text"
-                                    placeholder="Search state..."
-                                    className="w-full bg-transparent border-0 px-2 py-1 text-xs text-white outline-none focus:ring-0 placeholder:text-muted-foreground/50"
-                                    value={stateSearch}
-                                    onChange={e => setStateSearch(e.target.value)}
-                                    onClick={e => e.stopPropagation()}
-                                  />
-                                  {stateSearch && (
-                                    <button type="button" onClick={(e) => { e.stopPropagation(); setStateSearch(""); }} className="text-muted-foreground hover:text-white">
-                                      <X className="w-3 h-3" />
-                                    </button>
-                                  )}
-                                </div>
-                                
-                                <div className="overflow-y-auto flex-1 space-y-0.5 scrollbar-thin pr-1">
-                                  {(() => {
-                                    const filtered = INDIAN_STATES.filter(st =>
-                                      st.toLowerCase().includes(stateSearch.toLowerCase())
-                                    );
-                                    if (filtered.length === 0) {
-                                      return <div className="text-[10px] text-muted-foreground italic text-center py-2">No matching states</div>;
-                                    }
-                                    return filtered.map(st => (
-                                      <button
-                                        key={st}
-                                        type="button"
-                                        onClick={() => {
-                                          setAddrState(st);
-                                          setShowStateDropdown(false);
-                                          setStateSearch("");
-                                        }}
-                                        className={`w-full text-left text-xs px-3 py-2 rounded-xl transition-colors hover:bg-white/10 cursor-pointer ${
-                                          addrState === st ? "text-accent font-bold bg-white/5" : "text-white/80"
-                                        }`}
-                                      >
-                                        {st}
-                                      </button>
-                                    ));
-                                  })()}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </label>
-                      </div>
-
+                  {/* Form Fields Container */}
+                  <div className="space-y-4">
+                    <div className="grid sm:grid-cols-2 gap-4">
                       <label className="block">
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Street / Detailed Address</span>
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Recipient Name</span>
                         <input
                           required
                           type="text"
-                          placeholder="Apartment/Flat No, Area, Street Name"
+                          placeholder="e.g. Sree Connect"
                           className="w-full bg-white/5 border border-white/10 px-4 py-2.5 text-xs outline-none focus:border-accent rounded-full text-foreground mt-1.5"
-                          value={addrStreet}
-                          onChange={e => setAddrStreet(e.target.value)}
+                          value={addrName}
+                          onChange={e => setAddrName(e.target.value)}
+                        />
+                      </label>
+                      
+                      <label className="block">
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Contact Phone</span>
+                        <input
+                          required
+                          type="text"
+                          placeholder="e.g. +91 98765 43210"
+                          className="w-full bg-white/5 border border-white/10 px-4 py-2.5 text-xs outline-none focus:border-accent rounded-full text-foreground mt-1.5"
+                          value={addrPhone}
+                          onChange={e => setAddrPhone(e.target.value)}
+                        />
+                      </label>
+                    </div>
+
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <label className="block">
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                          <span>India Pin Code</span>
+                          {isFetchingPin && <span className="text-[9px] text-accent animate-pulse">Fetching...</span>}
+                        </span>
+                        <input
+                          required
+                          type="text"
+                          maxLength={6}
+                          placeholder="e.g. 560038"
+                          className="w-full bg-white/5 border border-white/10 px-4 py-2.5 text-xs outline-none focus:border-accent rounded-full text-foreground mt-1.5"
+                          value={addrPincode}
+                          onChange={e => setAddrPincode(e.target.value.replace(/\D/g, ''))}
                         />
                       </label>
 
-                      {/* Add Destination / Cancel options below street address */}
-                      <div className="flex gap-3 pt-4">
-                        <button type="submit" className="bg-accent text-white rounded-full px-6 py-2.5 text-xs font-bold uppercase tracking-widest hover:bg-accent/90 cursor-pointer">
-                          {editingAddrIndex !== null ? "Save Changes" : "Add Destination"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingAddrIndex(null);
-                            setShowAddressForm(false);
-                            setAddrPincode("");
-                            setAddrStreet("");
-                            setAddrCity("");
-                            setAddrDistrict("");
-                            setAddrState("");
-                            setMarkerPos(null);
-                            toast.info("Action cancelled.");
-                          }}
-                          className="border border-white/10 hover:bg-white/10 text-white rounded-full px-6 py-2.5 text-xs font-bold uppercase tracking-widest cursor-pointer"
-                        >
-                          Cancel
-                        </button>
-                      </div>
+                      <label className="block">
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">City / Town</span>
+                        <input
+                          required
+                          type="text"
+                          placeholder="City Name"
+                          className="w-full bg-white/5 border border-white/10 px-4 py-2.5 text-xs outline-none focus:border-accent rounded-full text-foreground mt-1.5"
+                          value={addrCity}
+                          onChange={e => setAddrCity(e.target.value)}
+                        />
+                      </label>
+                    </div>
+
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <label className="block">
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">District</span>
+                        <input
+                          type="text"
+                          placeholder="District"
+                          className="w-full bg-white/5 border border-white/10 px-4 py-2.5 text-xs outline-none focus:border-accent rounded-full text-foreground mt-1.5"
+                          value={addrDistrict}
+                          onChange={e => setAddrDistrict(e.target.value)}
+                        />
+                      </label>
+
+                      {/* Searchable State Dropdown */}
+                      <label className="block relative">
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">State</span>
+                        <div className="relative mt-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setShowStateDropdown(!showStateDropdown)}
+                            className="w-full bg-white/5 border border-white/10 px-4 py-2.5 text-xs text-left outline-none focus:border-accent rounded-full text-foreground flex justify-between items-center cursor-pointer"
+                          >
+                            <span>{addrState || "Select State"}</span>
+                            <span className="text-muted-foreground text-[8px]">▼</span>
+                          </button>
+                          
+                          {showStateDropdown && (
+                            <div className="absolute top-full left-0 right-0 mt-2 bg-zinc-950 border border-white/15 rounded-2xl overflow-hidden shadow-2xl z-50 p-3 space-y-2 max-h-60 flex flex-col">
+                              <div className="relative flex items-center bg-white/5 border border-white/10 rounded-full px-3 py-1">
+                                <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                                <input
+                                  type="text"
+                                  placeholder="Search state..."
+                                  className="w-full bg-transparent border-0 px-2 py-1 text-xs text-white outline-none focus:ring-0 placeholder:text-muted-foreground/50"
+                                  value={stateSearch}
+                                  onChange={e => setStateSearch(e.target.value)}
+                                  onClick={e => e.stopPropagation()}
+                                />
+                                {stateSearch && (
+                                  <button type="button" onClick={(e) => { e.stopPropagation(); setStateSearch(""); }} className="text-muted-foreground hover:text-white">
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                )}
+                              </div>
+                              
+                              <div className="overflow-y-auto flex-1 space-y-0.5 scrollbar-thin pr-1">
+                                {(() => {
+                                  const filtered = INDIAN_STATES.filter(st =>
+                                    st.toLowerCase().includes(stateSearch.toLowerCase())
+                                  );
+                                  if (filtered.length === 0) {
+                                    return <div className="text-[10px] text-muted-foreground italic text-center py-2">No matching states</div>;
+                                  }
+                                  return filtered.map(st => (
+                                    <button
+                                      key={st}
+                                      type="button"
+                                      onClick={() => {
+                                        setAddrState(st);
+                                        setShowStateDropdown(false);
+                                        setStateSearch("");
+                                      }}
+                                      className={`w-full text-left text-xs px-3 py-2 rounded-xl transition-colors hover:bg-white/10 cursor-pointer ${
+                                        addrState === st ? "text-accent font-bold bg-white/5" : "text-white/80"
+                                      }`}
+                                    >
+                                      {st}
+                                    </button>
+                                  ));
+                                })()}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </label>
+                    </div>
+
+                    <label className="block">
+                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Street / Detailed Address</span>
+                      <input
+                        required
+                        type="text"
+                        placeholder="Apartment/Flat No, Area, Street Name"
+                        className="w-full bg-white/5 border border-white/10 px-4 py-2.5 text-xs outline-none focus:border-accent rounded-full text-foreground mt-1.5"
+                        value={addrStreet}
+                        onChange={e => setAddrStreet(e.target.value)}
+                      />
+                    </label>
+
+                    {/* Add Destination / Cancel options below street address */}
+                    <div className="flex gap-3 pt-2">
+                      <button type="submit" className="bg-accent text-white rounded-full px-6 py-2.5 text-xs font-bold uppercase tracking-widest hover:bg-accent/90 cursor-pointer">
+                        {editingAddrIndex !== null ? "Save Changes" : "Add Destination"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingAddrIndex(null);
+                          setShowAddressForm(false);
+                          setAddrPincode("");
+                          setAddrStreet("");
+                          setAddrCity("");
+                          setAddrDistrict("");
+                          setAddrState("");
+                          toast.info("Action cancelled.");
+                        }}
+                        className="border border-white/10 hover:bg-white/10 text-white rounded-full px-6 py-2.5 text-xs font-bold uppercase tracking-widest cursor-pointer"
+                      >
+                        Cancel
+                      </button>
                     </div>
                   </div>
                 </form>
@@ -2117,12 +2005,24 @@ function ShopDashboard() {
                     <span>Payment Status:</span>
                     <span className="font-semibold text-emerald-600 dark:text-emerald-400 uppercase">{selectedOrderDetails.paymentStatus || "Paid"}</span>
                   </div>
+                  {selectedOrderDetails.walletAmountUsed > 0 && (
+                    <div className="flex justify-between text-accent font-semibold">
+                      <span>Maison Wallet Paid:</span>
+                      <span className="font-mono">₹{selectedOrderDetails.walletAmountUsed.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {selectedOrderDetails.razorpayAmountPaid > 0 && (
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Razorpay Online Paid:</span>
+                      <span className="font-mono text-foreground">₹{selectedOrderDetails.razorpayAmountPaid.toLocaleString()}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-muted-foreground pt-1 border-t border-black/5 dark:border-white/5">
                     <span>Subtotal:</span>
                     <span className="font-mono text-foreground">₹{(selectedOrderDetails.subtotal || selectedOrderDetails.total || 0).toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-foreground font-bold text-sm pt-1 border-t border-black/10 dark:border-white/10">
-                    <span>Total Paid:</span>
+                    <span>Total Amount:</span>
                     <span className="font-mono text-accent">₹{(selectedOrderDetails.totalAmount || selectedOrderDetails.total || 0).toLocaleString()}</span>
                   </div>
                 </div>

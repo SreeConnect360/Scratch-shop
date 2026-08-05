@@ -374,10 +374,12 @@ function ShopLayout() {
 
   // User notifications & wishlist count
   const user = state.user;
-  const unreadNotifCount = (state.notifications || []).filter(n => n.unread).length;
+  const userSpecificNotifs = user ? (state.userNotifications?.[user.id] || []) : [];
+  const allUserNotifs = [...userSpecificNotifs, ...(state.notifications || [])];
+  const unreadNotifCount = allUserNotifs.filter(n => n.unread).length;
 
   const twoDaysMs = 2 * 24 * 3600 * 1000;
-  const visibleNotifications = (state.notifications || []).filter(n => {
+  const visibleNotifications = allUserNotifs.filter(n => {
     if (n.createdAt) {
       return Date.now() - n.createdAt < twoDaysMs;
     }
@@ -481,10 +483,10 @@ function ShopLayout() {
                     <li key={item.name} className="relative shrink-0">
                       <Link
                         to={item.to as any}
-                        search={item.search}
-                        className="relative rounded-full px-2.5 py-1.5 text-xs lg:text-sm tracking-[0.06em] font-semibold transition-colors duration-300 outline-none focus:outline-none focus-visible:outline-none whitespace-nowrap"
+                        search={item.search as any}
+                        className="relative rounded-full px-3 py-1.5 text-base lg:text-lg tracking-[0.04em] font-bold transition-colors duration-300 outline-none focus:outline-none focus-visible:outline-none whitespace-nowrap"
                       >
-                        <span className={isActive ? "text-gold font-bold" : "text-ink-muted hover:text-ink"}>
+                        <span className={isActive ? "text-gold font-extrabold" : "text-ink-muted hover:text-ink"}>
                           {item.name}
                         </span>
                       </Link>
@@ -702,7 +704,7 @@ function ShopLayout() {
                     <Link
                       to="/categories"
                       onClick={() => setMobileOpen(false)}
-                      className="w-full rounded-xl px-4 py-3 text-left text-sm tracking-wide font-semibold transition-colors text-ink-muted hover:bg-gold/5 hover:text-ink block cursor-pointer"
+                      className="w-full rounded-xl px-4 py-3 text-left text-base sm:text-lg tracking-wide font-bold transition-colors text-ink-muted hover:bg-gold/5 hover:text-ink block cursor-pointer"
                     >
                       Fashion
                     </Link>
@@ -712,7 +714,7 @@ function ShopLayout() {
                       to="/categories"
                       search={{ tag: "New" } as any}
                       onClick={() => setMobileOpen(false)}
-                      className="w-full rounded-xl px-4 py-3 text-left text-sm tracking-wide font-semibold transition-colors text-ink-muted hover:bg-gold/5 hover:text-ink block cursor-pointer"
+                      className="w-full rounded-xl px-4 py-3 text-left text-base sm:text-lg tracking-wide font-bold transition-colors text-ink-muted hover:bg-gold/5 hover:text-ink block cursor-pointer"
                     >
                       New
                     </Link>
@@ -722,7 +724,7 @@ function ShopLayout() {
                       to="/categories"
                       search={{ tag: "Trending" } as any}
                       onClick={() => setMobileOpen(false)}
-                      className="w-full rounded-xl px-4 py-3 text-left text-sm tracking-wide font-semibold transition-colors text-ink-muted hover:bg-gold/5 hover:text-ink block cursor-pointer"
+                      className="w-full rounded-xl px-4 py-3 text-left text-base sm:text-lg tracking-wide font-bold transition-colors text-ink-muted hover:bg-gold/5 hover:text-ink block cursor-pointer"
                     >
                       Trending
                     </Link>
@@ -732,7 +734,7 @@ function ShopLayout() {
                       to="/categories"
                       search={{ view: "collections" } as any}
                       onClick={() => setMobileOpen(false)}
-                      className="w-full rounded-xl px-4 py-3 text-left text-sm tracking-wide font-semibold transition-colors text-ink-muted hover:bg-gold/5 hover:text-ink block cursor-pointer"
+                      className="w-full rounded-xl px-4 py-3 text-left text-base sm:text-lg tracking-wide font-bold transition-colors text-ink-muted hover:bg-gold/5 hover:text-ink block cursor-pointer"
                     >
                       Collections
                     </Link>
