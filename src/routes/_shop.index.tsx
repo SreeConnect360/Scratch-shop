@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect, useContext, useRef, useCallback } from "react";
-import { usePortal } from "@/lib/portal-state";
+import { usePortal, DEFAULT_HOMEPAGE_LAYOUT } from "@/lib/portal-state";
 import { FadeUp } from "@/components/motion/Reveal";
 import { toast } from "sonner";
 import { QuickAddContext, useShopNotification } from "./_shop";
@@ -110,7 +110,8 @@ function ShopHome() {
   
   // Check preview mode query param
   const isPreview = typeof window !== "undefined" && window.location.search.includes("preview=true");
-  const layout = isPreview ? state.homepageLayoutDraft : state.homepageLayout;
+  const rawLayout = isPreview ? state.homepageLayoutDraft : state.homepageLayout;
+  const layout = { ...DEFAULT_HOMEPAGE_LAYOUT, ...rawLayout };
 
   // Golden glow mouse coordinates springs
   const glowX = useSpring(0, { damping: 50, stiffness: 180 });

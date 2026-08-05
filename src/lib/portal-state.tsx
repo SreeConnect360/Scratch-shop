@@ -263,7 +263,7 @@ const DEFAULT_WALLET_GIFT_CARDS: WalletGiftCard[] = [
   }
 ];
 
-const DEFAULT_HOMEPAGE_LAYOUT = {
+export const DEFAULT_HOMEPAGE_LAYOUT = {
   sectionOrder: [
     "announcement",
     "navigation",
@@ -296,8 +296,8 @@ const DEFAULT_HOMEPAGE_LAYOUT = {
   },
   navigation: {
     enabled: true,
-    itemsOrder: ["Logo", "Men", "Women", "New Arrivals", "Trending", "Collections", "Search", "Wishlist", "Account", "Cart"],
-    visibleItems: ["Logo", "Men", "Women", "New Arrivals", "Trending", "Collections", "Search", "Wishlist", "Account", "Cart"]
+    itemsOrder: ["Logo", "Women", "Collections", "New Arrivals", "Trending", "Contests", "Search", "Wishlist", "Account", "Cart"],
+    visibleItems: ["Logo", "Women", "Collections", "New Arrivals", "Trending", "Contests", "Search", "Wishlist", "Account", "Cart"]
   },
   hero: {
     enabled: true,
@@ -350,6 +350,11 @@ const DEFAULT_HOMEPAGE_LAYOUT = {
     enabled: true,
     autoMode: true,
     manualProducts: ["pr1", "pr2", "pr3"]
+  },
+  newArrivals: {
+    enabled: true,
+    productCount: 3,
+    layoutStyle: "grid"
   },
   newArrival: {
     enabled: true,

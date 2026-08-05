@@ -1,6 +1,6 @@
 import { createFileRoute, Link, Outlet, useNavigate, useLocation } from "@tanstack/react-router";
 import { useState, useEffect, useRef, createContext, useContext, useMemo } from "react";
-import { usePortal, useCartTotal } from "@/lib/portal-state";
+import { usePortal, useCartTotal, DEFAULT_HOMEPAGE_LAYOUT } from "@/lib/portal-state";
 import { Search, Heart, ShoppingBag, Bell, Sun, Moon, ArrowRight, User, X, Minus, Plus, Menu, LogOut, LogIn } from "lucide-react";
 import { BrandLogo, ThemeToggle } from "@/components/theme/ThemeToggle";
 import { toast } from "sonner";
@@ -390,7 +390,8 @@ function ShopLayout() {
 
   // Retrieve dynamic homepage layout config
   const isPreview = typeof window !== "undefined" && window.location.search.includes("preview=true");
-  const layout = isPreview ? state.homepageLayoutDraft : state.homepageLayout;
+  const rawLayout = isPreview ? state.homepageLayoutDraft : state.homepageLayout;
+  const layout = { ...DEFAULT_HOMEPAGE_LAYOUT, ...rawLayout };
 
   return (
     <QuickAddContext.Provider value={{ openQuickAdd }}>
@@ -500,6 +501,22 @@ function ShopLayout() {
                       );
                     }
 
+                    if (item === "Contests") {
+                      const isActive = location.pathname.startsWith("/FashionBattle");
+                      return (
+                        <li key={item} className="relative shrink-0">
+                          <Link
+                            to="/FashionBattle/live-contest"
+                            className="relative rounded-full px-2.5 py-1.5 text-xs lg:text-sm tracking-[0.06em] font-semibold transition-colors duration-300 outline-none focus:outline-none focus-visible:outline-none whitespace-nowrap"
+                          >
+                            <span className={isActive ? "text-gold font-bold" : "text-ink-muted hover:text-ink"}>
+                              Contests
+                            </span>
+                          </Link>
+                        </li>
+                      );
+                    }
+
                     let linkSearch: any = {};
                     if (item === "New Arrivals") linkSearch = { tag: "New" };
                     else if (item === "Trending") linkSearch = { tag: "Trending" };
@@ -528,19 +545,37 @@ function ShopLayout() {
                 ) : (
                   <>
                     <li className="relative shrink-0">
-                      <Link to="/" className="relative rounded-full px-2.5 py-1.5 text-xs lg:text-sm tracking-[0.06em] font-semibold transition-colors outline-none focus:outline-none focus-visible:outline-none whitespace-nowrap">
+                      <Link to="/categories" className="relative rounded-full px-2.5 py-1.5 text-xs lg:text-sm tracking-[0.06em] font-semibold transition-colors outline-none focus:outline-none focus-visible:outline-none whitespace-nowrap">
                         {({ isActive }) => (
                           <span className={isActive ? "text-gold font-bold" : "text-ink-muted hover:text-ink"}>
-                            Shop
+                            Fashion
                           </span>
                         )}
                       </Link>
                     </li>
                     <li className="relative shrink-0">
-                      <Link to="/categories" className="relative rounded-full px-2.5 py-1.5 text-xs lg:text-sm tracking-[0.06em] font-semibold transition-colors outline-none focus:outline-none focus-visible:outline-none whitespace-nowrap">
+                      <Link to="/categories" search={{ view: "collections" } as any} className="relative rounded-full px-2.5 py-1.5 text-xs lg:text-sm tracking-[0.06em] font-semibold transition-colors outline-none focus:outline-none focus-visible:outline-none whitespace-nowrap">
                         {({ isActive }) => (
                           <span className={isActive ? "text-gold font-bold" : "text-ink-muted hover:text-ink"}>
                             Collections
+                          </span>
+                        )}
+                      </Link>
+                    </li>
+                    <li className="relative shrink-0">
+                      <Link to="/categories" search={{ tag: "New" } as any} className="relative rounded-full px-2.5 py-1.5 text-xs lg:text-sm tracking-[0.06em] font-semibold transition-colors outline-none focus:outline-none focus-visible:outline-none whitespace-nowrap">
+                        {({ isActive }) => (
+                          <span className={isActive ? "text-gold font-bold" : "text-ink-muted hover:text-ink"}>
+                            New
+                          </span>
+                        )}
+                      </Link>
+                    </li>
+                    <li className="relative shrink-0">
+                      <Link to="/categories" search={{ tag: "Trending" } as any} className="relative rounded-full px-2.5 py-1.5 text-xs lg:text-sm tracking-[0.06em] font-semibold transition-colors outline-none focus:outline-none focus-visible:outline-none whitespace-nowrap">
+                        {({ isActive }) => (
+                          <span className={isActive ? "text-gold font-bold" : "text-ink-muted hover:text-ink"}>
+                            Trending
                           </span>
                         )}
                       </Link>
