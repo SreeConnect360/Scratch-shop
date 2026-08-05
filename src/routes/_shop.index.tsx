@@ -671,6 +671,8 @@ function ShopHome() {
           trendingProductsList = products.filter(p => (trendingCuration.manualProducts || []).includes(p.id));
         }
 
+        if (trendingProductsList.length === 0) return null;
+
         return (
           <section key={sectionId} className="max-w-7xl mx-auto px-3 sm:px-5 space-y-8">
             <FadeUp>
@@ -697,8 +699,9 @@ function ShopHome() {
         );
 
       case "newArrivals":
-        const naConfig = layout.newArrival || { productCount: 3, layoutStyle: "grid" };
+        const naConfig = layout.newArrival || layout.newArrivals || { productCount: 3, layoutStyle: "grid" };
         const naProducts = products.slice(0, naConfig.productCount || 3);
+        if (naProducts.length === 0) return null;
 
         return (
           <section key={sectionId} className="max-w-7xl mx-auto px-3 sm:px-5 space-y-8">
@@ -800,6 +803,8 @@ function ShopHome() {
         } else {
           bsProducts = products.filter(p => (bsConfig.manualProducts || []).includes(p.id));
         }
+
+        if (bsProducts.length === 0) return null;
 
         return (
           <section key={sectionId} className="max-w-7xl mx-auto px-3 sm:px-5 space-y-8">

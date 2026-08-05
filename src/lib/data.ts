@@ -216,32 +216,7 @@ const FIRST = ["Anaïs","Sofia","Amara","Yuna","Camila","Zara","Isabela","Naomi"
 const LAST  = ["Laurent","Marchetti","Okafor","Park","Reyes","Hadid","Costa","Bergström","Khan","Romano","Tanaka","Bennett","Vidal","Eze","Petrov","Cruz","Moreau","Watanabe","Nwosu","Bellucci","Dubois","Nakamura","Eze","Mendes","Cohen"];
 const PLATFORM_COUNTRIES = ["Maharashtra","Karnataka","Gujarat","West Bengal","Telangana","Delhi","Kerala","Tamil Nadu","Rajasthan","Maharashtra","Gujarat","Uttar Pradesh","Bihar","Punjab","Assam","Odisha","Maharashtra","Karnataka","Delhi","Tamil Nadu","Maharashtra","Karnataka","Delhi","Tamil Nadu","Maharashtra"];
 
-export const PLATFORM_USERS: PlatformUser[] = FIRST.map((fn, i) => {
-  const ln = LAST[i];
-  const isContestant = i < 16;
-  const roles: Role[] = ["General"];
-  if (isContestant) roles.push("Contestant");
-  if (i === 16 || i === 17 || i === 18 || i === 19) roles.push("Photographer");
-  if (i === 20) roles.push("Admin");
-  if (i === 21) roles.push("Applications", "Ratings");
-  if (i === 22) roles.push("Casting Call", "Judgements");
-  const year = 1995 + (i % 12);
-  return {
-    id: `USR-${String(1000 + i)}`,
-    firstName: fn,
-    lastName: ln,
-    gender: "Female",
-    dob: `${year}-${String((i % 9) + 1).padStart(2, "0")}-${String(10 + (i % 18)).padStart(2, "0")}`,
-    age: 2026 - year,
-    country: PLATFORM_COUNTRIES[i] ?? "Global",
-    email: `${fn.toLowerCase().replace(/[^a-z]/g, "")}.${ln.toLowerCase().replace(/[^a-z]/g, "")}@reevibes.com`,
-    phone: `+${30 + (i % 60)} ${100 + i} ${1000 + i * 7}`,
-    avatar: U(FACES[i % FACES.length], 200, 200),
-    registeredAt: `2025-${String((i % 12) + 1).padStart(2, "0")}-${String((i % 27) + 1).padStart(2, "0")}`,
-    roles,
-    status: i % 11 === 0 ? "Invited" : i % 17 === 0 ? "Suspended" : "Active",
-  };
-});
+export const PLATFORM_USERS: PlatformUser[] = [];
 
 export type ContestantApplication = {
   userId: string;
@@ -281,49 +256,7 @@ export type ContestantApplication = {
   status: "Pending" | "Approved" | "Hold" | "Rejected";
 };
 
-export const CONTESTANT_APPLICATIONS: ContestantApplication[] = PLATFORM_USERS
-  .filter(u => u.roles.includes("Contestant"))
-  .map((u, i) => {
-    const c = CONTESTANTS[i];
-    return {
-      userId: u.id,
-      contestantId: `MC-2026-${String(100 + i).padStart(3, "0")}`,
-      contestYear: 2026,
-      contestCountry: u.country,
-      fullName: `${u.firstName} ${u.lastName}`,
-      country: u.country,
-      email: u.email,
-      phone: u.phone,
-      dob: u.dob,
-      age: u.age,
-      height: `${170 + (i % 12)} cm`,
-      weight: `${58 + (i % 14)} kg`,
-      bust: `${88 + (i % 10)} cm`,
-      waist: `${66 + (i % 8)} cm`,
-      hips: `${94 + (i % 10)} cm`,
-      eyeColour: ["Brown","Hazel","Green","Blue","Amber"][i % 5],
-      hairColour: ["Black","Brunette","Auburn","Blonde","Chestnut"][i % 5],
-      shoeSize: `EU ${37 + (i % 6)}`,
-      biography: c?.bio ?? "A vision of modern femininity, defined by presence and grace.",
-      education: ["BA Fashion — Central Saint Martins","MA Communications — Sciences Po","BFA Performing Arts — NYU","Business Admin — Bocconi"][i % 4],
-      profession: ["Model & Creative","Architect","Brand Consultant","Editor","Performer","Curator"][i % 6],
-      social: { instagram: `@${u.firstName.toLowerCase()}.official`, tiktok: `@${u.firstName.toLowerCase()}` },
-      agency: ["IMG Models","Elite Paris","Next Milan","The Society","Independent"][i % 5],
-      photos: {
-        portrait: c?.image ?? U(FACES[i % FACES.length], 900, 1200),
-        fullBody: U(FACES[(i + 1) % FACES.length], 900, 1400),
-        sideProfile: U(FACES[(i + 2) % FACES.length], 900, 1200),
-        candid: U(FACES[(i + 3) % FACES.length], 900, 1200),
-        additional: [U(FACES[(i + 4) % FACES.length], 900, 1200), U(FACES[(i + 5) % FACES.length], 900, 1200)],
-      },
-      videos: { intro: "", additional: [] },
-      numPhotos: 6,
-      numVideos: 2,
-      applicationDate: `2026-${String((i % 9) + 1).padStart(2, "0")}-${String(10 + (i % 18)).padStart(2, "0")}`,
-      currentStage: (["Applied","Approved","Casting","Judgement","Top16","Top10"] as const)[i % 6],
-      status: (["Pending","Approved","Hold","Approved"] as const)[i % 4],
-    };
-  });
+export const CONTESTANT_APPLICATIONS: ContestantApplication[] = [];
 
 export type AbuseReport = { id: string; target: string; reason: string; reporter: string; severity: "Low" | "Medium" | "High"; status: "Open" | "Reviewing" | "Resolved" };
 export const ABUSE_REPORTS: AbuseReport[] = [
