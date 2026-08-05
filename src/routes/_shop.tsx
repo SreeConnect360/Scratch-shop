@@ -459,138 +459,38 @@ function ShopLayout() {
 
               {/* desktop links */}
               <ul className="hidden items-center gap-1 lg:gap-3 md:flex shrink-0" role="list">
-                {layout?.navigation?.itemsOrder ? (
-                  layout.navigation.itemsOrder.map((item: string) => {
-                    const isVisible = layout?.navigation?.visibleItems?.includes(item);
-                    if (!isVisible || item === "Logo" || ["Search", "Wishlist", "Account", "Cart"].includes(item)) return null;
+                {[
+                  { name: "Fashion", to: "/categories", search: {} },
+                  { name: "New", to: "/categories", search: { tag: "New" } },
+                  { name: "Trending", to: "/categories", search: { tag: "Trending" } },
+                  { name: "Collections", to: "/categories", search: { view: "collections" } },
+                ].map((item) => {
+                  const searchParams = location.search as any;
+                  let isActive = false;
+                  if (item.name === "Fashion") {
+                    isActive = location.pathname === "/categories" && !searchParams?.view && !searchParams?.tag;
+                  } else if (item.name === "New") {
+                    isActive = location.pathname === "/categories" && searchParams?.tag === "New";
+                  } else if (item.name === "Trending") {
+                    isActive = location.pathname === "/categories" && searchParams?.tag === "Trending";
+                  } else if (item.name === "Collections") {
+                    isActive = location.pathname === "/categories" && searchParams?.view === "collections";
+                  }
 
-                    if (item === "Men") return null;
-
-                    const searchParams = location.search as any;
-
-                    if (item === "Women") {
-                      const isActive = location.pathname === "/categories" && !searchParams?.view && !searchParams?.tag;
-                      return (
-                        <li key={item} className="relative shrink-0">
-                          <Link
-                            to="/categories"
-                            className="relative rounded-full px-2.5 py-1.5 text-xs lg:text-sm tracking-[0.06em] font-semibold transition-colors duration-300 outline-none focus:outline-none focus-visible:outline-none whitespace-nowrap"
-                          >
-                            <span className={isActive ? "text-gold font-bold" : "text-ink-muted hover:text-ink"}>
-                              Fashion
-                            </span>
-                          </Link>
-                        </li>
-                      );
-                    }
-
-                    if (item === "Collections") {
-                      const isActive = location.pathname === "/categories" && searchParams?.view === "collections";
-                      return (
-                        <li key={item} className="relative shrink-0">
-                          <Link
-                            to="/categories"
-                            search={{ view: "collections" } as any}
-                            className="relative rounded-full px-2.5 py-1.5 text-xs lg:text-sm tracking-[0.06em] font-semibold transition-colors duration-300 outline-none focus:outline-none focus-visible:outline-none whitespace-nowrap"
-                          >
-                            <span className={isActive ? "text-gold font-bold" : "text-ink-muted hover:text-ink"}>
-                              Collections
-                            </span>
-                          </Link>
-                        </li>
-                      );
-                    }
-
-                    if (item === "Contests") {
-                      const isActive = location.pathname.startsWith("/FashionBattle");
-                      return (
-                        <li key={item} className="relative shrink-0">
-                          <Link
-                            to="/FashionBattle/live-contest"
-                            className="relative rounded-full px-2.5 py-1.5 text-xs lg:text-sm tracking-[0.06em] font-semibold transition-colors duration-300 outline-none focus:outline-none focus-visible:outline-none whitespace-nowrap"
-                          >
-                            <span className={isActive ? "text-gold font-bold" : "text-ink-muted hover:text-ink"}>
-                              Contests
-                            </span>
-                          </Link>
-                        </li>
-                      );
-                    }
-
-                    let linkSearch: any = {};
-                    if (item === "New Arrivals") linkSearch = { tag: "New" };
-                    else if (item === "Trending") linkSearch = { tag: "Trending" };
-
-                    const label = item === "New Arrivals" ? "New" : item;
-                    const isActive = item === "New Arrivals"
-                      ? (location.pathname === "/categories" && searchParams?.tag === "New")
-                      : (item === "Trending"
-                        ? (location.pathname === "/categories" && searchParams?.tag === "Trending")
-                        : false);
-
-                    return (
-                      <li key={item} className="relative shrink-0">
-                        <Link
-                          to="/categories"
-                          search={linkSearch}
-                          className="relative rounded-full px-2.5 py-1.5 text-xs lg:text-sm tracking-[0.06em] font-semibold transition-colors duration-300 outline-none focus:outline-none focus-visible:outline-none whitespace-nowrap"
-                        >
-                          <span className={isActive ? "text-gold font-bold" : "text-ink-muted hover:text-ink"}>
-                            {label}
-                          </span>
-                        </Link>
-                      </li>
-                    );
-                  })
-                ) : (
-                  <>
-                    <li className="relative shrink-0">
-                      <Link to="/categories" className="relative rounded-full px-2.5 py-1.5 text-xs lg:text-sm tracking-[0.06em] font-semibold transition-colors outline-none focus:outline-none focus-visible:outline-none whitespace-nowrap">
-                        {({ isActive }) => (
-                          <span className={isActive ? "text-gold font-bold" : "text-ink-muted hover:text-ink"}>
-                            Fashion
-                          </span>
-                        )}
+                  return (
+                    <li key={item.name} className="relative shrink-0">
+                      <Link
+                        to={item.to as any}
+                        search={item.search}
+                        className="relative rounded-full px-2.5 py-1.5 text-xs lg:text-sm tracking-[0.06em] font-semibold transition-colors duration-300 outline-none focus:outline-none focus-visible:outline-none whitespace-nowrap"
+                      >
+                        <span className={isActive ? "text-gold font-bold" : "text-ink-muted hover:text-ink"}>
+                          {item.name}
+                        </span>
                       </Link>
                     </li>
-                    <li className="relative shrink-0">
-                      <Link to="/categories" search={{ view: "collections" } as any} className="relative rounded-full px-2.5 py-1.5 text-xs lg:text-sm tracking-[0.06em] font-semibold transition-colors outline-none focus:outline-none focus-visible:outline-none whitespace-nowrap">
-                        {({ isActive }) => (
-                          <span className={isActive ? "text-gold font-bold" : "text-ink-muted hover:text-ink"}>
-                            Collections
-                          </span>
-                        )}
-                      </Link>
-                    </li>
-                    <li className="relative shrink-0">
-                      <Link to="/categories" search={{ tag: "New" } as any} className="relative rounded-full px-2.5 py-1.5 text-xs lg:text-sm tracking-[0.06em] font-semibold transition-colors outline-none focus:outline-none focus-visible:outline-none whitespace-nowrap">
-                        {({ isActive }) => (
-                          <span className={isActive ? "text-gold font-bold" : "text-ink-muted hover:text-ink"}>
-                            New
-                          </span>
-                        )}
-                      </Link>
-                    </li>
-                    <li className="relative shrink-0">
-                      <Link to="/categories" search={{ tag: "Trending" } as any} className="relative rounded-full px-2.5 py-1.5 text-xs lg:text-sm tracking-[0.06em] font-semibold transition-colors outline-none focus:outline-none focus-visible:outline-none whitespace-nowrap">
-                        {({ isActive }) => (
-                          <span className={isActive ? "text-gold font-bold" : "text-ink-muted hover:text-ink"}>
-                            Trending
-                          </span>
-                        )}
-                      </Link>
-                    </li>
-                    <li className="relative shrink-0">
-                      <Link to="/FashionBattle/live-contest" className="relative rounded-full px-2.5 py-1.5 text-xs lg:text-sm tracking-[0.06em] font-semibold transition-colors outline-none focus:outline-none focus-visible:outline-none whitespace-nowrap">
-                        {({ isActive }) => (
-                          <span className={isActive ? "text-gold font-bold" : "text-ink-muted hover:text-ink"}>
-                            Contests
-                          </span>
-                        )}
-                      </Link>
-                    </li>
-                  </>
-                )}
+                  );
+                })}
               </ul>
             </div>
 

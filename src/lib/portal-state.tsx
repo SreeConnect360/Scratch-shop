@@ -292,8 +292,8 @@ export const DEFAULT_HOMEPAGE_LAYOUT = {
   },
   navigation: {
     enabled: true,
-    itemsOrder: ["Logo", "Women", "Collections", "New Arrivals", "Trending", "Contests", "Search", "Wishlist", "Account", "Cart"],
-    visibleItems: ["Logo", "Women", "Collections", "New Arrivals", "Trending", "Contests", "Search", "Wishlist", "Account", "Cart"]
+    itemsOrder: ["Logo", "Fashion", "New", "Trending", "Collections", "Search", "Wishlist", "Account", "Cart"],
+    visibleItems: ["Logo", "Fashion", "New", "Trending", "Collections", "Search", "Wishlist", "Account", "Cart"]
   },
   hero: {
     enabled: true,

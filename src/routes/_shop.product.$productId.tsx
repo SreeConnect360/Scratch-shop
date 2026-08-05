@@ -17,12 +17,10 @@ import {
   ShieldCheck,
   RotateCcw,
   X,
-  Plus,
-  Minus,
-  ChevronDown,
-  Maximize2,
   Sparkles,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { ProductCard } from "@/components/public/ProductCard";
 
@@ -255,16 +253,11 @@ function ProductDetail() {
   };
 
   const handleShare = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: product.name,
-          text: `Check out ${product.name} on ReeVibes Atelier!`,
-          url: window.location.href,
-        });
-      } catch {}
-    } else {
-      navigator.clipboard.writeText(window.location.href);
+    const shareUrl = `https://reevibes.com/product/${product.id}`;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success("Product link copied to clipboard!");
+    } catch {
       toast.success("Product link copied to clipboard!");
     }
   };
@@ -378,6 +371,34 @@ function ProductDetail() {
                 className="max-h-[82vh] max-w-full object-contain cursor-zoom-in rounded-lg"
                 onClick={() => setZoomScale((prev) => (prev === 1 ? 2.2 : 1))}
               />
+
+              {/* Lightbox Navigation Arrows (Only if mediaGallery.length > 1) */}
+              {mediaGallery.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveMediaIdx((prev) => (prev - 1 + mediaGallery.length) % mediaGallery.length);
+                      setZoomScale(1);
+                    }}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-md border border-white/20 transition-all cursor-pointer z-20"
+                    title="Previous Image"
+                  >
+                    <ChevronLeft className="w-6 h-6" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveMediaIdx((prev) => (prev + 1) % mediaGallery.length);
+                      setZoomScale(1);
+                    }}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-md border border-white/20 transition-all cursor-pointer z-20"
+                    title="Next Image"
+                  >
+                    <ChevronRight className="w-6 h-6" />
+                  </button>
+                </>
+              )}
             </div>
 
             {/* Thumbnails Row in Lightbox */}
@@ -408,9 +429,9 @@ function ProductDetail() {
         <div className="grid lg:grid-cols-12 gap-6 lg:gap-12 items-start">
           
           {/* ─── LEFT: HERO IMAGE GALLERY (MOBILE & DESKTOP) ────────────────── */}
-          <div className="lg:col-span-6 relative w-full flex flex-col gap-3 lg:sticky lg:top-24 lg:self-start">
+          <div className="lg:col-span-6 relative w-full lg:sticky lg:top-24 lg:self-start">
             
-            {/* Top Overlay Buttons (Back, Share, Heart) */}
+            {/* Top Overlay Buttons (Back, Share) */}
             <div className="absolute top-3 left-3 right-3 z-20 flex items-center justify-between pointer-events-none">
               <button
                 type="button"
@@ -431,64 +452,103 @@ function ProductDetail() {
                   type="button"
                   onClick={handleShare}
                   className="p-2.5 rounded-full bg-black/40 dark:bg-black/60 text-white backdrop-blur-md hover:scale-105 transition-all border border-white/20 shadow-lg cursor-pointer"
+                  title="Share product link"
                 >
                   <Share2 className="w-5 h-5" />
                 </button>
-                <button
-                  type="button"
-                  onClick={handleWishlistToggle}
-                  className={cn(
-                    "p-2.5 rounded-full backdrop-blur-md hover:scale-105 transition-all border shadow-lg cursor-pointer",
-                    isFavorite
-                      ? "bg-red-500/20 text-red-500 border-red-500/40"
-                      : "bg-black/40 dark:bg-black/60 text-white border-white/20"
-                  )}
-                >
-                  <Heart className={cn("w-5 h-5", isFavorite && "fill-current")} />
-                </button>
               </div>
             </div>
 
-            {/* Hero Main Swiper Container */}
-            <div
-              onClick={() => setViewerOpen(true)}
-              className="relative w-full aspect-[3/4] sm:aspect-[4/5] bg-black/5 dark:bg-black/40 rounded-2xl sm:rounded-3xl overflow-hidden border border-border/40 shadow-xl cursor-pointer group"
-            >
-              <img
-                src={mediaGallery[activeMediaIdx]}
-                alt={product.name}
-                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-              />
-
-              {/* Fullscreen Expand Badge */}
-              <div className="absolute bottom-3 right-3 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md text-white text-[10px] uppercase font-bold tracking-widest flex items-center gap-1.5 border border-white/20 opacity-80 group-hover:opacity-100 transition-opacity">
-                <Maximize2 className="w-3 h-3 text-[#D4AF37]" />
-                <span>Tap to Zoom</span>
-              </div>
-
-              {/* Gallery Dots Indicator */}
+            <div className="flex flex-col md:flex-row gap-3">
+              {/* Desktop Vertical Thumbnails Strip (Left of Main Image) */}
               {mediaGallery.length > 1 && (
-                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/50 backdrop-blur-md border border-white/10">
-                  {mediaGallery.map((_: any, idx: number) => (
+                <div className="hidden md:flex flex-col gap-2.5 max-h-[480px] overflow-y-auto scrollbar-none shrink-0 pr-1">
+                  {mediaGallery.map((img: string, idx: number) => (
                     <button
                       key={idx}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActiveMediaIdx(idx);
-                      }}
+                      onClick={() => setActiveMediaIdx(idx)}
                       className={cn(
-                        "h-1.5 rounded-full transition-all duration-300 cursor-pointer",
-                        activeMediaIdx === idx ? "w-5 bg-[#D4AF37]" : "w-1.5 bg-white/40"
+                        "w-16 h-20 rounded-xl overflow-hidden border-2 transition-all shrink-0 cursor-pointer",
+                        activeMediaIdx === idx
+                          ? "border-[#D4AF37] scale-95 shadow-[0_0_12px_rgba(212,175,55,0.35)]"
+                          : "border-border/40 opacity-70 hover:opacity-100"
                       )}
-                    />
+                    >
+                      <img src={img} className="w-full h-full object-cover" alt="" />
+                    </button>
                   ))}
                 </div>
               )}
+
+              {/* Main Swiper Container */}
+              <div
+                onClick={() => setViewerOpen(true)}
+                className="relative flex-1 aspect-[3/4] sm:aspect-[4/5] bg-black/5 dark:bg-black/40 rounded-2xl sm:rounded-3xl overflow-hidden border border-border/40 shadow-xl cursor-pointer group"
+              >
+                <img
+                  src={mediaGallery[activeMediaIdx]}
+                  alt={product.name}
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                />
+
+                {/* Main Image Navigation Arrows (Only if mediaGallery.length > 1) */}
+                {mediaGallery.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveMediaIdx((prev) => (prev - 1 + mediaGallery.length) % mediaGallery.length);
+                      }}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 hover:bg-black/80 text-white backdrop-blur-md border border-white/20 opacity-80 group-hover:opacity-100 transition-all cursor-pointer z-10"
+                      title="Previous Image"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveMediaIdx((prev) => (prev + 1) % mediaGallery.length);
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 hover:bg-black/80 text-white backdrop-blur-md border border-white/20 opacity-80 group-hover:opacity-100 transition-all cursor-pointer z-10"
+                      title="Next Image"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  </>
+                )}
+
+                {/* Fullscreen Expand Badge */}
+                <div className="absolute bottom-3 right-3 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md text-white text-[10px] uppercase font-bold tracking-widest flex items-center gap-1.5 border border-white/20 opacity-80 group-hover:opacity-100 transition-opacity">
+                  <Maximize2 className="w-3 h-3 text-[#D4AF37]" />
+                  <span>Tap to Zoom</span>
+                </div>
+
+                {/* Gallery Dots Indicator */}
+                {mediaGallery.length > 1 && (
+                  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/50 backdrop-blur-md border border-white/10">
+                    {mediaGallery.map((_: any, idx: number) => (
+                      <button
+                        key={idx}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveMediaIdx(idx);
+                        }}
+                        className={cn(
+                          "h-1.5 rounded-full transition-all duration-300 cursor-pointer",
+                          activeMediaIdx === idx ? "w-5 bg-[#D4AF37]" : "w-1.5 bg-white/40"
+                        )}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Desktop / Mobile Thumbnails Strip below Hero */}
+            {/* Mobile Horizontal Thumbnails Strip (hidden on desktop) */}
             {mediaGallery.length > 1 && (
-              <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+              <div className="md:hidden flex items-center gap-2 overflow-x-auto pb-1 mt-3 scrollbar-none">
                 {mediaGallery.map((img: string, idx: number) => (
                   <button
                     key={idx}
@@ -638,25 +698,45 @@ function ProductDetail() {
             </div>
 
             {/* Desktop Action Buttons (Positioned directly below Quantity Selector) */}
-            <div className="hidden lg:flex items-center gap-3 pt-1">
-              <button
-                type="button"
-                onClick={handleAddToCart}
-                className={cn(
-                  "flex-1 py-3.5 px-4 rounded-xl border-2 font-extrabold text-xs uppercase tracking-wider transition-all duration-200 cursor-pointer active:scale-95 flex items-center justify-center gap-2",
-                  isDark
-                    ? "border-[#D4AF37] text-white hover:bg-[#D4AF37]/10"
-                    : "border-[#D4AF37] text-slate-900 hover:bg-[#D4AF37]/10"
-                )}
-              >
-                <ShoppingBag className="w-4 h-4 text-[#D4AF37]" />
-                <span>ADD TO BAG</span>
-              </button>
+            <div className="hidden lg:flex flex-col gap-3 pt-1">
+              {/* Row 1: Add to Bag + Wishlist Icon in one line */}
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleAddToCart}
+                  className={cn(
+                    "flex-1 py-3.5 px-4 rounded-xl border-2 font-extrabold text-xs uppercase tracking-wider transition-all duration-200 cursor-pointer active:scale-95 flex items-center justify-center gap-2",
+                    isDark
+                      ? "border-[#D4AF37] text-white hover:bg-[#D4AF37]/10"
+                      : "border-[#D4AF37] text-slate-900 hover:bg-[#D4AF37]/10"
+                  )}
+                >
+                  <ShoppingBag className="w-4 h-4 text-[#D4AF37]" />
+                  <span>ADD TO BAG</span>
+                </button>
 
+                <button
+                  type="button"
+                  onClick={handleWishlistToggle}
+                  className={cn(
+                    "p-3.5 rounded-xl border-2 transition-all duration-200 cursor-pointer active:scale-95 flex items-center justify-center shrink-0",
+                    isFavorite
+                      ? "bg-red-500/20 text-red-500 border-red-500/40"
+                      : isDark
+                      ? "border-[#D4AF37]/40 text-white hover:border-[#D4AF37]"
+                      : "border-slate-300 text-slate-900 hover:border-[#D4AF37]"
+                  )}
+                  title={isFavorite ? "Remove from Wishlist" : "Add to Wishlist"}
+                >
+                  <Heart className={cn("w-5 h-5", isFavorite && "fill-current")} />
+                </button>
+              </div>
+
+              {/* Row 2: Buy Now Button below */}
               <button
                 type="button"
                 onClick={handleBuyNow}
-                className="flex-1 py-3.5 px-4 rounded-xl bg-[#D4AF37] text-black font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-[#D4AF37]/25 hover:bg-[#c49f2f] transition-all duration-200 cursor-pointer active:scale-95 flex items-center justify-center gap-2"
+                className="w-full py-3.5 px-4 rounded-xl bg-[#D4AF37] text-black font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-[#D4AF37]/25 hover:bg-[#c49f2f] transition-all duration-200 cursor-pointer active:scale-95 flex items-center justify-center gap-2"
               >
                 <Sparkles className="w-4 h-4 fill-current" />
                 <span>BUY NOW</span>
