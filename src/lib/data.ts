@@ -165,8 +165,9 @@ export function parseProductInfoMarkup(text: string): ProductSection[] {
     if (isHeaderLine) {
       const cleanTitle = line.replace(/[*#]/g, "").trim();
       if (cleanTitle) {
+        const slug = cleanTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-");
         currentSection = {
-          id: `sec-${sections.length}-${Date.now()}`,
+          id: `sec-${sections.length}-${slug}`,
           title: cleanTitle,
           subtitle: "",
           rows: []
@@ -178,7 +179,7 @@ export function parseProductInfoMarkup(text: string): ProductSection[] {
 
     if (!currentSection) {
       currentSection = {
-        id: `sec-${sections.length}-${Date.now()}`,
+        id: `sec-${sections.length}-details`,
         title: "Product Details",
         subtitle: "",
         rows: []

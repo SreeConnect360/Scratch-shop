@@ -175,10 +175,20 @@ function ProductDetail() {
   const availableSizes = product?.sizes || ["S", "M", "L", "XL"];
   const stockPerSize = (product as any)?.stockPerSize || { S: 12, M: 5, L: 10, XL: 4 };
 
-  const displaySections = getProductDisplaySections(product);
-  const [openSectionIds, setOpenSectionIds] = useState<string[]>(() =>
-    displaySections.length > 0 ? [displaySections[0].id || "sec-0"] : []
+  const displaySections = useMemo(
+    () => getProductDisplaySections(product),
+    [product?.id, product?.productInfo, product?.productSections]
   );
+
+  const [openSectionIds, setOpenSectionIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (displaySections && displaySections.length > 0) {
+      setOpenSectionIds([displaySections[0].id || "sec-0"]);
+    } else {
+      setOpenSectionIds([]);
+    }
+  }, [displaySections]);
 
   const toggleSectionOpen = (id: string) => {
     setOpenSectionIds((prev) =>
@@ -567,12 +577,6 @@ function ProductDetail() {
                     </button>
                   </>
                 )}
-
-                {/* Fullscreen Expand Badge */}
-                <div className="absolute bottom-3 right-3 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md text-white text-[10px] uppercase font-bold tracking-widest flex items-center gap-1.5 border border-white/20 opacity-80 group-hover:opacity-100 transition-opacity">
-                  <Maximize2 className="w-3 h-3 text-[#D4AF37]" />
-                  <span>Tap to Zoom</span>
-                </div>
 
                 {/* Gallery Dots Indicator */}
                 {mediaGallery.length > 1 && (
