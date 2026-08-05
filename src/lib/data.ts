@@ -218,6 +218,7 @@ export function parseProductInfoMarkup(text: string): ProductSection[] {
 export type Product = {
   id: string;
   name: string;
+  description?: string;
   house: string;
   price: string;
   image: string;

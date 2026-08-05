@@ -25,7 +25,10 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  Lock
+  Lock,
+  Copy,
+  Mail,
+  MessageCircle
 } from "lucide-react";
 import { ProductCard } from "@/components/public/ProductCard";
 import { parseProductInfoMarkup, type ProductSection } from "@/lib/data";
@@ -170,6 +173,8 @@ function ProductDetail() {
   const [activeMediaIdx, setActiveMediaIdx] = useState(0);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [zoomScale, setZoomScale] = useState(1);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
 
   // Size details & stocks
   const availableSizes = product?.sizes || ["S", "M", "L", "XL"];
@@ -305,11 +310,31 @@ function ProductDetail() {
     const shareUrl = typeof window !== "undefined"
       ? `${window.location.origin}/product/${product.id}`
       : `https://reevibes.com/product/${product.id}`;
+    
+    // Auto copy link to clipboard
     try {
       await navigator.clipboard.writeText(shareUrl);
-      toast.success(`Copied product link: ${shareUrl}`);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 3000);
+      toast.success(`Copied product link to clipboard!`);
     } catch {
-      toast.success(`Copied product link: ${shareUrl}`);
+      toast.success(`Copied product link to clipboard!`);
+    }
+
+    // Always open the share apps modal
+    setShowShareModal(true);
+
+    // Optionally trigger native OS share sheet if supported
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({
+          title: product.name,
+          text: `Check out ${product.name} on ReeVibes Atelier!`,
+          url: shareUrl,
+        });
+      } catch (err) {
+        /* ignore cancel */
+      }
     }
   };
 
@@ -975,6 +1000,136 @@ function ProductDetail() {
           </div>
         )}
       </div>
+
+      {/* ─── ELEGANT SHARE APPS MODAL ─────────────────────────────────────── */}
+      <AnimatePresence>
+        {showShareModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className={cn(
+                "relative w-full max-w-md p-6 rounded-3xl border shadow-2xl space-y-5 overflow-hidden",
+                isDark ? "bg-[#121212] border-white/15 text-white" : "bg-white border-slate-200 text-slate-900"
+              )}
+            >
+              {/* Top Header */}
+              <div className="flex items-center justify-between border-b border-border/40 pb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-[#D4AF37]/15 text-[#D4AF37]">
+                    <Share2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-serif font-bold text-lg leading-tight">Share Product</h3>
+                    <p className="text-xs text-muted-foreground">Link auto-copied! Select an app to share</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowShareModal(false)}
+                  className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Product Snippet Preview */}
+              <div className="flex items-center gap-3 p-3 rounded-2xl bg-black/5 dark:bg-white/5 border border-border/30">
+                <img src={mediaGallery[0]} alt="" className="w-14 h-16 rounded-xl object-cover border border-border/40" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-[10px] uppercase font-bold text-[#D4AF37] tracking-wider">{product.house || "REEVIBES"}</div>
+                  <div className="text-xs font-serif font-bold truncate">{product.name}</div>
+                  <div className="text-xs font-mono font-extrabold text-foreground mt-0.5">{displayFinalPrice}</div>
+                </div>
+              </div>
+
+              {/* Share Apps Grid */}
+              <div className="grid grid-cols-4 gap-3 py-1">
+                {/* WhatsApp */}
+                <a
+                  href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`Check out ${product.name} on ReeVibes: https://reevibes.com/product/${product.id}`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 transition-all border border-emerald-500/20 hover:scale-105 cursor-pointer group text-center"
+                >
+                  <div className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                    <MessageCircle className="w-5 h-5 fill-current" />
+                  </div>
+                  <span className="text-[11px] font-bold text-foreground">WhatsApp</span>
+                </a>
+
+                {/* Twitter / X */}
+                <a
+                  href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Check out ${product.name} on ReeVibes Atelier!`)}&url=${encodeURIComponent(`https://reevibes.com/product/${product.id}`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-sky-500/10 hover:bg-sky-500/20 text-sky-500 transition-all border border-sky-500/20 hover:scale-105 cursor-pointer group text-center"
+                >
+                  <div className="w-10 h-10 rounded-full bg-black text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform font-black text-sm">
+                    𝕏
+                  </div>
+                  <span className="text-[11px] font-bold text-foreground">X (Twitter)</span>
+                </a>
+
+                {/* Facebook */}
+                <a
+                  href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`https://reevibes.com/product/${product.id}`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-blue-600/10 hover:bg-blue-600/20 text-blue-600 transition-all border border-blue-600/20 hover:scale-105 cursor-pointer group text-center"
+                >
+                  <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform font-extrabold text-lg">
+                    f
+                  </div>
+                  <span className="text-[11px] font-bold text-foreground">Facebook</span>
+                </a>
+
+                {/* Email */}
+                <a
+                  href={`mailto:?subject=${encodeURIComponent(`ReeVibes: ${product.name}`)}&body=${encodeURIComponent(`I thought you'd love this product on ReeVibes Atelier!\n\n${product.name}\nhttps://reevibes.com/product/${product.id}`)}`}
+                  className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 transition-all border border-amber-500/20 hover:scale-105 cursor-pointer group text-center"
+                >
+                  <div className="w-10 h-10 rounded-full bg-[#D4AF37] text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                    <Mail className="w-5 h-5" />
+                  </div>
+                  <span className="text-[11px] font-bold text-foreground">Email</span>
+                </a>
+              </div>
+
+              {/* Direct Copy Link Bar */}
+              <div className="space-y-1.5 pt-2">
+                <label className="text-[10px] uppercase font-extrabold tracking-wider text-muted-foreground block">
+                  Product Link (Auto-Copied)
+                </label>
+                <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-black/5 dark:bg-white/5 border border-border/40">
+                  <input
+                    type="text"
+                    readOnly
+                    value={`https://reevibes.com/product/${product.id}`}
+                    className="flex-1 bg-transparent px-3 text-xs font-mono text-foreground outline-none select-all truncate"
+                  />
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(`https://reevibes.com/product/${product.id}`);
+                        setIsCopied(true);
+                        setTimeout(() => setIsCopied(false), 3000);
+                        toast.success("Link copied to clipboard!");
+                      } catch {}
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-[#D4AF37] hover:bg-[#D4AF37]/90 text-white font-extrabold text-xs flex items-center gap-1.5 transition-all shadow-md active:scale-95 cursor-pointer shrink-0"
+                  >
+                    {isCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                    <span>{isCopied ? "Copied!" : "Copy"}</span>
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* ─── STICKY BOTTOM ACTION BAR (MOBILE EXCLUSIVE - REPLACES BOTTOM NAV BAR) ───────── */}
       <div className={cn(
