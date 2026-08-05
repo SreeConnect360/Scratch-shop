@@ -23,13 +23,6 @@ public class DatabaseSeeder implements CommandLineRunner {
     private final AIIntentRepository intentRepository;
     private final AICommandPatternRepository commandPatternRepository;
     private final CommandNormalizationService normalizationService;
-    private final VendorRepository vendorRepository;
-    private final VendorConnectionRepository vendorConnectionRepository;
-    private final VendorProductRepository vendorProductRepository;
-    private final VendorProductImageRepository vendorProductImageRepository;
-    private final VendorProductSizeRepository vendorProductSizeRepository;
-    private final VendorProductStockRepository vendorProductStockRepository;
-    private final VendorSyncService vendorSyncService;
     private final ProductBucketRepository productBucketRepository;
     private final PlatformUserRepository platformUserRepository;
     private final HomepageLayoutRepository homepageLayoutRepository;
@@ -64,7 +57,6 @@ public class DatabaseSeeder implements CommandLineRunner {
         if (intentRepository.count() == 0) {
             seedIntents();
         }
-        seedVendor();
         seedBuckets();
         // seedPlatformUsers();
         seedHomepageLayout();
@@ -72,7 +64,6 @@ public class DatabaseSeeder implements CommandLineRunner {
         seedOrders();
         seedReturns();
         seedReviews();
-        triggerInitialSync();
     }
 
     @Transactional
@@ -197,46 +188,7 @@ public class DatabaseSeeder implements CommandLineRunner {
         }
     }
 
-    @Transactional
-    public void triggerInitialSync() {
-        try {
-            System.out.println("Cleaning up old vendor products to force fresh sync with correct sizes and quantities...");
-            List<VendorProduct> existingProducts = vendorProductRepository.findByVendorId("blankapparel");
-            for (VendorProduct p : existingProducts) {
-                vendorProductImageRepository.deleteByProductId(p.getId());
-                vendorProductSizeRepository.deleteByProductId(p.getId());
-                vendorProductStockRepository.deleteByProductId(p.getId());
-                vendorProductRepository.delete(p);
-            }
-            System.out.println("Triggering initial catalog sync...");
-            vendorSyncService.syncCatalog("blankapparel");
-        } catch (Exception e) {
-            System.err.println("Initial automatic synchronization failed: " + e.getMessage());
-        }
-    }
 
-    private void seedVendor() {
-        if (!vendorRepository.existsById("blankapparel")) {
-            Vendor vendor = new Vendor();
-            vendor.setId("blankapparel");
-            vendor.setCompanyName("Blank Apparel India");
-            vendor.setContactPerson("Prakash Kumar");
-            vendor.setEmail("wholesale@blankapparel.in");
-            vendor.setPhone("+91 9999911111");
-            vendor.setLogoUrl("https://res.cloudinary.com/ihbgxvyo/image/upload/f_auto,q_auto/favicon_turcbu");
-            vendor.setRevenue(java.math.BigDecimal.ZERO);
-            vendor.setActive(true);
-            vendorRepository.save(vendor);
-
-            VendorConnection conn = new VendorConnection();
-            conn.setVendorId("blankapparel");
-            conn.setSyncUrl("https://www.blankapparel.in/products.json");
-            conn.setConnectionStatus("CONNECTED");
-            conn.setSyncFrequency("DAILY");
-            vendorConnectionRepository.save(conn);
-            System.out.println("Blank Apparel India vendor and connection seeded successfully.");
-        }
-    }
 
     private void seedIntents() {
         // 1. Seed base intents

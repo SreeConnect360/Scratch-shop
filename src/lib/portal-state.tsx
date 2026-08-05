@@ -425,9 +425,7 @@ const DEFAULT_HOMEPAGE_LAYOUT = {
     socialInstagram: "https://instagram.com/reevibes",
     socialPinterest: "https://pinterest.com/reevibes"
   },
-  assistant: {
-    enabled: true
-  },
+
   chatbot: {
     enabled: true
   },

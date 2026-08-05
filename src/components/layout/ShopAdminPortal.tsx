@@ -12,10 +12,7 @@ import {
 import * as XLSX from "xlsx";
 import { AdminCard, AdminButton, StatusChip } from "./AdminCommon";
 import { PRODUCTS } from "@/lib/data";
-import { LiveCountdown } from "@/routes/_shop";
-import * as vendorApi from "@/lib/vendor-api";
 import { toast } from "sonner";
-import VendorDashboard from "./VendorDashboard";
 const formatOrderDateTime = (dateStr: string) => {
   const dateObj = new Date(dateStr);
   if (isNaN(dateObj.getTime())) return dateStr;
@@ -34,7 +31,7 @@ const formatOrderDateTime = (dateStr: string) => {
 
 export function ShopAdminPortal({ tab }: { tab: string }) {
   const [statusFilter, setStatusFilter] = useState<string>("All");
-  const { state, createProduct, updateProduct, deleteProduct, updateOrderStatus, acceptOrder, fetchCourierQuotes, assignAWB, schedulePickup, approveReturn, rejectReturn, updateReturnDetails, suspendCustomer, reactivateCustomer, addCoupon, removeCoupon, moderateReview, createVendor, deleteVendor, addWalletCredit, updateHomepageLayoutDraft, publishHomepageLayout, revertHomepageLayout, createBucket, updateBucket, deleteBucket, reorderBuckets, toggleShopWishlist, addWalletGiftCard, updateWalletGiftCard, toggleWalletGiftCardStatus, deleteWalletGiftCard } = usePortal();
+  const { state, createProduct, updateProduct, deleteProduct, updateOrderStatus, acceptOrder, fetchCourierQuotes, assignAWB, schedulePickup, approveReturn, rejectReturn, updateReturnDetails, suspendCustomer, reactivateCustomer, addCoupon, removeCoupon, moderateReview, addWalletCredit, updateHomepageLayoutDraft, publishHomepageLayout, revertHomepageLayout, createBucket, updateBucket, deleteBucket, reorderBuckets, toggleShopWishlist, addWalletGiftCard, updateWalletGiftCard, toggleWalletGiftCardStatus, deleteWalletGiftCard } = usePortal();
 
   // Dynamic products list from state
   const productsList = state.products || [];
@@ -79,13 +76,8 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
     });
   }, [returnsList, returnsFilter]);
   const customersList = state.users || [];
-  const couponsList = state.coupons || [];
-  const vendorsList = state.vendors || [];
-
   // Local UI States
   const [catalogTab, setCatalogTab] = useState<"all" | "published" | "unpublished">("all");
-  const [catalogSection, setCatalogSection] = useState<"main" | "vendors">("main");
-  const [selectedCatalogVendor, setSelectedCatalogVendor] = useState<string>("blankapparel");
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
   const [imageUrlInput, setImageUrlInput] = useState("");
@@ -163,10 +155,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
     status: "Active"
   });
 
-  const [vendorForm, setVendorForm] = useState({
-    companyName: "", contactPerson: "", email: "", phone: ""
-  });
-  const [isAddingVendor, setIsAddingVendor] = useState(false);
+
 
   // Search filter
   const [searchTerm, setSearchTerm] = useState("");
@@ -331,11 +320,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
     printWindow.document.close();
   };
 
-  useEffect(() => {
-    if (vendorsList.length > 0 && (!selectedCatalogVendor || !vendorsList.some(v => v.id === selectedCatalogVendor))) {
-      setSelectedCatalogVendor(vendorsList[0].id);
-    }
-  }, [vendorsList, selectedCatalogVendor]);
+
 
   // Homepage Builder States
   const [draftLayout, setDraftLayout] = useState<any>(null);
@@ -377,9 +362,6 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
   useEffect(() => {
     if (state && state.homepageLayoutDraft && !draftLayout) {
       const layoutCopy = { ...state.homepageLayoutDraft };
-      if (!layoutCopy.assistant) {
-        layoutCopy.assistant = { enabled: true };
-      }
       if (!layoutCopy.chatbot) {
         layoutCopy.chatbot = { enabled: true };
       }
@@ -595,13 +577,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
     });
   };
 
-  const handleVendorSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    createVendor(vendorForm);
-    setIsAddingVendor(false);
-    setVendorForm({ companyName: "", contactPerson: "", email: "", phone: "" });
-    triggerModal("success", "Vendor Registered", "New vendor added to the portal.", () => {});
-  };
+
 
   // --- Excel Import & Review Wizard Handlers ---
 
@@ -2747,7 +2723,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                   {(() => {
                     const filteredList = draftLayout.sectionOrder.filter(
                       (id: string) => ["announcement", "hero", "recentlyViewed"].includes(id) || id.startsWith("section-") || id.startsWith("subbanner-")
-                    ).concat(["chatbot", "assistant"]);
+                    ).concat(["chatbot"]);
                     return filteredList.map((secId: string, idx: number) => {
                       const sec = draftLayout[secId];
                       if (!sec) return null;
@@ -2758,7 +2734,6 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                       else if (secId === "hero") displayName = "Hero Banner Carousel";
                       else if (secId === "recentlyViewed") displayName = "Recently Viewed Products";
                       else if (secId === "chatbot") displayName = "AI Chatbot";
-                      else if (secId === "assistant") displayName = "Floating 3D Robot";
                       else if (secId.startsWith("section-")) displayName = `Section: ${sec.name || "Unnamed"}`;
                       else if (secId.startsWith("subbanner-")) displayName = `Sub Banner: ${sec.title || sec.name || "Unnamed"}`;
 
@@ -2801,7 +2776,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             </button>
 
                             {/* Reordering Actions */}
-                            {secId !== "assistant" && secId !== "chatbot" && (
+                            {secId !== "chatbot" && (
                               <>
                                 <button
                                   disabled={idx === 0}
@@ -3077,27 +3052,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                       </div>
                     )}
 
-                    {/* Floating 3D Robot Editor */}
-                    {activeSectionId === "assistant" && (
-                      <div className="space-y-3">
-                        <label className="text-muted-foreground font-semibold block">Floating 3D Robot Visibility</label>
-                        <p className="text-[11px] text-muted-foreground">The interactive 3D Robot animation appears fixed at the bottom-right corner of the homepage, tracking the user's mouse cursor for a premium interactive experience.</p>
-                        <div className="flex items-center justify-between border-t border-white/5 pt-3">
-                          <span className="text-muted-foreground font-semibold">Enable Floating 3D Robot</span>
-                          <input
-                            type="checkbox"
-                            checked={draftLayout.assistant?.enabled !== false}
-                            onChange={(e) => {
-                              setDraftLayout({
-                                ...draftLayout,
-                                assistant: { ...draftLayout.assistant, enabled: e.target.checked }
-                              });
-                            }}
-                            className="rounded border-white/10 text-accent focus:ring-accent w-4 h-4 cursor-pointer"
-                          />
-                        </div>
-                      </div>
-                    )}
+
 
                     {/* Hero Banner Carousel Editor */}
                     {activeSectionId === "hero" && (
@@ -5039,58 +4994,6 @@ Fit: Regular Fit"
           })()}
 
 
-          {/* Top-Level Catalog Navigation */}
-          <div className="flex border-b border-white/10 gap-8 text-sm font-serif mb-6">
-            <button
-              onClick={() => {
-                setCatalogSection("main");
-                setCatalogTab("all");
-                setSelectedProductIds([]);
-              }}
-              className={`pb-3 transition-colors cursor-pointer font-bold ${
-                catalogSection === "main" ? "border-b-2 border-accent text-accent" : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Main Catalog
-            </button>
-            <button
-              onClick={() => {
-                setCatalogSection("vendors");
-                setCatalogTab("all");
-                setSelectedCatalogVendor(vendorsList[0]?.id || "blankapparel");
-                setSelectedProductIds([]);
-              }}
-              className={`pb-3 transition-colors cursor-pointer font-bold ${
-                catalogSection === "vendors" ? "border-b-2 border-accent text-accent" : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Vendors
-            </button>
-          </div>
-
-          {/* Vendor-Specific Sub-tabs (only shown when Vendors catalog section is active) */}
-          {catalogSection === "vendors" && (
-            <div className="flex gap-2 mb-4 bg-white/5 p-1 rounded-full w-fit border border-white/5">
-              {vendorsList.map((v: any) => (
-                <button
-                  key={v.id}
-                  onClick={() => {
-                    setSelectedCatalogVendor(v.id);
-                    setCatalogTab("all");
-                    setSelectedProductIds([]);
-                  }}
-                  className={`px-4 py-1.5 text-[11px] uppercase tracking-wider font-semibold rounded-full transition-all cursor-pointer ${
-                    selectedCatalogVendor === v.id
-                      ? "bg-accent text-white"
-                      : "text-muted-foreground hover:text-white"
-                  }`}
-                >
-                  {v.companyName || v.id}
-                </button>
-              ))}
-            </div>
-          )}
-
           {/* Sub-tabs for All, Unpublished, and Published */}
           <div className="flex border-b border-white/10 gap-6 text-xs font-bold uppercase tracking-wider mb-4">
             <button
@@ -5100,12 +5003,7 @@ Fit: Regular Fit"
               }}
               className={`pb-2.5 transition-colors cursor-pointer ${catalogTab === "all" ? "border-b-2 border-accent text-accent" : "text-muted-foreground hover:text-foreground"}`}
             >
-              All Products ({
-                (catalogSection === "main"
-                  ? productsList
-                  : productsList.filter((p: any) => p.vendorId === selectedCatalogVendor && p.inCatalog === true)
-                ).length
-              })
+              All Products ({productsList.length})
             </button>
             <button
               onClick={() => {
@@ -5114,12 +5012,7 @@ Fit: Regular Fit"
               }}
               className={`pb-2.5 transition-colors cursor-pointer ${catalogTab === "unpublished" ? "border-b-2 border-accent text-accent" : "text-muted-foreground hover:text-foreground"}`}
             >
-              Unpublished ({
-                (catalogSection === "main"
-                  ? productsList.filter((p: any) => p.status && p.status !== "PUBLISHED")
-                  : productsList.filter((p: any) => p.vendorId === selectedCatalogVendor && p.inCatalog === true && p.status && p.status !== "PUBLISHED")
-                ).length
-              })
+              Unpublished ({productsList.filter((p: any) => p.status && p.status !== "PUBLISHED").length})
             </button>
             <button
               onClick={() => {
@@ -5128,26 +5021,13 @@ Fit: Regular Fit"
               }}
               className={`pb-2.5 transition-colors cursor-pointer ${catalogTab === "published" ? "border-b-2 border-accent text-accent" : "text-muted-foreground hover:text-foreground"}`}
             >
-              Published ({
-                (catalogSection === "main"
-                  ? productsList.filter((p: any) => p.status === "PUBLISHED" || !p.status)
-                  : productsList.filter((p: any) => p.vendorId === selectedCatalogVendor && p.inCatalog === true && (p.status === "PUBLISHED" || !p.status))
-                ).length
-              })
+              Published ({productsList.filter((p: any) => p.status === "PUBLISHED" || !p.status).length})
             </button>
           </div>
 
           {/* Bulk Actions Bar */}
           {(() => {
             let filtered = productsList;
-
-            // 1. Filter by Catalog Section
-            if (catalogSection === "main") {
-              // Main Catalog shows all products in the catalog
-            } else if (catalogSection === "vendors") {
-              // Show only imported products from the selected vendor
-              filtered = filtered.filter((p: any) => p.vendorId === selectedCatalogVendor && p.inCatalog === true);
-            }
 
             // 2. Filter by Catalog Tab
             if (catalogTab === "published") {
@@ -6089,10 +5969,7 @@ Fit: Regular Fit"
         </AdminCard>
       )}
 
-      {/* 9. VENDORS DIRECTORY */}
-      {tab === "vendors" && (
-        <VendorDashboard />
-      )}
+
     </div>
   );
 }

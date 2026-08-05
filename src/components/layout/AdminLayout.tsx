@@ -34,7 +34,6 @@ const SHOP_NAV = [
   { to: "/admin", search: { tab: "customers" }, label: "Customers Directory", icon: Users },
   { to: "/admin", search: { tab: "coupons" }, label: "Coupons Manager", icon: Ticket },
   { to: "/admin", search: { tab: "reviews" }, label: "Reviews Moderator", icon: Star },
-  { to: "/admin", search: { tab: "vendors" }, label: "Vendors & Partners", icon: Store },
 ] as const;
 
 function ModuleToggle() {

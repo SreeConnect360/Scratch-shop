@@ -10,7 +10,7 @@ import {
   ChevronLeft, ChevronRight, Home, Grid, Diamond, Zap, MessageSquare, ShoppingBag
 } from "lucide-react";
 import { motion, useSpring, AnimatePresence } from "framer-motion";
-import { SplineScene } from "@/components/ui/splite";
+
 import MagneticButton from "@/components/ui/MagneticButton";
 import { cn, prefersReducedMotion } from "@/lib/utils";
 import { ProductCard } from "@/components/public/ProductCard";
@@ -125,33 +125,7 @@ function ShopHome() {
     return () => window.removeEventListener("mousemove", handleGlowMouseMove);
   }, []);
 
-  // Spline Robot visibility — controlled from Admin Homepage Dashboard → AI Robot Assistant toggle
-  const showRobot = layout?.assistant?.enabled !== false;
-  const splineContainerRef = useRef<HTMLDivElement>(null);
 
-  // Forward global mousemove events to the Spline canvas to ensure tracking from far left, top, bottom, and chatbots
-  useEffect(() => {
-    const handleGlobalMouseMove = (e: MouseEvent) => {
-      if (!showRobot) return;
-      const container = splineContainerRef.current;
-      if (!container) return;
-      const canvas = container.querySelector("canvas");
-      if (!canvas) return;
-
-      const clonedEvent = new MouseEvent("mousemove", {
-        clientX: e.clientX,
-        clientY: e.clientY,
-        screenX: e.screenX,
-        screenY: e.screenY,
-        bubbles: true,
-        cancelable: true,
-      });
-      canvas.dispatchEvent(clonedEvent);
-    };
-
-    window.addEventListener("mousemove", handleGlobalMouseMove);
-    return () => window.removeEventListener("mousemove", handleGlobalMouseMove);
-  }, [showRobot]);
 
   // Active Hero Slide Index & State
   const [activeHeroIdx, setActiveHeroIdx] = useState(0);
@@ -1255,24 +1229,13 @@ function ShopHome() {
           background: "radial-gradient(circle, rgba(212, 175, 55, 0.45) 0%, transparent 70%)",
         }}
       />
-      {showRobot && (
-        <div 
-          ref={splineContainerRef}
-          className="hidden lg:block fixed right-2 bottom-[-70px] w-[220px] h-[220px] pointer-events-auto z-30 select-none"
-        >
-          <SplineScene 
-            scene="https://prod.spline.design/kZDDjO5HuC9GJUM2/scene.splinecode"
-            className="w-full h-full"
-          />
-        </div>
-      )}
-
       {(layout?.sectionOrder || [])
-        .filter((sectionId: string) => ["hero", "recentlyViewed"].includes(sectionId) || sectionId.startsWith("section-") || sectionId.startsWith("subbanner-"))
         .map((sectionId: string) => {
+          const content = renderSection(sectionId);
+          if (!content) return null;
           return (
             <div key={sectionId} id={sectionId} className="relative z-10">
-              {renderSection(sectionId)}
+              {content}
             </div>
           );
         })}

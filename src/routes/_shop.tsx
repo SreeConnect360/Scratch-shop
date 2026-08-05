@@ -457,7 +457,7 @@ function ShopLayout() {
               )}
 
               {/* desktop links */}
-              <ul className="hidden items-center gap-0.5 md:flex" role="list">
+              <ul className="hidden items-center gap-1 lg:gap-3 md:flex shrink-0" role="list">
                 {layout?.navigation?.itemsOrder ? (
                   layout.navigation.itemsOrder.map((item: string) => {
                     const isVisible = layout?.navigation?.visibleItems?.includes(item);
@@ -470,12 +470,12 @@ function ShopLayout() {
                     if (item === "Women") {
                       const isActive = location.pathname === "/categories" && !searchParams?.view && !searchParams?.tag;
                       return (
-                        <li key={item} className="relative">
+                        <li key={item} className="relative shrink-0">
                           <Link
                             to="/categories"
-                            className="relative rounded-full px-3 py-1.5 text-[15px] tracking-[0.08em] font-semibold transition-colors duration-300 outline-none focus:outline-none focus-visible:outline-none"
+                            className="relative rounded-full px-2.5 py-1.5 text-xs lg:text-sm tracking-[0.06em] font-semibold transition-colors duration-300 outline-none focus:outline-none focus-visible:outline-none whitespace-nowrap"
                           >
-                            <span className={isActive ? "text-gold" : "text-ink-muted hover:text-ink"}>
+                            <span className={isActive ? "text-gold font-bold" : "text-ink-muted hover:text-ink"}>
                               Fashion
                             </span>
                           </Link>
@@ -486,13 +486,13 @@ function ShopLayout() {
                     if (item === "Collections") {
                       const isActive = location.pathname === "/categories" && searchParams?.view === "collections";
                       return (
-                        <li key={item} className="relative">
+                        <li key={item} className="relative shrink-0">
                           <Link
                             to="/categories"
                             search={{ view: "collections" } as any}
-                            className="relative rounded-full px-3 py-1.5 text-[15px] tracking-[0.08em] font-semibold transition-colors duration-300 outline-none focus:outline-none focus-visible:outline-none"
+                            className="relative rounded-full px-2.5 py-1.5 text-xs lg:text-sm tracking-[0.06em] font-semibold transition-colors duration-300 outline-none focus:outline-none focus-visible:outline-none whitespace-nowrap"
                           >
-                            <span className={isActive ? "text-gold" : "text-ink-muted hover:text-ink"}>
+                            <span className={isActive ? "text-gold font-bold" : "text-ink-muted hover:text-ink"}>
                               Collections
                             </span>
                           </Link>
@@ -512,13 +512,13 @@ function ShopLayout() {
                         : false);
 
                     return (
-                      <li key={item} className="relative">
+                      <li key={item} className="relative shrink-0">
                         <Link
                           to="/categories"
                           search={linkSearch}
-                          className="relative rounded-full px-3 py-1.5 text-[15px] tracking-[0.08em] font-semibold transition-colors duration-300 outline-none focus:outline-none focus-visible:outline-none"
+                          className="relative rounded-full px-2.5 py-1.5 text-xs lg:text-sm tracking-[0.06em] font-semibold transition-colors duration-300 outline-none focus:outline-none focus-visible:outline-none whitespace-nowrap"
                         >
-                          <span className={isActive ? "text-gold" : "text-ink-muted hover:text-ink"}>
+                          <span className={isActive ? "text-gold font-bold" : "text-ink-muted hover:text-ink"}>
                             {label}
                           </span>
                         </Link>
@@ -527,28 +527,28 @@ function ShopLayout() {
                   })
                 ) : (
                   <>
-                    <li className="relative">
-                      <Link to="/" className="relative rounded-full px-3 py-1.5 text-[15px] tracking-[0.08em] font-semibold transition-colors outline-none focus:outline-none focus-visible:outline-none">
+                    <li className="relative shrink-0">
+                      <Link to="/" className="relative rounded-full px-2.5 py-1.5 text-xs lg:text-sm tracking-[0.06em] font-semibold transition-colors outline-none focus:outline-none focus-visible:outline-none whitespace-nowrap">
                         {({ isActive }) => (
-                          <span className={isActive ? "text-gold" : "text-ink-muted hover:text-ink"}>
+                          <span className={isActive ? "text-gold font-bold" : "text-ink-muted hover:text-ink"}>
                             Shop
                           </span>
                         )}
                       </Link>
                     </li>
-                    <li className="relative">
-                      <Link to="/categories" className="relative rounded-full px-3 py-1.5 text-[15px] tracking-[0.08em] font-semibold transition-colors outline-none focus:outline-none focus-visible:outline-none">
+                    <li className="relative shrink-0">
+                      <Link to="/categories" className="relative rounded-full px-2.5 py-1.5 text-xs lg:text-sm tracking-[0.06em] font-semibold transition-colors outline-none focus:outline-none focus-visible:outline-none whitespace-nowrap">
                         {({ isActive }) => (
-                          <span className={isActive ? "text-gold" : "text-ink-muted hover:text-ink"}>
+                          <span className={isActive ? "text-gold font-bold" : "text-ink-muted hover:text-ink"}>
                             Collections
                           </span>
                         )}
                       </Link>
                     </li>
-                    <li className="relative">
-                      <Link to="/FashionBattle/live-contest" className="relative rounded-full px-3 py-1.5 text-[15px] tracking-[0.08em] font-semibold transition-colors outline-none focus:outline-none focus-visible:outline-none">
+                    <li className="relative shrink-0">
+                      <Link to="/FashionBattle/live-contest" className="relative rounded-full px-2.5 py-1.5 text-xs lg:text-sm tracking-[0.06em] font-semibold transition-colors outline-none focus:outline-none focus-visible:outline-none whitespace-nowrap">
                         {({ isActive }) => (
-                          <span className={isActive ? "text-gold" : "text-ink-muted hover:text-ink"}>
+                          <span className={isActive ? "text-gold font-bold" : "text-ink-muted hover:text-ink"}>
                             Contests
                           </span>
                         )}
