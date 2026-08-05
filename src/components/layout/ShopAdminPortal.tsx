@@ -2721,19 +2721,32 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
 
                 <div className="space-y-2 max-h-[380px] overflow-y-auto pr-2 divide-y divide-white/5 scrollbar-thin">
                   {(() => {
-                    const filteredList = draftLayout.sectionOrder.filter(
-                      (id: string) => ["announcement", "hero", "recentlyViewed"].includes(id) || id.startsWith("section-") || id.startsWith("subbanner-")
-                    ).concat(["chatbot"]);
+                    const rawList = (draftLayout.sectionOrder || []).filter(
+                      (id: string) => id !== "navigation" && id !== "footer"
+                    );
+                    const filteredList = rawList.includes("chatbot") ? rawList : [...rawList, "chatbot"];
                     return filteredList.map((secId: string, idx: number) => {
                       const sec = draftLayout[secId];
                       if (!sec) return null;
                       const isSelected = activeSectionId === secId;
 
                       let displayName = secId;
-                      if (secId === "announcement") displayName = "Top Announcement";
+                      if (secId === "announcement") displayName = "Top Announcement Bar";
                       else if (secId === "hero") displayName = "Hero Banner Carousel";
+                      else if (secId === "categories") displayName = "Categories Grid";
+                      else if (secId === "flashSale") displayName = "Flash Sale Countdown";
+                      else if (secId === "trending") displayName = "Trending Products";
+                      else if (secId === "newArrivals" || secId === "newArrival") displayName = "New Arrivals";
+                      else if (secId === "campaign") displayName = "Campaign Banner";
+                      else if (secId === "collections") displayName = "Featured Collections";
+                      else if (secId === "bestSellers") displayName = "Best Sellers";
+                      else if (secId === "limitedStock") displayName = "Limited Stock";
+                      else if (secId === "influencerPicks") displayName = "Influencer Favorites";
                       else if (secId === "recentlyViewed") displayName = "Recently Viewed Products";
-                      else if (secId === "chatbot") displayName = "AI Chatbot";
+                      else if (secId === "recommended") displayName = "Recommended Products";
+                      else if (secId === "brandStory") displayName = "Brand Story";
+                      else if (secId === "newsletter") displayName = "Newsletter Signup";
+                      else if (secId === "chatbot") displayName = "AI Chatbot Overlay";
                       else if (secId.startsWith("section-")) displayName = `Section: ${sec.name || "Unnamed"}`;
                       else if (secId.startsWith("subbanner-")) displayName = `Sub Banner: ${sec.title || sec.name || "Unnamed"}`;
 

@@ -311,8 +311,8 @@ function ShopHome() {
 
   // Helper renderers for sections
   const renderSection = (sectionId: string) => {
-    const sec = layout[sectionId];
-    if (!sec || !sec.enabled) return null;
+    const sec = layout[sectionId] || (sectionId === "newArrivals" ? layout["newArrival"] : undefined);
+    if (sec && sec.enabled === false) return null;
 
     switch (sectionId) {
       case "hero":
