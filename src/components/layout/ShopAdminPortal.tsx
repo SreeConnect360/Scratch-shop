@@ -76,6 +76,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
     });
   }, [returnsList, returnsFilter]);
   const customersList = state.users || [];
+  const couponsList = state.coupons || [];
   // Local UI States
   const [catalogTab, setCatalogTab] = useState<"all" | "published" | "unpublished">("all");
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
