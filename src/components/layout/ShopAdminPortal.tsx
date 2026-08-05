@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { usePortal, useCartTotal, DEFAULT_HOMEPAGE_LAYOUT } from "@/lib/portal-state";
 import { Link } from "@tanstack/react-router";
+import { cn } from "@/lib/utils";
 import {
   ShoppingBag, Truck, RefreshCw, Users, Ticket, Star, Store, BarChart3,
   Sparkles, LayoutGrid, Plus, Edit2, Trash2, Check, X, ShieldAlert,
