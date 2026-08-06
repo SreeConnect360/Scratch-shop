@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -17,7 +19,6 @@ import '../services/webview_bridge.dart';
 /// - Pinch-to-zoom & double-tap zoom disabled
 /// - External URL handling (payments, OAuth)
 /// - JS ↔ Flutter haptic bridge
-/// - Pull-to-refresh
 /// - Android back button WebView history navigation
 class ReeVibesWebView extends StatefulWidget {
   final Function(WebViewController controller)? onControllerCreated;
@@ -256,20 +257,11 @@ class ReeVibesWebViewState extends State<ReeVibesWebView> {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        RefreshIndicator(
-          color: const Color(0xFFD4AF37),
-          backgroundColor: const Color(0xFF141414),
-          onRefresh: () async {
-            await HapticService.instance.lightTap();
-            await _controller.reload();
+        WebViewWidget(
+          controller: _controller,
+          gestureRecognizers: {
+            Factory<OneSequenceGestureRecognizer>(() => EagerGestureRecognizer()),
           },
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            child: SizedBox(
-              height: MediaQuery.of(context).size.height,
-              child: WebViewWidget(controller: _controller),
-            ),
-          ),
         ),
         // Progress bar
         if (_isLoading)

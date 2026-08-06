@@ -30,6 +30,8 @@ public class ShopPortalController {
     private final ReturnRequestRepository returnRequestRepository;
     private final ShopCouponRepository couponRepository;
     private final ProductReviewRepository reviewRepository;
+    private final VendorRepository vendorRepository;
+    private final VendorProductRepository vendorProductRepository;
     private final SyncService syncService;
     private final com.reevibes.ai.service.ShiprocketService shiprocketService;
 
@@ -191,6 +193,39 @@ public class ShopPortalController {
         }
 
         PlatformUser saved = userRepository.save(user);
+        syncService.bumpVersion();
+        return ResponseEntity.ok(saved);
+    }
+
+    @PutMapping("/customers/change-email")
+    @Transactional
+    public ResponseEntity<PlatformUser> changeCustomerEmail(@RequestBody Map<String, String> body) {
+        String oldEmail = body.get("oldEmail");
+        String newEmail = body.get("newEmail");
+        if (oldEmail == null || newEmail == null || oldEmail.isEmpty() || newEmail.isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        PlatformUser user = userRepository.findByEmailIgnoreCase(oldEmail).orElse(null);
+        if (user == null) {
+            user = userRepository.findByEmailIgnoreCase(newEmail).orElse(null);
+        }
+        if (user == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        user.setEmail(newEmail.toLowerCase());
+        PlatformUser saved = userRepository.save(user);
+
+        // Preserve all past order activities linked to old email
+        List<ShopOrder> orders = orderRepository.findAll();
+        for (ShopOrder o : orders) {
+            if (oldEmail.equalsIgnoreCase(o.getUserId())) {
+                o.setUserId(newEmail.toLowerCase());
+                orderRepository.save(o);
+            }
+        }
+
         syncService.bumpVersion();
         return ResponseEntity.ok(saved);
     }
@@ -651,4 +686,125 @@ public class ShopPortalController {
         
         return ResponseEntity.ok(Map.of("message", "Order updated successfully", "orderId", saved.getId(), "status", saved.getStatus()));
     }
+
+    // --- VENDORS ---
+    @GetMapping("/vendors")
+    public ResponseEntity<List<Vendor>> getVendors() {
+        return ResponseEntity.ok(vendorRepository.findAll());
+    }
+
+    @PostMapping("/vendors")
+    @Transactional
+    public ResponseEntity<Vendor> createVendor(@RequestBody Vendor vendor) {
+        if (vendor.getId() == null || vendor.getId().isEmpty()) {
+            vendor.setId("v" + System.currentTimeMillis());
+        }
+        Vendor saved = vendorRepository.save(vendor);
+        syncService.bumpVersion();
+        return ResponseEntity.ok(saved);
+    }
+
+    @PutMapping("/vendors/{id}")
+    @Transactional
+    public ResponseEntity<Vendor> updateVendor(@PathVariable String id, @RequestBody Map<String, Object> body) {
+        Vendor vendor = vendorRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Vendor not found: " + id));
+
+        if (body.containsKey("companyName")) vendor.setCompanyName((String) body.get("companyName"));
+        if (body.containsKey("contactPerson")) vendor.setContactPerson((String) body.get("contactPerson"));
+        if (body.containsKey("email")) vendor.setEmail((String) body.get("email"));
+        if (body.containsKey("phone")) vendor.setPhone((String) body.get("phone"));
+        if (body.containsKey("revenue") && body.get("revenue") != null) {
+            vendor.setRevenue(((Number) body.get("revenue")).doubleValue());
+        }
+        if (body.containsKey("products")) {
+            Object prods = body.get("products");
+            if (prods instanceof List) {
+                try {
+                    com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                    vendor.setProductsJson(mapper.writeValueAsString(prods));
+                } catch (Exception e) {}
+            } else if (prods != null) {
+                vendor.setProductsJson(prods.toString());
+            }
+        }
+
+        Vendor saved = vendorRepository.save(vendor);
+        syncService.bumpVersion();
+        return ResponseEntity.ok(saved);
+    }
+
+    @DeleteMapping("/vendors/{id}")
+    @Transactional
+    public ResponseEntity<?> deleteVendor(@PathVariable String id) {
+        vendorRepository.deleteById(id);
+        syncService.bumpVersion();
+        return ResponseEntity.ok(Map.of("message", "Vendor deleted successfully"));
+    }
+
+    // --- VENDOR PRODUCTS ---
+    @GetMapping("/vendors/products")
+    public ResponseEntity<List<VendorProduct>> getVendorProducts() {
+        return ResponseEntity.ok(vendorProductRepository.findAll());
+    }
+
+    @PostMapping("/vendors/products")
+    @Transactional
+    public ResponseEntity<VendorProduct> createVendorProduct(@RequestBody VendorProduct product) {
+        if (product.getId() == null || product.getId().isEmpty()) {
+            product.setId("pr" + System.currentTimeMillis());
+        }
+        VendorProduct saved = vendorProductRepository.save(product);
+        syncService.bumpVersion();
+        return ResponseEntity.ok(saved);
+    }
+
+    @PutMapping("/vendors/products/{id}")
+    @Transactional
+    public ResponseEntity<VendorProduct> updateVendorProduct(@PathVariable String id, @RequestBody Map<String, Object> body) {
+        VendorProduct product = vendorProductRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Product not found: " + id));
+
+        if (body.containsKey("name")) product.setName((String) body.get("name"));
+        if (body.containsKey("house")) product.setHouse((String) body.get("house"));
+        if (body.containsKey("price")) product.setPrice(String.valueOf(body.get("price")));
+        if (body.containsKey("image")) product.setImage((String) body.get("image"));
+        if (body.containsKey("images")) {
+            Object imgs = body.get("images");
+            if (imgs instanceof List) {
+                try {
+                    com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                    product.setImagesJson(mapper.writeValueAsString(imgs));
+                } catch (Exception e) {}
+            } else if (imgs != null) {
+                product.setImagesJson(imgs.toString());
+            }
+        }
+        if (body.containsKey("category")) product.setCategory((String) body.get("category"));
+        if (body.containsKey("description")) product.setDescription((String) body.get("description"));
+        if (body.containsKey("details")) product.setDetails((String) body.get("details"));
+        if (body.containsKey("sizes")) product.setSizes(String.valueOf(body.get("sizes")));
+        if (body.containsKey("colors")) product.setColors(String.valueOf(body.get("colors")));
+        if (body.containsKey("inStock")) product.setInStock((Boolean) body.get("inStock"));
+        if (body.containsKey("isNew")) product.setIsNew((Boolean) body.get("isNew"));
+        if (body.containsKey("isTrending")) product.setIsTrending((Boolean) body.get("isTrending"));
+        if (body.containsKey("isBestSeller")) product.setIsBestSeller((Boolean) body.get("isBestSeller"));
+        if (body.containsKey("vendorId")) product.setVendorId((String) body.get("vendorId"));
+        if (body.containsKey("stockQuantity") && body.get("stockQuantity") != null) {
+            product.setStockQuantity(((Number) body.get("stockQuantity")).intValue());
+        }
+
+        VendorProduct saved = vendorProductRepository.save(product);
+        syncService.bumpVersion();
+        return ResponseEntity.ok(saved);
+    }
+
+    @DeleteMapping("/vendors/products/{id}")
+    @Transactional
+    public ResponseEntity<?> deleteVendorProduct(@PathVariable String id) {
+        vendorProductRepository.deleteById(id);
+        syncService.bumpVersion();
+        return ResponseEntity.ok(Map.of("message", "Product deleted successfully"));
+    }
 }
+
