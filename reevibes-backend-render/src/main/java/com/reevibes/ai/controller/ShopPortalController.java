@@ -744,59 +744,185 @@ public class ShopPortalController {
 
     // --- VENDOR PRODUCTS ---
     @GetMapping("/vendors/products")
-    public ResponseEntity<List<VendorProduct>> getVendorProducts() {
-        return ResponseEntity.ok(vendorProductRepository.findAll());
+    public ResponseEntity<List<Map<String, Object>>> getVendorProducts() {
+        List<VendorProduct> list = vendorProductRepository.findAll();
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        
+        List<Map<String, Object>> result = list.stream().map(p -> {
+            Map<String, Object> map = new java.util.HashMap<>();
+            if (p.getFullJson() != null && !p.getFullJson().isEmpty()) {
+                try {
+                    map = mapper.readValue(p.getFullJson(), Map.class);
+                } catch (Exception e) {}
+            }
+            map.put("id", p.getId());
+            if (p.getName() != null) map.put("name", p.getName());
+            if (p.getHouse() != null) map.put("house", p.getHouse());
+            if (p.getPrice() != null) map.put("price", p.getPrice());
+            if (p.getImage() != null) map.put("image", p.getImage());
+            if (p.getCategory() != null) map.put("category", p.getCategory());
+            if (p.getGender() != null) map.put("gender", p.getGender());
+            if (p.getTag() != null) map.put("tag", p.getTag());
+            if (p.getSku() != null) map.put("sku", p.getSku());
+            if (p.getOriginalPrice() != null) map.put("originalPrice", p.getOriginalPrice());
+            if (p.getDiscount() != null) map.put("discount", p.getDiscount());
+            if (p.getStatus() != null) map.put("status", p.getStatus());
+            if (p.getVisibility() != null) map.put("visibility", p.getVisibility());
+            if (p.getMaterial() != null) map.put("material", p.getMaterial());
+            if (p.getFabric() != null) map.put("fabric", p.getFabric());
+            if (p.getColor() != null) map.put("color", p.getColor());
+            if (p.getCollections() != null) map.put("collections", p.getCollections());
+            if (p.getOverviewTitle() != null) map.put("overviewTitle", p.getOverviewTitle());
+            if (p.getDescription() != null) map.put("description", p.getDescription());
+            if (p.getDetails() != null) map.put("details", p.getDetails());
+            if (p.getInStock() != null) map.put("inStock", p.getInStock());
+            if (p.getIsNew() != null) map.put("isNew", p.getIsNew());
+            if (p.getIsNewArrival() != null) map.put("isNewArrival", p.getIsNewArrival());
+            if (p.getIsTrending() != null) map.put("isTrending", p.getIsTrending());
+            if (p.getIsBestSeller() != null) map.put("isBestSeller", p.getIsBestSeller());
+            if (p.getIsFeatured() != null) map.put("isFeatured", p.getIsFeatured());
+            if (p.getIsRecommended() != null) map.put("isRecommended", p.getIsRecommended());
+
+            if (p.getImagesJson() != null && !p.getImagesJson().isEmpty() && !map.containsKey("images")) {
+                try { map.put("images", mapper.readValue(p.getImagesJson(), List.class)); } catch(Exception e){}
+            }
+            if (p.getSizesJson() != null && !p.getSizesJson().isEmpty() && !map.containsKey("sizes")) {
+                try { map.put("sizes", mapper.readValue(p.getSizesJson(), List.class)); } catch(Exception e){}
+            }
+            if (p.getTagsJson() != null && !p.getTagsJson().isEmpty() && !map.containsKey("tags")) {
+                try { map.put("tags", mapper.readValue(p.getTagsJson(), List.class)); } catch(Exception e){}
+            }
+            if (p.getStockPerSizeJson() != null && !p.getStockPerSizeJson().isEmpty() && !map.containsKey("stockPerSize")) {
+                try { map.put("stockPerSize", mapper.readValue(p.getStockPerSizeJson(), Map.class)); } catch(Exception e){}
+            }
+            return map;
+        }).collect(Collectors.toList());
+
+        return ResponseEntity.ok(result);
     }
 
     @PostMapping("/vendors/products")
     @Transactional
-    public ResponseEntity<VendorProduct> createVendorProduct(@RequestBody VendorProduct product) {
-        if (product.getId() == null || product.getId().isEmpty()) {
-            product.setId("pr" + System.currentTimeMillis());
-        }
-        VendorProduct saved = vendorProductRepository.save(product);
-        syncService.bumpVersion();
-        return ResponseEntity.ok(saved);
-    }
+    public ResponseEntity<Map<String, Object>> createVendorProduct(@RequestBody Map<String, Object> body) {
+        String id = body.containsKey("id") && body.get("id") != null ? String.valueOf(body.get("id")) : "pr" + System.currentTimeMillis();
+        body.put("id", id);
 
-    @PutMapping("/vendors/products/{id}")
-    @Transactional
-    public ResponseEntity<VendorProduct> updateVendorProduct(@PathVariable String id, @RequestBody Map<String, Object> body) {
-        VendorProduct product = vendorProductRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Product not found: " + id));
+        VendorProduct product = new VendorProduct();
+        product.setId(id);
+        
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        try {
+            product.setFullJson(mapper.writeValueAsString(body));
+        } catch (Exception e) {}
 
         if (body.containsKey("name")) product.setName((String) body.get("name"));
         if (body.containsKey("house")) product.setHouse((String) body.get("house"));
         if (body.containsKey("price")) product.setPrice(String.valueOf(body.get("price")));
         if (body.containsKey("image")) product.setImage((String) body.get("image"));
-        if (body.containsKey("images")) {
-            Object imgs = body.get("images");
-            if (imgs instanceof List) {
-                try {
-                    com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-                    product.setImagesJson(mapper.writeValueAsString(imgs));
-                } catch (Exception e) {}
-            } else if (imgs != null) {
-                product.setImagesJson(imgs.toString());
-            }
-        }
         if (body.containsKey("category")) product.setCategory((String) body.get("category"));
+        if (body.containsKey("gender")) product.setGender((String) body.get("gender"));
+        if (body.containsKey("tag")) product.setTag((String) body.get("tag"));
+        if (body.containsKey("sku")) product.setSku((String) body.get("sku"));
+        if (body.containsKey("originalPrice")) product.setOriginalPrice(String.valueOf(body.get("originalPrice")));
+        if (body.containsKey("discount") && body.get("discount") != null) product.setDiscount(((Number) body.get("discount")).intValue());
+        if (body.containsKey("status")) product.setStatus((String) body.get("status"));
+        if (body.containsKey("visibility")) product.setVisibility((String) body.get("visibility"));
+        if (body.containsKey("material")) product.setMaterial((String) body.get("material"));
+        if (body.containsKey("fabric")) product.setFabric((String) body.get("fabric"));
+        if (body.containsKey("color")) product.setColor((String) body.get("color"));
+        if (body.containsKey("collections")) product.setCollections((String) body.get("collections"));
         if (body.containsKey("description")) product.setDescription((String) body.get("description"));
         if (body.containsKey("details")) product.setDetails((String) body.get("details"));
-        if (body.containsKey("sizes")) product.setSizes(String.valueOf(body.get("sizes")));
-        if (body.containsKey("colors")) product.setColors(String.valueOf(body.get("colors")));
         if (body.containsKey("inStock")) product.setInStock((Boolean) body.get("inStock"));
         if (body.containsKey("isNew")) product.setIsNew((Boolean) body.get("isNew"));
+        if (body.containsKey("isNewArrival")) product.setIsNewArrival((Boolean) body.get("isNewArrival"));
         if (body.containsKey("isTrending")) product.setIsTrending((Boolean) body.get("isTrending"));
         if (body.containsKey("isBestSeller")) product.setIsBestSeller((Boolean) body.get("isBestSeller"));
-        if (body.containsKey("vendorId")) product.setVendorId((String) body.get("vendorId"));
-        if (body.containsKey("stockQuantity") && body.get("stockQuantity") != null) {
-            product.setStockQuantity(((Number) body.get("stockQuantity")).intValue());
+        if (body.containsKey("isFeatured")) product.setIsFeatured((Boolean) body.get("isFeatured"));
+        if (body.containsKey("isRecommended")) product.setIsRecommended((Boolean) body.get("isRecommended"));
+
+        if (body.containsKey("images")) {
+            try { product.setImagesJson(mapper.writeValueAsString(body.get("images"))); } catch(Exception e){}
+        }
+        if (body.containsKey("sizes")) {
+            try { product.setSizesJson(mapper.writeValueAsString(body.get("sizes"))); } catch(Exception e){}
+        }
+        if (body.containsKey("tags")) {
+            try { product.setTagsJson(mapper.writeValueAsString(body.get("tags"))); } catch(Exception e){}
+        }
+        if (body.containsKey("stockPerSize")) {
+            try { product.setStockPerSizeJson(mapper.writeValueAsString(body.get("stockPerSize"))); } catch(Exception e){}
+        }
+        if (body.containsKey("productSections")) {
+            try { product.setProductSectionsJson(mapper.writeValueAsString(body.get("productSections"))); } catch(Exception e){}
         }
 
-        VendorProduct saved = vendorProductRepository.save(product);
+        vendorProductRepository.save(product);
         syncService.bumpVersion();
-        return ResponseEntity.ok(saved);
+        return ResponseEntity.ok(body);
+    }
+
+    @PutMapping("/vendors/products/{id}")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> updateVendorProduct(@PathVariable String id, @RequestBody Map<String, Object> body) {
+        VendorProduct product = vendorProductRepository.findById(id)
+                .orElseGet(() -> {
+                    VendorProduct p = new VendorProduct();
+                    p.setId(id);
+                    return p;
+                });
+
+        body.put("id", id);
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        try {
+            product.setFullJson(mapper.writeValueAsString(body));
+        } catch (Exception e) {}
+
+        if (body.containsKey("name")) product.setName((String) body.get("name"));
+        if (body.containsKey("house")) product.setHouse((String) body.get("house"));
+        if (body.containsKey("price")) product.setPrice(String.valueOf(body.get("price")));
+        if (body.containsKey("image")) product.setImage((String) body.get("image"));
+        if (body.containsKey("category")) product.setCategory((String) body.get("category"));
+        if (body.containsKey("gender")) product.setGender((String) body.get("gender"));
+        if (body.containsKey("tag")) product.setTag((String) body.get("tag"));
+        if (body.containsKey("sku")) product.setSku((String) body.get("sku"));
+        if (body.containsKey("originalPrice")) product.setOriginalPrice(String.valueOf(body.get("originalPrice")));
+        if (body.containsKey("discount") && body.get("discount") != null) product.setDiscount(((Number) body.get("discount")).intValue());
+        if (body.containsKey("status")) product.setStatus((String) body.get("status"));
+        if (body.containsKey("visibility")) product.setVisibility((String) body.get("visibility"));
+        if (body.containsKey("material")) product.setMaterial((String) body.get("material"));
+        if (body.containsKey("fabric")) product.setFabric((String) body.get("fabric"));
+        if (body.containsKey("color")) product.setColor((String) body.get("color"));
+        if (body.containsKey("collections")) product.setCollections((String) body.get("collections"));
+        if (body.containsKey("description")) product.setDescription((String) body.get("description"));
+        if (body.containsKey("details")) product.setDetails((String) body.get("details"));
+        if (body.containsKey("inStock")) product.setInStock((Boolean) body.get("inStock"));
+        if (body.containsKey("isNew")) product.setIsNew((Boolean) body.get("isNew"));
+        if (body.containsKey("isNewArrival")) product.setIsNewArrival((Boolean) body.get("isNewArrival"));
+        if (body.containsKey("isTrending")) product.setIsTrending((Boolean) body.get("isTrending"));
+        if (body.containsKey("isBestSeller")) product.setIsBestSeller((Boolean) body.get("isBestSeller"));
+        if (body.containsKey("isFeatured")) product.setIsFeatured((Boolean) body.get("isFeatured"));
+        if (body.containsKey("isRecommended")) product.setIsRecommended((Boolean) body.get("isRecommended"));
+
+        if (body.containsKey("images")) {
+            try { product.setImagesJson(mapper.writeValueAsString(body.get("images"))); } catch(Exception e){}
+        }
+        if (body.containsKey("sizes")) {
+            try { product.setSizesJson(mapper.writeValueAsString(body.get("sizes"))); } catch(Exception e){}
+        }
+        if (body.containsKey("tags")) {
+            try { product.setTagsJson(mapper.writeValueAsString(body.get("tags"))); } catch(Exception e){}
+        }
+        if (body.containsKey("stockPerSize")) {
+            try { product.setStockPerSizeJson(mapper.writeValueAsString(body.get("stockPerSize"))); } catch(Exception e){}
+        }
+        if (body.containsKey("productSections")) {
+            try { product.setProductSectionsJson(mapper.writeValueAsString(body.get("productSections"))); } catch(Exception e){}
+        }
+
+        vendorProductRepository.save(product);
+        syncService.bumpVersion();
+        return ResponseEntity.ok(body);
     }
 
     @DeleteMapping("/vendors/products/{id}")

@@ -54,6 +54,35 @@ public class DatabaseSeeder implements CommandLineRunner {
         jdbcTemplate.execute("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS shiprocket_order_id VARCHAR(100);");
         jdbcTemplate.execute("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS shiprocket_shipment_id VARCHAR(100);");
 
+        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS full_json TEXT;");
+        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS images_json TEXT;");
+        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS sizes_json TEXT;");
+        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS tags_json TEXT;");
+        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS stock_per_size_json TEXT;");
+        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS product_sections_json TEXT;");
+        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS gender VARCHAR(50);");
+        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS tag VARCHAR(100);");
+        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS sku VARCHAR(100);");
+        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS original_price VARCHAR(50);");
+        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS discount INT;");
+        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS status VARCHAR(50);");
+        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS visibility VARCHAR(50);");
+        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS material VARCHAR(200);");
+        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS fabric VARCHAR(200);");
+        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS color VARCHAR(100);");
+        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS collections VARCHAR(200);");
+        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS overview_title VARCHAR(200);");
+        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS product_info TEXT;");
+        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS is_featured BOOLEAN;");
+        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS is_new_arrival BOOLEAN;");
+        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS is_trending BOOLEAN;");
+        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS is_recommended BOOLEAN;");
+        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS seo_title VARCHAR(200);");
+        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS seo_description TEXT;");
+        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS seo_keywords VARCHAR(200);");
+        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS custom_rating DOUBLE PRECISION;");
+        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS custom_review_count INT;");
+
         if (intentRepository.count() == 0) {
             seedIntents();
         }
