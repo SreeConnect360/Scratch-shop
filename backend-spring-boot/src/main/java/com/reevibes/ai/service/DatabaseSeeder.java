@@ -33,70 +33,73 @@ public class DatabaseSeeder implements CommandLineRunner {
     private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     @Override
-    @Transactional
     public void run(String... args) throws Exception {
-        // Execute DDL dynamically to ensure Supabase database schema is aligned
-        jdbcTemplate.execute("ALTER TABLE platform_users ADD COLUMN IF NOT EXISTS addresses TEXT;");
-        jdbcTemplate.execute("ALTER TABLE platform_users ADD COLUMN IF NOT EXISTS wishlist TEXT;");
-        jdbcTemplate.execute("ALTER TABLE platform_users ADD COLUMN IF NOT EXISTS cart TEXT;");
-        jdbcTemplate.execute("ALTER TABLE platform_users ADD COLUMN IF NOT EXISTS last_login VARCHAR(50);");
-        jdbcTemplate.execute("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS razorpay_payment_id VARCHAR(100);");
-        jdbcTemplate.execute("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS razorpay_order_id VARCHAR(100);");
-        jdbcTemplate.execute("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS razorpay_signature VARCHAR(200);");
-        jdbcTemplate.execute("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS currency VARCHAR(20);");
-        jdbcTemplate.execute("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS payment_method VARCHAR(50);");
-        jdbcTemplate.execute("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS transaction_date TIMESTAMP;");
-        jdbcTemplate.execute("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS tracking_number VARCHAR(100);");
-        jdbcTemplate.execute("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS courier_partner VARCHAR(100);");
-        jdbcTemplate.execute("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS estimated_delivery_date VARCHAR(50);");
-        jdbcTemplate.execute("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS scans_json TEXT;");
-        jdbcTemplate.execute("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS delivery_date TIMESTAMP;");
-        jdbcTemplate.execute("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS shiprocket_order_id VARCHAR(100);");
-        jdbcTemplate.execute("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS shiprocket_shipment_id VARCHAR(100);");
-        jdbcTemplate.execute("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS status_history_json TEXT;");
+        // Execute DDL dynamically to ensure Supabase database schema is aligned safely
+        safeExecuteDdl("ALTER TABLE platform_users ADD COLUMN IF NOT EXISTS addresses TEXT;");
+        safeExecuteDdl("ALTER TABLE platform_users ADD COLUMN IF NOT EXISTS wishlist TEXT;");
+        safeExecuteDdl("ALTER TABLE platform_users ADD COLUMN IF NOT EXISTS cart TEXT;");
+        safeExecuteDdl("ALTER TABLE platform_users ADD COLUMN IF NOT EXISTS last_login VARCHAR(50);");
+        safeExecuteDdl("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS razorpay_payment_id VARCHAR(100);");
+        safeExecuteDdl("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS razorpay_order_id VARCHAR(100);");
+        safeExecuteDdl("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS razorpay_signature VARCHAR(200);");
+        safeExecuteDdl("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS currency VARCHAR(20);");
+        safeExecuteDdl("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS payment_method VARCHAR(50);");
+        safeExecuteDdl("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS transaction_date TIMESTAMP;");
+        safeExecuteDdl("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS tracking_number VARCHAR(100);");
+        safeExecuteDdl("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS courier_partner VARCHAR(100);");
+        safeExecuteDdl("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS estimated_delivery_date VARCHAR(50);");
+        safeExecuteDdl("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS scans_json TEXT;");
+        safeExecuteDdl("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS delivery_date TIMESTAMP;");
+        safeExecuteDdl("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS shiprocket_order_id VARCHAR(100);");
+        safeExecuteDdl("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS shiprocket_shipment_id VARCHAR(100);");
+        safeExecuteDdl("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS status_history_json TEXT;");
 
-        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS full_json TEXT;");
-        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS images_json TEXT;");
-        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS sizes_json TEXT;");
-        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS tags_json TEXT;");
-        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS stock_per_size_json TEXT;");
-        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS product_sections_json TEXT;");
-        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS gender VARCHAR(50);");
-        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS tag TEXT;");
-        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS sku VARCHAR(100);");
-        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS original_price VARCHAR(50);");
-        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS discount INT;");
-        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS status VARCHAR(50);");
-        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS visibility VARCHAR(50);");
-        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS material TEXT;");
-        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS fabric TEXT;");
-        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS color TEXT;");
-        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS collections TEXT;");
-        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS overview_title TEXT;");
-        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS product_info TEXT;");
-        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS is_featured BOOLEAN;");
-        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS is_new_arrival BOOLEAN;");
-        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS is_trending BOOLEAN;");
-        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS is_recommended BOOLEAN;");
-        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS seo_title TEXT;");
-        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS seo_description TEXT;");
-        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS seo_keywords TEXT;");
-        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS custom_rating DOUBLE PRECISION;");
-        jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS custom_review_count INT;");
+        safeExecuteDdl("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS image TEXT;");
+        safeExecuteDdl("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS name TEXT;");
+        safeExecuteDdl("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS house TEXT;");
+        safeExecuteDdl("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS category TEXT;");
+        safeExecuteDdl("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS full_json TEXT;");
+        safeExecuteDdl("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS images_json TEXT;");
+        safeExecuteDdl("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS sizes_json TEXT;");
+        safeExecuteDdl("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS tags_json TEXT;");
+        safeExecuteDdl("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS stock_per_size_json TEXT;");
+        safeExecuteDdl("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS product_sections_json TEXT;");
+        safeExecuteDdl("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS gender VARCHAR(50);");
+        safeExecuteDdl("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS tag TEXT;");
+        safeExecuteDdl("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS sku VARCHAR(100);");
+        safeExecuteDdl("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS original_price VARCHAR(50);");
+        safeExecuteDdl("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS discount INT;");
+        safeExecuteDdl("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS status VARCHAR(50);");
+        safeExecuteDdl("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS visibility VARCHAR(50);");
+        safeExecuteDdl("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS material TEXT;");
+        safeExecuteDdl("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS fabric TEXT;");
+        safeExecuteDdl("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS color TEXT;");
+        safeExecuteDdl("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS collections TEXT;");
+        safeExecuteDdl("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS overview_title TEXT;");
+        safeExecuteDdl("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS product_info TEXT;");
+        safeExecuteDdl("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS is_featured BOOLEAN;");
+        safeExecuteDdl("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS is_new_arrival BOOLEAN;");
+        safeExecuteDdl("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS is_trending BOOLEAN;");
+        safeExecuteDdl("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS is_recommended BOOLEAN;");
+        safeExecuteDdl("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS seo_title TEXT;");
+        safeExecuteDdl("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS seo_description TEXT;");
+        safeExecuteDdl("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS seo_keywords TEXT;");
+        safeExecuteDdl("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS custom_rating DOUBLE PRECISION;");
+        safeExecuteDdl("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS custom_review_count INT;");
 
         // Convert any existing VARCHAR columns to TEXT to avoid truncation issues
-        try { jdbcTemplate.execute("ALTER TABLE vendor_products ALTER COLUMN image TYPE TEXT;"); } catch(Exception ignored){}
-        try { jdbcTemplate.execute("ALTER TABLE vendor_products ALTER COLUMN name TYPE TEXT;"); } catch(Exception ignored){}
-        try { jdbcTemplate.execute("ALTER TABLE vendor_products ALTER COLUMN house TYPE TEXT;"); } catch(Exception ignored){}
-        try { jdbcTemplate.execute("ALTER TABLE vendor_products ALTER COLUMN category TYPE TEXT;"); } catch(Exception ignored){}
-        try { jdbcTemplate.execute("ALTER TABLE vendor_products ALTER COLUMN tag TYPE TEXT;"); } catch(Exception ignored){}
-        try { jdbcTemplate.execute("ALTER TABLE vendor_products ALTER COLUMN material TYPE TEXT;"); } catch(Exception ignored){}
-        try { jdbcTemplate.execute("ALTER TABLE vendor_products ALTER COLUMN fabric TYPE TEXT;"); } catch(Exception ignored){}
-        try { jdbcTemplate.execute("ALTER TABLE vendor_products ALTER COLUMN color TYPE TEXT;"); } catch(Exception ignored){}
-        try { jdbcTemplate.execute("ALTER TABLE vendor_products ALTER COLUMN collections TYPE TEXT;"); } catch(Exception ignored){}
-        try { jdbcTemplate.execute("ALTER TABLE vendor_products ALTER COLUMN overview_title TYPE TEXT;"); } catch(Exception ignored){}
-        try { jdbcTemplate.execute("ALTER TABLE vendor_products ALTER COLUMN seo_title TYPE TEXT;"); } catch(Exception ignored){}
-        try { jdbcTemplate.execute("ALTER TABLE vendor_products ALTER COLUMN seo_keywords TYPE TEXT;"); } catch(Exception ignored){}
+        safeExecuteDdl("ALTER TABLE vendor_products ALTER COLUMN image TYPE TEXT;");
+        safeExecuteDdl("ALTER TABLE vendor_products ALTER COLUMN name TYPE TEXT;");
+        safeExecuteDdl("ALTER TABLE vendor_products ALTER COLUMN house TYPE TEXT;");
+        safeExecuteDdl("ALTER TABLE vendor_products ALTER COLUMN category TYPE TEXT;");
+        safeExecuteDdl("ALTER TABLE vendor_products ALTER COLUMN tag TYPE TEXT;");
+        safeExecuteDdl("ALTER TABLE vendor_products ALTER COLUMN material TYPE TEXT;");
+        safeExecuteDdl("ALTER TABLE vendor_products ALTER COLUMN fabric TYPE TEXT;");
+        safeExecuteDdl("ALTER TABLE vendor_products ALTER COLUMN color TYPE TEXT;");
+        safeExecuteDdl("ALTER TABLE vendor_products ALTER COLUMN collections TYPE TEXT;");
+        safeExecuteDdl("ALTER TABLE vendor_products ALTER COLUMN overview_title TYPE TEXT;");
+        safeExecuteDdl("ALTER TABLE vendor_products ALTER COLUMN seo_title TYPE TEXT;");
+        safeExecuteDdl("ALTER TABLE vendor_products ALTER COLUMN seo_keywords TYPE TEXT;");
 
         if (intentRepository.count() == 0) {
             seedIntents();
@@ -285,6 +288,14 @@ public class DatabaseSeeder implements CommandLineRunner {
             pattern.setCommandText(commandText);
             pattern.setNormalizedCommand(normalized);
             commandPatternRepository.save(pattern);
+        }
+    }
+
+    private void safeExecuteDdl(String sql) {
+        try {
+            jdbcTemplate.execute(sql);
+        } catch (Exception e) {
+            System.err.println("DDL execution skipped for SQL [" + sql + "]: " + e.getMessage());
         }
     }
 
