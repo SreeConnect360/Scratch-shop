@@ -96,6 +96,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
   const [courierQuotes, setCourierQuotes] = useState<any>(null);
   const [quotesLoading, setQuotesLoading] = useState(false);
   const [pickupDate, setPickupDate] = useState(new Date().toISOString().split("T")[0]);
+  const [orderSubTab, setOrderSubTab] = useState<"ordered" | "delivering" | "delivered">("ordered");
 
   useEffect(() => {
     if (selectedOrderDetails) {
@@ -106,6 +107,177 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
       setEditEstDelivery(selectedOrderDetails.estimatedDeliveryDate || "");
     }
   }, [selectedOrderDetails]);
+
+  const handleDownloadBulkExcel = () => {
+    try {
+      const orderedOrders = ordersList.filter(o =>
+        ["pending approval", "processing", "pending", "accepted", "ready to ship", "confirmed", "packed"].includes(o.status?.toLowerCase() || "")
+      );
+
+      const headers = [
+        "Buyer's Details",
+        "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+        "Pickup Details",
+        "Order Details",
+        "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+        "Package Details",
+        "", "", "",
+        "Courier Details"
+      ];
+
+      const columns = [
+        "*Order Id",
+        "Order Date (DD-MM-YYYY) (Optional)",
+        "Verified Order (Yes/No) (Optional)",
+        "*Buyer's Mobile No.",
+        "*Buyer's First Name",
+        "Buyer's Last Name (Optional)",
+        "*Shipping Complete Address",
+        "Shipping Address Landmark (Optional)",
+        "*Shipping Address Pincode",
+        "*Shipping Address City",
+        "*Shipping Address State",
+        "*Shipping Address Country",
+        "Email (Optional)",
+        "Buyer's Alternate Mobile Number (Optional)",
+        "Buyer's Company Name (Optional)",
+        "Buyer's GSTIN (Optional)",
+        "Billing Complete Address (Optional)",
+        "Billing Landmark (Optional)",
+        "Billing Pincode (Optional)",
+        "Billing City (Optional)",
+        "Billing State (Optional)",
+        "Billing Country (Optional)",
+        "Send Notification (Yes/No) (Optional)",
+        "Pickup Address Id (Optional)",
+        "*Order Channel",
+        "*Payment Method (COD/Prepaid)",
+        "*Product Name",
+        "*Master SKU",
+        "*Product Quantity",
+        "*Per Unit Price in INR (Inclusive of Tax)",
+        "*Partial COD (Yes/No)",
+        "Paid Amount (Rs.)",
+        "Product Discount (Per Unit Item) (Optional)",
+        "Coupon (Optional)",
+        "HSN Code (Optional)",
+        "Tax Rate(percentage) (Optional)",
+        "Shipping Charges (Per Order) (Optional)",
+        "Gift Wrap Charges (Per Order) (Optional)",
+        "COD Charges (Per Order) (Optional)",
+        "Transaction Fee (Per Order) (Optional)",
+        "Total Discount (Per Order) (Optional)",
+        "Order Tag (Optional)",
+        "*Contain Documents (Yes/No)",
+        "Reseller Name (Optional)",
+        "*Weight Of Shipment (kg)",
+        "*Length (cm)",
+        "*Breadth (cm)",
+        "*Height (cm)",
+        "Package Count (Optional)",
+        "Courier ID (Optional)"
+      ];
+
+      const dataRows: any[][] = [];
+
+      orderedOrders.forEach(ord => {
+        const u = state.users.find(usr => usr.id === ord.userId);
+        const buyerFirstName = u?.firstName || ord.customerName?.split(" ")[0] || "Buyer";
+        const buyerLastName = u?.lastName || (ord.customerName?.split(" ").slice(1).join(" ")) || "";
+        const buyerPhone = u?.phone || "9999999999";
+        const buyerEmail = u?.email || "";
+
+        let street = ord.address || "";
+        let pincode = "560038";
+        let city = "Bangalore";
+        let stateName = "Karnataka";
+        let country = "India";
+
+        const parts = street.split(",");
+        if (parts.length >= 4) {
+          street = parts[0].trim();
+          city = parts[1].trim();
+          stateName = parts[parts.length - 2].trim();
+          pincode = parts[parts.length - 1].trim().replace(/[^0-9]/g, "");
+        } else {
+          const pinMatch = street.match(/\b\d{6}\b/);
+          if (pinMatch) pincode = pinMatch[0];
+        }
+
+        const formattedDate = (() => {
+          try {
+            const d = new Date(ord.date);
+            if (isNaN(d.getTime())) return "";
+            const dd = String(d.getDate()).padStart(2, "0");
+            const mm = String(d.getMonth() + 1).padStart(2, "0");
+            const yyyy = d.getFullYear();
+            return `${dd}-${mm}-${yyyy}`;
+          } catch(e) { return ""; }
+        })();
+
+        const payMethod = ord.paymentMethod?.toLowerCase().includes("cod") ? "COD" : "Prepaid";
+
+        (ord.items || []).forEach((item: any) => {
+          const itemPrice = Number(String(item.price).replace(/[^0-9.]/g, "")) || 0;
+          const row = [
+            ord.id,
+            formattedDate,
+            "Yes",
+            buyerPhone,
+            buyerFirstName,
+            buyerLastName,
+            street,
+            "",
+            pincode,
+            city,
+            stateName,
+            country,
+            buyerEmail,
+            "", "", "",
+            street,
+            "",
+            pincode,
+            city,
+            stateName,
+            country,
+            "Yes",
+            "Primary",
+            "ReeVibes Web",
+            payMethod,
+            item.name || "Fashion Piece",
+            item.productId || `SKU-${item.name}`,
+            item.qty || 1,
+            itemPrice,
+            "No",
+            ord.total || itemPrice,
+            0,
+            ord.appliedCoupon || "",
+            "610910",
+            "", "", "", "", "", "", "",
+            "No",
+            "",
+            0.5,
+            15,
+            15,
+            10,
+            1,
+            ord.courierPartner || ""
+          ];
+          dataRows.push(row);
+        });
+      });
+
+      const wsData = [headers, columns, ...dataRows];
+      const worksheet = XLSX.utils.aoa_to_sheet(wsData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Order Sheet");
+      XLSX.writeFile(workbook, "ReeVibes_Bulk_Orders_Advance.xlsx");
+      toast.success("Downloaded Bulk Orders Excel!");
+    } catch(err) {
+      console.error("Failed to generate Excel:", err);
+      toast.error("Failed to export Excel file.");
+    }
+  };
 
   const [selectedReturnDetails, setSelectedReturnDetails] = useState<any | null>(null);
   const [selectedProductPreview, setSelectedProductPreview] = useState<any | null>(null);
@@ -5626,98 +5798,310 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
       {tab === "orders" && (
         <AdminCard className="space-y-6 animate-in fade-in duration-200">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-white/5 pb-4">
-            <h3 className="font-serif text-xl">Orders Lifecycle Tracker</h3>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Filter Status:</span>
-                <select
-                  value={statusFilter}
-                  onChange={e => setStatusFilter(e.target.value)}
-                  className="bg-surface border border-border-subtle rounded-md text-xs px-2.5 py-1.5 text-white outline-none focus:border-accent"
-                >
-                  {["All", "Pending Approval", "Accepted", "Ready to Ship", "Pickup Scheduled", "Pending", "Confirmed", "Packed", "Shipped", "In Transit", "Out for Delivery", "Delivered", "Cancelled", "Returned", "Refunded"].map(s => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-              </div>
+            <div>
+              <h3 className="font-serif text-xl">Order Tracker Dashboard</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">Live status-driven logistics & fulfillment pipeline.</p>
+            </div>
+
+            {/* 3 Workflow Tabs Navigation */}
+            <div className="flex items-center gap-2 bg-surface-2 p-1 rounded-lg border border-border-subtle">
+              <button
+                onClick={() => setOrderSubTab("ordered")}
+                className={cn(
+                  "px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center gap-2",
+                  orderSubTab === "ordered"
+                    ? "bg-accent text-white shadow"
+                    : "text-muted-foreground hover:text-white hover:bg-white/5"
+                )}
+              >
+                <ShoppingBag className="w-3.5 h-3.5" />
+                Ordered Products
+                <span className="bg-white/20 px-1.5 py-0.2 rounded-full text-[10px]">
+                  {ordersList.filter(o => ["pending approval", "processing", "pending", "accepted", "ready to ship", "confirmed", "packed"].includes(o.status?.toLowerCase() || "")).length}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setOrderSubTab("delivering")}
+                className={cn(
+                  "px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center gap-2",
+                  orderSubTab === "delivering"
+                    ? "bg-accent text-white shadow"
+                    : "text-muted-foreground hover:text-white hover:bg-white/5"
+                )}
+              >
+                <Truck className="w-3.5 h-3.5" />
+                Delivering Orders
+                <span className="bg-white/20 px-1.5 py-0.2 rounded-full text-[10px]">
+                  {ordersList.filter(o => ["pickup scheduled", "shipped", "in transit", "out for delivery"].includes(o.status?.toLowerCase() || "")).length}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setOrderSubTab("delivered")}
+                className={cn(
+                  "px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center gap-2",
+                  orderSubTab === "delivered"
+                    ? "bg-accent text-white shadow"
+                    : "text-muted-foreground hover:text-white hover:bg-white/5"
+                )}
+              >
+                <CheckSquare className="w-3.5 h-3.5" />
+                Delivered Orders
+                <span className="bg-white/20 px-1.5 py-0.2 rounded-full text-[10px]">
+                  {ordersList.filter(o => ["delivered", "refunded", "returned"].includes(o.status?.toLowerCase() || "")).length}
+                </span>
+              </button>
             </div>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-border-subtle text-muted-foreground text-xs uppercase tracking-widest">
-                  <th className="pb-3">Order ID</th>
-                  <th className="pb-3">Order Date & Time</th>
-                  <th className="pb-3">Customer</th>
-                  <th className="pb-3">Items</th>
-                  <th className="pb-3">Total (INR)</th>
-                  <th className="pb-3">Delivery Status</th>
-                  <th className="pb-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border-subtle text-sm">
-                {filteredOrders.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="py-6 text-center text-xs text-muted-foreground italic">
-                      No orders found matching the filter.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredOrders.map(o => (
-                    <tr key={o.id} className="hover:bg-surface-2/40">
-                      <td className="py-4 font-mono text-xs">
-                        <button
-                          onClick={() => setSelectedOrderDetails(o)}
-                          className="text-accent hover:underline text-left font-bold cursor-pointer"
-                        >
-                          {o.id}
-                        </button>
-                      </td>
-                      <td className="py-4 whitespace-nowrap text-xs text-muted-foreground">
-                        {formatOrderDateTime(o.date)}
-                      </td>
-                      <td className="py-4">{o.customerName || "Member"}</td>
-                      <td className="py-4">
-                        {o.items.map(item => `${item.name} (${item.selectedSize || "M"}) x${item.qty}`).join(", ")}
-                      </td>
-                      <td className="py-4 font-serif">₹{o.total.toLocaleString()}</td>
-                      <td className="py-4">
-                        <StatusChip
-                          status={o.status}
-                          tone={
-                            o.status === "Delivered" ? "success" :
-                            o.status === "Processing" ? "warn" :
-                            o.status === "Shipped" ? "accent" : "neutral"
-                          }
-                        />
-                      </td>
-                      <td className="py-4 text-right space-x-2 whitespace-nowrap">
-                        <button
-                          onClick={() => setSelectedOrderDetails(o)}
-                          className="bg-accent/20 hover:bg-accent text-accent hover:text-white text-[10px] uppercase font-bold px-2.5 py-1 rounded transition-colors cursor-pointer"
-                        >
-                          View Order
-                        </button>
-                        {(o.status === "Processing" || o.status === "Pending" || o.status === "Accepted") && (
-                          <button
-                            onClick={() => {
-                              if (confirm(`Cancel Order ${o.id}?`)) {
-                                updateOrderStatus(o.userId, o.id, "Cancelled");
-                                toast.success("Order has been cancelled.");
-                              }
-                            }}
-                            className="bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white text-[10px] uppercase font-bold px-2.5 py-1 rounded transition-colors cursor-pointer"
-                          >
-                            Cancel
-                          </button>
-                        )}
-                      </td>
+
+          {/* Sub-tab 1: Ordered Products */}
+          {orderSubTab === "ordered" && (
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-surface-2/40 p-3 rounded-lg border border-white/5">
+                <div className="text-xs text-muted-foreground">
+                  Orders placed by customers awaiting fulfillment, courier assignment, and pickup scheduling.
+                </div>
+                <button
+                  onClick={handleDownloadBulkExcel}
+                  className="bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/30 text-xs font-bold px-3 py-1.5 rounded-md flex items-center gap-2 transition-colors cursor-pointer shrink-0"
+                >
+                  <FileSpreadsheet className="w-4 h-4" />
+                  Download Excel (Bulk Order)
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-border-subtle text-muted-foreground text-xs uppercase tracking-widest">
+                      <th className="pb-3">Order ID</th>
+                      <th className="pb-3">Customer</th>
+                      <th className="pb-3">Items</th>
+                      <th className="pb-3">Total Amount</th>
+                      <th className="pb-3">Payment</th>
+                      <th className="pb-3">Status</th>
+                      <th className="pb-3 text-right">Actions</th>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  </thead>
+                  <tbody className="divide-y divide-border-subtle text-sm">
+                    {(() => {
+                      const list = ordersList.filter(o =>
+                        ["pending approval", "processing", "pending", "accepted", "ready to ship", "confirmed", "packed"].includes(o.status?.toLowerCase() || "")
+                      );
+                      if (list.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan={7} className="py-8 text-center text-xs text-muted-foreground italic">
+                              No ordered products pending processing.
+                            </td>
+                          </tr>
+                        );
+                      }
+                      return list.map(o => (
+                        <tr key={o.id} className="hover:bg-surface-2/40">
+                          <td className="py-4 font-mono text-xs">
+                            <button
+                              onClick={() => setSelectedOrderDetails(o)}
+                              className="text-accent hover:underline text-left font-bold cursor-pointer"
+                            >
+                              {o.id}
+                            </button>
+                          </td>
+                          <td className="py-4 text-xs">
+                            <div className="font-semibold text-white">{o.customerName || "Member"}</div>
+                            <div className="text-[10px] text-muted-foreground">{o.userId}</div>
+                          </td>
+                          <td className="py-4 text-xs">
+                            {o.items.map(item => `${item.name} (${item.selectedSize || "M"}) x${item.qty}`).join(", ")}
+                          </td>
+                          <td className="py-4 font-serif font-bold text-accent">₹{o.total.toLocaleString()}</td>
+                          <td className="py-4 text-xs">
+                            <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold bg-white/5 text-muted-foreground">
+                              {o.paymentMethod || "Razorpay"} · {o.paymentStatus || "Paid"}
+                            </span>
+                          </td>
+                          <td className="py-4">
+                            <StatusChip status={o.status} tone="warn" />
+                          </td>
+                          <td className="py-4 text-right space-x-2 whitespace-nowrap">
+                            <button
+                              onClick={() => setSelectedOrderDetails(o)}
+                              className="bg-accent/20 hover:bg-accent text-accent hover:text-white text-[10px] uppercase font-bold px-3 py-1.5 rounded transition-colors cursor-pointer"
+                            >
+                              View Order & Process
+                            </button>
+                          </td>
+                        </tr>
+                      ));
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Sub-tab 2: Delivering Orders */}
+          {orderSubTab === "delivering" && (
+            <div className="space-y-4">
+              <div className="text-xs text-muted-foreground bg-surface-2/40 p-3 rounded-lg border border-white/5">
+                Orders handed over to Shiprocket logisitcs pipeline. Live tracking updates automatically via webhook.
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-border-subtle text-muted-foreground text-xs uppercase tracking-widest">
+                      <th className="pb-3">Order ID</th>
+                      <th className="pb-3">Customer</th>
+                      <th className="pb-3">Courier / AWB</th>
+                      <th className="pb-3">Est. Delivery</th>
+                      <th className="pb-3">Current Status</th>
+                      <th className="pb-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border-subtle text-sm">
+                    {(() => {
+                      const list = ordersList.filter(o =>
+                        ["pickup scheduled", "shipped", "in transit", "out for delivery"].includes(o.status?.toLowerCase() || "")
+                      );
+                      if (list.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan={6} className="py-8 text-center text-xs text-muted-foreground italic">
+                              No active delivering orders currently in transit.
+                            </td>
+                          </tr>
+                        );
+                      }
+                      return list.map(o => (
+                        <tr key={o.id} className="hover:bg-surface-2/40">
+                          <td className="py-4 font-mono text-xs">
+                            <button
+                              onClick={() => setSelectedOrderDetails(o)}
+                              className="text-accent hover:underline text-left font-bold cursor-pointer"
+                            >
+                              {o.id}
+                            </button>
+                          </td>
+                          <td className="py-4 text-xs">
+                            <div className="font-semibold text-white">{o.customerName || "Member"}</div>
+                            <div className="text-[10px] text-muted-foreground">{o.userId}</div>
+                          </td>
+                          <td className="py-4 text-xs">
+                            <div className="font-semibold text-accent">{o.courierPartner || "Shiprocket Express"}</div>
+                            <div className="font-mono text-[10px] text-muted-foreground">AWB: {o.trackingNumber || "Assigned"}</div>
+                          </td>
+                          <td className="py-4 text-xs text-muted-foreground">
+                            {o.estimatedDeliveryDate || "Calculating..."}
+                          </td>
+                          <td className="py-4">
+                            <StatusChip status={o.status} tone="accent" />
+                          </td>
+                          <td className="py-4 text-right space-x-2 whitespace-nowrap">
+                            <button
+                              onClick={() => setSelectedOrderDetails(o)}
+                              className="bg-accent/20 hover:bg-accent text-accent hover:text-white text-[10px] uppercase font-bold px-3 py-1.5 rounded transition-colors cursor-pointer"
+                            >
+                              View Order & Track
+                            </button>
+                          </td>
+                        </tr>
+                      ));
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Sub-tab 3: Delivered Orders */}
+          {orderSubTab === "delivered" && (
+            <div className="space-y-4">
+              <div className="text-xs text-muted-foreground bg-surface-2/40 p-3 rounded-lg border border-white/5">
+                Successfully delivered customer orders with active 7-day return eligibility window.
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-border-subtle text-muted-foreground text-xs uppercase tracking-widest">
+                      <th className="pb-3">Order ID</th>
+                      <th className="pb-3">Customer</th>
+                      <th className="pb-3">Delivered Date</th>
+                      <th className="pb-3">Return Window</th>
+                      <th className="pb-3">Status</th>
+                      <th className="pb-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border-subtle text-sm">
+                    {(() => {
+                      const list = ordersList.filter(o =>
+                        ["delivered", "refunded", "returned"].includes(o.status?.toLowerCase() || "")
+                      );
+                      if (list.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan={6} className="py-8 text-center text-xs text-muted-foreground italic">
+                              No delivered orders recorded yet.
+                            </td>
+                          </tr>
+                        );
+                      }
+                      return list.map(o => {
+                        const delDate = new Date(o.date);
+                        const now = new Date();
+                        const diffDays = Math.floor((now.getTime() - delDate.getTime()) / (1000 * 3600 * 24));
+                        const returnDaysLeft = Math.max(0, 7 - diffDays);
+
+                        return (
+                          <tr key={o.id} className="hover:bg-surface-2/40">
+                            <td className="py-4 font-mono text-xs">
+                              <button
+                                onClick={() => setSelectedOrderDetails(o)}
+                                className="text-accent hover:underline text-left font-bold cursor-pointer"
+                              >
+                                {o.id}
+                              </button>
+                            </td>
+                            <td className="py-4 text-xs">
+                              <div className="font-semibold text-white">{o.customerName || "Member"}</div>
+                              <div className="text-[10px] text-muted-foreground">{o.userId}</div>
+                            </td>
+                            <td className="py-4 text-xs text-muted-foreground">
+                              {formatOrderDateTime(o.date)}
+                            </td>
+                            <td className="py-4 text-xs">
+                              {returnDaysLeft > 0 ? (
+                                <span className="text-emerald-400 font-bold text-[10px] bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                                  Eligible ({returnDaysLeft} Days Left)
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground text-[10px] bg-white/5 px-2 py-0.5 rounded">
+                                  Window Expired
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-4">
+                              <StatusChip status={o.status} tone="success" />
+                            </td>
+                            <td className="py-4 text-right space-x-2 whitespace-nowrap">
+                              <button
+                                onClick={() => setSelectedOrderDetails(o)}
+                                className="bg-accent/20 hover:bg-accent text-accent hover:text-white text-[10px] uppercase font-bold px-3 py-1.5 rounded transition-colors cursor-pointer"
+                              >
+                                View Order
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      });
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </AdminCard>
       )}
 

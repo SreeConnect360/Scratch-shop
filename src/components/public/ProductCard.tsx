@@ -34,12 +34,18 @@ export const ProductCard = memo(function ProductCard({
   const { state } = usePortal();
   const { triggerPopup } = useShopNotification();
   const userId = state.user?.id;
-  const isFavorite = wishlist ? wishlist.includes(p.id) : false;
+
+  // Global Product Source of Truth: Resolve live product state by ID
+  const liveProduct = state.products?.find((pr: any) => pr.id === p.id) || p;
+  const targetProduct = { ...p, ...liveProduct };
+  p = targetProduct;
+
+  const isFavorite = wishlist ? wishlist.includes(targetProduct.id) : false;
   const quickAdd = useContext(QuickAddContext);
 
-  const rawGallery = (p.images && Array.isArray(p.images) && p.images.length > 0)
-    ? p.images
-    : (p.image ? [p.image] : (p.img ? [p.img] : []));
+  const rawGallery = (targetProduct.images && Array.isArray(targetProduct.images) && targetProduct.images.length > 0)
+    ? targetProduct.images
+    : (targetProduct.image ? [targetProduct.image] : (targetProduct.img ? [targetProduct.img] : []));
   const fallbackImg = "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=900&h=1200&q=80";
   const gallery = rawGallery.length > 0 ? rawGallery : [fallbackImg];
   const [activeImgIdx, setActiveImgIdx] = useState(0);

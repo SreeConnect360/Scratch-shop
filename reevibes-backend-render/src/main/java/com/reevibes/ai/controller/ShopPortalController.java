@@ -288,6 +288,32 @@ public class ShopPortalController {
         if (order.getStatus() == null || order.getStatus().isEmpty()) {
             order.setStatus("Processing");
         }
+
+        // Deduct ordered item quantities from vendor product stock
+        if (order.getItemsJson() != null && !order.getItemsJson().isEmpty()) {
+            try {
+                List<?> itemsList = objectMapper.readValue(order.getItemsJson(), List.class);
+                for (Object itemObj : itemsList) {
+                    if (itemObj instanceof Map) {
+                        Map<String, Object> itemMap = (Map<String, Object>) itemObj;
+                        String productId = String.valueOf(itemMap.get("productId"));
+                        int qty = safeParseInt(itemMap.get("qty"));
+                        if (qty <= 0) qty = 1;
+                        
+                        VendorProduct vp = vendorProductRepository.findById(productId).orElse(null);
+                        if (vp != null) {
+                            int currentStock = vp.getUnits() != null ? vp.getUnits() : 100;
+                            int newStock = Math.max(0, currentStock - qty);
+                            vp.setUnits(newStock);
+                            vendorProductRepository.save(vp);
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("Failed to deduct product stock on order creation: " + e.getMessage());
+            }
+        }
+
         ShopOrder saved = orderRepository.save(order);
         syncService.bumpVersion();
         return ResponseEntity.ok(saved);
@@ -812,6 +838,21 @@ public class ShopPortalController {
             order.setStatus("Refunded");
             orderRepository.save(order);
         }
+
+        // Restore product stock quantity when item is returned and refunded
+        if (req.getProductId() != null && !req.getProductId().isEmpty()) {
+            try {
+                VendorProduct vp = vendorProductRepository.findById(req.getProductId()).orElse(null);
+                if (vp != null) {
+                    int qty = req.getQty() != null ? req.getQty() : 1;
+                    int currentStock = vp.getUnits() != null ? vp.getUnits() : 0;
+                    vp.setUnits(currentStock + qty);
+                    vendorProductRepository.save(vp);
+                }
+            } catch (Exception e) {
+                System.err.println("Failed to restore product stock on refund: " + e.getMessage());
+            }
+        }
         
         syncService.bumpVersion();
         return ResponseEntity.ok(saved);
@@ -1030,7 +1071,7 @@ public class ShopPortalController {
     }
 
     // --- VENDOR PRODUCTS ---
-    @GetMapping("/vendors/products")
+    @GetMapping({"/vendors/products", "/products"})
     public ResponseEntity<List<Map<String, Object>>> getVendorProducts() {
         List<VendorProduct> list = vendorProductRepository.findAll();
         com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
@@ -1088,7 +1129,7 @@ public class ShopPortalController {
         return ResponseEntity.ok(result);
     }
 
-    @PostMapping("/vendors/products")
+    @PostMapping({"/vendors/products", "/products"})
     @Transactional
     public ResponseEntity<Map<String, Object>> createVendorProduct(@RequestBody Map<String, Object> body) {
         String id = body.containsKey("id") && body.get("id") != null ? String.valueOf(body.get("id")) : "pr" + System.currentTimeMillis();
@@ -1149,7 +1190,7 @@ public class ShopPortalController {
         return ResponseEntity.ok(body);
     }
 
-    @PutMapping("/vendors/products/{id}")
+    @PutMapping({"/vendors/products/{id}", "/products/{id}"})
     @Transactional
     public ResponseEntity<Map<String, Object>> updateVendorProduct(@PathVariable String id, @RequestBody Map<String, Object> body) {
         VendorProduct product = vendorProductRepository.findById(id)
