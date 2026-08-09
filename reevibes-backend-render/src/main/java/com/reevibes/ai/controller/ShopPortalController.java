@@ -256,16 +256,47 @@ public class ShopPortalController {
         return ResponseEntity.ok(homepageLayoutRepository.findAll());
     }
 
-    @PutMapping("/homepage-layout/{id}")
+    @GetMapping("/homepage-layout/{id}")
+    public ResponseEntity<HomepageLayout> getHomepageLayoutById(@PathVariable String id) {
+        HomepageLayout layout = homepageLayoutRepository.findById(id).orElse(null);
+        if (layout == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(layout);
+    }
+
+    @RequestMapping(value = {"/homepage-layout", "/homepage-layout/{id}"}, method = {RequestMethod.POST, RequestMethod.PUT})
     @Transactional
-    public ResponseEntity<HomepageLayout> updateHomepageLayout(@PathVariable String id, @RequestBody Map<String, Object> body) {
-        HomepageLayout layout = homepageLayoutRepository.findById(id)
+    public ResponseEntity<HomepageLayout> saveOrUpdateHomepageLayout(
+            @PathVariable(required = false) String id,
+            @RequestBody Map<String, Object> body) {
+        
+        String targetId = (id != null && !id.isEmpty()) ? id : (body.containsKey("id") ? String.valueOf(body.get("id")) : "published");
+        
+        HomepageLayout layout = homepageLayoutRepository.findById(targetId)
                 .orElseGet(() -> {
                     HomepageLayout l = new HomepageLayout();
-                    l.setId(id);
+                    l.setId(targetId);
                     return l;
                 });
-        layout.setLayoutJson((String) body.get("layoutJson"));
+        
+        String jsonStr = "";
+        try {
+            if (body.containsKey("layoutJson")) {
+                Object rawJson = body.get("layoutJson");
+                if (rawJson instanceof String) {
+                    jsonStr = (String) rawJson;
+                } else {
+                    jsonStr = objectMapper.writeValueAsString(rawJson);
+                }
+            } else {
+                jsonStr = objectMapper.writeValueAsString(body);
+            }
+        } catch (Exception e) {
+            jsonStr = body.toString();
+        }
+
+        layout.setLayoutJson(jsonStr);
         HomepageLayout saved = homepageLayoutRepository.save(layout);
         syncService.bumpVersion();
         return ResponseEntity.ok(saved);
