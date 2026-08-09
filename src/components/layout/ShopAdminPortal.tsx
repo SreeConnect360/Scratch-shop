@@ -108,174 +108,163 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
     }
   }, [selectedOrderDetails]);
 
-  const handleDownloadBulkExcel = () => {
+  const handleDownloadBulkExcel = async () => {
     try {
+      toast.info("Generating official Shiprocket Bulk Order Excel...");
+
+      // Load original template from public folder retaining all 4 sheets
+      const response = await fetch("/Bulk Order Advance Excel File.xlsx");
+      if (!response.ok) {
+        throw new Error("Could not load template file from server.");
+      }
+      const arrayBuffer = await response.arrayBuffer();
+
+      const workbook = XLSX.read(arrayBuffer, { type: "array" });
+      const orderSheet = workbook.Sheets["Order Sheet"];
+
+      if (!orderSheet) {
+        throw new Error("Invalid template: Order Sheet missing.");
+      }
+
+      const existingData: any[][] = XLSX.utils.sheet_to_json(orderSheet, { header: 1 });
+      const headerRow1 = existingData[0] || [];
+      const headerRow2 = existingData[1] || [];
+
       const orderedOrders = ordersList.filter(o =>
         ["pending approval", "processing", "pending", "accepted", "ready to ship", "confirmed", "packed"].includes(o.status?.toLowerCase() || "")
       );
 
-      const headers = [
-        "Buyer's Details",
-        "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
-        "Pickup Details",
-        "Order Details",
-        "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
-        "Package Details",
-        "", "", "",
-        "Courier Details"
-      ];
-
-      const columns = [
-        "*Order Id",
-        "Order Date (DD-MM-YYYY) (Optional)",
-        "Verified Order (Yes/No) (Optional)",
-        "*Buyer's Mobile No.",
-        "*Buyer's First Name",
-        "Buyer's Last Name (Optional)",
-        "*Shipping Complete Address",
-        "Shipping Address Landmark (Optional)",
-        "*Shipping Address Pincode",
-        "*Shipping Address City",
-        "*Shipping Address State",
-        "*Shipping Address Country",
-        "Email (Optional)",
-        "Buyer's Alternate Mobile Number (Optional)",
-        "Buyer's Company Name (Optional)",
-        "Buyer's GSTIN (Optional)",
-        "Billing Complete Address (Optional)",
-        "Billing Landmark (Optional)",
-        "Billing Pincode (Optional)",
-        "Billing City (Optional)",
-        "Billing State (Optional)",
-        "Billing Country (Optional)",
-        "Send Notification (Yes/No) (Optional)",
-        "Pickup Address Id (Optional)",
-        "*Order Channel",
-        "*Payment Method (COD/Prepaid)",
-        "*Product Name",
-        "*Master SKU",
-        "*Product Quantity",
-        "*Per Unit Price in INR (Inclusive of Tax)",
-        "*Partial COD (Yes/No)",
-        "Paid Amount (Rs.)",
-        "Product Discount (Per Unit Item) (Optional)",
-        "Coupon (Optional)",
-        "HSN Code (Optional)",
-        "Tax Rate(percentage) (Optional)",
-        "Shipping Charges (Per Order) (Optional)",
-        "Gift Wrap Charges (Per Order) (Optional)",
-        "COD Charges (Per Order) (Optional)",
-        "Transaction Fee (Per Order) (Optional)",
-        "Total Discount (Per Order) (Optional)",
-        "Order Tag (Optional)",
-        "*Contain Documents (Yes/No)",
-        "Reseller Name (Optional)",
-        "*Weight Of Shipment (kg)",
-        "*Length (cm)",
-        "*Breadth (cm)",
-        "*Height (cm)",
-        "Package Count (Optional)",
-        "Courier ID (Optional)"
-      ];
-
-      const dataRows: any[][] = [];
+      const newRows: any[][] = [];
 
       orderedOrders.forEach(ord => {
         const u = state.users.find(usr => usr.id === ord.userId);
-        const buyerFirstName = u?.firstName || ord.customerName?.split(" ")[0] || "Buyer";
+        const buyerFirstName = u?.firstName || ord.customerName?.split(" ")[0] || "Customer";
         const buyerLastName = u?.lastName || (ord.customerName?.split(" ").slice(1).join(" ")) || "";
-        const buyerPhone = u?.phone || "9999999999";
+        const rawPhone = (u?.phone || "9876543210").replace(/[^0-9]/g, "");
+        const buyerPhone = rawPhone.length >= 10 ? parseInt(rawPhone.slice(-10), 10) : 9876543210;
         const buyerEmail = u?.email || "";
 
-        let street = ord.address || "";
-        let pincode = "560038";
+        // Parse address fields
+        let street = ord.address || u?.address || "100 Feet Road, Indiranagar, Bangalore, Karnataka - 560038";
+        let pincode: any = 560038;
         let city = "Bangalore";
         let stateName = "Karnataka";
         let country = "India";
 
-        const parts = street.split(",");
-        if (parts.length >= 4) {
-          street = parts[0].trim();
-          city = parts[1].trim();
-          stateName = parts[parts.length - 2].trim();
-          pincode = parts[parts.length - 1].trim().replace(/[^0-9]/g, "");
-        } else {
+        if (typeof street === "string" && street.length > 0) {
           const pinMatch = street.match(/\b\d{6}\b/);
-          if (pinMatch) pincode = pinMatch[0];
+          if (pinMatch) {
+            pincode = parseInt(pinMatch[0], 10);
+          }
+          const parts = street.split(",").map(s => s.trim()).filter(Boolean);
+          if (parts.length >= 3) {
+            const lastPart = parts[parts.length - 1];
+            const secondLast = parts[parts.length - 2];
+            if (lastPart.toLowerCase().includes("india")) {
+              country = "India";
+              if (parts.length >= 4) {
+                stateName = parts[parts.length - 2].replace(/\d+/g, "").trim() || "Karnataka";
+                city = parts[parts.length - 3] || "Bangalore";
+              }
+            } else {
+              const stateClean = lastPart.replace(/\d+/g, "").trim();
+              if (stateClean) stateName = stateClean;
+              if (parts.length >= 3) city = secondLast;
+            }
+          }
+        }
+
+        if (street.length < 10) {
+          street = street + ", Indiranagar, Bangalore, Karnataka";
         }
 
         const formattedDate = (() => {
           try {
             const d = new Date(ord.date);
-            if (isNaN(d.getTime())) return "";
+            if (isNaN(d.getTime())) return "09-08-2026";
             const dd = String(d.getDate()).padStart(2, "0");
             const mm = String(d.getMonth() + 1).padStart(2, "0");
             const yyyy = d.getFullYear();
             return `${dd}-${mm}-${yyyy}`;
-          } catch(e) { return ""; }
+          } catch (e) { return "09-08-2026"; }
         })();
 
         const payMethod = ord.paymentMethod?.toLowerCase().includes("cod") ? "COD" : "Prepaid";
 
         (ord.items || []).forEach((item: any) => {
-          const itemPrice = Number(String(item.price).replace(/[^0-9.]/g, "")) || 0;
+          const liveProd = state.products.find((pr: any) => pr.id === item.productId || pr.sku === item.sku) || item;
+          const prodName = liveProd.name || item.name || "ReeVibes Luxury Fashion Piece";
+          const masterSku = liveProd.sku || item.sku || liveProd.id || item.productId || `RV-SKU-${ord.id}`;
+          const prodQty = Number(item.qty) || 1;
+          const itemPrice = Number(String(liveProd.price || item.price).replace(/[^0-9.]/g, "")) || 999;
+
           const row = [
-            ord.id,
-            formattedDate,
-            "Yes",
-            buyerPhone,
-            buyerFirstName,
-            buyerLastName,
-            street,
-            "",
-            pincode,
-            city,
-            stateName,
-            country,
-            buyerEmail,
-            "", "", "",
-            street,
-            "",
-            pincode,
-            city,
-            stateName,
-            country,
-            "Yes",
-            "Primary",
-            "ReeVibes Web",
-            payMethod,
-            item.name || "Fashion Piece",
-            item.productId || `SKU-${item.name}`,
-            item.qty || 1,
-            itemPrice,
-            "No",
-            ord.total || itemPrice,
-            0,
-            ord.appliedCoupon || "",
-            "610910",
-            "", "", "", "", "", "", "",
-            "No",
-            "",
-            0.5,
-            15,
-            15,
-            10,
-            1,
-            ord.courierPartner || ""
+            ord.id, // A: *Order Id
+            formattedDate, // B: Order Date (DD-MM-YYYY)
+            "Yes", // C: Verified Order
+            buyerPhone, // D: *Buyer's Mobile No.
+            buyerFirstName, // E: *Buyer's First Name
+            buyerLastName, // F: Buyer's Last Name
+            street, // G: *Shipping Complete Address
+            "", // H: Shipping Address Landmark
+            pincode, // I: *Shipping Address Pincode
+            city, // J: *Shipping Address City
+            stateName, // K: *Shipping Address State
+            country, // L: *Shipping Address Country
+            buyerEmail, // M: Email
+            "", "", "", // N, O, P: Alt Phone, Company, GSTIN
+            street, // Q: Billing Complete Address
+            "", // R: Billing Landmark
+            pincode, // S: Billing Pincode
+            city, // T: Billing City
+            stateName, // U: Billing State
+            country, // V: Billing Country
+            "Yes", // W: Send Notification
+            "", // X: Pickup Address Id
+            "Custom", // Y: *Order Channel (Standard for Shiprocket bulk upload)
+            payMethod, // Z: *Payment Method (COD/Prepaid)
+            prodName, // AA: *Product Name
+            masterSku, // AB: *Master SKU
+            prodQty, // AC: *Product Quantity
+            itemPrice, // AD: *Per Unit Price in INR
+            "No", // AE: *Partial COD
+            ord.total || (itemPrice * prodQty), // AF: Paid Amount (Rs.)
+            0, // AG: Product Discount
+            ord.appliedCoupon || "", // AH: Coupon
+            "610910", // AI: HSN Code
+            "", "", "", "", "", "", "", // AJ to AP
+            "No", // AQ: *Contain Documents
+            "", // AR: Reseller Name
+            0.5, // AS: *Weight Of Shipment (kg)
+            15, // AT: *Length (cm)
+            15, // AU: *Breadth (cm)
+            10, // AV: *Height (cm)
+            1, // AW: Package Count
+            "" // AX: Courier ID
           ];
-          dataRows.push(row);
+          newRows.push(row);
         });
       });
 
-      const wsData = [headers, columns, ...dataRows];
-      const worksheet = XLSX.utils.aoa_to_sheet(wsData);
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Order Sheet");
-      XLSX.writeFile(workbook, "ReeVibes_Bulk_Orders_Advance.xlsx");
-      toast.success("Downloaded Bulk Orders Excel!");
-    } catch(err) {
+      const sheetData = [headerRow1, headerRow2, ...newRows];
+      const updatedOrderSheet = XLSX.utils.aoa_to_sheet(sheetData);
+      workbook.Sheets["Order Sheet"] = updatedOrderSheet;
+
+      const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+      const blob = new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "ReeVibes_Bulk_Orders_Shiprocket.xlsx";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success("Downloaded Shiprocket Bulk Order Excel!");
+    } catch (err: any) {
       console.error("Failed to generate Excel:", err);
-      toast.error("Failed to export Excel file.");
+      toast.error(err.message || "Failed to export Excel file.");
     }
   };
 
