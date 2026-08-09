@@ -317,15 +317,16 @@ function Dashboard() {
                       <MapPin className="w-4 h-4 text-accent shrink-0 mt-0.5" />
                       <span>{formatted}</span>
                     </div>
-                  <button
-                    onClick={() => {
-                      if (user) removeAddress(user.id, idx);
-                    }}
-                    className="p-1 hover:text-rose-500 text-muted-foreground transition-colors"
-                    title="Delete address"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                    <button
+                      onClick={() => {
+                        if (user) removeAddress(user.id, idx);
+                      }}
+                      className="p-1 hover:text-rose-500 text-muted-foreground transition-colors"
+                      title="Delete address"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 );
               })
             )}
