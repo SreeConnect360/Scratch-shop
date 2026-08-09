@@ -2,7 +2,6 @@ package com.reevibes.ai.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.reevibes.ai.model.AIConversation;
-import lombok.Data;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
