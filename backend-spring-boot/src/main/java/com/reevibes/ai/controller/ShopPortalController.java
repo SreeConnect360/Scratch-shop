@@ -1127,30 +1127,12 @@ public class ShopPortalController {
                     .body(Map.of("error", "Missing required fields"));
         }
 
-        try {
-            String data = orderId + "|" + paymentId;
-            javax.crypto.Mac sha256_HMAC = javax.crypto.Mac.getInstance("HmacSHA256");
-            javax.crypto.spec.SecretKeySpec secret_key = new javax.crypto.spec.SecretKeySpec(razorpayKeySecret.getBytes(java.nio.charset.StandardCharsets.UTF_8), "HmacSHA256");
-            sha256_HMAC.init(secret_key);
-            
-            byte[] hash = sha256_HMAC.doFinal(data.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            StringBuilder hexString = new StringBuilder();
-            for (byte b : hash) {
-                String hex = Integer.toHexString(0xff & b);
-                if (hex.length() == 1) hexString.append('0');
-                hexString.append(hex);
-            }
-            
-            String generatedSignature = hexString.toString();
-            if (generatedSignature.equals(signature)) {
-                return ResponseEntity.ok(Map.of("status", "success", "message", "Payment verified successfully"));
-            } else {
-                return ResponseEntity.status(org.springframework.http.HttpStatus.BAD_REQUEST)
-                        .body(Map.of("status", "failure", "message", "Signature mismatch"));
-            }
-        } catch (Exception e) {
-            return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", e.getMessage()));
+        boolean isValid = verifyRazorpaySignature(orderId, paymentId, signature);
+        if (isValid) {
+            return ResponseEntity.ok(Map.of("status", "success", "message", "Payment verified successfully"));
+        } else {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.BAD_REQUEST)
+                    .body(Map.of("status", "failure", "message", "Signature mismatch"));
         }
     }
 
