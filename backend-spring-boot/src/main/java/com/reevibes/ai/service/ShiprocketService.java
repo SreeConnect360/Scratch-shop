@@ -107,26 +107,55 @@ public class ShiprocketService {
             // Parse address components
             String rawAddress = order.getAddress() != null ? order.getAddress() : "";
             String street = "Indiranagar";
+            String landmark = "";
             String city = "Bangalore";
             String state = "Karnataka";
             String pincode = "560038";
             
-            String[] parts = rawAddress.split(",");
-            if (parts.length >= 4) {
-                street = parts[0].trim();
-                city = parts[1].trim();
-                state = parts[parts.length - 2].trim();
-                pincode = parts[parts.length - 1].trim().replaceAll("[^0-9]", "");
+            if (rawAddress.trim().startsWith("{")) {
+                try {
+                    Map<String, Object> addrMap = objectMapper.readValue(rawAddress, Map.class);
+                    if (addrMap.containsKey("name") && addrMap.get("name") != null) {
+                        String fullName = String.valueOf(addrMap.get("name")).trim();
+                        String[] nameParts = fullName.split(" ", 2);
+                        billingName = nameParts[0];
+                        if (nameParts.length > 1) billingLastName = nameParts[1];
+                    }
+                    if (addrMap.containsKey("phone") && addrMap.get("phone") != null) {
+                        String p = String.valueOf(addrMap.get("phone")).replaceAll("[^0-9]", "");
+                        if (!p.isEmpty()) billingPhone = p;
+                    }
+                    if (addrMap.containsKey("street") && addrMap.get("street") != null) street = String.valueOf(addrMap.get("street"));
+                    if (addrMap.containsKey("landmark") && addrMap.get("landmark") != null) landmark = String.valueOf(addrMap.get("landmark"));
+                    if (addrMap.containsKey("city") && addrMap.get("city") != null) city = String.valueOf(addrMap.get("city"));
+                    if (addrMap.containsKey("state") && addrMap.get("state") != null) state = String.valueOf(addrMap.get("state"));
+                    if (addrMap.containsKey("pincode") && addrMap.get("pincode") != null) pincode = String.valueOf(addrMap.get("pincode")).replaceAll("[^0-9]", "");
+                } catch (Exception e) {
+                    System.err.println("Failed to parse address JSON: " + e.getMessage());
+                }
             } else {
-                // Fallback regex to find pincode
-                Pattern pinPattern = Pattern.compile("\\b\\d{6}\\b");
-                Matcher matcher = pinPattern.matcher(rawAddress);
-                if (matcher.find()) {
-                    pincode = matcher.group();
+                String[] parts = rawAddress.split(",");
+                if (parts.length >= 4) {
+                    street = parts[0].trim();
+                    city = parts[1].trim();
+                    state = parts[parts.length - 2].trim();
+                    pincode = parts[parts.length - 1].trim().replaceAll("[^0-9]", "");
+                } else {
+                    Pattern pinPattern = Pattern.compile("\\b\\d{6}\\b");
+                    Matcher matcher = pinPattern.matcher(rawAddress);
+                    if (matcher.find()) {
+                        pincode = matcher.group();
+                    }
+                    if (!rawAddress.isEmpty()) {
+                        street = rawAddress;
+                    }
                 }
-                if (!rawAddress.isEmpty()) {
-                    street = rawAddress;
-                }
+            }
+
+            // Payment method
+            String paymentMethod = "Prepaid";
+            if (order.getPaymentMethod() != null && order.getPaymentMethod().toUpperCase().contains("COD")) {
+                paymentMethod = "COD";
             }
 
             // Parse items json
@@ -155,12 +184,11 @@ public class ShiprocketService {
                         orderItem.put("selling_price", price);
                         orderItem.put("discount", 0);
                         orderItem.put("tax", 0);
-                        orderItem.put("hsn", 610910); // Standard Apparel HSN
+                        orderItem.put("hsn", 610910);
                         orderItems.add(orderItem);
                     }
                 }
             } catch (Exception e) {
-                // Fallback item
                 Map<String, Object> orderItem = new HashMap<>();
                 orderItem.put("name", "Fashion Piece Curation");
                 orderItem.put("sku", "CUR-01");
@@ -176,10 +204,13 @@ public class ShiprocketService {
             Map<String, Object> payload = new HashMap<>();
             payload.put("order_id", order.getId());
             payload.put("order_date", new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm").format(new java.util.Date()));
-            payload.put("pickup_location", "Primary");
+            payload.put("pickup_location", order.getPickupLocation() != null ? order.getPickupLocation() : "Primary");
             payload.put("billing_customer_name", billingName);
             payload.put("billing_last_name", billingLastName);
             payload.put("billing_address", street);
+            if (landmark != null && !landmark.isEmpty()) {
+                payload.put("billing_address_2", landmark);
+            }
             payload.put("billing_city", city);
             payload.put("billing_pincode", pincode);
             payload.put("billing_state", state);
@@ -188,7 +219,7 @@ public class ShiprocketService {
             payload.put("billing_phone", billingPhone);
             payload.put("shipping_is_billing", true);
             payload.put("order_items", orderItems);
-            payload.put("payment_method", "Prepaid");
+            payload.put("payment_method", paymentMethod);
             payload.put("sub_total", order.getTotal().doubleValue());
             payload.put("length", 15);
             payload.put("breadth", 15);
