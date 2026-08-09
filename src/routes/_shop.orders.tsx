@@ -622,22 +622,40 @@ function ShopOrdersPage() {
               </div>
 
               <div className="p-4 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 space-y-2 text-xs">
-                <span className="text-[10px] uppercase font-bold tracking-wider text-accent block">Refund Statement</span>
+                <span className="text-[10px] uppercase font-bold tracking-wider text-accent block">Refund Statement & Settlement</span>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground font-semibold">Refund Amount:</span>
+                  <span className="text-muted-foreground font-semibold">Total Refund:</span>
                   <span className="font-mono text-sm font-bold text-accent">₹{(selectedReturnDetails.refundAmount || 0).toLocaleString()}</span>
                 </div>
+                {selectedReturnDetails.razorpayRefundAmount > 0 && (
+                  <div className="flex justify-between text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                    <span>• Razorpay Gateway Refund:</span>
+                    <span className="font-mono">₹{selectedReturnDetails.razorpayRefundAmount.toLocaleString()}</span>
+                  </div>
+                )}
+                {selectedReturnDetails.walletRefundAmount > 0 && (
+                  <div className="flex justify-between text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                    <span>• ReeVibes Wallet Credit:</span>
+                    <span className="font-mono">₹{selectedReturnDetails.walletRefundAmount.toLocaleString()}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground font-semibold">Refund Method:</span>
-                  <span className="font-medium text-foreground">{selectedReturnDetails.refundMethod || "Original Payment Method"}</span>
+                  <span className="font-medium text-foreground">{selectedReturnDetails.refundMethod || "Original Payment Split"}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground font-semibold">Transaction Ref:</span>
-                  <span className="font-mono text-[10px] text-foreground">{selectedReturnDetails.refundTransactionId || "Processing"}</span>
+                  <span className="text-muted-foreground font-semibold">Razorpay Ref:</span>
+                  <span className="font-mono text-[10px] text-foreground">{selectedReturnDetails.razorpayRefundId || selectedReturnDetails.refundTransactionId || "N/A"}</span>
                 </div>
-                <div className="flex justify-between pt-1 border-t border-black/5 dark:border-white/5">
+                {selectedReturnDetails.walletTransactionId && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground font-semibold">Wallet Ref:</span>
+                    <span className="font-mono text-[10px] text-amber-500">{selectedReturnDetails.walletTransactionId}</span>
+                  </div>
+                )}
+                <div className="flex justify-between pt-1.5 border-t border-black/5 dark:border-white/5">
                   <span className="text-muted-foreground font-semibold">Settlement Status:</span>
-                  <span className="font-bold text-emerald-600 dark:text-emerald-400">{selectedReturnDetails.status === "Refund Completed" ? "Completed" : "In Progress"}</span>
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400">{selectedReturnDetails.status === "Refund Completed" ? "Refund Completed" : "Processing"}</span>
                 </div>
               </div>
             </div>

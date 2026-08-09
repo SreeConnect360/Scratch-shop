@@ -145,7 +145,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
         const buyerEmail = u?.email || "";
 
         // Parse address fields
-        let street = ord.address || u?.address || "100 Feet Road, Indiranagar, Bangalore, Karnataka - 560038";
+        let street = ord.address || (u as any)?.address || "100 Feet Road, Indiranagar, Bangalore, Karnataka - 560038";
         let pincode: any = 560038;
         let city = "Bangalore";
         let stateName = "Karnataka";
@@ -230,7 +230,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
             "No", // AE: *Partial COD
             ord.total || (itemPrice * prodQty), // AF: Paid Amount (Rs.)
             0, // AG: Product Discount
-            ord.appliedCoupon || "", // AH: Coupon
+            (ord as any).appliedCoupon || "", // AH: Coupon
             "610910", // AI: HSN Code
             "", "", "", "", "", "", "", // AJ to AP
             "No", // AQ: *Contain Documents
@@ -295,7 +295,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
         const rawPhone = (u?.phone || "9876543210").replace(/[^0-9]/g, "");
         const customerMobile = rawPhone.length >= 10 ? rawPhone.slice(-10) : "9876543210";
 
-        let street = ord.address || u?.address || "100 Feet Road, Indiranagar, Bangalore, Karnataka - 560038";
+        let street = ord.address || (u as any)?.address || "100 Feet Road, Indiranagar, Bangalore, Karnataka - 560038";
         let addressLine2 = "";
         let stateName = "Karnataka";
         let city = "Bangalore";
@@ -2477,12 +2477,40 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                       <span className="font-mono">{activeReturn.qty || 1}</span>
                     </div>
                     <div className="flex justify-between border-t border-white/5 pt-1.5 mt-1.5">
-                      <span className="text-muted-foreground">Refund Method:</span>
-                      <span className="font-semibold text-amber-200">{activeReturn.refundMethod || "Original Payment Method"}</span>
+                      <span className="text-muted-foreground">Original Order Total:</span>
+                      <span className="font-mono text-white">₹{(order?.total || activeReturn.refundAmount).toLocaleString()}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Refund Amount:</span>
+                    {order && ((order.razorpayAmountPaid ?? 0) > 0 || (order.walletAmountUsed ?? 0) > 0) && (
+                      <>
+                        <div className="flex justify-between text-[11px] text-muted-foreground">
+                          <span>• Razorpay Payment:</span>
+                          <span className="font-mono text-emerald-400">₹{(order.razorpayAmountPaid || 0).toLocaleString()} {order.razorpayPaymentId ? `(${order.razorpayPaymentId})` : ""}</span>
+                        </div>
+                        <div className="flex justify-between text-[11px] text-muted-foreground">
+                          <span>• Wallet Payment:</span>
+                          <span className="font-mono text-amber-300">₹{(order.walletAmountUsed || 0).toLocaleString()}</span>
+                        </div>
+                      </>
+                    )}
+                    <div className="flex justify-between border-t border-white/5 pt-1.5 mt-1.5">
+                      <span className="text-muted-foreground">Total Refundable:</span>
                       <span className="font-serif font-bold text-accent">₹{activeReturn.refundAmount.toLocaleString()}</span>
+                    </div>
+                    {(activeReturn.razorpayRefundAmount ?? 0) > 0 && (
+                      <div className="flex justify-between text-[11px] text-muted-foreground">
+                        <span>• Razorpay Refund:</span>
+                        <span className="font-mono text-emerald-300">₹{(activeReturn.razorpayRefundAmount ?? 0).toLocaleString()} {activeReturn.razorpayRefundId ? `(${activeReturn.razorpayRefundId})` : ""}</span>
+                      </div>
+                    )}
+                    {(activeReturn.walletRefundAmount ?? 0) > 0 && (
+                      <div className="flex justify-between text-[11px] text-muted-foreground">
+                        <span>• Wallet Refund:</span>
+                        <span className="font-mono text-amber-300">₹{(activeReturn.walletRefundAmount ?? 0).toLocaleString()} {activeReturn.walletTransactionId ? `(${activeReturn.walletTransactionId})` : ""}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-[11px] pt-1">
+                      <span className="text-muted-foreground">Refund Method:</span>
+                      <span className="font-semibold text-amber-200">{activeReturn.refundMethod || "Original Payment Split (Razorpay + Wallet)"}</span>
                     </div>
                   </div>
                 </div>

@@ -25,4 +25,15 @@ public class ProductBucket {
 
     @Column(nullable = false)
     private Boolean hidden = false;
+
+    public String getId() { return id; }
+    public void setId(String id) { this.id = id; }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+    public String getProductIds() { return productIds; }
+    public void setProductIds(String productIds) { this.productIds = productIds; }
+    public String getStarProductId() { return starProductId; }
+    public void setStarProductId(String starProductId) { this.starProductId = starProductId; }
+    public Boolean getHidden() { return hidden; }
+    public void setHidden(Boolean hidden) { this.hidden = hidden; }
 }

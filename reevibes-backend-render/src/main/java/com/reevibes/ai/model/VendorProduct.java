@@ -13,8 +13,12 @@ public class VendorProduct {
     @Id
     private String id;
 
+    @Column(columnDefinition = "TEXT")
     private String name;
+
+    @Column(columnDefinition = "TEXT")
     private String house;
+
     private String price;
 
     @Column(columnDefinition = "TEXT")
@@ -23,18 +27,33 @@ public class VendorProduct {
     @Column(columnDefinition = "TEXT")
     private String imagesJson;
 
+    @Column(columnDefinition = "TEXT")
     private String category;
+
     private String gender;
+
+    @Column(columnDefinition = "TEXT")
     private String tag;
+
     private String sku;
     private String originalPrice;
     private Integer discount = 0;
     private String status = "PUBLISHED";
     private String visibility = "VISIBLE";
+
+    @Column(columnDefinition = "TEXT")
     private String material;
+
+    @Column(columnDefinition = "TEXT")
     private String fabric;
+
+    @Column(columnDefinition = "TEXT")
     private String color;
+
+    @Column(columnDefinition = "TEXT")
     private String collections;
+
+    @Column(columnDefinition = "TEXT")
     private String overviewTitle;
 
     @Column(columnDefinition = "TEXT")
@@ -84,10 +103,12 @@ public class VendorProduct {
         this.stockQuantity = units;
     }
 
+    @Column(columnDefinition = "TEXT")
     private String seoTitle;
 
     @Column(columnDefinition = "TEXT")
     private String seoDescription;
 
+    @Column(columnDefinition = "TEXT")
     private String seoKeywords;
 }
