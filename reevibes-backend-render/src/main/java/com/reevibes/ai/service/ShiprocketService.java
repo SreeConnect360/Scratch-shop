@@ -400,6 +400,30 @@ public class ShiprocketService {
     }
 
     /**
+     * Fetches live tracking status and scan timeline for an AWB tracking number.
+     */
+    public Map<String, Object> trackShipment(String trackingNumber) {
+        String token = getAuthToken();
+        if (token == null || trackingNumber == null || trackingNumber.isEmpty()) return Collections.emptyMap();
+
+        try {
+            String url = "https://apiv2.shiprocket.in/v1/external/courier/track/awb/" + trackingNumber;
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Authorization", "Bearer " + token);
+
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+            ResponseEntity<Map> response = restTemplate.exchange(url, org.springframework.http.HttpMethod.GET, entity, Map.class);
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                return (Map<String, Object>) response.getBody();
+            }
+        } catch (Exception e) {
+            System.err.println("Exception tracking shipment: " + e.getMessage());
+        }
+        return Collections.emptyMap();
+    }
+
+    /**
      * Creates a reverse return order in Shiprocket.
      */
     public Map<String, String> createReturnOrder(com.reevibes.ai.model.ReturnRequest returnReq, ShopOrder order) {

@@ -684,6 +684,7 @@ type Ctx = {
   cancelOrder: (userId: string, orderId: string) => Promise<any>;
   fetchOrderLabel: (orderId: string) => Promise<string | null>;
   fetchOrderInvoice: (orderId: string) => Promise<string | null>;
+  syncShiprocketTracking: (userId: string, orderId: string) => Promise<any>;
   assignReturnPickup: (returnId: string) => Promise<any>;
   processSplitRefund: (returnId: string) => Promise<any>;
   addCoupon: (coupon: { code: string; discount: number; type?: "fixed" | "percentage" | "wallet"; expiryDate?: string; usageLimit?: number; userEligibility?: string }) => void;
@@ -1831,7 +1832,9 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         const res = await fetch(`${BACKEND_URL}/api/orders/${orderId}/label`);
         if (res.ok) {
           const data = await res.json();
-          return data.labelUrl || null;
+          if (data.labelUrl) {
+            return data.labelUrl.startsWith("/") ? `${BACKEND_URL}${data.labelUrl}` : data.labelUrl;
+          }
         }
       } catch (err) {
         console.error("Failed to fetch label:", err);
@@ -1843,10 +1846,34 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         const res = await fetch(`${BACKEND_URL}/api/orders/${orderId}/invoice`);
         if (res.ok) {
           const data = await res.json();
-          return data.invoiceUrl || null;
+          if (data.invoiceUrl) {
+            return data.invoiceUrl.startsWith("/") ? `${BACKEND_URL}${data.invoiceUrl}` : data.invoiceUrl;
+          }
         }
       } catch (err) {
         console.error("Failed to fetch invoice:", err);
+      }
+      return null;
+    },
+    syncShiprocketTracking: async (userId, orderId) => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/orders/${orderId}/track-shiprocket`, {
+          method: "POST"
+        });
+        if (res.ok) {
+          const updatedOrder = await res.json();
+          setState(s => {
+            const list = s.orders[userId] || [];
+            const next = list.map(o => o.id === orderId ? updatedOrder : o);
+            return {
+              ...s,
+              orders: { ...s.orders, [userId]: next }
+            };
+          });
+          return updatedOrder;
+        }
+      } catch (err) {
+        console.error("Failed to sync Shiprocket tracking:", err);
       }
       return null;
     },
