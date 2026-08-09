@@ -994,11 +994,16 @@ export function PortalProvider({ children }: { children: ReactNode }) {
             }
           }
         }
+        const currentProds = s.products || [];
+        const dbIds = new Set(mappedProducts.map(p => String(p.id)));
+        const unsyncedLocalProds = currentProds.filter(p => !dbIds.has(String(p.id)));
+        const mergedProducts = [...mappedProducts, ...unsyncedLocalProds];
+
         return {
           ...s,
           user: nextUser,
           vendors: mappedVendors,
-          products: mappedProducts,
+          products: mergedProducts,
           buckets: mappedBuckets,
           users: mappedCustomers,
           addresses: { ...s.addresses, ...extraAddresses },

@@ -967,24 +967,24 @@ public class ShopPortalController {
             product.setFullJson(mapper.writeValueAsString(body));
         } catch (Exception e) {}
 
-        if (body.containsKey("name")) product.setName((String) body.get("name"));
-        if (body.containsKey("house")) product.setHouse((String) body.get("house"));
-        if (body.containsKey("price")) product.setPrice(String.valueOf(body.get("price")));
-        if (body.containsKey("image")) product.setImage((String) body.get("image"));
-        if (body.containsKey("category")) product.setCategory((String) body.get("category"));
-        if (body.containsKey("gender")) product.setGender((String) body.get("gender"));
-        if (body.containsKey("tag")) product.setTag((String) body.get("tag"));
-        if (body.containsKey("sku")) product.setSku((String) body.get("sku"));
-        if (body.containsKey("originalPrice")) product.setOriginalPrice(String.valueOf(body.get("originalPrice")));
+        if (body.containsKey("name")) product.setName(safeParseString(body.get("name")));
+        if (body.containsKey("house")) product.setHouse(safeParseString(body.get("house")));
+        if (body.containsKey("price")) product.setPrice(safeParseString(body.get("price")));
+        if (body.containsKey("image")) product.setImage(safeParseString(body.get("image")));
+        if (body.containsKey("category")) product.setCategory(safeParseString(body.get("category")));
+        if (body.containsKey("gender")) product.setGender(safeParseString(body.get("gender")));
+        if (body.containsKey("tag")) product.setTag(safeParseString(body.get("tag")));
+        if (body.containsKey("sku")) product.setSku(safeParseString(body.get("sku")));
+        if (body.containsKey("originalPrice")) product.setOriginalPrice(safeParseString(body.get("originalPrice")));
         if (body.containsKey("discount") && body.get("discount") != null) product.setDiscount(safeParseInt(body.get("discount")));
-        if (body.containsKey("status")) product.setStatus(String.valueOf(body.get("status")));
-        if (body.containsKey("visibility")) product.setVisibility(String.valueOf(body.get("visibility")));
-        if (body.containsKey("material")) product.setMaterial((String) body.get("material"));
-        if (body.containsKey("fabric")) product.setFabric((String) body.get("fabric"));
-        if (body.containsKey("color")) product.setColor((String) body.get("color"));
-        if (body.containsKey("collections")) product.setCollections((String) body.get("collections"));
-        if (body.containsKey("description")) product.setDescription((String) body.get("description"));
-        if (body.containsKey("details")) product.setDetails((String) body.get("details"));
+        if (body.containsKey("status")) product.setStatus(safeParseString(body.get("status")));
+        if (body.containsKey("visibility")) product.setVisibility(safeParseString(body.get("visibility")));
+        if (body.containsKey("material")) product.setMaterial(safeParseString(body.get("material")));
+        if (body.containsKey("fabric")) product.setFabric(safeParseString(body.get("fabric")));
+        if (body.containsKey("color")) product.setColor(safeParseString(body.get("color")));
+        if (body.containsKey("collections")) product.setCollections(safeParseString(body.get("collections")));
+        if (body.containsKey("description")) product.setDescription(safeParseString(body.get("description")));
+        if (body.containsKey("details")) product.setDetails(safeParseString(body.get("details")));
         if (body.containsKey("inStock")) product.setInStock(safeParseBoolean(body.get("inStock")));
         if (body.containsKey("isNew")) product.setIsNew(safeParseBoolean(body.get("isNew")));
         if (body.containsKey("isNewArrival")) product.setIsNewArrival(safeParseBoolean(body.get("isNewArrival")));
@@ -1030,24 +1030,24 @@ public class ShopPortalController {
             product.setFullJson(mapper.writeValueAsString(body));
         } catch (Exception e) {}
 
-        if (body.containsKey("name")) product.setName((String) body.get("name"));
-        if (body.containsKey("house")) product.setHouse((String) body.get("house"));
-        if (body.containsKey("price")) product.setPrice(String.valueOf(body.get("price")));
-        if (body.containsKey("image")) product.setImage((String) body.get("image"));
-        if (body.containsKey("category")) product.setCategory((String) body.get("category"));
-        if (body.containsKey("gender")) product.setGender((String) body.get("gender"));
-        if (body.containsKey("tag")) product.setTag((String) body.get("tag"));
-        if (body.containsKey("sku")) product.setSku((String) body.get("sku"));
-        if (body.containsKey("originalPrice")) product.setOriginalPrice(String.valueOf(body.get("originalPrice")));
+        if (body.containsKey("name")) product.setName(safeParseString(body.get("name")));
+        if (body.containsKey("house")) product.setHouse(safeParseString(body.get("house")));
+        if (body.containsKey("price")) product.setPrice(safeParseString(body.get("price")));
+        if (body.containsKey("image")) product.setImage(safeParseString(body.get("image")));
+        if (body.containsKey("category")) product.setCategory(safeParseString(body.get("category")));
+        if (body.containsKey("gender")) product.setGender(safeParseString(body.get("gender")));
+        if (body.containsKey("tag")) product.setTag(safeParseString(body.get("tag")));
+        if (body.containsKey("sku")) product.setSku(safeParseString(body.get("sku")));
+        if (body.containsKey("originalPrice")) product.setOriginalPrice(safeParseString(body.get("originalPrice")));
         if (body.containsKey("discount") && body.get("discount") != null) product.setDiscount(safeParseInt(body.get("discount")));
-        if (body.containsKey("status")) product.setStatus(String.valueOf(body.get("status")));
-        if (body.containsKey("visibility")) product.setVisibility(String.valueOf(body.get("visibility")));
-        if (body.containsKey("material")) product.setMaterial((String) body.get("material"));
-        if (body.containsKey("fabric")) product.setFabric((String) body.get("fabric"));
-        if (body.containsKey("color")) product.setColor((String) body.get("color"));
-        if (body.containsKey("collections")) product.setCollections((String) body.get("collections"));
-        if (body.containsKey("description")) product.setDescription((String) body.get("description"));
-        if (body.containsKey("details")) product.setDetails((String) body.get("details"));
+        if (body.containsKey("status")) product.setStatus(safeParseString(body.get("status")));
+        if (body.containsKey("visibility")) product.setVisibility(safeParseString(body.get("visibility")));
+        if (body.containsKey("material")) product.setMaterial(safeParseString(body.get("material")));
+        if (body.containsKey("fabric")) product.setFabric(safeParseString(body.get("fabric")));
+        if (body.containsKey("color")) product.setColor(safeParseString(body.get("color")));
+        if (body.containsKey("collections")) product.setCollections(safeParseString(body.get("collections")));
+        if (body.containsKey("description")) product.setDescription(safeParseString(body.get("description")));
+        if (body.containsKey("details")) product.setDetails(safeParseString(body.get("details")));
         if (body.containsKey("inStock")) product.setInStock(safeParseBoolean(body.get("inStock")));
         if (body.containsKey("isNew")) product.setIsNew(safeParseBoolean(body.get("isNew")));
         if (body.containsKey("isNewArrival")) product.setIsNewArrival(safeParseBoolean(body.get("isNewArrival")));
@@ -1075,6 +1075,12 @@ public class ShopPortalController {
         vendorProductRepository.save(product);
         syncService.bumpVersion();
         return ResponseEntity.ok(body);
+    }
+
+    private String safeParseString(Object val) {
+        if (val == null) return null;
+        if (val instanceof String) return (String) val;
+        return String.valueOf(val);
     }
 
     private int safeParseInt(Object val) {
