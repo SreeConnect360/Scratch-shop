@@ -247,6 +247,12 @@ public class ShiprocketService {
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 return (Map<String, Object>) response.getBody();
             }
+        } catch (org.springframework.web.client.HttpStatusCodeException e) {
+            System.err.println("Shiprocket serviceability API error: " + e.getResponseBodyAsString());
+            Map<String, Object> errMap = new HashMap<>();
+            errMap.put("error", true);
+            errMap.put("message", e.getResponseBodyAsString());
+            return errMap;
         } catch (Exception e) {
             System.err.println("Exception fetching courier quotes: " + e.getMessage());
         }
@@ -258,7 +264,12 @@ public class ShiprocketService {
      */
     public Map<String, Object> assignAWB(String shipmentId, String courierId) {
         String token = getAuthToken();
-        if (token == null) return Collections.emptyMap();
+        if (token == null) {
+            Map<String, Object> err = new HashMap<>();
+            err.put("error", true);
+            err.put("message", "Shiprocket Auth Token null. Please verify API credentials.");
+            return err;
+        }
 
         try {
             String url = "https://apiv2.shiprocket.in/v1/external/courier/assign/awb";
@@ -276,8 +287,18 @@ public class ShiprocketService {
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 return (Map<String, Object>) response.getBody();
             }
+        } catch (org.springframework.web.client.HttpStatusCodeException e) {
+            System.err.println("Shiprocket AWB API error response: " + e.getResponseBodyAsString());
+            Map<String, Object> err = new HashMap<>();
+            err.put("error", true);
+            err.put("message", e.getResponseBodyAsString());
+            return err;
         } catch (Exception e) {
             System.err.println("Exception assigning AWB: " + e.getMessage());
+            Map<String, Object> err = new HashMap<>();
+            err.put("error", true);
+            err.put("message", e.getMessage());
+            return err;
         }
         return Collections.emptyMap();
     }

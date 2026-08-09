@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -560,12 +561,89 @@ public class ShopPortalController {
         return ResponseEntity.ok(saved);
     }
 
+    private void recordStatusChange(ShopOrder order, String newStatus, String source, String comments) {
+        String oldStatus = order.getStatus();
+        order.setStatus(newStatus);
+        
+        List<Map<String, Object>> history = new ArrayList<>();
+        if (order.getStatusHistoryJson() != null && !order.getStatusHistoryJson().isEmpty()) {
+            try {
+                history = objectMapper.readValue(order.getStatusHistoryJson(), List.class);
+            } catch (Exception e) {}
+        }
+        
+        Map<String, Object> entry = new HashMap<>();
+        entry.put("previousStatus", oldStatus != null ? oldStatus : "Created");
+        entry.put("newStatus", newStatus);
+        entry.put("timestamp", java.time.LocalDateTime.now().toString());
+        entry.put("source", source);
+        entry.put("comments", comments != null ? comments : "");
+        if (order.getTrackingNumber() != null) entry.put("awb", order.getTrackingNumber());
+        if (order.getCourierPartner() != null) entry.put("courier", order.getCourierPartner());
+        
+        history.add(entry);
+        try {
+            order.setStatusHistoryJson(objectMapper.writeValueAsString(history));
+        } catch (Exception e) {}
+    }
+
+    private String extractPincode(String address) {
+        if (address == null || address.isEmpty()) return "560038";
+        Pattern pinPattern = Pattern.compile("\\b\\d{6}\\b");
+        Matcher matcher = pinPattern.matcher(address);
+        if (matcher.find()) {
+            return matcher.group();
+        }
+        return "560038";
+    }
+
+    private String mapShiprocketStatusToReeVibes(String srStatus, String currentStatus, String etd) {
+        if (srStatus == null || srStatus.trim().isEmpty()) return currentStatus;
+        String s = srStatus.trim().toUpperCase();
+
+        if (s.contains("DELIVERED") && !s.contains("OUT FOR DELIVERY") && !s.contains("UNDELIVERED") && !s.contains("RTO")) {
+            return "Delivered";
+        }
+        if (s.contains("OUT FOR DELIVERY")) {
+            return "Out for Delivery";
+        }
+        if (s.contains("RTO") || s.contains("RETURN")) {
+            return "Returned";
+        }
+        if (s.contains("CANCELED") || s.contains("CANCELLED")) {
+            return "Cancelled";
+        }
+        if (s.contains("PICKUP") || s.contains("DISPATCH") || s.contains("TRANSIT") || s.contains("SHIPPED") || s.contains("MANIFEST")) {
+            if (etd != null && !etd.isEmpty()) {
+                String etdClean = etd.trim();
+                java.time.LocalDate today = java.time.LocalDate.now();
+                java.time.LocalDate tomorrow = today.plusDays(1);
+                
+                if (etdClean.contains(today.toString()) || etdClean.toLowerCase().contains("today")) {
+                    return "Delivered by Today";
+                }
+                if (etdClean.contains(tomorrow.toString()) || etdClean.toLowerCase().contains("tomorrow")) {
+                    return "Delivered by Tomorrow";
+                }
+            }
+            return "Ready to Dispatch";
+        }
+        if (s.contains("AWB") || s.contains("LABEL")) {
+            return "Ready to Ship";
+        }
+        if (s.contains("ACCEPTED") || s.contains("PROCESSING")) {
+            return "Accepted";
+        }
+        return currentStatus != null ? currentStatus : "Pending Approval";
+    }
+
     @PostMapping("/orders/{id}/accept")
     @Transactional
-    public ResponseEntity<ShopOrder> acceptOrder(@PathVariable String id) {
+    public ResponseEntity<?> acceptOrder(@PathVariable String id) {
         ShopOrder order = orderRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found: " + id));
-        order.setStatus("Accepted");
+        
+        recordStatusChange(order, "Accepted", "Admin", "Order accepted by merchant.");
         
         try {
             if (order.getShiprocketOrderId() == null || order.getShiprocketOrderId().isEmpty()) {
@@ -581,7 +659,15 @@ public class ShopPortalController {
 
         ShopOrder saved = orderRepository.save(order);
         syncService.bumpVersion();
-        return ResponseEntity.ok(saved);
+
+        String pincode = extractPincode(order.getAddress());
+        Map<String, Object> quotes = shiprocketService.getCourierQuotes(pincode);
+
+        Map<String, Object> res = new HashMap<>();
+        res.put("order", saved);
+        res.put("quotes", quotes != null ? quotes : Map.of());
+
+        return ResponseEntity.ok(res);
     }
 
     @GetMapping("/orders/{id}/serviceability")
@@ -589,44 +675,28 @@ public class ShopPortalController {
         ShopOrder order = orderRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found: " + id));
         
-        // Find destination pincode from address
-        String rawAddress = order.getAddress() != null ? order.getAddress() : "";
-        String pincode = "560038"; // fallback
-        Pattern pinPattern = Pattern.compile("\\b\\d{6}\\b");
-        Matcher matcher = pinPattern.matcher(rawAddress);
-        if (matcher.find()) {
-            pincode = matcher.group();
-        }
-
+        String pincode = extractPincode(order.getAddress());
         Map<String, Object> quotes = shiprocketService.getCourierQuotes(pincode);
-        if (quotes != null && quotes.containsKey("data") && quotes.get("data") != null) {
+        if (quotes != null && !quotes.isEmpty()) {
             return ResponseEntity.ok(quotes);
         }
 
-        // Return structured courier services response if API response is nested or fallback needed
-        List<Map<String, Object>> couriers = List.of(
-            Map.of("courier_company_id", "10", "courier_name", "Delhivery Air Express", "rate", 72, "freight_charge", 72, "etd", "1-2 Days", "rating", "4.8"),
-            Map.of("courier_company_id", "15", "courier_name", "Delhivery Surface", "rate", 54, "freight_charge", 54, "etd", "3-4 Days", "rating", "4.5"),
-            Map.of("courier_company_id", "20", "courier_name", "Blue Dart Express", "rate", 110, "freight_charge", 110, "etd", "1 Day", "rating", "4.9"),
-            Map.of("courier_company_id", "25", "courier_name", "XpressBees Surface", "rate", 60, "freight_charge", 60, "etd", "2-3 Days", "rating", "4.3"),
-            Map.of("courier_company_id", "30", "courier_name", "DTDC Premium", "rate", 85, "freight_charge", 85, "etd", "2 Days", "rating", "4.6")
-        );
-        Map<String, Object> fallbackRes = new HashMap<>();
-        fallbackRes.put("status", 200);
-        fallbackRes.put("data", Map.of("available_courier_companies", couriers));
-        return ResponseEntity.ok(fallbackRes);
+        return ResponseEntity.status(400).body(Map.of(
+            "error", true,
+            "message", "Unable to fetch live Shiprocket courier rates for pincode: " + pincode + ". Please verify delivery pincode and Shiprocket account serviceability."
+        ));
     }
 
     @PostMapping("/orders/{id}/assign-awb")
     @Transactional
-    public ResponseEntity<ShopOrder> assignAWB(@PathVariable String id, @RequestBody Map<String, Object> body) {
+    public ResponseEntity<?> assignAWB(@PathVariable String id, @RequestBody Map<String, Object> body) {
         ShopOrder order = orderRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found: " + id));
         
         String courierId = String.valueOf(body.get("courier_id"));
-        String courierName = body.containsKey("courier_name") ? String.valueOf(body.get("courier_name")) : "Shiprocket Express";
+        String courierName = body.containsKey("courier_name") ? String.valueOf(body.get("courier_name")) : "Shiprocket Partner";
 
-        if (order.getShiprocketOrderId() == null || order.getShiprocketOrderId().isEmpty()) {
+        if (order.getShiprocketOrderId() == null || order.getShiprocketOrderId().isEmpty() || order.getShiprocketShipmentId() == null) {
             Map<String, String> srDetails = shiprocketService.createShiprocketOrder(order);
             if (srDetails != null) {
                 if (srDetails.containsKey("order_id")) order.setShiprocketOrderId(srDetails.get("order_id"));
@@ -635,32 +705,54 @@ public class ShopPortalController {
         }
 
         String shipmentId = order.getShiprocketShipmentId();
-        String awbCode = null;
-
-        if (shipmentId != null && !shipmentId.isEmpty()) {
-            Map<String, Object> res = shiprocketService.assignAWB(shipmentId, courierId);
-            try {
-                if (res != null && res.containsKey("response")) {
-                    Map<String, Object> responseMap = (Map<String, Object>) res.get("response");
-                    if (responseMap != null && responseMap.containsKey("data")) {
-                        Map<String, Object> dataMap = (Map<String, Object>) responseMap.get("data");
-                        if (dataMap != null && dataMap.containsKey("awb_code")) {
-                            awbCode = String.valueOf(dataMap.get("awb_code"));
-                        }
-                    }
-                }
-            } catch (Exception e) {
-                System.err.println("Failed to parse AWB response: " + e.getMessage());
-            }
+        if (shipmentId == null || shipmentId.isEmpty()) {
+            return ResponseEntity.status(400).body(Map.of(
+                "error", true,
+                "message", "Shiprocket Shipment ID is missing. Please ensure pickup address and order details are valid."
+            ));
         }
 
-        if (awbCode == null || awbCode.isEmpty()) {
-            awbCode = "SRT" + (int)(100000 + Math.random() * 900000);
+        Map<String, Object> res = shiprocketService.assignAWB(shipmentId, courierId);
+        
+        if (res.containsKey("error") && (Boolean) res.get("error")) {
+            return ResponseEntity.status(400).body(Map.of(
+                "error", true,
+                "message", "Shiprocket AWB Assignment Failed: " + res.get("message")
+            ));
+        }
+
+        String awbCode = null;
+        String etd = null;
+        String officialCourierName = courierName;
+
+        try {
+            if (res.containsKey("response")) {
+                Map<String, Object> responseMap = (Map<String, Object>) res.get("response");
+                if (responseMap != null && responseMap.containsKey("data")) {
+                    Map<String, Object> dataMap = (Map<String, Object>) responseMap.get("data");
+                    if (dataMap != null) {
+                        if (dataMap.containsKey("awb_code")) awbCode = String.valueOf(dataMap.get("awb_code"));
+                        if (dataMap.containsKey("courier_name")) officialCourierName = String.valueOf(dataMap.get("courier_name"));
+                        if (dataMap.containsKey("estimated_delivery_date")) etd = String.valueOf(dataMap.get("estimated_delivery_date"));
+                    }
+                }
+            } else if (res.containsKey("awb_code")) {
+                awbCode = String.valueOf(res.get("awb_code"));
+            }
+        } catch (Exception e) {
+            System.err.println("Failed to parse AWB response: " + e.getMessage());
+        }
+
+        if (awbCode == null || awbCode.isEmpty() || "null".equalsIgnoreCase(awbCode)) {
+            String msg = res.containsKey("message") ? String.valueOf(res.get("message")) : "Shiprocket did not return an AWB code for courier ID " + courierId;
+            return ResponseEntity.status(400).body(Map.of("error", true, "message", msg));
         }
 
         order.setTrackingNumber(awbCode);
-        order.setCourierPartner(courierName);
-        order.setStatus("Ready to Ship");
+        order.setCourierPartner(officialCourierName);
+        if (etd != null && !etd.isEmpty()) order.setEstimatedDeliveryDate(etd);
+        
+        recordStatusChange(order, "Ready to Ship", "Shiprocket API", "Assigned AWB: " + awbCode + " via " + officialCourierName);
         
         ShopOrder saved = orderRepository.save(order);
         syncService.bumpVersion();
@@ -669,7 +761,7 @@ public class ShopPortalController {
 
     @PostMapping("/orders/{id}/schedule-pickup")
     @Transactional
-    public ResponseEntity<ShopOrder> schedulePickup(@PathVariable String id, @RequestBody Map<String, Object> body) {
+    public ResponseEntity<?> schedulePickup(@PathVariable String id, @RequestBody Map<String, Object> body) {
         ShopOrder order = orderRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found: " + id));
         
@@ -685,7 +777,7 @@ public class ShopPortalController {
             }
         }
 
-        order.setStatus("Pickup Scheduled");
+        recordStatusChange(order, order.getStatus(), "Admin", "Pickup requested for date: " + pickupDate);
         ShopOrder saved = orderRepository.save(order);
         syncService.bumpVersion();
         return ResponseEntity.ok(saved);
@@ -778,13 +870,14 @@ public class ShopPortalController {
                         order.setScansJson(objectMapper.writeValueAsString(activities));
                     }
                     if (tData != null && tData.containsKey("track_status")) {
-                        int statusId = ((Number) tData.get("track_status")).intValue();
-                        if (statusId == 1 || statusId == 7) {
-                            order.setStatus("Delivered");
-                        } else if (statusId == 6) {
-                            order.setStatus("Out for Delivery");
-                        } else if (statusId == 18) {
-                            order.setStatus("In Transit");
+                        String srStatus = String.valueOf(tData.get("track_status"));
+                        String etd = tData.containsKey("etd") ? String.valueOf(tData.get("etd")) : order.getEstimatedDeliveryDate();
+                        String mapped = mapShiprocketStatusToReeVibes(srStatus, order.getStatus(), etd);
+                        if (!mapped.equalsIgnoreCase(order.getStatus())) {
+                            recordStatusChange(order, mapped, "Shiprocket API Track", "Track status: " + srStatus);
+                            if ("Delivered".equalsIgnoreCase(mapped)) {
+                                order.setDeliveryDate(java.time.LocalDateTime.now());
+                            }
                         }
                     }
                 } catch (Exception e) {
@@ -861,7 +954,7 @@ public class ShopPortalController {
                 .orElseThrow(() -> new IllegalArgumentException("Order not found: " + id));
         if (body.containsKey("status")) {
             String newStatus = (String) body.get("status");
-            order.setStatus(newStatus);
+            recordStatusChange(order, newStatus, "Admin Manual Selection", "Status changed to " + newStatus);
             if ("Delivered".equalsIgnoreCase(newStatus)) {
                 order.setDeliveryDate(java.time.LocalDateTime.now());
             }
@@ -880,7 +973,9 @@ public class ShopPortalController {
     public ResponseEntity<ShopOrder> updateOrderRefund(@PathVariable String id, @RequestBody Map<String, Object> body) {
         ShopOrder order = orderRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found: " + id));
-        if (body.containsKey("status")) order.setStatus((String) body.get("status"));
+        if (body.containsKey("status")) {
+            recordStatusChange(order, (String) body.get("status"), "Refund System", "Refund status updated");
+        }
         if (body.containsKey("paymentStatus")) order.setPaymentStatus((String) body.get("paymentStatus"));
         if (body.containsKey("refundDetailsJson")) order.setRefundDetailsJson((String) body.get("refundDetailsJson"));
         ShopOrder saved = orderRepository.save(order);
@@ -902,7 +997,7 @@ public class ShopPortalController {
             }
         }
         
-        order.setStatus("Cancelled");
+        recordStatusChange(order, "Cancelled", "Admin", "Shipment/Order cancelled.");
         ShopOrder saved = orderRepository.save(order);
         syncService.bumpVersion();
         return ResponseEntity.ok(saved);

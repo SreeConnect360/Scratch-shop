@@ -1711,7 +1711,8 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           headers: { "Content-Type": "application/json" }
         });
         if (res.ok) {
-          const updatedOrder = await res.json();
+          const data = await res.json();
+          const updatedOrder = data.order || data;
           setState(s => {
             const list = s.orders[userId] ?? [];
             const next = list.map(o => o.id === orderId ? updatedOrder : o);
@@ -1731,7 +1732,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
               userNotifications: { ...s.userNotifications, [userId]: [newNotif, ...existingUserNotifs] }
             };
           });
-          return updatedOrder;
+          return data;
         }
       } catch (err) {
         console.error("Failed to accept order:", err);
@@ -1740,13 +1741,16 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     fetchCourierQuotes: async (orderId) => {
       try {
         const res = await fetch(`${BACKEND_URL}/api/orders/${orderId}/serviceability`);
+        const data = await res.json();
         if (res.ok) {
-          return await res.json();
+          return data;
+        } else {
+          return { error: true, message: data.message || "Failed to fetch courier serviceability" };
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Failed to fetch serviceability quotes:", err);
+        return { error: true, message: err.message || "Network error fetching serviceability" };
       }
-      return null;
     },
     assignAWB: async (userId, orderId, courierId, courierName) => {
       try {
@@ -1755,8 +1759,9 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ courier_id: courierId, courier_name: courierName })
         });
+        const data = await res.json();
         if (res.ok) {
-          const updatedOrder = await res.json();
+          const updatedOrder = data;
           setState(s => {
             const list = s.orders[userId] ?? [];
             const next = list.map(o => o.id === orderId ? updatedOrder : o);
@@ -1777,9 +1782,12 @@ export function PortalProvider({ children }: { children: ReactNode }) {
             };
           });
           return updatedOrder;
+        } else {
+          return { error: true, message: data.message || "Failed to assign AWB" };
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Failed to assign AWB:", err);
+        return { error: true, message: err.message || "Network error assigning AWB" };
       }
     },
     schedulePickup: async (userId, orderId, pickupDate) => {

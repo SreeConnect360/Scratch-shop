@@ -53,6 +53,7 @@ public class DatabaseSeeder implements CommandLineRunner {
         jdbcTemplate.execute("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS delivery_date TIMESTAMP;");
         jdbcTemplate.execute("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS shiprocket_order_id VARCHAR(100);");
         jdbcTemplate.execute("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS shiprocket_shipment_id VARCHAR(100);");
+        jdbcTemplate.execute("ALTER TABLE shop_orders ADD COLUMN IF NOT EXISTS status_history_json TEXT;");
 
         jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS full_json TEXT;");
         jdbcTemplate.execute("ALTER TABLE vendor_products ADD COLUMN IF NOT EXISTS images_json TEXT;");

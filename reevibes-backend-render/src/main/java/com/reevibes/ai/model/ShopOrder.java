@@ -93,4 +93,7 @@ public class ShopOrder {
 
     @Column(name = "pickup_location", length = 100)
     private String pickupLocation = "Primary";
+
+    @Column(name = "status_history_json", columnDefinition = "TEXT")
+    private String statusHistoryJson;
 }

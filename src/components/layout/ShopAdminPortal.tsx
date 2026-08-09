@@ -1854,21 +1854,29 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                   {/* Step 1: Pending Approval */}
                   {selectedOrderDetails.status === "Pending Approval" && (
                     <div className="space-y-3">
-                      <p className="text-xs text-muted-foreground">This order is pending admin approval. Once accepted, it will automatically register in Shiprocket logistics.</p>
+                      <p className="text-xs text-muted-foreground">This order is pending admin approval. Click Accept Order to fetch available Shiprocket delivery partners for this destination.</p>
                       <div className="flex gap-3">
                         <button
                           onClick={async () => {
-                            const updated = await acceptOrder(selectedOrderDetails.userId, selectedOrderDetails.id);
-                            if (updated) {
-                              toast.success("Order approved! Created Shiprocket adhoc shipment.");
+                            setQuotesLoading(true);
+                            const res = await acceptOrder(selectedOrderDetails.userId, selectedOrderDetails.id);
+                            setQuotesLoading(false);
+                            if (res && (res.order || res.id)) {
+                              const updated = res.order || res;
                               setSelectedOrderDetails(updated);
+                              if (res.quotes && res.quotes.data && res.quotes.data.available_courier_companies) {
+                                setCourierQuotes(res.quotes.data.available_courier_companies);
+                                toast.success("Order accepted & live Shiprocket delivery partners retrieved!");
+                              } else {
+                                toast.success("Order accepted!");
+                              }
                             } else {
-                              toast.error("Failed to approve order.");
+                              toast.error("Failed to accept order.");
                             }
                           }}
-                          className="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] uppercase font-bold px-4 py-2 rounded-lg"
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] uppercase font-bold px-4 py-2 rounded-lg cursor-pointer"
                         >
-                          Accept & Create Shiprocket Order
+                          Accept Order & Fetch Delivery Partners
                         </button>
                         <button
                           onClick={() => {
@@ -1876,7 +1884,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             toast.success("Order Rejected & Cancelled.");
                             setSelectedOrderDetails(null);
                           }}
-                          className="bg-rose-900/60 hover:bg-rose-800 text-white text-[10px] uppercase font-bold px-4 py-2 rounded-lg"
+                          className="bg-rose-900/60 hover:bg-rose-800 text-white text-[10px] uppercase font-bold px-4 py-2 rounded-lg cursor-pointer"
                         >
                           Reject Order
                         </button>
@@ -1885,9 +1893,9 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                   )}
 
                   {/* Step 2: Accepted */}
-                  {selectedOrderDetails.status === "Accepted" && (
+                  {(selectedOrderDetails.status === "Accepted" || (selectedOrderDetails.status === "Pending Approval" && courierQuotes)) && (
                     <div className="space-y-3">
-                      <p className="text-xs text-muted-foreground">Order accepted. Fetch viable courier service rates to route the shipment.</p>
+                      <p className="text-xs text-muted-foreground">Order accepted. Select a Shiprocket courier delivery partner to generate real AWB tracking number.</p>
                       {!courierQuotes && !quotesLoading && (
                         <button
                           onClick={async () => {
@@ -1896,35 +1904,30 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             setQuotesLoading(false);
                             if (res && res.data && res.data.available_courier_companies) {
                               setCourierQuotes(res.data.available_courier_companies);
-                              toast.success("Courier rates retrieved.");
+                              toast.success("Shiprocket courier serviceability retrieved.");
+                            } else if (res && res.error) {
+                              toast.error(res.message || "Failed to retrieve courier rates.");
                             } else {
-                              // mock fallback quotes if API is in sandbox/failed
-                              setCourierQuotes([
-                                { courier_company_id: "10", courier_name: "Delhivery Air", rate: 72, etd: "2 days", rating: "4.5" },
-                                { courier_company_id: "15", courier_name: "Delhivery Surface", rate: 54, etd: "4 days", rating: "4.2" },
-                                { courier_company_id: "20", courier_name: "Blue Dart", rate: 110, etd: "1 day", rating: "4.8" },
-                                { courier_company_id: "25", courier_name: "XpressBees", rate: 60, etd: "3 days", rating: "4.0" }
-                              ]);
-                              toast.info("Retrieved cached/sandbox courier services.");
+                              toast.error("No serviceability quotes returned for pincode.");
                             }
                           }}
-                          className="bg-accent hover:bg-accent/80 text-white text-[10px] uppercase font-bold px-4 py-2 rounded-lg"
+                          className="bg-accent hover:bg-accent/80 text-white text-[10px] uppercase font-bold px-4 py-2 rounded-lg cursor-pointer"
                         >
                           Get Serviceability Quotes
                         </button>
                       )}
 
-                      {quotesLoading && <div className="text-xs text-muted-foreground animate-pulse">Querying serviceability API...</div>}
+                      {quotesLoading && <div className="text-xs text-muted-foreground animate-pulse">Querying live Shiprocket serviceability API...</div>}
 
                       {courierQuotes && (
                         <div className="space-y-2.5">
-                          <span className="text-[9px] uppercase font-bold text-muted-foreground block">Available Service Providers:</span>
-                          <div className="border border-white/5 rounded-xl overflow-hidden text-xs">
+                          <span className="text-[9px] uppercase font-bold text-muted-foreground block">Available Delivery Partners (Shiprocket):</span>
+                          <div className="border border-white/5 rounded-xl overflow-hidden text-xs max-h-56 overflow-y-auto">
                             <table className="w-full text-left border-collapse border border-white/5">
                               <thead>
                                 <tr className="bg-white/5 text-[9px] uppercase tracking-wider text-muted-foreground border-b border-white/5">
                                   <th className="p-2">Courier</th>
-                                  <th className="p-2">Rate</th>
+                                  <th className="p-2">Freight Charge</th>
                                   <th className="p-2">ETA</th>
                                   <th className="p-2">Rating</th>
                                   <th className="p-2 text-right">Action</th>
@@ -1934,25 +1937,25 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                 {courierQuotes.map((q: any, qIdx: number) => (
                                   <tr key={qIdx} className="border-b border-white/5 last:border-0 hover:bg-white/[0.02]">
                                     <td className="p-2 font-semibold text-white">{q.courier_name}</td>
-                                    <td className="p-2 font-serif text-accent">₹{q.rate || q.freight_charge || 60}</td>
-                                    <td className="p-2">{q.etd || q.estimated_delivery_days || "3 days"}</td>
-                                    <td className="p-2 text-amber-300">★ {q.rating || "4.2"}</td>
+                                    <td className="p-2 font-serif text-accent">₹{q.rate || q.freight_charge || "—"}</td>
+                                    <td className="p-2">{q.etd || q.estimated_delivery_days || "—"}</td>
+                                    <td className="p-2 text-amber-300">★ {q.rating || "4.5"}</td>
                                     <td className="p-2 text-right">
                                       <button
                                         onClick={async () => {
                                           const courierId = q.courier_company_id || q.id;
-                                          const updated = await assignAWB(selectedOrderDetails.userId, selectedOrderDetails.id, courierId, q.courier_name);
-                                          if (updated) {
-                                            toast.success(`AWB Assigned! Shipment routed via ${q.courier_name}.`);
-                                            setSelectedOrderDetails(updated);
+                                          const res = await assignAWB(selectedOrderDetails.userId, selectedOrderDetails.id, courierId, q.courier_name);
+                                          if (res && !res.error) {
+                                            toast.success(`AWB Assigned! Shipment routed via ${q.courier_name}. AWB: ${res.trackingNumber}`);
+                                            setSelectedOrderDetails(res);
                                             setCourierQuotes(null);
                                           } else {
-                                            toast.error("Failed to assign AWB.");
+                                            toast.error(res?.message || "Failed to assign AWB.");
                                           }
                                         }}
-                                        className="bg-accent hover:bg-accent/80 text-[8px] uppercase font-bold px-2 py-1 rounded"
+                                        className="bg-accent hover:bg-accent/80 text-white text-[9px] uppercase font-bold px-3 py-1.5 rounded cursor-pointer"
                                       >
-                                        Select
+                                        Select & Generate AWB
                                       </button>
                                     </td>
                                   </tr>
@@ -1968,9 +1971,10 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                   {/* Step 3: Ready to Ship */}
                   {selectedOrderDetails.status === "Ready to Ship" && (
                     <div className="space-y-3">
-                      <div className="text-xs">
-                        <div><span className="font-semibold text-white">Courier:</span> {selectedOrderDetails.courierPartner}</div>
-                        <div><span className="font-semibold text-white">AWB / Tracking Number:</span> {selectedOrderDetails.trackingNumber}</div>
+                      <div className="text-xs bg-white/5 p-2.5 rounded-lg border border-white/10">
+                        <div><span className="font-semibold text-white">Courier Partner:</span> {selectedOrderDetails.courierPartner || "Shiprocket Express"}</div>
+                        <div><span className="font-semibold text-white">AWB Code:</span> <span className="font-mono text-accent font-bold">{selectedOrderDetails.trackingNumber}</span></div>
+                        <div><span className="font-semibold text-white">Estimated Delivery:</span> {selectedOrderDetails.estimatedDeliveryDate || "Calculating..."}</div>
                       </div>
                       <div className="flex flex-col sm:flex-row gap-3 items-end">
                         <div className="space-y-1 w-full max-w-xs">
@@ -1993,7 +1997,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                               toast.error("Failed to schedule pickup.");
                             }
                           }}
-                          className="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] uppercase font-bold px-4 py-2 rounded-lg"
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] uppercase font-bold px-4 py-2 rounded-lg cursor-pointer"
                         >
                           Schedule Courier Pickup
                         </button>
@@ -2084,16 +2088,10 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                         <option value="Pending Approval">Pending Approval</option>
                         <option value="Accepted">Accepted</option>
                         <option value="Ready to Ship">Ready to Ship</option>
-                        <option value="Pickup Scheduled">Pickup Scheduled</option>
-                        <option value="Order Placed">Order Placed</option>
-                        <option value="Order Confirmed">Order Confirmed</option>
-                        <option value="Preparing Order">Preparing Order</option>
-                        <option value="Packed">Packed</option>
-                        <option value="Ready for Dispatch">Ready for Dispatch</option>
-                        <option value="Shipped">Shipped</option>
-                        <option value="In Transit">In Transit</option>
+                        <option value="Ready to Dispatch">Ready to Dispatch</option>
+                        <option value="Delivered by Tomorrow">Delivered by Tomorrow</option>
+                        <option value="Delivered by Today">Delivered by Today</option>
                         <option value="Out for Delivery">Out for Delivery</option>
-                        <option value="Delivering Today">Delivering Today</option>
                         <option value="Delivered">Delivered</option>
                         <option value="Cancelled">Cancelled</option>
                         <option value="Returned">Returned</option>
@@ -2194,6 +2192,31 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                     </AdminButton>
                   </div>
                 </div>
+
+                {selectedOrderDetails.statusHistoryJson && (
+                  <div className="space-y-2 border border-white/10 rounded-2xl p-3 bg-white/5">
+                    <h4 className="font-bold text-accent uppercase tracking-wider text-[10px]">Shipment Status Audit Log</h4>
+                    <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
+                      {(() => {
+                        try {
+                          const history = JSON.parse(selectedOrderDetails.statusHistoryJson);
+                          if (!Array.isArray(history) || history.length === 0) return <div className="text-[10px] text-muted-foreground italic">No historical status logs recorded.</div>;
+                          return history.map((h: any, idx: number) => (
+                            <div key={idx} className="flex justify-between items-center text-xs border-b border-white/5 pb-1 last:border-0">
+                              <div>
+                                <span className="text-muted-foreground">{h.previousStatus}</span> → <span className="font-bold text-white">{h.newStatus}</span>
+                                <div className="text-[10px] text-muted-foreground">{h.source || "System"} {h.comments ? `· ${h.comments}` : ''} {h.awb ? `(AWB: ${h.awb})` : ''}</div>
+                              </div>
+                              <div className="text-[9px] text-muted-foreground font-mono">{h.timestamp ? new Date(h.timestamp).toLocaleString() : ''}</div>
+                            </div>
+                          ));
+                        } catch (e) {
+                          return null;
+                        }
+                      })()}
+                    </div>
+                  </div>
+                )}
                 
                 <div className="space-y-2 pt-2">
                   <h4 className="font-bold text-accent uppercase tracking-wider text-[10px]">Items of the Delivery</h4>
@@ -5955,7 +5978,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                 <ShoppingBag className="w-3.5 h-3.5" />
                 Ordered Products
                 <span className="bg-white/20 px-1.5 py-0.2 rounded-full text-[10px]">
-                  {ordersList.filter(o => ["pending approval", "processing", "pending", "accepted", "ready to ship", "confirmed", "packed"].includes(o.status?.toLowerCase() || "")).length}
+                  {ordersList.filter(o => ["pending approval", "accepted"].includes(o.status?.toLowerCase() || "")).length}
                 </span>
               </button>
 
@@ -5971,7 +5994,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                 <Truck className="w-3.5 h-3.5" />
                 Delivering Orders
                 <span className="bg-white/20 px-1.5 py-0.2 rounded-full text-[10px]">
-                  {ordersList.filter(o => ["pickup scheduled", "shipped", "in transit", "out for delivery"].includes(o.status?.toLowerCase() || "")).length}
+                  {ordersList.filter(o => ["ready to ship", "ready to dispatch", "delivered by tomorrow", "delivered by today", "out for delivery"].includes(o.status?.toLowerCase() || "")).length}
                 </span>
               </button>
 
@@ -5987,7 +6010,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                 <CheckSquare className="w-3.5 h-3.5" />
                 Delivered Orders
                 <span className="bg-white/20 px-1.5 py-0.2 rounded-full text-[10px]">
-                  {ordersList.filter(o => ["delivered", "refunded", "returned"].includes(o.status?.toLowerCase() || "")).length}
+                  {ordersList.filter(o => ["delivered", "cancelled", "returned", "refunded"].includes(o.status?.toLowerCase() || "")).length}
                 </span>
               </button>
             </div>
@@ -6034,7 +6057,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                   <tbody className="divide-y divide-border-subtle text-sm">
                     {(() => {
                       const list = ordersList.filter(o =>
-                        ["pending approval", "processing", "pending", "accepted", "ready to ship", "confirmed", "packed"].includes(o.status?.toLowerCase() || "")
+                        ["pending approval", "accepted"].includes(o.status?.toLowerCase() || "")
                       );
                       if (list.length === 0) {
                         return (
@@ -6110,7 +6133,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                   <tbody className="divide-y divide-border-subtle text-sm">
                     {(() => {
                       const list = ordersList.filter(o =>
-                        ["pickup scheduled", "shipped", "in transit", "out for delivery"].includes(o.status?.toLowerCase() || "")
+                        ["ready to ship", "ready to dispatch", "delivered by tomorrow", "delivered by today", "out for delivery"].includes(o.status?.toLowerCase() || "")
                       );
                       if (list.length === 0) {
                         return (
@@ -6184,7 +6207,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                   <tbody className="divide-y divide-border-subtle text-sm">
                     {(() => {
                       const list = ordersList.filter(o =>
-                        ["delivered", "refunded", "returned"].includes(o.status?.toLowerCase() || "")
+                        ["delivered", "cancelled", "returned", "refunded"].includes(o.status?.toLowerCase() || "")
                       );
                       if (list.length === 0) {
                         return (
