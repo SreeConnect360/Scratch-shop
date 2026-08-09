@@ -32,7 +32,7 @@ const formatOrderDateTime = (dateStr: string) => {
 
 export function ShopAdminPortal({ tab }: { tab: string }) {
   const [statusFilter, setStatusFilter] = useState<string>("All");
-  const { state, createProduct, updateProduct, deleteProduct, updateOrderStatus, acceptOrder, fetchCourierQuotes, assignAWB, schedulePickup, cancelOrder, fetchOrderLabel, fetchOrderInvoice, assignReturnPickup, processSplitRefund, approveReturn, rejectReturn, updateReturnDetails, suspendCustomer, reactivateCustomer, addCoupon, removeCoupon, moderateReview, addWalletCredit, updateHomepageLayoutDraft, publishHomepageLayout, revertHomepageLayout, createBucket, updateBucket, deleteBucket, reorderBuckets, toggleShopWishlist, addWalletGiftCard, updateWalletGiftCard, toggleWalletGiftCardStatus, deleteWalletGiftCard } = usePortal();
+  const { state, createProduct, updateProduct, deleteProduct, updateOrderStatus, acceptOrder, fetchCourierQuotes, assignAWB, schedulePickup, cancelOrder, fetchOrderLabel, fetchOrderInvoice, syncShiprocketTracking, assignReturnPickup, processSplitRefund, approveReturn, rejectReturn, updateReturnDetails, suspendCustomer, reactivateCustomer, addCoupon, removeCoupon, moderateReview, addWalletCredit, updateHomepageLayoutDraft, publishHomepageLayout, revertHomepageLayout, createBucket, updateBucket, deleteBucket, reorderBuckets, toggleShopWishlist, addWalletGiftCard, updateWalletGiftCard, toggleWalletGiftCardStatus, deleteWalletGiftCard } = usePortal();
 
   // Dynamic products list from state
   const productsList = state.products || [];
@@ -1312,7 +1312,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
               <div className="space-y-4 animate-in fade-in duration-200">
                 <h4 className="font-bold text-accent uppercase tracking-wider text-[10px] pb-2 border-b border-white/10">Current Shopping Cart</h4>
                 {(() => {
-                  const rawCart = (selectedCustomerDetails.id === user?.id ? state.shopCart : null) || selectedCustomerDetails.cart;
+                  const rawCart = (selectedCustomerDetails.id === state.user?.id ? state.shopCart : null) || selectedCustomerDetails.cart;
                   const cartList: any[] = typeof rawCart === "string" ? (() => { try { return JSON.parse(rawCart); } catch(e) { return []; } })() : (Array.isArray(rawCart) ? rawCart : []);
                   if (cartList.length === 0) {
                     return <p className="text-xs text-muted-foreground italic">Shopping cart is empty.</p>;
@@ -1354,7 +1354,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
               <div className="space-y-4 animate-in fade-in duration-200">
                 <h4 className="font-bold text-accent uppercase tracking-wider text-[10px] pb-2 border-b border-white/10">Ordered Items Curation</h4>
                 {(() => {
-                  const customerOrders = state.orders[selectedCustomerDetails.id] || (Object.values(state.orders).flat().filter(o => o.userId === selectedCustomerDetails.id || o.userId === selectedCustomerDetails.email)) || [];
+                  const customerOrders = state.orders[selectedCustomerDetails.id] || (Object.values(state.orders).flat().filter((o: any) => o.userId === selectedCustomerDetails.id || o.userId === selectedCustomerDetails.email)) || [];
                   if (customerOrders.length === 0) {
                     return <p className="text-xs text-muted-foreground italic">No orders placed yet.</p>;
                   }
