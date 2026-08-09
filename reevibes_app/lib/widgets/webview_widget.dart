@@ -171,7 +171,48 @@ class ReeVibesWebViewState extends State<ReeVibesWebView> {
       final response = await SupabaseService.instance.signInWithGoogleNative();
       if (response != null && response['email'] != null) {
         await HapticService.instance.success();
-        await _controller.reload();
+
+        final email = (response['email'] ?? '').toString().replaceAll("'", "\\'");
+        final name = (response['name'] ?? 'ReeVibes Member').toString().replaceAll("'", "\\'");
+        final avatar = (response['avatar'] ?? '').toString().replaceAll("'", "\\'");
+        final id = (response['id'] ?? '').toString().replaceAll("'", "\\'");
+
+        final injectJs = '''
+          (function() {
+            try {
+              var key = 'reevibes:portal:v3';
+              var raw = localStorage.getItem(key);
+              var data = raw ? JSON.parse(raw) : {};
+              var nameStr = '$name';
+              var nameParts = nameStr.trim().split(/\\s+/);
+              var firstName = nameParts[0] || 'Member';
+              var lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Customer';
+              var userObj = {
+                id: '$id',
+                firstName: firstName,
+                lastName: lastName,
+                email: '$email',
+                avatar: '$avatar',
+                roles: ['General']
+              };
+              data.currentUser = userObj;
+              if (!Array.isArray(data.users)) data.users = [];
+              var idx = data.users.findIndex(function(u) { return u.email && u.email.toLowerCase() === '$email'.toLowerCase(); });
+              if (idx >= 0) {
+                data.users[idx] = userObj;
+              } else {
+                data.users.push(userObj);
+              }
+              localStorage.setItem(key, JSON.stringify(data));
+              window.dispatchEvent(new Event('storage'));
+            } catch(e) {
+              console.error('Portal session injection error:', e);
+            }
+            window.location.href = '${AppConfig.websiteUrl}/';
+          })();
+        ''';
+
+        await _controller.runJavaScript(injectJs);
       }
     } catch (e) {
       debugPrint('Google Sign-In trigger error: $e');

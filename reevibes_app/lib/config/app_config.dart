@@ -30,6 +30,8 @@ class AppConfig {
     'reevibes.com',
     'www.reevibes.com',
     'scratch-render-sj9n.onrender.com',
+    'rofhcjedmviwzysipmav.supabase.co',
+    'supabase.co',
     'accounts.google.com',
     'apis.google.com',
   ];

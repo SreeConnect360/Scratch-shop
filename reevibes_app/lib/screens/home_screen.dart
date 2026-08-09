@@ -81,6 +81,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = MediaQuery.of(context).platformBrightness == Brightness.dark;
+    final backgroundColor = isDarkMode ? const Color(0xFF0A0A0A) : const Color(0xFFFFFFFF);
+
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
+        statusBarBrightness: isDarkMode ? Brightness.dark : Brightness.light,
+        systemNavigationBarColor: isDarkMode ? const Color(0xFF0D0D0D) : const Color(0xFFFFFFFF),
+        systemNavigationBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,
+      ),
+    );
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
@@ -91,9 +104,9 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: backgroundColor,
         body: SafeArea(
-          top: false,
+          top: true,
           bottom: false,
           child: !_isConnected
               ? OfflineScreen(
