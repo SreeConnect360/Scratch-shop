@@ -542,16 +542,43 @@ function ShopDashboard() {
     setShowAddressForm(false);
   };
 
-  const parseSingleAddress = (addrStr: string) => {
+  const parseSingleAddress = (addrStr: any) => {
+    if (!addrStr) {
+      return { name: user?.firstName || "Customer", address: "", phone: user?.phone || "" };
+    }
+    if (typeof addrStr === "object") {
+      const street = addrStr.street_address || addrStr.street || addrStr.address || "";
+      const city = addrStr.city || "";
+      const stateVal = addrStr.state || "";
+      const zip = addrStr.zip_code || addrStr.zip || addrStr.pincode || "";
+      const country = addrStr.country || "";
+      const fullAddrStr = [street, city, stateVal, zip, country].filter(Boolean).join(", ");
+      return {
+        name: addrStr.full_name || addrStr.name || user?.firstName || "Customer",
+        address: fullAddrStr || JSON.stringify(addrStr),
+        phone: addrStr.phone || user?.phone || ""
+      };
+    }
     try {
-      if (addrStr.trim().startsWith("{")) {
-        return JSON.parse(addrStr);
+      if (typeof addrStr === "string" && addrStr.trim().startsWith("{")) {
+        const parsed = JSON.parse(addrStr);
+        const street = parsed.street_address || parsed.street || parsed.address || "";
+        const city = parsed.city || "";
+        const stateVal = parsed.state || "";
+        const zip = parsed.zip_code || parsed.zip || parsed.pincode || "";
+        const country = parsed.country || "";
+        const fullAddrStr = [street, city, stateVal, zip, country].filter(Boolean).join(", ");
+        return {
+          name: parsed.full_name || parsed.name || user?.firstName || "Customer",
+          address: fullAddrStr || addrStr,
+          phone: parsed.phone || user?.phone || ""
+        };
       }
     } catch (e) {}
     return {
-      name: user.firstName,
-      address: addrStr,
-      phone: user.phone || ""
+      name: user?.firstName || "Customer",
+      address: String(addrStr),
+      phone: user?.phone || ""
     };
   };
 

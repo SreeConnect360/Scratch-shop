@@ -1222,9 +1222,14 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
                               try {
                                 const parsed = JSON.parse(trimmed);
-                                name = parsed.name || parsed.fullName || `${selectedCustomerDetails.firstName} ${selectedCustomerDetails.lastName}`.trim();
+                                 name = parsed.full_name || parsed.name || parsed.fullName || `${selectedCustomerDetails.firstName} ${selectedCustomerDetails.lastName}`.trim();
                                 phone = parsed.phone || parsed.phoneNumber || selectedCustomerDetails.phone || "No phone provided";
-                                fullAddress = parsed.address || parsed.street || parsed.fullAddress || trimmed;
+                                const street = parsed.street_address || parsed.street || parsed.address || "";
+                                const city = parsed.city || "";
+                                const stateVal = parsed.state || "";
+                                const zip = parsed.zip_code || parsed.zip || parsed.pincode || "";
+                                const country = parsed.country || "";
+                                fullAddress = [street, city, stateVal, zip, country].filter(Boolean).join(", ") || trimmed;
                               } catch {
                                 fullAddress = trimmed;
                               }
@@ -1232,9 +1237,14 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                               fullAddress = trimmed;
                             }
                           } else if (typeof addrItem === "object" && addrItem !== null) {
-                            name = addrItem.name || addrItem.fullName || `${selectedCustomerDetails.firstName} ${selectedCustomerDetails.lastName}`.trim();
+                            name = addrItem.full_name || addrItem.name || addrItem.fullName || `${selectedCustomerDetails.firstName} ${selectedCustomerDetails.lastName}`.trim();
                             phone = addrItem.phone || addrItem.phoneNumber || selectedCustomerDetails.phone || "No phone provided";
-                            fullAddress = addrItem.address || addrItem.street || addrItem.fullAddress || "";
+                            const street = addrItem.street_address || addrItem.street || addrItem.address || "";
+                            const city = addrItem.city || "";
+                            const stateVal = addrItem.state || "";
+                            const zip = addrItem.zip_code || addrItem.zip || addrItem.pincode || "";
+                            const country = addrItem.country || "";
+                            fullAddress = [street, city, stateVal, zip, country].filter(Boolean).join(", ");
                           }
 
                           if (!name) name = `${selectedCustomerDetails.firstName} ${selectedCustomerDetails.lastName}`.trim() || "Customer";

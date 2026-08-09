@@ -309,12 +309,14 @@ function Dashboard() {
             {userAddresses.length === 0 ? (
               <p className="text-sm text-muted-foreground italic">No addresses saved yet.</p>
             ) : (
-              userAddresses.map((addr, idx) => (
-                <div key={idx} className="flex items-start justify-between p-4 border border-border-subtle bg-background">
-                  <div className="flex gap-3 text-sm">
-                    <MapPin className="w-4 h-4 text-accent shrink-0 mt-0.5" />
-                    <span>{addr}</span>
-                  </div>
+              userAddresses.map((addr: any, idx: number) => {
+                const formatted = typeof addr === "object" ? [addr.full_name || addr.name, addr.street_address || addr.street || addr.address, addr.city, addr.state, addr.zip_code, addr.country].filter(Boolean).join(", ") : String(addr);
+                return (
+                  <div key={idx} className="flex items-start justify-between p-4 border border-border-subtle bg-background">
+                    <div className="flex gap-3 text-sm">
+                      <MapPin className="w-4 h-4 text-accent shrink-0 mt-0.5" />
+                      <span>{formatted}</span>
+                    </div>
                   <button
                     onClick={() => {
                       if (user) removeAddress(user.id, idx);
@@ -500,9 +502,10 @@ function Dashboard() {
                       className="w-full bg-surface border border-border-subtle p-2 text-xs outline-none"
                     >
                       <option value="">Select Shipping Address</option>
-                      {userAddresses.map((addr, idx) => (
-                        <option key={idx} value={addr}>{addr}</option>
-                      ))}
+                      {userAddresses.map((addr: any, idx: number) => {
+                        const formatted = typeof addr === "object" ? [addr.full_name || addr.name, addr.street_address || addr.street || addr.address, addr.city, addr.state, addr.zip_code, addr.country].filter(Boolean).join(", ") : String(addr);
+                        return <option key={idx} value={formatted}>{formatted}</option>;
+                      })}
                     </select>
                   )}
                 </div>
