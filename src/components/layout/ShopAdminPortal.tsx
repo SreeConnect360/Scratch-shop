@@ -1269,126 +1269,140 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
             {dossierTab === "wishlist" && (
               <div className="space-y-4 animate-in fade-in duration-200">
                 <h4 className="font-bold text-accent uppercase tracking-wider text-[10px] pb-2 border-b border-white/10">Active Wishlist Items</h4>
-                {(state.shopWishlist[selectedCustomerDetails.id] ?? []).length === 0 ? (
-                  <p className="text-xs text-muted-foreground italic">No items saved in wishlist.</p>
-                ) : (
-                  <div className="grid gap-3 max-h-80 overflow-y-auto pr-2">
-                    {(state.shopWishlist[selectedCustomerDetails.id] ?? []).map(productId => {
-                      const p = state.products.find(x => x.id === productId);
-                      const inStock = p ? true : false;
-                      return (
-                        <div key={productId} className="flex items-center justify-between border-b border-white/5 pb-2 text-xs">
-                          <div className="flex items-center gap-3">
-                            <img src={p?.image || "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=80&h=80&fit=crop"} alt={p?.name} className="w-10 h-10 object-cover bg-white/5 rounded" />
-                            <div>
-                              <div className="font-semibold text-white">{p?.name || `Product #${productId}`}</div>
-                              <div className="text-[10px] text-muted-foreground">{p?.house || "Maison Curation"}</div>
+                {(() => {
+                  const rawWish = state.wishlist[selectedCustomerDetails.id] || state.shopWishlist[selectedCustomerDetails.id] || selectedCustomerDetails.wishlist || [];
+                  const wishListIds: string[] = typeof rawWish === "string" ? (() => { try { return JSON.parse(rawWish); } catch(e) { return []; } })() : (Array.isArray(rawWish) ? rawWish : []);
+                  if (wishListIds.length === 0) {
+                    return <p className="text-xs text-muted-foreground italic">No items saved in wishlist.</p>;
+                  }
+                  return (
+                    <div className="grid gap-3 max-h-80 overflow-y-auto pr-2">
+                      {wishListIds.map(productId => {
+                        const p = state.products.find(x => x.id === productId);
+                        const inStock = p ? true : false;
+                        return (
+                          <div key={productId} className="flex items-center justify-between border-b border-white/5 pb-2 text-xs">
+                            <div className="flex items-center gap-3">
+                              <img src={p?.image || "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=80&h=80&fit=crop"} alt={p?.name} className="w-10 h-10 object-cover bg-white/5 rounded" />
+                              <div>
+                                <div className="font-semibold text-white">{p?.name || `Product #${productId}`}</div>
+                                <div className="text-[10px] text-muted-foreground">{p?.house || "Maison Curation"}</div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-6">
+                              <span className="text-muted-foreground">Added: {selectedCustomerDetails.registeredAt || "Today"}</span>
+                              <span className={`font-semibold ${inStock ? "text-emerald-400" : "text-rose-400"}`}>
+                                {inStock ? "In Stock" : "Unavailable"}
+                              </span>
+                              <span className="font-serif font-bold text-accent">{p?.price || "—"}</span>
+                              <Link to="/product/$productId" params={{ productId }} className="text-[10px] uppercase font-bold text-accent border border-accent/30 hover:border-accent px-3 py-1 rounded-full">
+                                View Product
+                              </Link>
                             </div>
                           </div>
-                          <div className="flex items-center gap-6">
-                            <span className="text-muted-foreground">Added: {selectedCustomerDetails.registeredAt || "Today"}</span>
-                            <span className={`font-semibold ${inStock ? "text-emerald-400" : "text-rose-400"}`}>
-                              {inStock ? "In Stock" : "Unavailable"}
-                            </span>
-                            <span className="font-serif font-bold text-accent">{p?.price || "—"}</span>
-                            <Link to="/product/$productId" params={{ productId }} className="text-[10px] uppercase font-bold text-accent border border-accent/30 hover:border-accent px-3 py-1 rounded-full">
-                              View Product
-                            </Link>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
             )}
 
             {dossierTab === "cart" && (
               <div className="space-y-4 animate-in fade-in duration-200">
                 <h4 className="font-bold text-accent uppercase tracking-wider text-[10px] pb-2 border-b border-white/10">Current Shopping Cart</h4>
-                {(selectedCustomerDetails.cart || []).length === 0 ? (
-                  <p className="text-xs text-muted-foreground italic">Shopping cart is empty.</p>
-                ) : (
-                  <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
-                    {(selectedCustomerDetails.cart || []).map((item: any, i: number) => {
-                      const itemPrice = Number(String(item.price).replace(/[^0-9.]/g, "")) || 0;
-                      const totalAmount = itemPrice * item.qty;
-                      return (
-                        <div key={i} className="flex items-center justify-between border-b border-white/5 pb-2 text-xs">
-                          <div className="flex items-center gap-3">
-                            <img src={item.image || "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=80&h=80&fit=crop"} alt={item.name} className="w-10 h-10 object-cover bg-white/5 rounded" />
-                            <div>
-                              <div className="font-semibold text-white">{item.name}</div>
-                              <div className="text-[10px] text-muted-foreground">
-                                Size: {item.selectedSize || "M"} · House: {item.house || "Maison"}
+                {(() => {
+                  const rawCart = (selectedCustomerDetails.id === user?.id ? state.shopCart : null) || selectedCustomerDetails.cart;
+                  const cartList: any[] = typeof rawCart === "string" ? (() => { try { return JSON.parse(rawCart); } catch(e) { return []; } })() : (Array.isArray(rawCart) ? rawCart : []);
+                  if (cartList.length === 0) {
+                    return <p className="text-xs text-muted-foreground italic">Shopping cart is empty.</p>;
+                  }
+                  return (
+                    <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
+                      {cartList.map((item: any, i: number) => {
+                        const itemPrice = Number(String(item.price).replace(/[^0-9.]/g, "")) || 0;
+                        const totalAmount = itemPrice * (item.qty || 1);
+                        return (
+                          <div key={i} className="flex items-center justify-between border-b border-white/5 pb-2 text-xs">
+                            <div className="flex items-center gap-3">
+                              <img src={item.image || "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=80&h=80&fit=crop"} alt={item.name} className="w-10 h-10 object-cover bg-white/5 rounded" />
+                              <div>
+                                <div className="font-semibold text-white">{item.name}</div>
+                                <div className="text-[10px] text-muted-foreground">
+                                  Size: {item.selectedSize || "M"} · House: {item.house || "Maison"}
+                                </div>
                               </div>
                             </div>
+                            <div className="flex items-center gap-6">
+                              <span className="text-muted-foreground">Qty: {item.qty || 1}</span>
+                              <span className="font-serif text-muted-foreground">{item.price}</span>
+                              <span className="font-serif font-bold text-accent">₹{totalAmount.toLocaleString()}</span>
+                              <Link to="/product/$productId" params={{ productId: item.productId }} className="text-[10px] uppercase font-bold text-accent border border-accent/30 hover:border-accent px-3 py-1 rounded-full">
+                                View Product
+                              </Link>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-6">
-                            <span className="text-muted-foreground">Qty: {item.qty}</span>
-                            <span className="font-serif text-muted-foreground">{item.price}</span>
-                            <span className="font-serif font-bold text-accent">₹{totalAmount.toLocaleString()}</span>
-                            <Link to="/product/$productId" params={{ productId: item.productId }} className="text-[10px] uppercase font-bold text-accent border border-accent/30 hover:border-accent px-3 py-1 rounded-full">
-                              View Product
-                            </Link>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
             )}
 
             {dossierTab === "orders" && (
               <div className="space-y-4 animate-in fade-in duration-200">
                 <h4 className="font-bold text-accent uppercase tracking-wider text-[10px] pb-2 border-b border-white/10">Ordered Items Curation</h4>
-                {(state.orders[selectedCustomerDetails.id] ?? []).length === 0 ? (
-                  <p className="text-xs text-muted-foreground italic">No orders placed yet.</p>
-                ) : (
-                  <div className="space-y-4 max-h-80 overflow-y-auto pr-2 divide-y divide-white/5">
-                    {(state.orders[selectedCustomerDetails.id] ?? []).map((ord: any) => (
-                      <div key={ord.id} className="pt-3 first:pt-0 space-y-2 text-xs">
-                        <div className="flex justify-between items-center border-b border-white/5 pb-2">
-                          <div>
-                            <span className="font-bold font-mono text-white">{ord.id}</span>
-                            <span className="text-[10px] text-muted-foreground ml-3">{formatOrderDateTime(ord.date)}</span>
+                {(() => {
+                  const customerOrders = state.orders[selectedCustomerDetails.id] || (Object.values(state.orders).flat().filter(o => o.userId === selectedCustomerDetails.id || o.userId === selectedCustomerDetails.email)) || [];
+                  if (customerOrders.length === 0) {
+                    return <p className="text-xs text-muted-foreground italic">No orders placed yet.</p>;
+                  }
+                  return (
+                    <div className="space-y-4 max-h-80 overflow-y-auto pr-2 divide-y divide-white/5">
+                      {customerOrders.map((ord: any) => (
+                        <div key={ord.id} className="pt-3 first:pt-0 space-y-2 text-xs">
+                          <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                            <div>
+                              <span className="font-bold font-mono text-white">{ord.id}</span>
+                              <span className="text-[10px] text-muted-foreground ml-3">{formatOrderDateTime(ord.date)}</span>
+                            </div>
+                            <div className="flex gap-2">
+                              <StatusChip status={ord.status} tone={ord.status === "Delivered" ? "success" : ord.status === "Processing" ? "warn" : "accent"} />
+                              <StatusChip status={ord.paymentStatus} tone={ord.paymentStatus === "Paid" ? "success" : "warn"} />
+                            </div>
                           </div>
-                          <div className="flex gap-2">
-                            <StatusChip status={ord.status} tone={ord.status === "Delivered" ? "success" : ord.status === "Processing" ? "warn" : "accent"} />
-                            <StatusChip status={ord.paymentStatus} tone={ord.paymentStatus === "Paid" ? "success" : "warn"} />
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          {ord.items.map((item: any, idx: number) => {
-                            const priceVal = Number(String(item.price).replace(/[^0-9.]/g, "")) || 0;
-                            return (
-                              <div key={idx} className="flex justify-between items-center">
-                                <div className="flex items-center gap-2">
-                                  <img src={item.image} alt={item.name} className="w-8 h-8 object-cover rounded bg-white/5" />
-                                  <div>
-                                    <div className="font-medium text-white">{item.name}</div>
-                                    <div className="text-[10px] text-muted-foreground">Size: {item.selectedSize || "—"} · Qty: {item.qty}</div>
+                          <div className="space-y-2">
+                            {(ord.items || []).map((item: any, idx: number) => {
+                              const priceVal = Number(String(item.price).replace(/[^0-9.]/g, "")) || 0;
+                              return (
+                                <div key={idx} className="flex justify-between items-center">
+                                  <div className="flex items-center gap-2">
+                                    <img src={item.image} alt={item.name} className="w-8 h-8 object-cover rounded bg-white/5" />
+                                    <div>
+                                      <div className="font-medium text-white">{item.name}</div>
+                                      <div className="text-[10px] text-muted-foreground">Size: {item.selectedSize || "—"} · Qty: {item.qty}</div>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-4">
+                                    <span className="font-serif font-bold text-accent">₹{(priceVal * item.qty).toLocaleString()}</span>
+                                    <Link to="/product/$productId" params={{ productId: item.productId }} className="text-[9px] uppercase font-bold text-accent/80 hover:text-accent">
+                                      View
+                                    </Link>
                                   </div>
                                 </div>
-                                <div className="flex items-center gap-4">
-                                  <span className="font-serif font-bold text-accent">₹{(priceVal * item.qty).toLocaleString()}</span>
-                                  <Link to="/product/$productId" params={{ productId: item.productId }} className="text-[9px] uppercase font-bold text-accent/80 hover:text-accent">
-                                    View
-                                  </Link>
-                                </div>
-                              </div>
-                            );
-                          })}
+                              );
+                            })}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground bg-white/5 p-2 rounded">
+                            <div><span className="font-semibold text-white">Shipping Address:</span> {ord.address}</div>
+                            <div className="mt-1"><span className="font-semibold text-white">Tracking Details:</span> TRK-{ord.id.replace("ORD-", "")} (Delhivery Express)</div>
+                          </div>
                         </div>
-                        <div className="text-[10px] text-muted-foreground bg-white/5 p-2 rounded">
-                          <div><span className="font-semibold text-white">Shipping Address:</span> {ord.address}</div>
-                          <div className="mt-1"><span className="font-semibold text-white">Tracking Details:</span> TRK-{ord.id.replace("ORD-", "")} (Delhivery Express)</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
             )}
 

@@ -168,24 +168,30 @@ public class ShopPortalController {
     public ResponseEntity<PlatformUser> updateCustomer(@PathVariable String id, @RequestBody Map<String, Object> body) {
         PlatformUser user = userRepository.findById(id).orElse(null);
         if (user == null && body.containsKey("email")) {
-            user = userRepository.findByEmailIgnoreCase((String) body.get("email")).orElse(null);
+            user = userRepository.findByEmailIgnoreCase(safeParseString(body.get("email"))).orElse(null);
         }
         if (user == null) {
-            throw new IllegalArgumentException("Customer not found: " + id);
+            user = new PlatformUser();
+            user.setId(id);
+            user.setFirstName(body.containsKey("firstName") ? safeParseString(body.get("firstName")) : "Member");
+            user.setLastName(body.containsKey("lastName") ? safeParseString(body.get("lastName")) : "");
+            user.setEmail(body.containsKey("email") ? safeParseString(body.get("email")) : id + "@reevibes.com");
+            user.setStatus("Active");
+            user.setRoles("CUSTOMER");
         }
 
-        if (body.containsKey("firstName")) user.setFirstName((String) body.get("firstName"));
-        if (body.containsKey("lastName")) user.setLastName((String) body.get("lastName"));
-        if (body.containsKey("email")) user.setEmail((String) body.get("email"));
-        if (body.containsKey("phone")) user.setPhone((String) body.get("phone"));
-        if (body.containsKey("country")) user.setCountry((String) body.get("country"));
-        if (body.containsKey("dob")) user.setDob((String) body.get("dob"));
-        if (body.containsKey("gender")) user.setGender((String) body.get("gender"));
-        if (body.containsKey("status")) user.setStatus((String) body.get("status"));
-        if (body.containsKey("addresses")) user.setAddresses((String) body.get("addresses"));
-        if (body.containsKey("wishlist")) user.setWishlist((String) body.get("wishlist"));
-        if (body.containsKey("cart")) user.setCart((String) body.get("cart"));
-        if (body.containsKey("lastLogin")) user.setLastLogin((String) body.get("lastLogin"));
+        if (body.containsKey("firstName")) user.setFirstName(safeParseString(body.get("firstName")));
+        if (body.containsKey("lastName")) user.setLastName(safeParseString(body.get("lastName")));
+        if (body.containsKey("email")) user.setEmail(safeParseString(body.get("email")));
+        if (body.containsKey("phone")) user.setPhone(safeParseString(body.get("phone")));
+        if (body.containsKey("country")) user.setCountry(safeParseString(body.get("country")));
+        if (body.containsKey("dob")) user.setDob(safeParseString(body.get("dob")));
+        if (body.containsKey("gender")) user.setGender(safeParseString(body.get("gender")));
+        if (body.containsKey("status")) user.setStatus(safeParseString(body.get("status")));
+        if (body.containsKey("addresses")) user.setAddresses(safeParseString(body.get("addresses")));
+        if (body.containsKey("wishlist")) user.setWishlist(safeParseString(body.get("wishlist")));
+        if (body.containsKey("cart")) user.setCart(safeParseString(body.get("cart")));
+        if (body.containsKey("lastLogin")) user.setLastLogin(safeParseString(body.get("lastLogin")));
         if (body.containsKey("roles")) {
             Object rolesVal = body.get("roles");
             if (rolesVal instanceof List) {
@@ -274,8 +280,12 @@ public class ShopPortalController {
         if (order.getId() == null || order.getId().isEmpty()) {
             order.setId("ORD-" + (int)(1000 + Math.random() * 9000));
         }
-        order.setOrderDate(LocalDateTime.now());
-        order.setStatus("Pending Approval");
+        if (order.getOrderDate() == null) {
+            order.setOrderDate(LocalDateTime.now());
+        }
+        if (order.getStatus() == null || order.getStatus().isEmpty()) {
+            order.setStatus("Processing");
+        }
         ShopOrder saved = orderRepository.save(order);
         syncService.bumpVersion();
         return ResponseEntity.ok(saved);
@@ -1080,7 +1090,12 @@ public class ShopPortalController {
     private String safeParseString(Object val) {
         if (val == null) return null;
         if (val instanceof String) return (String) val;
-        return String.valueOf(val);
+        try {
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            return mapper.writeValueAsString(val);
+        } catch (Exception e) {
+            return String.valueOf(val);
+        }
     }
 
     private int safeParseInt(Object val) {

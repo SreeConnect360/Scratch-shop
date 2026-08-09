@@ -999,19 +999,36 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         const unsyncedLocalProds = currentProds.filter(p => !dbIds.has(String(p.id)));
         const mergedProducts = [...mappedProducts, ...unsyncedLocalProds];
 
+        // Merge DB orders with local unsynced orders
+        const mergedOrders: Record<string, any[]> = { ...mappedOrders };
+        Object.keys(s.orders || {}).forEach(uId => {
+          const localUserOrders = s.orders[uId] || [];
+          const dbUserOrders = mergedOrders[uId] || [];
+          const dbOrderIds = new Set(dbUserOrders.map(o => String(o.id)));
+          const unsyncedOrders = localUserOrders.filter(o => !dbOrderIds.has(String(o.id)));
+          if (unsyncedOrders.length > 0) {
+            mergedOrders[uId] = [...dbUserOrders, ...unsyncedOrders];
+          }
+        });
+
+        // Merge DB customers with local registered users
+        const dbCustIds = new Set(mappedCustomers.map(u => String(u.id)));
+        const unsyncedCusts = (s.users || []).filter(u => !dbCustIds.has(String(u.id)));
+        const mergedCustomers = [...mappedCustomers, ...unsyncedCusts];
+
         return {
           ...s,
           user: nextUser,
           vendors: mappedVendors,
           products: mergedProducts,
           buckets: mappedBuckets,
-          users: mappedCustomers,
+          users: mergedCustomers,
           addresses: { ...s.addresses, ...extraAddresses },
           shopWishlist: { ...s.shopWishlist, ...extraWishlists },
           shopCart: nextShopCart,
           homepageLayout: mappedPubLayout,
           homepageLayoutDraft: mappedDraftLayout,
-          orders: mappedOrders,
+          orders: mergedOrders,
           returns: mappedReturns,
           coupons: mappedCoupons,
           productReviews: mappedReviews
@@ -1528,8 +1545,12 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           razorpaySignature: order.razorpaySignature || null,
           currency: "INR",
           paymentMethod: payMethod,
+          walletAmountUsed: walletUsed,
+          razorpayAmountPaid: razorpayPaid,
           transactionDate: new Date().toISOString()
         })
+      }).then(res => {
+        if (res.ok) fetchBackendState(true);
       }).catch(err => console.error("Failed to sync new order to backend:", err));
 
       setState(s => {
