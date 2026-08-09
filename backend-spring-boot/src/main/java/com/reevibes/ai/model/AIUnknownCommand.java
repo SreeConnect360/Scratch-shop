@@ -28,4 +28,22 @@ public class AIUnknownCommand {
 
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+
+    public String getUserId() { return userId; }
+    public void setUserId(String userId) { this.userId = userId; }
+
+    public String getCommandText() { return commandText; }
+    public void setCommandText(String commandText) { this.commandText = commandText; }
+
+    public String getGeminiResponse() { return geminiResponse; }
+    public void setGeminiResponse(String geminiResponse) { this.geminiResponse = geminiResponse; }
+
+    public Double getConfidenceScore() { return confidenceScore; }
+    public void setConfidenceScore(Double confidenceScore) { this.confidenceScore = confidenceScore; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

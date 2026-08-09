@@ -96,4 +96,88 @@ public class ShopOrder {
 
     @Column(name = "status_history_json", columnDefinition = "TEXT")
     private String statusHistoryJson;
+
+    public String getId() { return id; }
+    public void setId(String id) { this.id = id; }
+
+    public String getUserId() { return userId; }
+    public void setUserId(String userId) { this.userId = userId; }
+
+    public LocalDateTime getOrderDate() { return orderDate; }
+    public void setOrderDate(LocalDateTime orderDate) { this.orderDate = orderDate; }
+
+    public String getItemsJson() { return itemsJson; }
+    public void setItemsJson(String itemsJson) { this.itemsJson = itemsJson; }
+
+    public BigDecimal getTotal() { return total; }
+    public void setTotal(BigDecimal total) { this.total = total; }
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+
+    public String getAddress() { return address; }
+    public void setAddress(String address) { this.address = address; }
+
+    public String getPaymentStatus() { return paymentStatus; }
+    public void setPaymentStatus(String paymentStatus) { this.paymentStatus = paymentStatus; }
+
+    public String getRefundDetailsJson() { return refundDetailsJson; }
+    public void setRefundDetailsJson(String refundDetailsJson) { this.refundDetailsJson = refundDetailsJson; }
+
+    public String getRazorpayPaymentId() { return razorpayPaymentId; }
+    public void setRazorpayPaymentId(String razorpayPaymentId) { this.razorpayPaymentId = razorpayPaymentId; }
+
+    public String getRazorpayOrderId() { return razorpayOrderId; }
+    public void setRazorpayOrderId(String razorpayOrderId) { this.razorpayOrderId = razorpayOrderId; }
+
+    public String getRazorpaySignature() { return razorpaySignature; }
+    public void setRazorpaySignature(String razorpaySignature) { this.razorpaySignature = razorpaySignature; }
+
+    public String getCurrency() { return currency; }
+    public void setCurrency(String currency) { this.currency = currency; }
+
+    public String getPaymentMethod() { return paymentMethod; }
+    public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
+
+    public LocalDateTime getTransactionDate() { return transactionDate; }
+    public void setTransactionDate(LocalDateTime transactionDate) { this.transactionDate = transactionDate; }
+
+    public String getTrackingNumber() { return trackingNumber; }
+    public void setTrackingNumber(String trackingNumber) { this.trackingNumber = trackingNumber; }
+
+    public String getCourierPartner() { return courierPartner; }
+    public void setCourierPartner(String courierPartner) { this.courierPartner = courierPartner; }
+
+    public String getEstimatedDeliveryDate() { return estimatedDeliveryDate; }
+    public void setEstimatedDeliveryDate(String estimatedDeliveryDate) { this.estimatedDeliveryDate = estimatedDeliveryDate; }
+
+    public String getScansJson() { return scansJson; }
+    public void setScansJson(String scansJson) { this.scansJson = scansJson; }
+
+    public LocalDateTime getDeliveryDate() { return deliveryDate; }
+    public void setDeliveryDate(LocalDateTime deliveryDate) { this.deliveryDate = deliveryDate; }
+
+    public String getShiprocketOrderId() { return shiprocketOrderId; }
+    public void setShiprocketOrderId(String shiprocketOrderId) { this.shiprocketOrderId = shiprocketOrderId; }
+
+    public String getShiprocketShipmentId() { return shiprocketShipmentId; }
+    public void setShiprocketShipmentId(String shiprocketShipmentId) { this.shiprocketShipmentId = shiprocketShipmentId; }
+
+    public BigDecimal getWalletAmountUsed() { return walletAmountUsed; }
+    public void setWalletAmountUsed(BigDecimal walletAmountUsed) { this.walletAmountUsed = walletAmountUsed; }
+
+    public BigDecimal getRazorpayAmountPaid() { return razorpayAmountPaid; }
+    public void setRazorpayAmountPaid(BigDecimal razorpayAmountPaid) { this.razorpayAmountPaid = razorpayAmountPaid; }
+
+    public String getLabelUrl() { return labelUrl; }
+    public void setLabelUrl(String labelUrl) { this.labelUrl = labelUrl; }
+
+    public String getInvoiceUrl() { return invoiceUrl; }
+    public void setInvoiceUrl(String invoiceUrl) { this.invoiceUrl = invoiceUrl; }
+
+    public String getPickupLocation() { return pickupLocation; }
+    public void setPickupLocation(String pickupLocation) { this.pickupLocation = pickupLocation; }
+
+    public String getStatusHistoryJson() { return statusHistoryJson; }
+    public void setStatusHistoryJson(String statusHistoryJson) { this.statusHistoryJson = statusHistoryJson; }
 }

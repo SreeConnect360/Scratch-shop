@@ -273,12 +273,14 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
       toast.info("Generating Shiprocket Bulk Order CSV...");
 
       const orderedOrders = ordersList.filter(o =>
-        ["pending approval", "processing", "pending", "accepted", "ready to ship", "confirmed", "packed"].includes(o.status?.toLowerCase() || "")
+        ["pending approval", "processing", "pending", "accepted", "ready to ship", "ready to dispatch", "confirmed", "packed"].includes(o.status?.toLowerCase() || "")
       );
+
+      const targetOrders = orderedOrders.length > 0 ? orderedOrders : ordersList;
 
       // CSV header row matching Shiprocket sample.csv exactly
       const csvHeaders = [
-        "*Order ID", "*Channel", "Payment Method", "Customer Name", "Customer Email",
+        "*Order ID", "Channel", "Payment Method", "Customer Name", "Customer Email",
         "Customer Mobile", "Address Line 1", "Address Line 2", "Address State",
         "Address City", "Address Pincode", "Pickup Address Name", "dimensions (CM)",
         "Package Name", "Invoice id", "Weight (KG)", "Archive", "Self Fulfilled",
@@ -288,49 +290,65 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
 
       const csvRows: string[][] = [];
 
-      orderedOrders.forEach(ord => {
+      targetOrders.forEach(ord => {
         const u = state.users.find(usr => usr.id === ord.userId);
-        const customerName = [u?.firstName, u?.lastName].filter(Boolean).join(" ") || ord.customerName || "Customer";
-        const customerEmail = u?.email || "";
+        let customerName = [u?.firstName, u?.lastName].filter(Boolean).join(" ") || ord.customerName || "Customer";
+        let customerEmail = u?.email || "customer@reevibes.com";
         const rawPhone = (u?.phone || "9876543210").replace(/[^0-9]/g, "");
-        const customerMobile = rawPhone.length >= 10 ? rawPhone.slice(-10) : "9876543210";
+        let customerMobile = rawPhone.length >= 10 ? rawPhone.slice(-10) : "9876543210";
 
-        let street = ord.address || (u as any)?.address || "100 Feet Road, Indiranagar, Bangalore, Karnataka - 560038";
+        let rawAddr = ord.address || (u as any)?.address || "";
+        let street = "Indiranagar";
         let addressLine2 = "";
         let stateName = "Karnataka";
         let city = "Bangalore";
         let pincode = "560038";
 
-        if (typeof street === "string" && street.length > 0) {
-          const pinMatch = street.match(/\b\d{6}\b/);
-          if (pinMatch) pincode = pinMatch[0];
-          const parts = street.split(",").map(s => s.trim()).filter(Boolean);
-          if (parts.length >= 3) {
-            const lastPart = parts[parts.length - 1];
-            if (lastPart.toLowerCase().includes("india")) {
-              if (parts.length >= 4) {
-                stateName = parts[parts.length - 2].replace(/\d+/g, "").trim() || "Karnataka";
-                city = parts[parts.length - 3] || "Bangalore";
-              }
-            } else {
-              const stateClean = lastPart.replace(/\d+/g, "").trim();
-              if (stateClean) stateName = stateClean;
-              if (parts.length >= 3) city = parts[parts.length - 2];
+        if (typeof rawAddr === "string" && rawAddr.trim().startsWith("{")) {
+          try {
+            const parsed = JSON.parse(rawAddr);
+            if (parsed.street) street = parsed.street;
+            else if (parsed.address) street = parsed.address;
+            if (parsed.landmark) addressLine2 = parsed.landmark;
+            if (parsed.city) city = parsed.city;
+            if (parsed.state) stateName = parsed.state;
+            if (parsed.pincode) pincode = String(parsed.pincode).replace(/[^0-9]/g, "");
+            if (parsed.name) customerName = parsed.name;
+            if (parsed.phone) {
+              const p = String(parsed.phone).replace(/[^0-9]/g, "");
+              if (p.length >= 10) customerMobile = p.slice(-10);
             }
-            addressLine2 = parts.length > 2 ? parts[1] : "";
+          } catch (e) {
+            street = rawAddr;
+          }
+        } else if (typeof rawAddr === "string" && rawAddr.length > 0) {
+          const pinMatch = rawAddr.match(/\b\d{6}\b/);
+          if (pinMatch) pincode = pinMatch[0];
+          const parts = rawAddr.split(",").map(s => s.trim()).filter(Boolean);
+          if (parts.length >= 3) {
+            street = parts[0];
+            city = parts[parts.length - 2];
+            stateName = parts[parts.length - 1].replace(/\d+/g, "").trim() || "Karnataka";
+            if (parts.length >= 4) {
+              addressLine2 = parts[1];
+            }
+          } else {
+            street = rawAddr;
           }
         }
 
-        const payMethod = ord.paymentMethod?.toLowerCase().includes("cod") ? "COD" : "Prepaid";
+        const payMethod = ord.paymentMethod?.toLowerCase().includes("cod") ? "cod" : "prepaid";
 
-        (ord.items || []).forEach((item: any) => {
+        const itemsList = ord.items && ord.items.length > 0 ? ord.items : [{ name: "ReeVibes Fashion Piece", productId: "RV-ITEM-1", qty: 1, price: ord.total }];
+
+        itemsList.forEach((item: any) => {
           const liveProd = state.products.find((pr: any) => pr.id === item.productId || pr.sku === item.sku) || item;
           const prodName = liveProd.name || item.name || "ReeVibes Fashion Piece";
           const masterSku = liveProd.sku || item.sku || liveProd.id || item.productId || `RV-SKU-${ord.id}`;
 
           const row = [
             ord.id, // *Order ID
-            "Custom", // *Channel
+            "reevibes", // Channel
             payMethod, // Payment Method
             customerName, // Customer Name
             customerEmail, // Customer Email
@@ -340,8 +358,8 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
             stateName, // Address State
             city, // Address City
             pincode, // Address Pincode
-            "Primary", // Pickup Address Name
-            "15 x 15 x 10", // dimensions (CM)
+            "17-6-20, Sanjay Nagar, Dairy Farm Center Kakinada", // Pickup Address Name
+            "10 x 10 x 10", // dimensions (CM)
             prodName, // Package Name
             ord.id, // Invoice id
             "0.5", // Weight (KG)
@@ -349,7 +367,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
             "no", // Self Fulfilled
             "", // Delivery Executive Name
             "", // Delivery Executive Phone Number
-            "", // Tracking Url
+            ord.trackingNumber ? `https://apiv2.shiprocket.in/v1/external/courier/track/awb/${ord.trackingNumber}` : "", // Tracking Url
             "Essentials", // Order Type
             "", // Order Tag
             "610910", // Hsn Code

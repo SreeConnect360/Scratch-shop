@@ -28,4 +28,22 @@ public class AIActionLog {
 
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+
+    public String getUserId() { return userId; }
+    public void setUserId(String userId) { this.userId = userId; }
+
+    public String getIntentCode() { return intentCode; }
+    public void setIntentCode(String intentCode) { this.intentCode = intentCode; }
+
+    public String getActionStatus() { return actionStatus; }
+    public void setActionStatus(String actionStatus) { this.actionStatus = actionStatus; }
+
+    public Long getExecutionTime() { return executionTime; }
+    public void setExecutionTime(Long executionTime) { this.executionTime = executionTime; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

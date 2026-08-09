@@ -28,12 +28,23 @@ public class GeminiService {
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @Data
     public static class GeminiParsedResponse {
         private String intent;
         private double confidence = 0.5;
         private Map<String, Object> parameters = new HashMap<>();
         private String reply;
+
+        public String getIntent() { return intent; }
+        public void setIntent(String intent) { this.intent = intent; }
+
+        public double getConfidence() { return confidence; }
+        public void setConfidence(double confidence) { this.confidence = confidence; }
+
+        public Map<String, Object> getParameters() { return parameters; }
+        public void setParameters(Map<String, Object> parameters) { this.parameters = parameters; }
+
+        public String getReply() { return reply; }
+        public void setReply(String reply) { this.reply = reply; }
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})

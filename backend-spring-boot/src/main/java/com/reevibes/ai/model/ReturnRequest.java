@@ -103,4 +103,97 @@ public class ReturnRequest {
 
     @Column(name = "created_at")
     private java.time.LocalDateTime createdAt = java.time.LocalDateTime.now();
+
+    public String getId() { return id; }
+    public void setId(String id) { this.id = id; }
+
+    public String getOrderId() { return orderId; }
+    public void setOrderId(String orderId) { this.orderId = orderId; }
+
+    public String getProductId() { return productId; }
+    public void setProductId(String productId) { this.productId = productId; }
+
+    public String getProductName() { return productName; }
+    public void setProductName(String productName) { this.productName = productName; }
+
+    public String getCustomerId() { return customerId; }
+    public void setCustomerId(String customerId) { this.customerId = customerId; }
+
+    public String getCustomerName() { return customerName; }
+    public void setCustomerName(String customerName) { this.customerName = customerName; }
+
+    public String getReason() { return reason; }
+    public void setReason(String reason) { this.reason = reason; }
+
+    public String getComment() { return comment; }
+    public void setComment(String comment) { this.comment = comment; }
+
+    public String getImages() { return images; }
+    public void setImages(String images) { this.images = images; }
+
+    public String getVideos() { return videos; }
+    public void setVideos(String videos) { this.videos = videos; }
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+
+    public BigDecimal getRefundAmount() { return refundAmount; }
+    public void setRefundAmount(BigDecimal refundAmount) { this.refundAmount = refundAmount; }
+
+    public String getRefundTransactionId() { return refundTransactionId; }
+    public void setRefundTransactionId(String refundTransactionId) { this.refundTransactionId = refundTransactionId; }
+
+    public String getRefundDate() { return refundDate; }
+    public void setRefundDate(String refundDate) { this.refundDate = refundDate; }
+
+    public String getSelectedSize() { return selectedSize; }
+    public void setSelectedSize(String selectedSize) { this.selectedSize = selectedSize; }
+
+    public Integer getQty() { return qty; }
+    public void setQty(Integer qty) { this.qty = qty; }
+
+    public String getRefundMethod() { return refundMethod; }
+    public void setRefundMethod(String refundMethod) { this.refundMethod = refundMethod; }
+
+    public String getRejectionReason() { return rejectionReason; }
+    public void setRejectionReason(String rejectionReason) { this.rejectionReason = rejectionReason; }
+
+    public String getExpectedCreditDate() { return expectedCreditDate; }
+    public void setExpectedCreditDate(String expectedCreditDate) { this.expectedCreditDate = expectedCreditDate; }
+
+    public String getPickupDate() { return pickupDate; }
+    public void setPickupDate(String pickupDate) { this.pickupDate = pickupDate; }
+
+    public String getShiprocketReturnOrderId() { return shiprocketReturnOrderId; }
+    public void setShiprocketReturnOrderId(String shiprocketReturnOrderId) { this.shiprocketReturnOrderId = shiprocketReturnOrderId; }
+
+    public String getShiprocketReturnShipmentId() { return shiprocketReturnShipmentId; }
+    public void setShiprocketReturnShipmentId(String shiprocketReturnShipmentId) { this.shiprocketReturnShipmentId = shiprocketReturnShipmentId; }
+
+    public String getReturnAwb() { return returnAwb; }
+    public void setReturnAwb(String returnAwb) { this.returnAwb = returnAwb; }
+
+    public String getReturnCourier() { return returnCourier; }
+    public void setReturnCourier(String returnCourier) { this.returnCourier = returnCourier; }
+
+    public BigDecimal getWalletRefundAmount() { return walletRefundAmount; }
+    public void setWalletRefundAmount(BigDecimal walletRefundAmount) { this.walletRefundAmount = walletRefundAmount; }
+
+    public BigDecimal getRazorpayRefundAmount() { return razorpayRefundAmount; }
+    public void setRazorpayRefundAmount(BigDecimal razorpayRefundAmount) { this.razorpayRefundAmount = razorpayRefundAmount; }
+
+    public String getRazorpayRefundId() { return razorpayRefundId; }
+    public void setRazorpayRefundId(String razorpayRefundId) { this.razorpayRefundId = razorpayRefundId; }
+
+    public String getWalletTransactionId() { return walletTransactionId; }
+    public void setWalletTransactionId(String walletTransactionId) { this.walletTransactionId = walletTransactionId; }
+
+    public String getReturnLabelUrl() { return returnLabelUrl; }
+    public void setReturnLabelUrl(String returnLabelUrl) { this.returnLabelUrl = returnLabelUrl; }
+
+    public String getReturnScansJson() { return returnScansJson; }
+    public void setReturnScansJson(String returnScansJson) { this.returnScansJson = returnScansJson; }
+
+    public java.time.LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(java.time.LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

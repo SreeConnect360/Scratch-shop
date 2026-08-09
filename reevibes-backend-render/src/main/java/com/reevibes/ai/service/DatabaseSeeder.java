@@ -113,8 +113,10 @@ public class DatabaseSeeder implements CommandLineRunner {
     @Transactional
     public void seedBuckets() {
         if (productBucketRepository.count() == 0) {
-            ProductBucket b1 = new ProductBucket("bkt1", "Summer Essentials", "pr1,pr3", "pr1", false);
-            ProductBucket b2 = new ProductBucket("bkt2", "Luxury Black Curation", "pr2,pr5", "pr2", false);
+            ProductBucket b1 = new ProductBucket();
+            b1.setId("bkt1"); b1.setName("Summer Essentials"); b1.setProductIds("pr1,pr3"); b1.setStarProductId("pr1"); b1.setHidden(false);
+            ProductBucket b2 = new ProductBucket();
+            b2.setId("bkt2"); b2.setName("Luxury Black Curation"); b2.setProductIds("pr2,pr5"); b2.setStarProductId("pr2"); b2.setHidden(false);
             productBucketRepository.saveAll(List.of(b1, b2));
         }
     }
@@ -134,8 +136,10 @@ public class DatabaseSeeder implements CommandLineRunner {
     public void seedHomepageLayout() {
         if (homepageLayoutRepository.count() == 0) {
             String defaultLayout = "{\"sectionOrder\":[\"announcement\",\"hero\",\"features\",\"buckets\",\"featured\",\"curated\",\"trending\",\"photography\",\"footer\"],\"announcement\":{\"text\":\"Complimentary Shipping on all Maison orders above ₹1,00,000\"},\"hero\":{\"title\":\"Luxury Redefined\",\"subtitle\":\"Season 03 Collection Out Now\"}}";
-            HomepageLayout pub = new HomepageLayout("published", defaultLayout);
-            HomepageLayout draft = new HomepageLayout("draft", defaultLayout);
+            HomepageLayout pub = new HomepageLayout();
+            pub.setId("published"); pub.setLayoutJson(defaultLayout);
+            HomepageLayout draft = new HomepageLayout();
+            draft.setId("draft"); draft.setLayoutJson(defaultLayout);
             homepageLayoutRepository.saveAll(List.of(pub, draft));
         }
     }
@@ -143,8 +147,10 @@ public class DatabaseSeeder implements CommandLineRunner {
     @Transactional
     public void seedCoupons() {
         if (couponRepository.count() == 0) {
-            ShopCoupon c1 = new ShopCoupon("MAISONVIP", new BigDecimal("25"), "percentage", "2026-12-31", 100, "All", true, 0);
-            ShopCoupon c2 = new ShopCoupon("REEVIBES10", new BigDecimal("10"), "percentage", "2026-12-31", 200, "All", true, 0);
+            ShopCoupon c1 = new ShopCoupon();
+            c1.setCode("MAISONVIP"); c1.setDiscount(new BigDecimal("25")); c1.setType("percentage"); c1.setExpiryDate("2026-12-31"); c1.setUsageLimit(100); c1.setUserEligibility("All"); c1.setActive(true); c1.setUsedCount(0);
+            ShopCoupon c2 = new ShopCoupon();
+            c2.setCode("REEVIBES10"); c2.setDiscount(new BigDecimal("10")); c2.setType("percentage"); c2.setExpiryDate("2026-12-31"); c2.setUsageLimit(200); c2.setUserEligibility("All"); c2.setActive(true); c2.setUsedCount(0);
             couponRepository.saveAll(List.of(c1, c2));
         }
     }
@@ -204,9 +210,12 @@ public class DatabaseSeeder implements CommandLineRunner {
     @Transactional
     public void seedReviews() {
         if (reviewRepository.count() == 0) {
-            ProductReview r1 = new ProductReview("rev1", "pr1", "Aditi Rao", 5, "Absolutely stunning dress! Fits perfectly and the silk material feels incredibly premium.", "", "", "2026-06-14", "Approved");
-            ProductReview r2 = new ProductReview("rev2", "pr1", "Priya Sharma", 4, "Beautiful design, though it was slightly loose around the waist. High quality styling.", "", "", "2026-06-12", "Approved");
-            ProductReview r3 = new ProductReview("rev3", "pr2", "Deepika Patel", 5, "Warm, luxurious, and elegant. Exceeded all my expectations.", "", "", "2026-06-15", "Approved");
+            ProductReview r1 = new ProductReview();
+            r1.setId("rev1"); r1.setProductId("pr1"); r1.setUserName("Aditi Rao"); r1.setRating(5); r1.setComment("Absolutely stunning dress! Fits perfectly and the silk material feels incredibly premium."); r1.setImages(""); r1.setVideos(""); r1.setReviewDate("2026-06-14"); r1.setStatus("Approved");
+            ProductReview r2 = new ProductReview();
+            r2.setId("rev2"); r2.setProductId("pr1"); r2.setUserName("Priya Sharma"); r2.setRating(4); r2.setComment("Beautiful design, though it was slightly loose around the waist. High quality styling."); r2.setImages(""); r2.setVideos(""); r2.setReviewDate("2026-06-12"); r2.setStatus("Approved");
+            ProductReview r3 = new ProductReview();
+            r3.setId("rev3"); r3.setProductId("pr2"); r3.setUserName("Deepika Patel"); r3.setRating(5); r3.setComment("Warm, luxurious, and elegant. Exceeded all my expectations."); r3.setImages(""); r3.setVideos(""); r3.setReviewDate("2026-06-15"); r3.setStatus("Approved");
             reviewRepository.saveAll(List.of(r1, r2, r3));
         }
     }
@@ -279,10 +288,15 @@ public class DatabaseSeeder implements CommandLineRunner {
         }
     }
 
-    @RequiredArgsConstructor
     private static class IntentSeed {
         final String code;
         final String name;
         final String desc;
+
+        IntentSeed(String code, String name, String desc) {
+            this.code = code;
+            this.name = name;
+            this.desc = desc;
+        }
     }
 }

@@ -26,4 +26,19 @@ public class AICommandPattern {
 
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+
+    public AIIntent getIntent() { return intent; }
+    public void setIntent(AIIntent intent) { this.intent = intent; }
+
+    public String getCommandText() { return commandText; }
+    public void setCommandText(String commandText) { this.commandText = commandText; }
+
+    public String getNormalizedCommand() { return normalizedCommand; }
+    public void setNormalizedCommand(String normalizedCommand) { this.normalizedCommand = normalizedCommand; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

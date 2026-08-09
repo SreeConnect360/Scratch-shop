@@ -329,6 +329,116 @@ public class ShopPortalController {
         return ResponseEntity.ok(saved);
     }
 
+    // --- COUPONS ---
+    @GetMapping("/coupons")
+    public ResponseEntity<List<ShopCoupon>> getCoupons() {
+        return ResponseEntity.ok(couponRepository.findAll());
+    }
+
+    @PostMapping("/coupons")
+    @Transactional
+    public ResponseEntity<ShopCoupon> createOrUpdateCoupon(@RequestBody ShopCoupon coupon) {
+        if (coupon.getCode() != null) {
+            coupon.setCode(coupon.getCode().trim().toUpperCase());
+        }
+        if (coupon.getUsedCount() == null) coupon.setUsedCount(0);
+        if (coupon.getActive() == null) coupon.setActive(true);
+        ShopCoupon saved = couponRepository.save(coupon);
+        syncService.bumpVersion();
+        return ResponseEntity.ok(saved);
+    }
+
+    @DeleteMapping("/coupons/{code}")
+    @Transactional
+    public ResponseEntity<?> deleteCoupon(@PathVariable String code) {
+        couponRepository.deleteById(code.toUpperCase());
+        syncService.bumpVersion();
+        return ResponseEntity.ok(Map.of("message", "Coupon deleted successfully"));
+    }
+
+    @PostMapping("/coupons/validate")
+    public ResponseEntity<?> validateCoupon(@RequestBody Map<String, Object> body) {
+        String code = body.containsKey("code") ? String.valueOf(body.get("code")).trim().toUpperCase() : "";
+        java.util.Optional<ShopCoupon> opt = couponRepository.findByCodeIgnoreCase(code);
+        if (opt.isEmpty()) {
+            return ResponseEntity.status(400).body(Map.of("valid", false, "message", "Invalid coupon code."));
+        }
+        ShopCoupon coupon = opt.get();
+        if (!Boolean.TRUE.equals(coupon.getActive())) {
+            return ResponseEntity.status(400).body(Map.of("valid", false, "message", "This coupon is currently inactive."));
+        }
+        if (coupon.getExpiryDate() != null && !"unlimited".equalsIgnoreCase(coupon.getExpiryDate())) {
+            String today = new java.text.SimpleDateFormat("yyyy-MM-dd").format(new java.util.Date());
+            if (today.compareTo(coupon.getExpiryDate()) > 0) {
+                return ResponseEntity.status(400).body(Map.of("valid", false, "message", "This coupon has expired."));
+            }
+        }
+        if (coupon.getUsageLimit() != null && coupon.getUsageLimit() > 0 && coupon.getUsedCount() >= coupon.getUsageLimit()) {
+            return ResponseEntity.status(400).body(Map.of("valid", false, "message", "Coupon usage limit has been reached."));
+        }
+        return ResponseEntity.ok(Map.of(
+            "valid", true,
+            "code", coupon.getCode(),
+            "discount", coupon.getDiscount(),
+            "type", coupon.getType(),
+            "userEligibility", coupon.getUserEligibility()
+        ));
+    }
+
+    // --- REVIEWS ---
+    @GetMapping("/reviews")
+    public ResponseEntity<List<ProductReview>> getReviews() {
+        return ResponseEntity.ok(reviewRepository.findAll());
+    }
+
+    @GetMapping("/reviews/product/{productId}")
+    public ResponseEntity<List<ProductReview>> getProductReviews(@PathVariable String productId) {
+        List<ProductReview> reviews = reviewRepository.findByProductId(productId);
+        List<ProductReview> approved = reviews.stream()
+                .filter(r -> "Approved".equalsIgnoreCase(r.getStatus()))
+                .toList();
+        return ResponseEntity.ok(approved);
+    }
+
+    @PostMapping("/reviews")
+    @Transactional
+    public ResponseEntity<ProductReview> createReview(@RequestBody ProductReview review) {
+        if (review.getId() == null || review.getId().isEmpty()) {
+            review.setId("REV-" + System.currentTimeMillis());
+        }
+        if (review.getReviewDate() == null || review.getReviewDate().isEmpty()) {
+            review.setReviewDate(new java.text.SimpleDateFormat("yyyy-MM-dd").format(new java.util.Date()));
+        }
+        if (review.getStatus() == null || review.getStatus().isEmpty()) {
+            review.setStatus("Approved");
+        }
+        ProductReview saved = reviewRepository.save(review);
+        syncService.bumpVersion();
+        return ResponseEntity.ok(saved);
+    }
+
+    @PutMapping("/reviews/{id}/status")
+    @Transactional
+    public ResponseEntity<?> updateReviewStatus(@PathVariable String id, @RequestBody Map<String, String> body) {
+        ProductReview review = reviewRepository.findById(id).orElse(null);
+        if (review == null) {
+            return ResponseEntity.notFound().build();
+        }
+        String newStatus = body.getOrDefault("status", "Approved");
+        review.setStatus(newStatus);
+        ProductReview saved = reviewRepository.save(review);
+        syncService.bumpVersion();
+        return ResponseEntity.ok(saved);
+    }
+
+    @DeleteMapping("/reviews/{id}")
+    @Transactional
+    public ResponseEntity<?> deleteReview(@PathVariable String id) {
+        reviewRepository.deleteById(id);
+        syncService.bumpVersion();
+        return ResponseEntity.ok(Map.of("message", "Review deleted successfully"));
+    }
+
     // --- RAZORPAY ORDERS API ---
 
     private org.springframework.http.HttpHeaders getRazorpayAuthHeaders() {
@@ -1246,59 +1356,7 @@ public class ShopPortalController {
         return ResponseEntity.ok(saved);
     }
 
-    // --- COUPONS MANAGER ---
-    @GetMapping("/coupons")
-    public ResponseEntity<List<ShopCoupon>> getCoupons() {
-        return ResponseEntity.ok(couponRepository.findAll());
-    }
 
-    @PostMapping("/coupons")
-    @Transactional
-    public ResponseEntity<ShopCoupon> createCoupon(@RequestBody ShopCoupon coupon) {
-        coupon.setCode(coupon.getCode().toUpperCase());
-        ShopCoupon saved = couponRepository.save(coupon);
-        syncService.bumpVersion();
-        return ResponseEntity.ok(saved);
-    }
-
-    @DeleteMapping("/coupons/{code}")
-    @Transactional
-    public ResponseEntity<?> deleteCoupon(@PathVariable String code) {
-        couponRepository.deleteById(code.toUpperCase());
-        syncService.bumpVersion();
-        return ResponseEntity.ok(Map.of("message", "Coupon deleted successfully"));
-    }
-
-    // --- REVIEWS MODERATOR ---
-    @GetMapping("/reviews")
-    public ResponseEntity<List<ProductReview>> getReviews() {
-        return ResponseEntity.ok(reviewRepository.findAll());
-    }
-
-    @PostMapping("/reviews")
-    @Transactional
-    public ResponseEntity<ProductReview> createReview(@RequestBody ProductReview review) {
-        if (review.getId() == null || review.getId().isEmpty()) {
-            review.setId("rev-" + System.currentTimeMillis());
-        }
-        if (review.getReviewDate() == null || review.getReviewDate().isEmpty()) {
-            review.setReviewDate(new java.text.SimpleDateFormat("yyyy-MM-dd").format(new java.util.Date()));
-        }
-        ProductReview saved = reviewRepository.save(review);
-        syncService.bumpVersion();
-        return ResponseEntity.ok(saved);
-    }
-
-    @PutMapping("/reviews/{id}/status")
-    @Transactional
-    public ResponseEntity<ProductReview> updateReviewStatus(@PathVariable String id, @RequestBody Map<String, Object> body) {
-        ProductReview review = reviewRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Review not found: " + id));
-        review.setStatus((String) body.get("status"));
-        ProductReview saved = reviewRepository.save(review);
-        syncService.bumpVersion();
-        return ResponseEntity.ok(saved);
-    }
 
     // --- SHIPROCKET WEBHOOKS & TRACKER ---
     @GetMapping({"/shiprocket/webhook", "/webhooks/shipping"})

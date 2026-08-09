@@ -16,4 +16,10 @@ public class HomepageLayout {
 
     @Column(name = "layout_json", nullable = false, columnDefinition = "TEXT")
     private String layoutJson;
+
+    public String getId() { return id; }
+    public void setId(String id) { this.id = id; }
+
+    public String getLayoutJson() { return layoutJson; }
+    public void setLayoutJson(String layoutJson) { this.layoutJson = layoutJson; }
 }
