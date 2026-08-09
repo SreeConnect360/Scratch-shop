@@ -8,7 +8,7 @@ import {
   ArrowUpRight, IndianRupee, Search, Shield, Eye, EyeOff, PlusCircle,
   Settings, History, ListFilter, Tag, BarChart2, Undo, CheckSquare,
   Square, ArrowUpDown, Layers3, Download, Upload, ArrowLeft, ArrowRight,
-  FileSpreadsheet
+  FileSpreadsheet, FileText, ShieldCheck
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { AdminCard, AdminButton, StatusChip } from "./AdminCommon";
