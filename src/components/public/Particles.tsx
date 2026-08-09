@@ -76,10 +76,14 @@ export default function Particles({ count = 38 }: { count?: number }) {
 
     let t = 0;
     const tick = () => {
+      if (document.hidden) {
+        raf = requestAnimationFrame(tick);
+        return;
+      }
+
       t += 0.005;
 
-      // theme-aware color (checked per frame — cheap classList lookup);
-      // light mode uses a rich antique gold, boosted so it reads on ivory
+      // theme-aware color
       const dark = document.documentElement.classList.contains("dark");
       const rgb = dark ? "200, 169, 106" : "169, 138, 79";
       const alphaBoost = dark ? 1 : 1.7;
@@ -128,12 +132,20 @@ export default function Particles({ count = 38 }: { count?: number }) {
     };
     raf = requestAnimationFrame(tick);
 
+    const onVisibilityChange = () => {
+      if (!document.hidden && !raf) {
+        raf = requestAnimationFrame(tick);
+      }
+    };
+
     window.addEventListener("resize", resize);
     window.addEventListener("mousemove", onMove, { passive: true });
+    document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", resize);
       window.removeEventListener("mousemove", onMove);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [count]);
 

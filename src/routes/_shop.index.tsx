@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useEffect, useContext, useRef, useCallback } from "react";
+import { useState, useEffect, useContext, useRef, useCallback, useMemo } from "react";
 import { usePortal, DEFAULT_HOMEPAGE_LAYOUT } from "@/lib/portal-state";
 import { FadeUp } from "@/components/motion/Reveal";
 import { toast } from "sonner";
@@ -106,23 +106,34 @@ export const Route = createFileRoute("/_shop/")({
 
 function ShopHome() {
   const { state, toggleShopWishlist, addToShopCart } = usePortal();
-  const products = (state.products || []).filter(p => !p.status || p.status === "PUBLISHED" || p.status === "published");
+  
+  const products = useMemo(() => {
+    return (state.products || []).filter(p => !p.status || p.status === "PUBLISHED" || p.status === "published");
+  }, [state.products]);
   
   // Check preview mode query param
   const isPreview = typeof window !== "undefined" && window.location.search.includes("preview=true");
   const rawLayout = isPreview ? state.homepageLayoutDraft : state.homepageLayout;
-  const layout = { ...DEFAULT_HOMEPAGE_LAYOUT, ...rawLayout };
+  const layout = useMemo(() => ({ ...DEFAULT_HOMEPAGE_LAYOUT, ...rawLayout }), [rawLayout]);
 
   // Golden glow mouse coordinates springs
   const glowX = useSpring(0, { damping: 50, stiffness: 180 });
   const glowY = useSpring(0, { damping: 50, stiffness: 180 });
 
   useEffect(() => {
+    if (typeof window === "undefined" || ('ontouchstart' in window || navigator.maxTouchPoints > 0)) return;
+    let ticking = false;
     const handleGlowMouseMove = (e: MouseEvent) => {
-      glowX.set(e.clientX - 250); // half of w-[500px]
-      glowY.set(e.clientY - 250);
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          glowX.set(e.clientX - 250); // half of w-[500px]
+          glowY.set(e.clientY - 250);
+          ticking = false;
+        });
+        ticking = true;
+      }
     };
-    window.addEventListener("mousemove", handleGlowMouseMove);
+    window.addEventListener("mousemove", handleGlowMouseMove, { passive: true });
     return () => window.removeEventListener("mousemove", handleGlowMouseMove);
   }, []);
 
@@ -617,46 +628,6 @@ function ShopHome() {
 
       case "flashSale":
         return null;
-
-        return (
-          <section key={sectionId} className="max-w-7xl mx-auto px-3 sm:px-5 space-y-8">
-            <FadeUp>
-              <div className="glass glass-reflect glass-edge p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl border border-white/10 rounded-3xl">
-                <div className="flex items-center gap-3">
-                  <Flame className="w-6 h-6 text-red-500 animate-pulse" />
-                  <div>
-                    <h3 className="text-lg font-serif text-white">Limited Flash Sale</h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">Exclusive {fs.discount}% discount live right now</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-6">
-                  <div className="text-right">
-                    <div className="text-[9px] uppercase tracking-widest text-muted-foreground">Ends In</div>
-                    <div className="font-mono text-sm font-bold text-red-400 mt-1">{formatTime(timeLeft)}</div>
-                  </div>
-                  <Link to="/categories">
-                    <MagneticButton variant="gold">
-                      Shop Flash Sale
-                    </MagneticButton>
-                  </Link>
-                </div>
-              </div>
-            </FadeUp>
-
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5 items-start">
-              {fsProducts.map(p => (
-                <ProductCard
-                  key={p.id}
-                  p={p}
-                  toggleShopWishlist={toggleShopWishlist}
-                  addToShopCart={addToShopCart}
-                  wishlist={state.shopWishlist[state.user?.id || ""]}
-                  discountPercent={fs.discount}
-                />
-              ))}
-            </div>
-          </section>
-        );
 
       case "trending":
         const trendingCuration = layout?.trending || {};

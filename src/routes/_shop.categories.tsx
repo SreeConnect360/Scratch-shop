@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { FadeUp } from "@/components/motion/Reveal";
 import { PRODUCTS } from "@/lib/data";
 import { usePortal } from "@/lib/portal-state";
-import { useState, useEffect, useContext, useRef, useCallback } from "react";
+import { useState, useEffect, useContext, useRef, useCallback, useMemo } from "react";
 import { Heart, ShoppingBag, Star, Sparkles, ArrowRight, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -151,19 +151,11 @@ function CategoriesPage() {
     setStyleInput(searchParams.q || "");
   }, [searchParams.q]);
 
-  const products = (state.products as any[] || PRODUCTS).filter((p: any) => !p.status || p.status === "PUBLISHED" || p.status === "published");
+  const products = useMemo(() => {
+    return ((state.products as any[]) || PRODUCTS).filter((p: any) => !p.status || p.status === "PUBLISHED" || p.status === "published");
+  }, [state.products]);
 
-  // Curation helper for trending score
-  const getTrendingScore = (pId: string) => {
-    const views = state.productViews?.[pId] || 0;
-    const additions = state.productCartAdditions?.[pId] || 0;
-    const purchases = state.productPurchases?.[pId] || 0;
-    const reviews = state.productReviews?.[pId] || [];
-    const avgRating = reviews.length > 0 ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length) : 0;
-    return views + additions * 3 + purchases * 5 + avgRating * 10;
-  };
-
-  const parsedFilters = parseStyleQuery(searchParams.q || "");
+  const parsedFilters = useMemo(() => parseStyleQuery(searchParams.q || ""), [searchParams.q]);
   
   const genderFilter = searchParams.gender || parsedFilters.gender || "All";
   const categoryFilter = parsedFilters.category || "All";
@@ -173,138 +165,151 @@ function CategoriesPage() {
   const priceLimitFilter = parsedFilters.priceLimit || null;
   const tagFilter = searchParams.tag || parsedFilters.tag || "";
 
-  const parsePrice = (priceStr: string): number => {
+  const parsePrice = useCallback((priceStr: string): number => {
     return Number(priceStr.replace(/[^0-9.]/g, ""));
-  };
+  }, []);
 
-  const filteredProducts = products.filter(p => {
-    // 1. Bucket ID Search
-    if (searchParams.bucketId) {
-      const bucket = state.buckets?.find(b => b.id === searchParams.bucketId);
-      if (!bucket || !bucket.productIds.includes(p.id)) return false;
-    }
+  const filteredProducts = useMemo(() => {
+    const getTrendingScore = (pId: string) => {
+      const views = state.productViews?.[pId] || 0;
+      const additions = state.productCartAdditions?.[pId] || 0;
+      const purchases = state.productPurchases?.[pId] || 0;
+      const reviews = state.productReviews?.[pId] || [];
+      const avgRating = reviews.length > 0 ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length) : 0;
+      return views + additions * 3 + purchases * 5 + avgRating * 10;
+    };
 
-    // 2. Gender filtering
-    if (genderFilter !== "All") {
-      if (p.gender !== genderFilter && p.gender !== "Unisex") {
+    const list = products.filter(p => {
+      // 1. Bucket ID Search
+      if (searchParams.bucketId) {
+        const bucket = state.buckets?.find(b => b.id === searchParams.bucketId);
+        if (!bucket || !bucket.productIds.includes(p.id)) return false;
+      }
+
+      // 2. Gender filtering
+      if (genderFilter !== "All") {
+        if (p.gender !== genderFilter && p.gender !== "Unisex") {
+          return false;
+        }
+      }
+
+      // 3. Category filtering
+      if (categoriesFilter.length > 0) {
+        if (!categoriesFilter.includes(p.category)) {
+          return false;
+        }
+      } else if (categoryFilter !== "All" && p.category !== categoryFilter) {
         return false;
       }
-    }
 
-    // 3. Category filtering
-    if (categoriesFilter.length > 0) {
-      if (!categoriesFilter.includes(p.category)) {
-        return false;
+      // 4. Size filtering
+      if (sizeFilter) {
+        const productSizes = p.sizes || ["XS", "S", "M", "L", "XL", "XXL"];
+        if (!productSizes.includes(sizeFilter)) {
+          return false;
+        }
       }
-    } else if (categoryFilter !== "All" && p.category !== categoryFilter) {
-      return false;
-    }
 
-    // 4. Size filtering
-    if (sizeFilter) {
-      const productSizes = p.sizes || ["XS", "S", "M", "L", "XL", "XXL"];
-      if (!productSizes.includes(sizeFilter)) {
-        return false;
+      // 5. Color filtering
+      if (colorFilter) {
+        const nameLower = (p.name || "").toLowerCase();
+        const houseLower = (p.house || "").toLowerCase();
+        const isBlack = colorFilter === "black" && (nameLower.includes("black") || nameLower.includes("noir") || houseLower.includes("noir"));
+        const genericMatch = nameLower.includes(colorFilter) || houseLower.includes(colorFilter);
+        if (!isBlack && !genericMatch) {
+          return false;
+        }
       }
-    }
 
-    // 5. Color filtering
-    if (colorFilter) {
-      const nameLower = (p.name || "").toLowerCase();
-      const houseLower = (p.house || "").toLowerCase();
-      const isBlack = colorFilter === "black" && (nameLower.includes("black") || nameLower.includes("noir") || houseLower.includes("noir"));
-      const genericMatch = nameLower.includes(colorFilter) || houseLower.includes(colorFilter);
-      if (!isBlack && !genericMatch) {
-        return false;
+      // 6. Price Limit filtering
+      if (priceLimitFilter !== null) {
+        const priceVal = parsePrice(p.price);
+        if (priceVal > priceLimitFilter) {
+          return false;
+        }
       }
-    }
 
-    // 6. Price Limit filtering
-    if (priceLimitFilter !== null) {
-      const priceVal = parsePrice(p.price);
-      if (priceVal > priceLimitFilter) {
-        return false;
+      // 6.1 Fabric filtering
+      if (parsedFilters.fabric) {
+        const fabricLower = (p.fabricMaterial || "").toLowerCase();
+        if (!fabricLower.includes(parsedFilters.fabric)) {
+          return false;
+        }
       }
-    }
 
-    // 6.1 Fabric filtering
-    if (parsedFilters.fabric) {
-      const fabricLower = (p.fabricMaterial || "").toLowerCase();
-      if (!fabricLower.includes(parsedFilters.fabric)) {
-        return false;
+      // 6.2 Discount filtering
+      if (parsedFilters.discountLimit !== undefined) {
+        const actual = parseFloat(String(p.originalPrice || "").replace(/[^0-9.]/g, ""));
+        const disc = parseFloat(String(p.price || "").replace(/[^0-9.]/g, ""));
+        const pct = (actual && disc && actual > disc) ? Math.round(((actual - disc) / actual) * 100) : 0;
+        if (pct < parsedFilters.discountLimit) {
+          return false;
+        }
       }
-    }
 
-    // 6.2 Discount filtering
-    if (parsedFilters.discountLimit !== undefined) {
-      const actual = parseFloat(String(p.originalPrice || "").replace(/[^0-9.]/g, ""));
-      const disc = parseFloat(String(p.price || "").replace(/[^0-9.]/g, ""));
-      const pct = (actual && disc && actual > disc) ? Math.round(((actual - disc) / actual) * 100) : 0;
-      if (pct < parsedFilters.discountLimit) {
-        return false;
+      // 6.3 Custom Tags filtering
+      if (parsedFilters.customTags && parsedFilters.customTags.length > 0) {
+        const productTags = (p.tags || []).map((t: string) => t.toLowerCase());
+        const hasMatchingTag = parsedFilters.customTags.some(t => 
+          productTags.some((pt: string) => pt.includes(t)) || (p.name || "").toLowerCase().includes(t)
+        );
+        if (!hasMatchingTag) {
+          return false;
+        }
       }
-    }
 
-    // 6.3 Custom Tags filtering
-    if (parsedFilters.customTags && parsedFilters.customTags.length > 0) {
-      const productTags = (p.tags || []).map((t: string) => t.toLowerCase());
-      const hasMatchingTag = parsedFilters.customTags.some(t => 
-        productTags.some((pt: string) => pt.includes(t)) || (p.name || "").toLowerCase().includes(t)
-      );
-      if (!hasMatchingTag) {
-        return false;
+      // 7. Tag filtering
+      if (tagFilter === "New" || tagFilter === "New Arrivals") {
+        const isNewId = p.id.startsWith("pr-");
+        if (p.tag !== "New" && !isNewId) return false;
+      } else if (tagFilter === "Trending") {
+        if (getTrendingScore(p.id) < 5 && p.tag !== "Trending") return false;
+      } else if (tagFilter === "Bestsellers") {
+        const purchases = state.productPurchases?.[p.id] || 0;
+        if (p.tag !== "Bestseller" && purchases < 2) return false;
       }
-    }
 
-    // 7. Tag filtering
-    if (tagFilter === "New" || tagFilter === "New Arrivals") {
-      const isNewId = p.id.startsWith("pr-");
-      if (p.tag !== "New" && !isNewId) return false;
-    } else if (tagFilter === "Trending") {
-      if (getTrendingScore(p.id) < 5 && p.tag !== "Trending") return false;
-    } else if (tagFilter === "Bestsellers") {
-      const purchases = state.productPurchases?.[p.id] || 0;
-      if (p.tag !== "Bestseller" && purchases < 2) return false;
-    }
+      // 8. Keyword match for remaining parts
+      const remainingQuery = styleInput
+        .replace(/\b(show|me|find|get|please|i|want|search|for|a|an|the|look|display|view|products|related|to|items|matching)\b/gi, "")
+        .replace(/\b(men|man|gentlemen|boy|male|women|woman|lady|ladies|girl|female)s?\b/gi, "")
+        .replace(/\b(t-custom-custom-shirts?|t-shirts?|t shirts?|tshirts?|shirts?|tops?|bottoms?|pants?|trousers?|accessories?|couture|gown|dress)s?\b/gi, "")
+        .replace(/\b(xs|s|m|l|xl|2xl|3xl|4xl|xxl|xxxl|xxxxl)\b/gi, "")
+        .replace(/\b(black|white|red|blue|green|pink|yellow|orange|grey|gray|purple|gold|silver|brown|beige|navy|noir|cotton|silk|polyester|denim|leather|wool|linen|velvet|satin|crepe|georgette|nylon|viscose)\b/gi, "")
+        .replace(/\b(?:under|below|less than|max|budget)\s*(?:rs\.?|inr|₹)?\s*\d+[\d,]*\b/gi, "")
+        .replace(/(?:rs\.?|inr|₹)\s*\d+[\d,]*\b/gi, "")
+        .replace(/\b(new|latest|arrival|trend|trending|popular|hot|best|bestseller|best selling)s?\b/gi, "")
+        .replace(/\b\d+\s*%\s*(?:off|discount)?\b/gi, "")
+        .replace(/\b(?:off|discount of)\s*\d+\s*%\b/gi, "")
+        .replace(/\s+/g, " ")
+        .trim();
 
-    // 8. Keyword match for remaining parts
-    const remainingQuery = styleInput
-      .replace(/\b(show|me|find|get|please|i|want|search|for|a|an|the|look|display|view|products|related|to|items|matching)\b/gi, "")
-      .replace(/\b(men|man|gentlemen|boy|male|women|woman|lady|ladies|girl|female)s?\b/gi, "")
-      .replace(/\b(t-custom-custom-shirts?|t-shirts?|t shirts?|tshirts?|shirts?|tops?|bottoms?|pants?|trousers?|accessories?|couture|gown|dress)s?\b/gi, "")
-      .replace(/\b(xs|s|m|l|xl|2xl|3xl|4xl|xxl|xxxl|xxxxl)\b/gi, "")
-      .replace(/\b(black|white|red|blue|green|pink|yellow|orange|grey|gray|purple|gold|silver|brown|beige|navy|noir|cotton|silk|polyester|denim|leather|wool|linen|velvet|satin|crepe|georgette|nylon|viscose)\b/gi, "")
-      .replace(/\b(?:under|below|less than|max|budget)\s*(?:rs\.?|inr|₹)?\s*\d+[\d,]*\b/gi, "")
-      .replace(/(?:rs\.?|inr|₹)\s*\d+[\d,]*\b/gi, "")
-      .replace(/\b(new|latest|arrival|trend|trending|popular|hot|best|bestseller|best selling)s?\b/gi, "")
-      .replace(/\b\d+\s*%\s*(?:off|discount)?\b/gi, "")
-      .replace(/\b(?:off|discount of)\s*\d+\s*%\b/gi, "")
-      .replace(/\s+/g, " ")
-      .trim();
+      if (remainingQuery) {
+        const keywords = remainingQuery.toLowerCase().split(/\s+/);
+        const nameLower = (p.name || "").toLowerCase();
+        const houseLower = (p.house || "").toLowerCase();
+        const matches = keywords.every((kw: string) => nameLower.includes(kw) || houseLower.includes(kw));
+        if (!matches) return false;
+      }
 
-    if (remainingQuery) {
-      const keywords = remainingQuery.toLowerCase().split(/\s+/);
-      const nameLower = (p.name || "").toLowerCase();
-      const houseLower = (p.house || "").toLowerCase();
-      const matches = keywords.every((kw: string) => nameLower.includes(kw) || houseLower.includes(kw));
-      if (!matches) return false;
-    }
-
-    return true;
-  });
-
-  // Sort logic
-  if (tagFilter === "Trending") {
-    filteredProducts.sort((a, b) => getTrendingScore(b.id) - getTrendingScore(a.id));
-  } else if (tagFilter === "New" || tagFilter === "New Arrivals") {
-    filteredProducts.sort((a, b) => {
-      const isANew = a.id.startsWith("pr-");
-      const isBNew = b.id.startsWith("pr-");
-      if (isANew && !isBNew) return -1;
-      if (!isANew && isBNew) return 1;
-      return b.id.localeCompare(a.id);
+      return true;
     });
-  }
+
+    // Sort logic
+    if (tagFilter === "Trending") {
+      list.sort((a, b) => getTrendingScore(b.id) - getTrendingScore(a.id));
+    } else if (tagFilter === "New" || tagFilter === "New Arrivals") {
+      list.sort((a, b) => {
+        const isANew = a.id.startsWith("pr-");
+        const isBNew = b.id.startsWith("pr-");
+        if (isANew && !isBNew) return -1;
+        if (!isANew && isBNew) return 1;
+        return b.id.localeCompare(a.id);
+      });
+    }
+
+    return list;
+  }, [products, searchParams, genderFilter, categoryFilter, categoriesFilter, sizeFilter, colorFilter, priceLimitFilter, tagFilter, parsedFilters, styleInput, parsePrice, state.buckets, state.productViews, state.productCartAdditions, state.productPurchases, state.productReviews]);
 
   const userWishlist = state.user ? (state.shopWishlist[state.user.id] || []) : [];
 

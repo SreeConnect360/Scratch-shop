@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { usePortal } from "@/lib/portal-state";
 import { PRODUCTS } from "@/lib/data";
-import { useState, useRef, useCallback, useContext } from "react";
+import { useState, useRef, useCallback, useContext, useMemo } from "react";
 import { Heart, ShoppingBag, Trash2, ArrowLeft, ChevronLeft, ChevronRight, Star } from "lucide-react";
 import { useShopNotification, QuickAddContext } from "./_shop";
 import { toast } from "sonner";
@@ -19,17 +19,21 @@ function ShopWishlistPage() {
   const user = state.user;
 
   // Wishlist Items
-  const wishlistIds = user
-    ? (state.shopWishlist?.[user.id] ||
-       state.shopWishlist?.[user.id.toLowerCase()] ||
-       state.shopWishlist?.[user.id.toUpperCase()] ||
-       [])
-    : [];
+  const wishlistIds = useMemo(() => {
+    return user
+      ? (state.shopWishlist?.[user.id] ||
+         state.shopWishlist?.[user.id.toLowerCase()] ||
+         state.shopWishlist?.[user.id.toUpperCase()] ||
+         [])
+      : [];
+  }, [user, state.shopWishlist]);
   
   const allProducts = state.products || PRODUCTS;
-  const wishlistItems = wishlistIds
-    .map(id => allProducts.find(p => String(p.id) === String(id)))
-    .filter((p): p is typeof allProducts[number] => Boolean(p));
+  const wishlistItems = useMemo(() => {
+    return wishlistIds
+      .map(id => allProducts.find(p => String(p.id) === String(id)))
+      .filter((p): p is typeof allProducts[number] => Boolean(p));
+  }, [wishlistIds, allProducts]);
 
   if (!user) {
     return (

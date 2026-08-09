@@ -653,6 +653,7 @@ type Ctx = {
   fetchCourierQuotes: (orderId: string) => Promise<any>;
   assignAWB: (userId: string, orderId: string, courierId: string, courierName: string) => Promise<any>;
   schedulePickup: (userId: string, orderId: string, pickupDate: string) => Promise<any>;
+  cancelOrder: (userId: string, orderId: string) => Promise<any>;
   addCoupon: (coupon: { code: string; discount: number; type?: "fixed" | "percentage" | "wallet"; expiryDate?: string; usageLimit?: number; userEligibility?: string }) => void;
   removeCoupon: (code: string) => void;
   addWalletGiftCard: (giftCard: Omit<WalletGiftCard, "id" | "usedCount" | "createdAt" | "status"> & { status?: WalletGiftCard["status"] }) => void;
@@ -701,7 +702,7 @@ type Ctx = {
 const PortalContext = createContext<Ctx | null>(null);
 
 export function PortalProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<PortalState>(DEFAULT);
+  const [state, setState] = useState<PortalState>(() => load());
   const [hydrated, setHydrated] = useState(false);
   const [isProductsLoading, setIsProductsLoading] = useState(true);
   const localVersionRef = useRef<number>(0);
@@ -1745,6 +1746,28 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         console.error("Failed to schedule pickup:", err);
       }
     },
+    cancelOrder: async (userId, orderId) => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/orders/${orderId}/cancel`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" }
+        });
+        if (res.ok) {
+          const updatedOrder = await res.json();
+          setState(s => {
+            const list = s.orders[userId] ?? [];
+            const next = list.map(o => o.id === orderId ? updatedOrder : o);
+            return {
+              ...s,
+              orders: { ...s.orders, [userId]: next }
+            };
+          });
+          return updatedOrder;
+        }
+      } catch (err) {
+        console.error("Failed to cancel order:", err);
+      }
+    },
     addCoupon: (coupon) => {
       const upperCode = coupon.code.toUpperCase();
       const newCoupon = {
@@ -1796,19 +1819,30 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 
     setAdminMode: (mode) => setState(s => ({ ...s, adminMode: mode })),
     createProduct: (p) => {
-      const id = `vnd-${Date.now()}-catalog`;
+      const id = (p as any).id || `vnd-${Date.now()}-catalog`;
       const newProduct: Product = {
         id,
+        status: p.status || "PUBLISHED",
+        visibility: p.visibility || "VISIBLE",
         ...p
       };
-      setState(s => ({ ...s, products: [newProduct, ...s.products] }));
+      setState(s => {
+        const next = { ...s, products: [newProduct, ...(s.products || []).filter(existing => existing.id !== id)] };
+        save(next);
+        return next;
+      });
       
-      const cleaned = { ...p, id };
-      if (cleaned.price !== undefined) {
-        cleaned.price = cleaned.price.toString().replace(/[^0-9.]/g, "") as any;
+      const cleaned: any = {
+        status: p.status || "PUBLISHED",
+        visibility: p.visibility || "VISIBLE",
+        ...p,
+        id
+      };
+      if (cleaned.price !== undefined && cleaned.price !== null) {
+        cleaned.price = cleaned.price.toString().replace(/[^0-9.]/g, "");
       }
-      if (cleaned.originalPrice !== undefined) {
-        cleaned.originalPrice = cleaned.originalPrice.toString().replace(/[^0-9.]/g, "") as any;
+      if (cleaned.originalPrice !== undefined && cleaned.originalPrice !== null) {
+        cleaned.originalPrice = cleaned.originalPrice.toString().replace(/[^0-9.]/g, "");
       }
       
       fetch(`${BACKEND_URL}/api/vendors/products`, {
@@ -1825,18 +1859,22 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       }).catch(err => console.error("Failed to sync new product to backend:", err));
     },
     updateProduct: (id, patch) => {
-      setState(s => ({
-        ...s,
-        products: s.products.map(p => p.id === id ? { ...p, ...patch } : p)
-      }));
+      setState(s => {
+        const next = {
+          ...s,
+          products: (s.products || []).map(p => p.id === id ? { ...p, ...patch } : p)
+        };
+        save(next);
+        return next;
+      });
       
       // Clean price strings to numbers if present
-      const cleanedPatch = { ...patch };
-      if (cleanedPatch.price !== undefined) {
-        cleanedPatch.price = cleanedPatch.price.toString().replace(/[^0-9.]/g, "") as any;
+      const cleanedPatch: any = { ...patch };
+      if (cleanedPatch.price !== undefined && cleanedPatch.price !== null) {
+        cleanedPatch.price = cleanedPatch.price.toString().replace(/[^0-9.]/g, "");
       }
-      if (cleanedPatch.originalPrice !== undefined) {
-        cleanedPatch.originalPrice = cleanedPatch.originalPrice.toString().replace(/[^0-9.]/g, "") as any;
+      if (cleanedPatch.originalPrice !== undefined && cleanedPatch.originalPrice !== null) {
+        cleanedPatch.originalPrice = cleanedPatch.originalPrice.toString().replace(/[^0-9.]/g, "");
       }
       fetch(`${BACKEND_URL}/api/vendors/products/${id}`, {
         method: "PUT",
@@ -1852,7 +1890,11 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       }).catch(err => console.error("Failed to sync product update to backend:", err));
     },
     deleteProduct: (id) => {
-      setState(s => ({ ...s, products: s.products.filter(p => p.id !== id) }));
+      setState(s => {
+        const next = { ...s, products: (s.products || []).filter(p => p.id !== id) };
+        save(next);
+        return next;
+      });
       fetch(`${BACKEND_URL}/api/vendors/products/${id}`, {
         method: "DELETE"
       }).then(res => {
@@ -2232,10 +2274,14 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         })
       }).catch(err => console.error("Failed to sync review to backend:", err));
     },
-    updateHomepageLayout: (layout) => {
+    updateHomepageLayout: (layoutPatch) => {
       let nextLayout: any;
       setState(s => {
-        nextLayout = layout;
+        nextLayout = {
+          ...s.homepageLayout,
+          ...layoutPatch,
+          announcement: layoutPatch.announcement ? { ...s.homepageLayout.announcement, ...layoutPatch.announcement } : s.homepageLayout.announcement
+        };
         const next = { ...s, homepageLayout: nextLayout };
         save(next);
         return next;
@@ -2249,10 +2295,14 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         else console.error("Failed to sync published homepage layout, status:", res.status);
       }).catch(err => console.error("Failed to sync published homepage layout:", err));
     },
-    updateHomepageLayoutDraft: (layout) => {
+    updateHomepageLayoutDraft: (layoutPatch) => {
       let nextLayout: any;
       setState(s => {
-        nextLayout = layout;
+        nextLayout = {
+          ...s.homepageLayoutDraft,
+          ...layoutPatch,
+          announcement: layoutPatch.announcement ? { ...s.homepageLayoutDraft.announcement, ...layoutPatch.announcement } : s.homepageLayoutDraft.announcement
+        };
         const next = { ...s, homepageLayoutDraft: nextLayout };
         save(next);
         return next;

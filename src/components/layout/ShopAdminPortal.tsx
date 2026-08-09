@@ -32,7 +32,7 @@ const formatOrderDateTime = (dateStr: string) => {
 
 export function ShopAdminPortal({ tab }: { tab: string }) {
   const [statusFilter, setStatusFilter] = useState<string>("All");
-  const { state, createProduct, updateProduct, deleteProduct, updateOrderStatus, acceptOrder, fetchCourierQuotes, assignAWB, schedulePickup, approveReturn, rejectReturn, updateReturnDetails, suspendCustomer, reactivateCustomer, addCoupon, removeCoupon, moderateReview, addWalletCredit, updateHomepageLayoutDraft, publishHomepageLayout, revertHomepageLayout, createBucket, updateBucket, deleteBucket, reorderBuckets, toggleShopWishlist, addWalletGiftCard, updateWalletGiftCard, toggleWalletGiftCardStatus, deleteWalletGiftCard } = usePortal();
+  const { state, createProduct, updateProduct, deleteProduct, updateOrderStatus, acceptOrder, fetchCourierQuotes, assignAWB, schedulePickup, cancelOrder, approveReturn, rejectReturn, updateReturnDetails, suspendCustomer, reactivateCustomer, addCoupon, removeCoupon, moderateReview, addWalletCredit, updateHomepageLayoutDraft, publishHomepageLayout, revertHomepageLayout, createBucket, updateBucket, deleteBucket, reorderBuckets, toggleShopWishlist, addWalletGiftCard, updateWalletGiftCard, toggleWalletGiftCardStatus, deleteWalletGiftCard } = usePortal();
 
   // Dynamic products list from state
   const productsList = state.products || [];
@@ -1635,6 +1635,22 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                           className="bg-accent/20 hover:bg-accent text-accent hover:text-white border border-accent/30 text-[9px] uppercase font-bold px-3 py-1.5 rounded-lg"
                         >
                           Manage Shipment (Shiprocket Panel)
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (confirm("Are you sure you want to cancel this order on Shiprocket?")) {
+                              const updated = await cancelOrder(selectedOrderDetails.userId, selectedOrderDetails.id);
+                              if (updated) {
+                                toast.success("Order cancelled successfully!");
+                                setSelectedOrderDetails(updated);
+                              } else {
+                                toast.error("Failed to cancel order.");
+                              }
+                            }
+                          }}
+                          className="bg-rose-500/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/30 text-[9px] uppercase font-bold px-3 py-1.5 rounded-lg transition-colors"
+                        >
+                          Cancel Shipment
                         </button>
                         <button
                           onClick={() => {

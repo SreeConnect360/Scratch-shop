@@ -111,28 +111,40 @@ function ShopLayout() {
 
   useEffect(() => {
     let lastScrollY = window.scrollY;
-    const onScroll = () => {
+    let ticking = false;
+
+    const updateScrollState = () => {
       const currentScrollY = window.scrollY;
-      setScrolled(currentScrollY > 24);
-      
+      const nextScrolled = currentScrollY > 24;
+      setScrolled((prev) => (prev !== nextScrolled ? nextScrolled : prev));
+
       if (currentScrollY <= 10) {
-        setShowNavbar(true);
+        setShowNavbar((prev) => (!prev ? true : prev));
       } else {
         if (isProductPage) {
           if (currentScrollY > lastScrollY) {
-            setShowNavbar(false);
+            setShowNavbar((prev) => (prev ? false : prev));
           }
         } else {
           if (currentScrollY > lastScrollY) {
-            setShowNavbar(false);
+            setShowNavbar((prev) => (prev ? false : prev));
           } else {
-            setShowNavbar(true);
+            setShowNavbar((prev) => (!prev ? true : prev));
           }
         }
       }
       lastScrollY = currentScrollY;
+      ticking = false;
     };
-    onScroll();
+
+    const onScroll = () => {
+      if (!ticking) {
+        requestAnimationFrame(updateScrollState);
+        ticking = true;
+      }
+    };
+
+    updateScrollState();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, [isProductPage]);
@@ -393,7 +405,14 @@ function ShopLayout() {
   // Retrieve dynamic homepage layout config
   const isPreview = typeof window !== "undefined" && window.location.search.includes("preview=true");
   const rawLayout = isPreview ? state.homepageLayoutDraft : state.homepageLayout;
-  const layout = { ...DEFAULT_HOMEPAGE_LAYOUT, ...rawLayout };
+  const layout = {
+    ...DEFAULT_HOMEPAGE_LAYOUT,
+    ...rawLayout,
+    announcement: {
+      ...DEFAULT_HOMEPAGE_LAYOUT.announcement,
+      ...(rawLayout?.announcement || {})
+    }
+  };
 
   return (
     <QuickAddContext.Provider value={{ openQuickAdd }}>

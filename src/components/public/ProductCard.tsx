@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useContext } from "react";
+import { useState, useRef, useCallback, useContext, memo } from "react";
 import { Link } from "@tanstack/react-router";
 import { Heart, ShoppingBag, ChevronLeft, ChevronRight, Star } from "lucide-react";
 import { motion } from "framer-motion";
@@ -22,7 +22,7 @@ export interface ProductCardProps {
   variant?: "default" | "horizontal";
 }
 
-export function ProductCard({
+export const ProductCard = memo(function ProductCard({
   p,
   toggleShopWishlist,
   addToShopCart,
@@ -530,4 +530,4 @@ export function ProductCard({
       </div>
     </div>
   );
-}
+});

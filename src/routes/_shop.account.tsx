@@ -262,14 +262,18 @@ function ShopDashboard() {
   }, [user]);
 
   // Filtered lists
-  const filteredCountries = WORLD_COUNTRIES.filter(c =>
-    c.toLowerCase().includes(countrySearch.trim().toLowerCase())
-  );
+  const filteredCountries = useMemo(() => {
+    return WORLD_COUNTRIES.filter(c =>
+      c.toLowerCase().includes(countrySearch.trim().toLowerCase())
+    );
+  }, [countrySearch]);
 
-  const filteredCountryCodes = COUNTRY_CODES.filter(c =>
-    c.country.toLowerCase().includes(codeSearch.trim().toLowerCase()) ||
-    c.code.toLowerCase().includes(codeSearch.trim().toLowerCase())
-  );
+  const filteredCountryCodes = useMemo(() => {
+    return COUNTRY_CODES.filter(c =>
+      c.country.toLowerCase().includes(codeSearch.trim().toLowerCase()) ||
+      c.code.toLowerCase().includes(codeSearch.trim().toLowerCase())
+    );
+  }, [codeSearch]);
 
   // Email Change Logic
   const handleInitiateEmailChange = () => {

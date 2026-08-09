@@ -26,10 +26,10 @@ public class ShiprocketService {
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @Value("${shiprocket.email:hello@reevibes.com}")
+    @Value("${shiprocket.email:sreesri1004@gmail.com}")
     private String email;
 
-    @Value("${shiprocket.password:h%7SVDxqFlqttMAM1FgwcV3C1LrB0%bN}")
+    @Value("${shiprocket.password:Yx&2pW$7sdOzWjVf0yha21k6HI!vGgzv}")
     private String password;
 
     private String cachedToken = null;
@@ -307,6 +307,34 @@ public class ShiprocketService {
             }
         } catch (Exception e) {
             System.err.println("Exception scheduling pickup: " + e.getMessage());
+        }
+        return Collections.emptyMap();
+    }
+
+    /**
+     * Cancels an order in Shiprocket before dispatch.
+     */
+    public Map<String, Object> cancelShiprocketOrder(String shiprocketOrderId) {
+        String token = getAuthToken();
+        if (token == null || shiprocketOrderId == null || shiprocketOrderId.isEmpty()) return Collections.emptyMap();
+
+        try {
+            String url = "https://apiv2.shiprocket.in/v1/external/orders/cancel";
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("ids", Collections.singletonList(shiprocketOrderId));
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("Authorization", "Bearer " + token);
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+            ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                return (Map<String, Object>) response.getBody();
+            }
+        } catch (Exception e) {
+            System.err.println("Exception canceling Shiprocket order: " + e.getMessage());
         }
         return Collections.emptyMap();
     }

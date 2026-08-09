@@ -146,13 +146,15 @@ function ProductDetail() {
 
   // Product Lookup
   const products = state.products || [];
-  const product = products.find(
-    (p) =>
-      p.id === productId ||
-      p.id.replace("-catalog", "") === productId ||
-      (p.name && p.name.toLowerCase().replace(/[^a-z0-9]+/g, "-") === productId) ||
-      (p.sku && p.sku.toLowerCase() === productId.toLowerCase())
-  );
+  const product = useMemo(() => {
+    return products.find(
+      (p) =>
+        p.id === productId ||
+        p.id.replace("-catalog", "") === productId ||
+        (p.name && p.name.toLowerCase().replace(/[^a-z0-9]+/g, "-") === productId) ||
+        (p.sku && p.sku.toLowerCase() === productId.toLowerCase())
+    );
+  }, [products, productId]);
 
   const isPublished = product && (!product.status || product.status === "PUBLISHED" || product.status === "published");
 
@@ -161,15 +163,16 @@ function ProductDetail() {
       document.title = `${product.name} — ReeVibes`;
       recordProductView(product.id);
     }
-  }, [product]);
+  }, [product?.id]);
 
   // Gallery of photos
-  const mediaGallery =
-    (product as any)?.images && (product as any).images.length > 0
+  const mediaGallery = useMemo(() => {
+    return (product as any)?.images && (product as any).images.length > 0
       ? (product as any).images
       : product?.image
       ? [product.image]
       : [];
+  }, [product]);
 
   const [activeMediaIdx, setActiveMediaIdx] = useState(0);
   const [viewerOpen, setViewerOpen] = useState(false);

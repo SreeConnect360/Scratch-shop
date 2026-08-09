@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { usePortal } from "@/lib/portal-state";
 import { BACKEND_URL } from "@/lib/config";
 import { z } from "zod";
@@ -354,23 +354,32 @@ export function ShopCart() {
   }, [cartItems, isBuyNow, search.productId, search.size]);
 
   // Keep only active/valid cart item keys
-  const validSelectedKeys = selectedKeys.filter((k) =>
-    cartItems.some((item) => `${item.productId}-${item.selectedSize || "M"}` === k)
-  );
+  const validSelectedKeys = useMemo(() => {
+    return selectedKeys.filter((k) =>
+      cartItems.some((item) => `${item.productId}-${item.selectedSize || "M"}` === k)
+    );
+  }, [selectedKeys, cartItems]);
 
-  const selectedItems = cartItems.filter((item) =>
-    validSelectedKeys.includes(`${item.productId}-${item.selectedSize || "M"}`)
-  );
+  const selectedItems = useMemo(() => {
+    return cartItems.filter((item) =>
+      validSelectedKeys.includes(`${item.productId}-${item.selectedSize || "M"}`)
+    );
+  }, [cartItems, validSelectedKeys]);
 
-  const selectedTotal = selectedItems.reduce(
-    (sum, item) => sum + Number(String(item.price).replace(/[^0-9.]/g, "")) * item.qty,
-    0
-  );
-  const selectedCount = selectedItems.reduce((sum, item) => sum + item.qty, 0);
+  const selectedTotal = useMemo(() => {
+    return selectedItems.reduce(
+      (sum, item) => sum + Number(String(item.price).replace(/[^0-9.]/g, "")) * item.qty,
+      0
+    );
+  }, [selectedItems]);
+
+  const selectedCount = useMemo(() => {
+    return selectedItems.reduce((sum, item) => sum + item.qty, 0);
+  }, [selectedItems]);
 
   const discountPercent = activeCoupon ? activeCoupon.discount : 0;
-  const discountAmount = Math.round((selectedTotal * discountPercent) / 100);
-  const finalTotal = Math.max(0, selectedTotal - discountAmount);
+  const discountAmount = useMemo(() => Math.round((selectedTotal * discountPercent) / 100), [selectedTotal, discountPercent]);
+  const finalTotal = useMemo(() => Math.max(0, selectedTotal - discountAmount), [selectedTotal, discountAmount]);
 
   // Address parsing helper
   const getParsedAddresses = () => {
