@@ -268,6 +268,127 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
     }
   };
 
+  const handleDownloadBulkCSV = () => {
+    try {
+      toast.info("Generating Shiprocket Bulk Order CSV...");
+
+      const orderedOrders = ordersList.filter(o =>
+        ["pending approval", "processing", "pending", "accepted", "ready to ship", "confirmed", "packed"].includes(o.status?.toLowerCase() || "")
+      );
+
+      // CSV header row matching Shiprocket sample.csv exactly
+      const csvHeaders = [
+        "*Order ID", "*Channel", "Payment Method", "Customer Name", "Customer Email",
+        "Customer Mobile", "Address Line 1", "Address Line 2", "Address State",
+        "Address City", "Address Pincode", "Pickup Address Name", "dimensions (CM)",
+        "Package Name", "Invoice id", "Weight (KG)", "Archive", "Self Fulfilled",
+        "Delivery Executive Name", "Delivery Executive Phone Number", "Tracking Url",
+        "Order Type", "Order Tag", "Hsn Code", "Sku"
+      ];
+
+      const csvRows: string[][] = [];
+
+      orderedOrders.forEach(ord => {
+        const u = state.users.find(usr => usr.id === ord.userId);
+        const customerName = [u?.firstName, u?.lastName].filter(Boolean).join(" ") || ord.customerName || "Customer";
+        const customerEmail = u?.email || "";
+        const rawPhone = (u?.phone || "9876543210").replace(/[^0-9]/g, "");
+        const customerMobile = rawPhone.length >= 10 ? rawPhone.slice(-10) : "9876543210";
+
+        let street = ord.address || u?.address || "100 Feet Road, Indiranagar, Bangalore, Karnataka - 560038";
+        let addressLine2 = "";
+        let stateName = "Karnataka";
+        let city = "Bangalore";
+        let pincode = "560038";
+
+        if (typeof street === "string" && street.length > 0) {
+          const pinMatch = street.match(/\b\d{6}\b/);
+          if (pinMatch) pincode = pinMatch[0];
+          const parts = street.split(",").map(s => s.trim()).filter(Boolean);
+          if (parts.length >= 3) {
+            const lastPart = parts[parts.length - 1];
+            if (lastPart.toLowerCase().includes("india")) {
+              if (parts.length >= 4) {
+                stateName = parts[parts.length - 2].replace(/\d+/g, "").trim() || "Karnataka";
+                city = parts[parts.length - 3] || "Bangalore";
+              }
+            } else {
+              const stateClean = lastPart.replace(/\d+/g, "").trim();
+              if (stateClean) stateName = stateClean;
+              if (parts.length >= 3) city = parts[parts.length - 2];
+            }
+            addressLine2 = parts.length > 2 ? parts[1] : "";
+          }
+        }
+
+        const payMethod = ord.paymentMethod?.toLowerCase().includes("cod") ? "COD" : "Prepaid";
+
+        (ord.items || []).forEach((item: any) => {
+          const liveProd = state.products.find((pr: any) => pr.id === item.productId || pr.sku === item.sku) || item;
+          const prodName = liveProd.name || item.name || "ReeVibes Fashion Piece";
+          const masterSku = liveProd.sku || item.sku || liveProd.id || item.productId || `RV-SKU-${ord.id}`;
+
+          const row = [
+            ord.id, // *Order ID
+            "Custom", // *Channel
+            payMethod, // Payment Method
+            customerName, // Customer Name
+            customerEmail, // Customer Email
+            customerMobile, // Customer Mobile
+            street, // Address Line 1
+            addressLine2, // Address Line 2
+            stateName, // Address State
+            city, // Address City
+            pincode, // Address Pincode
+            "Primary", // Pickup Address Name
+            "15 x 15 x 10", // dimensions (CM)
+            prodName, // Package Name
+            ord.id, // Invoice id
+            "0.5", // Weight (KG)
+            "no", // Archive
+            "no", // Self Fulfilled
+            "", // Delivery Executive Name
+            "", // Delivery Executive Phone Number
+            "", // Tracking Url
+            "Essentials", // Order Type
+            "", // Order Tag
+            "610910", // Hsn Code
+            masterSku // Sku
+          ];
+          csvRows.push(row);
+        });
+      });
+
+      const escapeCsvField = (field: string) => {
+        const str = String(field ?? "");
+        if (str.includes(",") || str.includes("\"") || str.includes("\n")) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return `"${str}"`;
+      };
+
+      const csvContent = [
+        csvHeaders.map(h => escapeCsvField(h)).join(","),
+        ...csvRows.map(row => row.map(cell => escapeCsvField(cell)).join(","))
+      ].join("\n");
+
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "ReeVibes_Bulk_Orders_Shiprocket.csv";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success("Downloaded Shiprocket Bulk Order CSV!");
+    } catch (err: any) {
+      console.error("Failed to generate CSV:", err);
+      toast.error(err.message || "Failed to export CSV file.");
+    }
+  };
+
   const [selectedReturnDetails, setSelectedReturnDetails] = useState<any | null>(null);
   const [selectedProductPreview, setSelectedProductPreview] = useState<any | null>(null);
   const [rejectionModalReturnId, setRejectionModalReturnId] = useState<string | null>(null);
@@ -5851,13 +5972,22 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                 <div className="text-xs text-muted-foreground">
                   Orders placed by customers awaiting fulfillment, courier assignment, and pickup scheduling.
                 </div>
-                <button
-                  onClick={handleDownloadBulkExcel}
-                  className="bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/30 text-xs font-bold px-3 py-1.5 rounded-md flex items-center gap-2 transition-colors cursor-pointer shrink-0"
-                >
-                  <FileSpreadsheet className="w-4 h-4" />
-                  Download Excel (Bulk Order)
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={handleDownloadBulkExcel}
+                    className="bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/30 text-xs font-bold px-3 py-1.5 rounded-md flex items-center gap-2 transition-colors cursor-pointer"
+                  >
+                    <FileSpreadsheet className="w-4 h-4" />
+                    Download Excel
+                  </button>
+                  <button
+                    onClick={handleDownloadBulkCSV}
+                    className="bg-sky-600/20 hover:bg-sky-600 text-sky-400 hover:text-white border border-sky-500/30 text-xs font-bold px-3 py-1.5 rounded-md flex items-center gap-2 transition-colors cursor-pointer"
+                  >
+                    <FileText className="w-4 h-4" />
+                    Download CSV
+                  </button>
+                </div>
               </div>
 
               <div className="overflow-x-auto">

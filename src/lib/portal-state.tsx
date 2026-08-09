@@ -2001,14 +2001,19 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(cleaned)
-      }).then(res => {
+      }).then(async res => {
         if (res.ok) {
           toast.success("Product created & saved to production database!");
           fetchBackendState(true);
         } else {
-          toast.error("Failed to save product to production database.");
+          const errText = await res.text().catch(() => "");
+          console.error("Product create failed:", res.status, errText);
+          toast.error(`Failed to save product (${res.status}). ${errText.slice(0, 100)}`);
         }
-      }).catch(err => console.error("Failed to sync new product to backend:", err));
+      }).catch(err => {
+        console.error("Failed to sync new product to backend:", err);
+        toast.error("Network error saving product. Check backend connection.");
+      });
     },
     updateProduct: (id, patch) => {
       setState(s => {

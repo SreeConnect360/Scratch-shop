@@ -16,12 +16,11 @@ const getBackendUrl = () => {
       hostname.startsWith("172.") || 
       hostname.endsWith(".local");
       
-    if (!isLocal) {
-      return PRODUCTION_BACKEND_URL;
+    if (isLocal) {
+      // Use local Spring Boot backend running on port 8081
+      return `${window.location.protocol}//${hostname}:8081`;
     }
     
-    // Dynamically construct backend URL using current protocol and hostname on port 8081 if running local backend,
-    // otherwise fallback to production backend URL.
     return PRODUCTION_BACKEND_URL;
   }
   return PRODUCTION_BACKEND_URL;
