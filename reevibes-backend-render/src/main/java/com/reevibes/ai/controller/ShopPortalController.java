@@ -493,7 +493,6 @@ public class ShopPortalController {
 
             String url = "https://api.razorpay.com/v1/orders";
             org.springframework.http.HttpEntity<Map<String, Object>> entity = new org.springframework.http.HttpEntity<>(payload, getRazorpayAuthHeaders());
-            @SuppressWarnings("rawtypes")
             ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
@@ -1263,7 +1262,6 @@ public class ShopPortalController {
 
                 String rzpRefundUrl = "https://api.razorpay.com/v1/payments/" + rzpPaymentId + "/refund";
                 org.springframework.http.HttpEntity<Map<String, Object>> entity = new org.springframework.http.HttpEntity<>(rzpPayload, getRazorpayAuthHeaders());
-                @SuppressWarnings("rawtypes")
                 ResponseEntity<Map> rzpRes = restTemplate.postForEntity(rzpRefundUrl, entity, Map.class);
 
                 if (rzpRes.getStatusCode().is2xxSuccessful() && rzpRes.getBody() != null) {
