@@ -32,7 +32,7 @@ const formatOrderDateTime = (dateStr: string) => {
 
 export function ShopAdminPortal({ tab }: { tab: string }) {
   const [statusFilter, setStatusFilter] = useState<string>("All");
-  const { state, createProduct, updateProduct, deleteProduct, updateOrderStatus, acceptOrder, fetchCourierQuotes, assignAWB, schedulePickup, cancelOrder, approveReturn, rejectReturn, updateReturnDetails, suspendCustomer, reactivateCustomer, addCoupon, removeCoupon, moderateReview, addWalletCredit, updateHomepageLayoutDraft, publishHomepageLayout, revertHomepageLayout, createBucket, updateBucket, deleteBucket, reorderBuckets, toggleShopWishlist, addWalletGiftCard, updateWalletGiftCard, toggleWalletGiftCardStatus, deleteWalletGiftCard } = usePortal();
+  const { state, createProduct, updateProduct, deleteProduct, updateOrderStatus, acceptOrder, fetchCourierQuotes, assignAWB, schedulePickup, cancelOrder, fetchOrderLabel, fetchOrderInvoice, assignReturnPickup, processSplitRefund, approveReturn, rejectReturn, updateReturnDetails, suspendCustomer, reactivateCustomer, addCoupon, removeCoupon, moderateReview, addWalletCredit, updateHomepageLayoutDraft, publishHomepageLayout, revertHomepageLayout, createBucket, updateBucket, deleteBucket, reorderBuckets, toggleShopWishlist, addWalletGiftCard, updateWalletGiftCard, toggleWalletGiftCardStatus, deleteWalletGiftCard } = usePortal();
 
   // Dynamic products list from state
   const productsList = state.products || [];
@@ -1627,7 +1627,29 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                         <div><span className="font-semibold text-white">Courier Partner:</span> {selectedOrderDetails.courierPartner}</div>
                         <div><span className="font-semibold text-white">AWB Code:</span> {selectedOrderDetails.trackingNumber}</div>
                       </div>
-                      <div className="flex gap-2.5">
+                      <div className="flex flex-wrap gap-2.5">
+                        <button
+                          onClick={async () => {
+                            toast.info("Fetching shipping label PDF...");
+                            const url = await fetchOrderLabel(selectedOrderDetails.id);
+                            if (url) window.open(url, "_blank");
+                            else toast.error("Label PDF not ready yet.");
+                          }}
+                          className="bg-sky-600/30 hover:bg-sky-600 text-sky-200 hover:text-white border border-sky-500/30 text-[9px] uppercase font-bold px-3 py-1.5 rounded-lg flex items-center gap-1"
+                        >
+                          <FileText className="w-3 h-3" /> Get Label PDF
+                        </button>
+                        <button
+                          onClick={async () => {
+                            toast.info("Fetching invoice PDF...");
+                            const url = await fetchOrderInvoice(selectedOrderDetails.id);
+                            if (url) window.open(url, "_blank");
+                            else toast.error("Invoice PDF not ready yet.");
+                          }}
+                          className="bg-emerald-600/30 hover:bg-emerald-600 text-emerald-200 hover:text-white border border-emerald-500/30 text-[9px] uppercase font-bold px-3 py-1.5 rounded-lg flex items-center gap-1"
+                        >
+                          <FileText className="w-3 h-3" /> Get Invoice PDF
+                        </button>
                         <button
                           onClick={() => {
                             window.open("https://app.shiprocket.in/shipments", "_blank");
@@ -2178,13 +2200,15 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                     </button>
 
                     <button
-                      onClick={() => {
-                        setPickupModalReturnId(activeReturn.id);
-                        setPickupDateInput(new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split("T")[0]);
+                      onClick={async () => {
+                        toast.info("Assigning reverse pickup on Shiprocket...");
+                        const res = await assignReturnPickup(activeReturn.id);
+                        if (res) toast.success("Shiprocket Reverse Pickup assigned successfully!");
+                        else toast.error("Failed to assign reverse pickup");
                       }}
-                      className="bg-blue-600/35 hover:bg-blue-600 text-blue-200 hover:text-white text-[10px] uppercase font-bold px-3 py-2 rounded-lg border border-blue-500/20"
+                      className="bg-sky-600/35 hover:bg-sky-600 text-sky-200 hover:text-white text-[10px] uppercase font-bold px-3 py-2 rounded-lg border border-sky-500/20 flex items-center gap-1"
                     >
-                      Schedule Pickup
+                      <Truck className="w-3.5 h-3.5" /> Assign Reverse Pickup
                     </button>
 
                     <button
@@ -2195,14 +2219,17 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                     </button>
 
                     <button
-                      onClick={() => {
-                        triggerModal("success", "Issue Refund & Complete Return", `Approve refund and complete payout of ₹${activeReturn.refundAmount.toLocaleString()}? This will instantly credit the customer wallet/account and mark it completed.`, () => {
-                          approveReturn(activeReturn.id);
-                        });
+                      onClick={async () => {
+                        if (confirm(`Execute Split Refund for Return ${activeReturn.id}? This will credit user wallet and execute Razorpay refund API.`)) {
+                          toast.info("Processing split refund...");
+                          const res = await processSplitRefund(activeReturn.id);
+                          if (res) toast.success("Split Refund completed successfully!");
+                          else toast.error("Failed to process split refund");
+                        }
                       }}
-                      className="bg-accent hover:bg-accent/90 text-white text-[10px] uppercase font-bold px-3 py-2 rounded-lg shadow-lg"
+                      className="bg-accent hover:bg-accent/90 text-white text-[10px] uppercase font-bold px-3 py-2 rounded-lg shadow-lg flex items-center gap-1"
                     >
-                      Issue Refund
+                      <ShieldCheck className="w-3.5 h-3.5" /> Process Split Refund
                     </button>
 
                     <button

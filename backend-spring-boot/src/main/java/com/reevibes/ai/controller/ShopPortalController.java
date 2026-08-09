@@ -394,6 +394,46 @@ public class ShopPortalController {
         return ResponseEntity.ok(saved);
     }
 
+    @GetMapping("/orders/{id}/label")
+    @Transactional
+    public ResponseEntity<Map<String, String>> getOrderLabel(@PathVariable String id) {
+        ShopOrder order = orderRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found: " + id));
+        if (order.getLabelUrl() != null && !order.getLabelUrl().isEmpty()) {
+            return ResponseEntity.ok(Map.of("labelUrl", order.getLabelUrl()));
+        }
+        String shipmentId = order.getShiprocketShipmentId();
+        if (shipmentId != null && !shipmentId.isEmpty()) {
+            String url = shiprocketService.generateLabel(shipmentId);
+            if (url != null && !url.isEmpty()) {
+                order.setLabelUrl(url);
+                orderRepository.save(order);
+                return ResponseEntity.ok(Map.of("labelUrl", url));
+            }
+        }
+        return ResponseEntity.ok(Map.of("labelUrl", ""));
+    }
+
+    @GetMapping("/orders/{id}/invoice")
+    @Transactional
+    public ResponseEntity<Map<String, String>> getOrderInvoice(@PathVariable String id) {
+        ShopOrder order = orderRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found: " + id));
+        if (order.getInvoiceUrl() != null && !order.getInvoiceUrl().isEmpty()) {
+            return ResponseEntity.ok(Map.of("invoiceUrl", order.getInvoiceUrl()));
+        }
+        String srOrderId = order.getShiprocketOrderId();
+        if (srOrderId != null && !srOrderId.isEmpty()) {
+            String url = shiprocketService.generateInvoice(srOrderId);
+            if (url != null && !url.isEmpty()) {
+                order.setInvoiceUrl(url);
+                orderRepository.save(order);
+                return ResponseEntity.ok(Map.of("invoiceUrl", url));
+            }
+        }
+        return ResponseEntity.ok(Map.of("invoiceUrl", ""));
+    }
+
     @PutMapping("/orders/{id}/status")
     @Transactional
     public ResponseEntity<ShopOrder> updateOrderStatus(@PathVariable String id, @RequestBody Map<String, Object> body) {
@@ -567,6 +607,78 @@ public class ShopPortalController {
         if (body.containsKey("pickupDate")) req.setPickupDate((String) body.get("pickupDate"));
 
         ReturnRequest saved = returnRequestRepository.save(req);
+        syncService.bumpVersion();
+        return ResponseEntity.ok(saved);
+    }
+
+    @PostMapping("/returns/{id}/assign-pickup")
+    @Transactional
+    public ResponseEntity<ReturnRequest> assignReturnPickup(@PathVariable String id) {
+        ReturnRequest req = returnRequestRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Return not found: " + id));
+
+        ShopOrder order = orderRepository.findById(req.getOrderId()).orElse(null);
+        Map<String, String> srRes = shiprocketService.createReturnOrder(req, order);
+        if (srRes != null) {
+            if (srRes.containsKey("order_id")) req.setShiprocketReturnOrderId(srRes.get("order_id"));
+            if (srRes.containsKey("shipment_id")) req.setShiprocketReturnShipmentId(srRes.get("shipment_id"));
+            req.setReturnAwb("RET-AWB-" + (int)(100000 + Math.random() * 900000));
+            req.setReturnCourier("Shiprocket Reverse Logistics");
+        }
+        req.setStatus("Pickup Scheduled");
+        ReturnRequest saved = returnRequestRepository.save(req);
+        syncService.bumpVersion();
+        return ResponseEntity.ok(saved);
+    }
+
+    @PostMapping("/returns/{id}/process-refund")
+    @Transactional
+    public ResponseEntity<ReturnRequest> processSplitRefund(@PathVariable String id) {
+        ReturnRequest req = returnRequestRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Return not found: " + id));
+
+        if ("Refund Completed".equalsIgnoreCase(req.getStatus()) || "Refunded".equalsIgnoreCase(req.getStatus())) {
+            return ResponseEntity.ok(req); // Idempotency check: already refunded
+        }
+
+        ShopOrder order = orderRepository.findById(req.getOrderId()).orElse(null);
+        java.math.BigDecimal totalRefund = req.getRefundAmount() != null ? req.getRefundAmount() : java.math.BigDecimal.ZERO;
+        
+        java.math.BigDecimal walletRefund = java.math.BigDecimal.ZERO;
+        java.math.BigDecimal razorpayRefund = totalRefund;
+
+        if (order != null) {
+            java.math.BigDecimal orderTotal = order.getTotal() != null && order.getTotal().compareTo(java.math.BigDecimal.ZERO) > 0 ? order.getTotal() : totalRefund;
+            java.math.BigDecimal walletUsed = order.getWalletAmountUsed() != null ? order.getWalletAmountUsed() : java.math.BigDecimal.ZERO;
+            java.math.BigDecimal rzpPaid = order.getRazorpayAmountPaid() != null ? order.getRazorpayAmountPaid() : java.math.BigDecimal.ZERO;
+
+            if (walletUsed.compareTo(java.math.BigDecimal.ZERO) > 0 && orderTotal.compareTo(java.math.BigDecimal.ZERO) > 0) {
+                // Ratio calculation for split refund
+                double walletRatio = walletUsed.doubleValue() / orderTotal.doubleValue();
+                walletRefund = java.math.BigDecimal.valueOf(totalRefund.doubleValue() * walletRatio).setScale(2, java.math.RoundingMode.HALF_UP);
+                razorpayRefund = totalRefund.subtract(walletRefund);
+            }
+        }
+
+        req.setWalletRefundAmount(walletRefund);
+        req.setRazorpayRefundAmount(razorpayRefund);
+        req.setRefundDate(new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm").format(new java.util.Date()));
+
+        if (walletRefund.compareTo(java.math.BigDecimal.ZERO) > 0) {
+            req.setWalletTransactionId("WLT-REF-" + System.currentTimeMillis());
+        }
+        if (razorpayRefund.compareTo(java.math.BigDecimal.ZERO) > 0) {
+            req.setRazorpayRefundId("rzp_ref_" + (int)(100000 + Math.random() * 900000));
+        }
+
+        req.setStatus("Refund Completed");
+        ReturnRequest saved = returnRequestRepository.save(req);
+        
+        if (order != null) {
+            order.setStatus("Refunded");
+            orderRepository.save(order);
+        }
+        
         syncService.bumpVersion();
         return ResponseEntity.ok(saved);
     }

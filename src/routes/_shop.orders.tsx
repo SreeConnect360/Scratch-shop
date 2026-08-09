@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { usePortal } from "@/lib/portal-state";
+import { usePortal, isReturnEligible } from "@/lib/portal-state";
 import { useState, useMemo } from "react";
 import { z } from "zod";
 import { 
@@ -334,13 +334,12 @@ function ShopOrdersPage() {
               </div>
 
               {(() => {
-                const steps = ["Order Placed", "Processing", "Shipped", "Out for Delivery", "Delivered"];
-                const status = selectedOrderDetails.status || "Order Placed";
+                const steps = ["Order Confirmed", "Delivery Assigned", "Out for Delivery", "Delivered Successfully"];
+                const status = (selectedOrderDetails.status || "").toLowerCase();
                 let activeIdx = 0;
-                if (status.includes("Confirmed") || status.includes("Accept") || status.includes("Prepare") || status.includes("Processing")) activeIdx = 1;
-                else if (status.includes("Ship") || status.includes("Ready")) activeIdx = 2;
-                else if (status.includes("Transit") || status.includes("Delivery") || status.includes("Out")) activeIdx = 3;
-                else if (status.includes("Deliver")) activeIdx = 4;
+                if (selectedOrderDetails.courierPartner || selectedOrderDetails.trackingNumber || status.includes("ready") || status.includes("scheduled") || status.includes("shipped")) activeIdx = 1;
+                if (status.includes("transit") || status.includes("out") || status.includes("delivery")) activeIdx = 2;
+                if (status.includes("delivered") || status.includes("completed")) activeIdx = 3;
 
                 return (
                   <div className="py-2">
@@ -410,57 +409,69 @@ function ShopOrdersPage() {
             {/* Items List */}
             <div className="space-y-3">
               <h4 className="text-xs uppercase font-bold tracking-wider text-accent border-b border-black/10 dark:border-white/10 pb-2">Purchased Curation Items</h4>
-              {(selectedOrderDetails.items || []).map((item: any, idx: number) => (
-                <div key={idx} className="flex items-center justify-between p-3.5 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 gap-4">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <img src={item.image} alt={item.name} className="w-14 h-16 object-cover rounded-xl border border-black/10 dark:border-white/10 shrink-0" />
-                    <div className="min-w-0">
-                      <Link
-                        to="/product/$productId"
-                        params={{ productId: item.productId }}
-                        className="font-serif font-bold text-sm text-foreground hover:text-accent truncate block"
-                      >
-                        {item.name}
-                      </Link>
-                      <div className="text-[11px] text-muted-foreground font-mono mt-0.5">
-                        Size: <strong className="text-foreground">{item.selectedSize || "M"}</strong> • Qty: <strong className="text-foreground">{item.qty || 1}</strong>
+              {(selectedOrderDetails.items || []).map((item: any, idx: number) => {
+                const returnEligibility = isReturnEligible(selectedOrderDetails);
+                return (
+                  <div key={idx} className="flex items-center justify-between p-3.5 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 gap-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <img src={item.image} alt={item.name} className="w-14 h-16 object-cover rounded-xl border border-black/10 dark:border-white/10 shrink-0" />
+                      <div className="min-w-0">
+                        <Link
+                          to="/product/$productId"
+                          params={{ productId: item.productId }}
+                          className="font-serif font-bold text-sm text-foreground hover:text-accent truncate block"
+                        >
+                          {item.name}
+                        </Link>
+                        <div className="text-[11px] text-muted-foreground font-mono mt-0.5">
+                          Size: <strong className="text-foreground">{item.selectedSize || "M"}</strong> • Qty: <strong className="text-foreground">{item.qty || 1}</strong>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="font-mono font-bold text-sm text-foreground">₹{((item.price || 0) * (item.qty || 1)).toLocaleString()}</div>
+                      <div className="flex gap-1.5 mt-1.5 justify-end">
+                        {selectedOrderDetails.status === "Delivered" && (
+                          <button
+                            onClick={() => {
+                              setReviewFormItem({ productId: item.productId, orderId: selectedOrderDetails.id });
+                              setSelectedOrderDetails(null);
+                            }}
+                            className="text-[9px] uppercase font-bold px-2 py-0.5 rounded-full border border-accent/30 text-accent hover:bg-accent hover:text-white cursor-pointer"
+                          >
+                            Review
+                          </button>
+                        )}
+                        {returnEligibility.eligible ? (
+                          <button
+                            onClick={() => {
+                              setReturnFormItem({
+                                orderId: selectedOrderDetails.id,
+                                productId: item.productId,
+                                productName: item.name,
+                                price: String(item.price),
+                                selectedSize: item.selectedSize || "M",
+                                qty: item.qty || 1
+                              });
+                              setSelectedOrderDetails(null);
+                            }}
+                            className="text-[9px] uppercase font-bold px-2 py-0.5 rounded-full border border-rose-500/30 text-rose-500 hover:bg-rose-500 hover:text-white cursor-pointer"
+                          >
+                            Return Order
+                          </button>
+                        ) : (
+                          <span
+                            title={returnEligibility.reason}
+                            className="text-[9px] uppercase font-bold px-2 py-0.5 rounded-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-muted-foreground opacity-60 cursor-not-allowed"
+                          >
+                            Return Closed
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
-                  <div className="text-right shrink-0">
-                    <div className="font-mono font-bold text-sm text-foreground">₹{((item.price || 0) * (item.qty || 1)).toLocaleString()}</div>
-                    {selectedOrderDetails.status === "Delivered" && (
-                      <div className="flex gap-1.5 mt-1.5 justify-end">
-                        <button
-                          onClick={() => {
-                            setReviewFormItem({ productId: item.productId, orderId: selectedOrderDetails.id });
-                            setSelectedOrderDetails(null);
-                          }}
-                          className="text-[9px] uppercase font-bold px-2 py-0.5 rounded-full border border-accent/30 text-accent hover:bg-accent hover:text-white cursor-pointer"
-                        >
-                          Review
-                        </button>
-                        <button
-                          onClick={() => {
-                            setReturnFormItem({
-                              orderId: selectedOrderDetails.id,
-                              productId: item.productId,
-                              productName: item.name,
-                              price: String(item.price),
-                              selectedSize: item.selectedSize || "M",
-                              qty: item.qty || 1
-                            });
-                            setSelectedOrderDetails(null);
-                          }}
-                          className="text-[9px] uppercase font-bold px-2 py-0.5 rounded-full border border-rose-500/30 text-rose-500 hover:bg-rose-500 hover:text-white cursor-pointer"
-                        >
-                          Return
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Shipping Address & Payment Breakdown Grid */}

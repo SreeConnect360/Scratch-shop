@@ -70,4 +70,37 @@ public class ReturnRequest {
 
     @Column(name = "pickup_date", length = 20)
     private String pickupDate;
+
+    @Column(name = "shiprocket_return_order_id", length = 100)
+    private String shiprocketReturnOrderId;
+
+    @Column(name = "shiprocket_return_shipment_id", length = 100)
+    private String shiprocketReturnShipmentId;
+
+    @Column(name = "return_awb", length = 100)
+    private String returnAwb;
+
+    @Column(name = "return_courier", length = 100)
+    private String returnCourier;
+
+    @Column(name = "wallet_refund_amount", precision = 12, scale = 2)
+    private BigDecimal walletRefundAmount;
+
+    @Column(name = "razorpay_refund_amount", precision = 12, scale = 2)
+    private BigDecimal razorpayRefundAmount;
+
+    @Column(name = "razorpay_refund_id", length = 100)
+    private String razorpayRefundId;
+
+    @Column(name = "wallet_transaction_id", length = 100)
+    private String walletTransactionId;
+
+    @Column(name = "return_label_url", columnDefinition = "TEXT")
+    private String returnLabelUrl;
+
+    @Column(name = "return_scans_json", columnDefinition = "TEXT")
+    private String returnScansJson;
+
+    @Column(name = "created_at")
+    private java.time.LocalDateTime createdAt = java.time.LocalDateTime.now();
 }

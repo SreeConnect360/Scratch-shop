@@ -78,4 +78,19 @@ public class ShopOrder {
 
     @Column(name = "shiprocket_shipment_id", length = 100)
     private String shiprocketShipmentId;
+
+    @Column(name = "wallet_amount_used", precision = 12, scale = 2)
+    private BigDecimal walletAmountUsed;
+
+    @Column(name = "razorpay_amount_paid", precision = 12, scale = 2)
+    private BigDecimal razorpayAmountPaid;
+
+    @Column(name = "label_url", columnDefinition = "TEXT")
+    private String labelUrl;
+
+    @Column(name = "invoice_url", columnDefinition = "TEXT")
+    private String invoiceUrl;
+
+    @Column(name = "pickup_location", length = 100)
+    private String pickupLocation = "Primary";
 }

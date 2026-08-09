@@ -26,10 +26,10 @@ public class ShiprocketService {
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @Value("${shiprocket.email:hello@reevibes.com}")
+    @Value("${shiprocket.email:sreesri1004@gmail.com}")
     private String email;
 
-    @Value("${shiprocket.password:h%7SVDxqFlqttMAM1FgwcV3C1LrB0%bN}")
+    @Value("${shiprocket.password:Yx&2pW$7sdOzWjVf0yha21k6HI!vGgzv}")
     private String password;
 
     private String cachedToken = null;
@@ -307,6 +307,151 @@ public class ShiprocketService {
             }
         } catch (Exception e) {
             System.err.println("Exception scheduling pickup: " + e.getMessage());
+        }
+        return Collections.emptyMap();
+    }
+
+    /**
+     * Cancels an order in Shiprocket before dispatch.
+     */
+    public Map<String, Object> cancelShiprocketOrder(String shiprocketOrderId) {
+        String token = getAuthToken();
+        if (token == null || shiprocketOrderId == null || shiprocketOrderId.isEmpty()) return Collections.emptyMap();
+
+        try {
+            String url = "https://apiv2.shiprocket.in/v1/external/orders/cancel";
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("ids", Collections.singletonList(shiprocketOrderId));
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("Authorization", "Bearer " + token);
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+            ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                return (Map<String, Object>) response.getBody();
+            }
+        } catch (Exception e) {
+            System.err.println("Exception canceling Shiprocket order: " + e.getMessage());
+        }
+        return Collections.emptyMap();
+    }
+
+    /**
+     * Generates shipping label PDF URL for a shipment.
+     */
+    public String generateLabel(String shipmentId) {
+        String token = getAuthToken();
+        if (token == null || shipmentId == null || shipmentId.isEmpty()) return null;
+
+        try {
+            String url = "https://apiv2.shiprocket.in/v1/external/courier/generate/label?shipment_id=" + shipmentId;
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Authorization", "Bearer " + token);
+
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+            ResponseEntity<Map> response = restTemplate.exchange(url, org.springframework.http.HttpMethod.GET, entity, Map.class);
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                Map body = response.getBody();
+                if (body.containsKey("label_created") && ((Number) body.get("label_created")).intValue() == 1) {
+                    if (body.containsKey("label_url")) return String.valueOf(body.get("label_url"));
+                } else if (body.containsKey("label_url")) {
+                    return String.valueOf(body.get("label_url"));
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Exception generating label: " + e.getMessage());
+        }
+        return null;
+    }
+
+    /**
+     * Generates invoice PDF URL for an order.
+     */
+    public String generateInvoice(String orderId) {
+        String token = getAuthToken();
+        if (token == null || orderId == null || orderId.isEmpty()) return null;
+
+        try {
+            String url = "https://apiv2.shiprocket.in/v1/external/orders/print/invoice";
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("ids", Collections.singletonList(orderId));
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("Authorization", "Bearer " + token);
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+            ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                Map body = response.getBody();
+                if (body.containsKey("invoice_url")) {
+                    return String.valueOf(body.get("invoice_url"));
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Exception generating invoice: " + e.getMessage());
+        }
+        return null;
+    }
+
+    /**
+     * Creates a reverse return order in Shiprocket.
+     */
+    public Map<String, String> createReturnOrder(com.reevibes.ai.model.ReturnRequest returnReq, ShopOrder order) {
+        String token = getAuthToken();
+        if (token == null) return Collections.emptyMap();
+
+        try {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("order_id", "RET-" + returnReq.getId());
+            payload.put("order_date", new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm").format(new java.util.Date()));
+            payload.put("pickup_customer_name", returnReq.getCustomerName() != null ? returnReq.getCustomerName() : "Customer");
+            payload.put("pickup_last_name", "ReeVibes");
+            payload.put("pickup_address", order != null && order.getAddress() != null ? order.getAddress() : "Customer Address");
+            payload.put("pickup_city", "Bangalore");
+            payload.put("pickup_state", "Karnataka");
+            payload.put("pickup_pincode", "560038");
+            payload.put("pickup_phone", "9999999999");
+
+            List<Map<String, Object>> orderItems = new ArrayList<>();
+            Map<String, Object> item = new HashMap<>();
+            item.put("name", returnReq.getProductName() != null ? returnReq.getProductName() : "Returned Item");
+            item.put("sku", returnReq.getProductId() != null ? returnReq.getProductId() : "SKU-RET");
+            item.put("units", returnReq.getQty() != null ? returnReq.getQty() : 1);
+            item.put("selling_price", returnReq.getRefundAmount() != null ? returnReq.getRefundAmount().doubleValue() : 1000.0);
+            item.put("discount", 0);
+            item.put("qc_enable", true);
+            orderItems.add(item);
+
+            payload.put("order_items", orderItems);
+            payload.put("sub_total", returnReq.getRefundAmount() != null ? returnReq.getRefundAmount().doubleValue() : 1000.0);
+            payload.put("length", 15);
+            payload.put("breadth", 15);
+            payload.put("height", 10);
+            payload.put("weight", 0.5);
+
+            String url = "https://apiv2.shiprocket.in/v1/external/orders/create/return";
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("Authorization", "Bearer " + token);
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+            ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                Map body = response.getBody();
+                Map<String, String> res = new HashMap<>();
+                if (body.containsKey("order_id")) res.put("order_id", String.valueOf(body.get("order_id")));
+                if (body.containsKey("shipment_id")) res.put("shipment_id", String.valueOf(body.get("shipment_id")));
+                return res;
+            }
+        } catch (Exception e) {
+            System.err.println("Exception creating return order in Shiprocket: " + e.getMessage());
         }
         return Collections.emptyMap();
     }

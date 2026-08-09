@@ -71,6 +71,17 @@ export type ReturnRequest = {
   rejectionReason?: string;
   expectedCreditDate?: string;
   pickupDate?: string;
+  shiprocketReturnOrderId?: string;
+  shiprocketReturnShipmentId?: string;
+  returnAwb?: string;
+  returnCourier?: string;
+  walletRefundAmount?: number;
+  razorpayRefundAmount?: number;
+  razorpayRefundId?: string;
+  walletTransactionId?: string;
+  returnLabelUrl?: string;
+  returnScansJson?: string;
+  createdAt?: string;
 };
 
 export type Vendor = {
@@ -82,6 +93,23 @@ export type Vendor = {
   products: string[]; // product IDs
   revenue: number;
 };
+
+export function isReturnEligible(order: any): { eligible: boolean; reason?: string } {
+  if (!order) return { eligible: false, reason: "Order record not found" };
+  const status = (order.status || "").toLowerCase();
+  if (status !== "delivered") {
+    return { eligible: false, reason: "Order has not been delivered yet" };
+  }
+  const delDateStr = order.deliveryDate || order.orderDate || order.date;
+  if (!delDateStr) return { eligible: false, reason: "Delivery date unavailable" };
+  const delTime = new Date(delDateStr).getTime();
+  if (isNaN(delTime)) return { eligible: false, reason: "Invalid delivery date" };
+  const diffDays = (Date.now() - delTime) / (1000 * 60 * 60 * 24);
+  if (diffDays > 7) {
+    return { eligible: false, reason: `7-day return window expired (${Math.floor(diffDays)} days since delivery)` };
+  }
+  return { eligible: true };
+}
 
 export type ProductReview = {
   id: string;
@@ -654,6 +682,10 @@ type Ctx = {
   assignAWB: (userId: string, orderId: string, courierId: string, courierName: string) => Promise<any>;
   schedulePickup: (userId: string, orderId: string, pickupDate: string) => Promise<any>;
   cancelOrder: (userId: string, orderId: string) => Promise<any>;
+  fetchOrderLabel: (orderId: string) => Promise<string | null>;
+  fetchOrderInvoice: (orderId: string) => Promise<string | null>;
+  assignReturnPickup: (returnId: string) => Promise<any>;
+  processSplitRefund: (returnId: string) => Promise<any>;
   addCoupon: (coupon: { code: string; discount: number; type?: "fixed" | "percentage" | "wallet"; expiryDate?: string; usageLimit?: number; userEligibility?: string }) => void;
   removeCoupon: (code: string) => void;
   addWalletGiftCard: (giftCard: Omit<WalletGiftCard, "id" | "usedCount" | "createdAt" | "status"> & { status?: WalletGiftCard["status"] }) => void;
@@ -1766,6 +1798,73 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         }
       } catch (err) {
         console.error("Failed to cancel order:", err);
+      }
+    },
+    fetchOrderLabel: async (orderId) => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/orders/${orderId}/label`);
+        if (res.ok) {
+          const data = await res.json();
+          return data.labelUrl || null;
+        }
+      } catch (err) {
+        console.error("Failed to fetch label:", err);
+      }
+      return null;
+    },
+    fetchOrderInvoice: async (orderId) => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/orders/${orderId}/invoice`);
+        if (res.ok) {
+          const data = await res.json();
+          return data.invoiceUrl || null;
+        }
+      } catch (err) {
+        console.error("Failed to fetch invoice:", err);
+      }
+      return null;
+    },
+    assignReturnPickup: async (returnId) => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/returns/${returnId}/assign-pickup`, {
+          method: "POST"
+        });
+        if (res.ok) {
+          const updatedReturn = await res.json();
+          setState(s => ({
+            ...s,
+            returns: s.returns.map(r => r.id === returnId ? updatedReturn : r)
+          }));
+          return updatedReturn;
+        }
+      } catch (err) {
+        console.error("Failed to assign return pickup:", err);
+      }
+    },
+    processSplitRefund: async (returnId) => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/returns/${returnId}/process-refund`, {
+          method: "POST"
+        });
+        if (res.ok) {
+          const updatedReturn = await res.json();
+          setState(s => {
+            const nextReturns = s.returns.map(r => r.id === returnId ? updatedReturn : r);
+            let updatedWallets = { ...s.wallets };
+            if (updatedReturn.walletRefundAmount && updatedReturn.walletRefundAmount > 0 && updatedReturn.customerId) {
+              const currentBal = updatedWallets[updatedReturn.customerId] || 0;
+              updatedWallets[updatedReturn.customerId] = currentBal + updatedReturn.walletRefundAmount;
+            }
+            return {
+              ...s,
+              returns: nextReturns,
+              wallets: updatedWallets
+            };
+          });
+          return updatedReturn;
+        }
+      } catch (err) {
+        console.error("Failed to process split refund:", err);
       }
     },
     addCoupon: (coupon) => {
