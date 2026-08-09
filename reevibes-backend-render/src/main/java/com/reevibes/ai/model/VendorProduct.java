@@ -76,6 +76,14 @@ public class VendorProduct {
     private Integer reviewCount = 0;
     private Integer stockQuantity = 100;
 
+    public Integer getUnits() {
+        return stockQuantity != null ? stockQuantity : 100;
+    }
+
+    public void setUnits(Integer units) {
+        this.stockQuantity = units;
+    }
+
     private String seoTitle;
 
     @Column(columnDefinition = "TEXT")
