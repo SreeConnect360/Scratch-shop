@@ -626,6 +626,14 @@ public class ShopPortalController {
     }
 
     // --- SHIPROCKET WEBHOOKS & TRACKER ---
+    @GetMapping({"/shiprocket/webhook", "/webhooks/shipping"})
+    public ResponseEntity<?> getShiprocketWebhookStatus() {
+        return ResponseEntity.ok(Map.of(
+            "status", "Active",
+            "message", "Shiprocket Webhook Receiver is online and ready for POST updates."
+        ));
+    }
+
     @PostMapping({"/shiprocket/webhook", "/webhooks/shipping"})
     @Transactional
     public ResponseEntity<?> handleShiprocketWebhook(
