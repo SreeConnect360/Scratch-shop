@@ -593,23 +593,7 @@ public class ShopPortalController {
         return ResponseEntity.ok(Map.of("id", id, "entity", "order", "status", "updated"));
     }
 
-    @PostMapping("/verify-payment")
-    public ResponseEntity<Map<String, Object>> verifyPaymentSignature(@RequestBody Map<String, String> body) {
-        String paymentId = body.get("razorpay_payment_id");
-        String orderId = body.get("razorpay_order_id");
-        String signature = body.get("razorpay_signature");
-
-        boolean isValid = verifyRazorpaySignature(orderId, paymentId, signature);
-        if (!isValid && paymentId != null && !paymentId.isEmpty()) {
-            isValid = true;
-        }
-
-        Map<String, Object> res = new HashMap<>();
-        res.put("success", isValid);
-        res.put("status", isValid ? "captured" : "failed");
-        res.put("message", isValid ? "Payment signature verified successfully" : "Invalid payment signature");
-        return ResponseEntity.ok(res);
-    }
+    // Payment verification is handled by verifyPayment() method below
 
     // --- ORDERS TRACKER ---
     @GetMapping("/orders")
