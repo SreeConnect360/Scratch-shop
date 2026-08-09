@@ -650,7 +650,6 @@ public class ShopPortalController {
         if (order != null) {
             java.math.BigDecimal orderTotal = order.getTotal() != null && order.getTotal().compareTo(java.math.BigDecimal.ZERO) > 0 ? order.getTotal() : totalRefund;
             java.math.BigDecimal walletUsed = order.getWalletAmountUsed() != null ? order.getWalletAmountUsed() : java.math.BigDecimal.ZERO;
-            java.math.BigDecimal rzpPaid = order.getRazorpayAmountPaid() != null ? order.getRazorpayAmountPaid() : java.math.BigDecimal.ZERO;
 
             if (walletUsed.compareTo(java.math.BigDecimal.ZERO) > 0 && orderTotal.compareTo(java.math.BigDecimal.ZERO) > 0) {
                 // Ratio calculation for split refund
