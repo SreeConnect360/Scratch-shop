@@ -35,6 +35,7 @@ public class ShopPortalController {
     private final VendorProductRepository vendorProductRepository;
     private final SyncService syncService;
     private final com.reevibes.ai.service.ShiprocketService shiprocketService;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
     private final org.springframework.web.client.RestTemplate restTemplate = new org.springframework.web.client.RestTemplate();
 
@@ -50,7 +51,8 @@ public class ShopPortalController {
             VendorRepository vendorRepository,
             VendorProductRepository vendorProductRepository,
             SyncService syncService,
-            com.reevibes.ai.service.ShiprocketService shiprocketService) {
+            com.reevibes.ai.service.ShiprocketService shiprocketService,
+            org.springframework.jdbc.core.JdbcTemplate jdbcTemplate) {
         this.bucketRepository = bucketRepository;
         this.userRepository = userRepository;
         this.authUserRepository = authUserRepository;
@@ -63,6 +65,7 @@ public class ShopPortalController {
         this.vendorProductRepository = vendorProductRepository;
         this.syncService = syncService;
         this.shiprocketService = shiprocketService;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     @org.springframework.beans.factory.annotation.Value("${razorpay.key.id}")
@@ -1483,261 +1486,303 @@ public class ShopPortalController {
     // --- VENDOR PRODUCTS ---
     @GetMapping({"/vendors/products", "/products"})
     public ResponseEntity<List<Map<String, Object>>> getVendorProducts() {
-        List<VendorProduct> list = vendorProductRepository.findAll();
         com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        List<Map<String, Object>> result = new ArrayList<>();
         
-        List<Map<String, Object>> result = list.stream().map(p -> {
-            Map<String, Object> map = new java.util.HashMap<>();
-            if (p.getFullJson() != null && !p.getFullJson().isEmpty()) {
-                try {
-                    map = mapper.readValue(p.getFullJson(), Map.class);
-                } catch (Exception e) {}
-            }
-            map.put("id", p.getId());
-            if (p.getName() != null) map.put("name", p.getName());
-            if (p.getHouse() != null) map.put("house", p.getHouse());
-            if (p.getPrice() != null) map.put("price", p.getPrice());
-            if (p.getImage() != null) map.put("image", p.getImage());
-            if (p.getCategory() != null) map.put("category", p.getCategory());
-            if (p.getGender() != null) map.put("gender", p.getGender());
-            if (p.getTag() != null) map.put("tag", p.getTag());
-            if (p.getSku() != null) map.put("sku", p.getSku());
-            if (p.getOriginalPrice() != null) map.put("originalPrice", p.getOriginalPrice());
-            if (p.getDiscount() != null) map.put("discount", p.getDiscount());
-            if (p.getStatus() != null) map.put("status", p.getStatus());
-            if (p.getVisibility() != null) map.put("visibility", p.getVisibility());
-            if (p.getMaterial() != null) map.put("material", p.getMaterial());
-            if (p.getFabric() != null) map.put("fabric", p.getFabric());
-            if (p.getColor() != null) map.put("color", p.getColor());
-            if (p.getCollections() != null) map.put("collections", p.getCollections());
-            if (p.getOverviewTitle() != null) map.put("overviewTitle", p.getOverviewTitle());
-            if (p.getDescription() != null) map.put("description", p.getDescription());
-            if (p.getDetails() != null) map.put("details", p.getDetails());
-            if (p.getInStock() != null) map.put("inStock", p.getInStock());
-            if (p.getIsNew() != null) map.put("isNew", p.getIsNew());
-            if (p.getIsNewArrival() != null) map.put("isNewArrival", p.getIsNewArrival());
-            if (p.getIsTrending() != null) map.put("isTrending", p.getIsTrending());
-            if (p.getIsBestSeller() != null) map.put("isBestSeller", p.getIsBestSeller());
-            if (p.getIsFeatured() != null) map.put("isFeatured", p.getIsFeatured());
-            if (p.getIsRecommended() != null) map.put("isRecommended", p.getIsRecommended());
+        try {
+            List<VendorProduct> list = vendorProductRepository.findAll();
+            for (VendorProduct p : list) {
+                Map<String, Object> map = new java.util.HashMap<>();
+                if (p.getFullJson() != null && !p.getFullJson().isEmpty()) {
+                    try {
+                        map = mapper.readValue(p.getFullJson(), Map.class);
+                    } catch (Exception e) {}
+                }
+                map.put("id", p.getId());
+                if (p.getName() != null) map.put("name", p.getName());
+                if (p.getHouse() != null) map.put("house", p.getHouse());
+                if (p.getPrice() != null) map.put("price", p.getPrice());
+                if (p.getImage() != null) map.put("image", p.getImage());
+                if (p.getCategory() != null) map.put("category", p.getCategory());
+                if (p.getGender() != null) map.put("gender", p.getGender());
+                if (p.getTag() != null) map.put("tag", p.getTag());
+                if (p.getSku() != null) map.put("sku", p.getSku());
+                if (p.getOriginalPrice() != null) map.put("originalPrice", p.getOriginalPrice());
+                if (p.getDiscount() != null) map.put("discount", p.getDiscount());
+                if (p.getStatus() != null) map.put("status", p.getStatus());
+                if (p.getVisibility() != null) map.put("visibility", p.getVisibility());
+                if (p.getMaterial() != null) map.put("material", p.getMaterial());
+                if (p.getFabric() != null) map.put("fabric", p.getFabric());
+                if (p.getColor() != null) map.put("color", p.getColor());
+                if (p.getCollections() != null) map.put("collections", p.getCollections());
+                if (p.getOverviewTitle() != null) map.put("overviewTitle", p.getOverviewTitle());
+                if (p.getDescription() != null) map.put("description", p.getDescription());
+                if (p.getDetails() != null) map.put("details", p.getDetails());
+                if (p.getInStock() != null) map.put("inStock", p.getInStock());
+                if (p.getIsNew() != null) map.put("isNew", p.getIsNew());
+                if (p.getIsNewArrival() != null) map.put("isNewArrival", p.getIsNewArrival());
+                if (p.getIsTrending() != null) map.put("isTrending", p.getIsTrending());
+                if (p.getIsBestSeller() != null) map.put("isBestSeller", p.getIsBestSeller());
+                if (p.getIsFeatured() != null) map.put("isFeatured", p.getIsFeatured());
+                if (p.getIsRecommended() != null) map.put("isRecommended", p.getIsRecommended());
 
-            if (p.getImagesJson() != null && !p.getImagesJson().isEmpty() && !map.containsKey("images")) {
-                try { map.put("images", mapper.readValue(p.getImagesJson(), List.class)); } catch(Exception e){}
+                if (p.getImagesJson() != null && !p.getImagesJson().isEmpty() && !map.containsKey("images")) {
+                    try { map.put("images", mapper.readValue(p.getImagesJson(), List.class)); } catch(Exception e){}
+                }
+                if (p.getSizesJson() != null && !p.getSizesJson().isEmpty() && !map.containsKey("sizes")) {
+                    try { map.put("sizes", mapper.readValue(p.getSizesJson(), List.class)); } catch(Exception e){}
+                }
+                if (p.getTagsJson() != null && !p.getTagsJson().isEmpty() && !map.containsKey("tags")) {
+                    try { map.put("tags", mapper.readValue(p.getTagsJson(), List.class)); } catch(Exception e){}
+                }
+                if (p.getStockPerSizeJson() != null && !p.getStockPerSizeJson().isEmpty() && !map.containsKey("stockPerSize")) {
+                    try { map.put("stockPerSize", mapper.readValue(p.getStockPerSizeJson(), Map.class)); } catch(Exception e){}
+                }
+                result.add(map);
             }
-            if (p.getSizesJson() != null && !p.getSizesJson().isEmpty() && !map.containsKey("sizes")) {
-                try { map.put("sizes", mapper.readValue(p.getSizesJson(), List.class)); } catch(Exception e){}
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            System.err.println("JPA findAll vendor products failed, querying native SQL fallback: " + e.getMessage());
+            try {
+                List<Map<String, Object>> rows = jdbcTemplate.queryForList("SELECT id, full_json, name, price, image, category, status FROM vendor_products");
+                for (Map<String, Object> row : rows) {
+                    Map<String, Object> map = new HashMap<>();
+                    String fullJson = (String) row.get("full_json");
+                    if (fullJson != null && !fullJson.isEmpty()) {
+                        try { map = mapper.readValue(fullJson, Map.class); } catch(Exception ex){}
+                    }
+                    map.put("id", String.valueOf(row.get("id")));
+                    if (row.get("name") != null) map.put("name", String.valueOf(row.get("name")));
+                    if (row.get("price") != null) map.put("price", String.valueOf(row.get("price")));
+                    if (row.get("image") != null) map.put("image", String.valueOf(row.get("image")));
+                    result.add(map);
+                }
+                return ResponseEntity.ok(result);
+            } catch (Exception sqlEx) {
+                System.err.println("Native SQL fallback query failed: " + sqlEx.getMessage());
+                return ResponseEntity.ok(new ArrayList<>());
             }
-            if (p.getTagsJson() != null && !p.getTagsJson().isEmpty() && !map.containsKey("tags")) {
-                try { map.put("tags", mapper.readValue(p.getTagsJson(), List.class)); } catch(Exception e){}
-            }
-            if (p.getStockPerSizeJson() != null && !p.getStockPerSizeJson().isEmpty() && !map.containsKey("stockPerSize")) {
-                try { map.put("stockPerSize", mapper.readValue(p.getStockPerSizeJson(), Map.class)); } catch(Exception e){}
-            }
-            return map;
-        }).collect(Collectors.toList());
-
-        return ResponseEntity.ok(result);
+        }
     }
 
     @PostMapping({"/vendors/products", "/products"})
     public ResponseEntity<?> createVendorProduct(@RequestBody Map<String, Object> body) {
+        String id = body.containsKey("id") && body.get("id") != null && !String.valueOf(body.get("id")).trim().isEmpty() 
+                ? String.valueOf(body.get("id")).trim() 
+                : "vnd-" + System.currentTimeMillis() + "-catalog";
+        body.put("id", id);
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        String jsonStr = "";
+        try { jsonStr = mapper.writeValueAsString(body); } catch(Exception e){}
+
+        VendorProduct product = null;
         try {
-            String id = body.containsKey("id") && body.get("id") != null && !String.valueOf(body.get("id")).trim().isEmpty() 
-                    ? String.valueOf(body.get("id")).trim() 
-                    : "vnd-" + System.currentTimeMillis() + "-catalog";
-            body.put("id", id);
-
-            VendorProduct product = vendorProductRepository.findById(id).orElseGet(() -> {
-                VendorProduct p = new VendorProduct();
-                p.setId(id);
-                return p;
-            });
-            
-            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-            try {
-                product.setFullJson(mapper.writeValueAsString(body));
-            } catch (Exception e) {}
-
-            if (body.containsKey("name")) product.setName(safeParseString(body.get("name")));
-            if (body.containsKey("house")) product.setHouse(safeParseString(body.get("house")));
-            if (body.containsKey("price")) product.setPrice(safeParseString(body.get("price")));
-            if (body.containsKey("image")) product.setImage(safeParseString(body.get("image")));
-            if (body.containsKey("category")) product.setCategory(safeParseString(body.get("category")));
-            if (body.containsKey("gender")) product.setGender(safeParseString(body.get("gender")));
-            if (body.containsKey("tag")) product.setTag(safeParseString(body.get("tag")));
-            if (body.containsKey("sku")) product.setSku(safeParseString(body.get("sku")));
-            if (body.containsKey("originalPrice")) product.setOriginalPrice(safeParseString(body.get("originalPrice")));
-            if (body.containsKey("discount") && body.get("discount") != null) product.setDiscount(safeParseInt(body.get("discount")));
-            if (body.containsKey("status")) product.setStatus(safeParseString(body.get("status")));
-            if (body.containsKey("visibility")) product.setVisibility(safeParseString(body.get("visibility")));
-            if (body.containsKey("material")) product.setMaterial(safeParseString(body.get("material")));
-            if (body.containsKey("fabric")) product.setFabric(safeParseString(body.get("fabric")));
-            if (body.containsKey("color")) product.setColor(safeParseString(body.get("color")));
-            if (body.containsKey("collections")) product.setCollections(safeParseString(body.get("collections")));
-            if (body.containsKey("overviewTitle")) product.setOverviewTitle(safeParseString(body.get("overviewTitle")));
-            if (body.containsKey("description")) product.setDescription(safeParseString(body.get("description")));
-            if (body.containsKey("details")) product.setDetails(safeParseString(body.get("details")));
-            if (body.containsKey("productInfo")) product.setProductInfo(safeParseString(body.get("productInfo")));
-            if (body.containsKey("inStock")) product.setInStock(safeParseBoolean(body.get("inStock")));
-            if (body.containsKey("isNew")) product.setIsNew(safeParseBoolean(body.get("isNew")));
-            if (body.containsKey("isNewArrival")) product.setIsNewArrival(safeParseBoolean(body.get("isNewArrival")));
-            if (body.containsKey("isTrending")) product.setIsTrending(safeParseBoolean(body.get("isTrending")));
-            if (body.containsKey("isBestSeller")) product.setIsBestSeller(safeParseBoolean(body.get("isBestSeller")));
-            if (body.containsKey("isFeatured")) product.setIsFeatured(safeParseBoolean(body.get("isFeatured")));
-            if (body.containsKey("isRecommended")) product.setIsRecommended(safeParseBoolean(body.get("isRecommended")));
-            if (body.containsKey("seoTitle")) product.setSeoTitle(safeParseString(body.get("seoTitle")));
-            if (body.containsKey("seoDescription")) product.setSeoDescription(safeParseString(body.get("seoDescription")));
-            if (body.containsKey("seoKeywords")) product.setSeoKeywords(safeParseString(body.get("seoKeywords")));
-
-            if (body.containsKey("customRating") && body.get("customRating") != null) product.setCustomRating(safeParseDouble(body.get("customRating")));
-            if (body.containsKey("customReviewCount") && body.get("customReviewCount") != null) product.setCustomReviewCount(safeParseInt(body.get("customReviewCount")));
-            if (body.containsKey("rating") && body.get("rating") != null) product.setRating(safeParseDouble(body.get("rating")));
-            if (body.containsKey("reviewCount") && body.get("reviewCount") != null) product.setReviewCount(safeParseInt(body.get("reviewCount")));
-            if (body.containsKey("stockQuantity") && body.get("stockQuantity") != null) product.setStockQuantity(safeParseInt(body.get("stockQuantity")));
-            if (body.containsKey("units") && body.get("units") != null) product.setUnits(safeParseInt(body.get("units")));
-            if (body.containsKey("vendorId")) product.setVendorId(safeParseString(body.get("vendorId")));
-
-            if (body.containsKey("images")) {
-                try { product.setImagesJson(mapper.writeValueAsString(body.get("images"))); } catch(Exception e){}
-            }
-            if (body.containsKey("sizes")) {
-                try { product.setSizesJson(mapper.writeValueAsString(body.get("sizes"))); } catch(Exception e){}
-            }
-            if (body.containsKey("tags")) {
-                try { product.setTagsJson(mapper.writeValueAsString(body.get("tags"))); } catch(Exception e){}
-            }
-            if (body.containsKey("stockPerSize")) {
-                try { product.setStockPerSizeJson(mapper.writeValueAsString(body.get("stockPerSize"))); } catch(Exception e){}
-            }
-            if (body.containsKey("productSections")) {
-                try { product.setProductSectionsJson(mapper.writeValueAsString(body.get("productSections"))); } catch(Exception e){}
-            }
-
-            try {
-                vendorProductRepository.saveAndFlush(product);
-            } catch (Exception ex) {
-                System.err.println("Primary saveAndFlush failed, using fallback save: " + ex.getMessage());
-                try {
-                    VendorProduct fallback = new VendorProduct();
-                    fallback.setId(id);
-                    fallback.setFullJson(mapper.writeValueAsString(body));
-                    if (body.containsKey("name")) fallback.setName(safeParseString(body.get("name")));
-                    if (body.containsKey("price")) fallback.setPrice(safeParseString(body.get("price")));
-                    if (body.containsKey("image")) fallback.setImage(safeParseString(body.get("image")));
-                    vendorProductRepository.saveAndFlush(fallback);
-                } catch (Exception ex2) {
-                    System.err.println("Fallback save also failed: " + ex2.getMessage());
-                }
-            }
-
-            syncService.bumpVersion();
-            return ResponseEntity.ok(body);
+            product = vendorProductRepository.findById(id).orElse(null);
         } catch (Exception e) {
-            e.printStackTrace();
-            System.err.println("Error saving vendor product: " + e.getMessage());
-            Map<String, Object> err = new HashMap<>();
-            err.put("error", "Failed to save product: " + e.getMessage());
-            return ResponseEntity.status(500).body(err);
+            System.err.println("findById notice: " + e.getMessage());
         }
+        if (product == null) {
+            product = new VendorProduct();
+            product.setId(id);
+        }
+
+        try {
+            product.setFullJson(jsonStr);
+        } catch (Exception e) {}
+
+        if (body.containsKey("name")) product.setName(safeParseString(body.get("name")));
+        if (body.containsKey("house")) product.setHouse(safeParseString(body.get("house")));
+        if (body.containsKey("price")) product.setPrice(safeParseString(body.get("price")));
+        if (body.containsKey("image")) product.setImage(safeParseString(body.get("image")));
+        if (body.containsKey("category")) product.setCategory(safeParseString(body.get("category")));
+        if (body.containsKey("gender")) product.setGender(safeParseString(body.get("gender")));
+        if (body.containsKey("tag")) product.setTag(safeParseString(body.get("tag")));
+        if (body.containsKey("sku")) product.setSku(safeParseString(body.get("sku")));
+        if (body.containsKey("originalPrice")) product.setOriginalPrice(safeParseString(body.get("originalPrice")));
+        if (body.containsKey("discount") && body.get("discount") != null) product.setDiscount(safeParseInt(body.get("discount")));
+        if (body.containsKey("status")) product.setStatus(safeParseString(body.get("status")));
+        if (body.containsKey("visibility")) product.setVisibility(safeParseString(body.get("visibility")));
+        if (body.containsKey("material")) product.setMaterial(safeParseString(body.get("material")));
+        if (body.containsKey("fabric")) product.setFabric(safeParseString(body.get("fabric")));
+        if (body.containsKey("color")) product.setColor(safeParseString(body.get("color")));
+        if (body.containsKey("collections")) product.setCollections(safeParseString(body.get("collections")));
+        if (body.containsKey("overviewTitle")) product.setOverviewTitle(safeParseString(body.get("overviewTitle")));
+        if (body.containsKey("description")) product.setDescription(safeParseString(body.get("description")));
+        if (body.containsKey("details")) product.setDetails(safeParseString(body.get("details")));
+        if (body.containsKey("productInfo")) product.setProductInfo(safeParseString(body.get("productInfo")));
+        if (body.containsKey("inStock")) product.setInStock(safeParseBoolean(body.get("inStock")));
+        if (body.containsKey("isNew")) product.setIsNew(safeParseBoolean(body.get("isNew")));
+        if (body.containsKey("isNewArrival")) product.setIsNewArrival(safeParseBoolean(body.get("isNewArrival")));
+        if (body.containsKey("isTrending")) product.setIsTrending(safeParseBoolean(body.get("isTrending")));
+        if (body.containsKey("isBestSeller")) product.setIsBestSeller(safeParseBoolean(body.get("isBestSeller")));
+        if (body.containsKey("isFeatured")) product.setIsFeatured(safeParseBoolean(body.get("isFeatured")));
+        if (body.containsKey("isRecommended")) product.setIsRecommended(safeParseBoolean(body.get("isRecommended")));
+        if (body.containsKey("seoTitle")) product.setSeoTitle(safeParseString(body.get("seoTitle")));
+        if (body.containsKey("seoDescription")) product.setSeoDescription(safeParseString(body.get("seoDescription")));
+        if (body.containsKey("seoKeywords")) product.setSeoKeywords(safeParseString(body.get("seoKeywords")));
+
+        if (body.containsKey("customRating") && body.get("customRating") != null) product.setCustomRating(safeParseDouble(body.get("customRating")));
+        if (body.containsKey("customReviewCount") && body.get("customReviewCount") != null) product.setCustomReviewCount(safeParseInt(body.get("customReviewCount")));
+        if (body.containsKey("rating") && body.get("rating") != null) product.setRating(safeParseDouble(body.get("rating")));
+        if (body.containsKey("reviewCount") && body.get("reviewCount") != null) product.setReviewCount(safeParseInt(body.get("reviewCount")));
+        if (body.containsKey("stockQuantity") && body.get("stockQuantity") != null) product.setStockQuantity(safeParseInt(body.get("stockQuantity")));
+        if (body.containsKey("units") && body.get("units") != null) product.setUnits(safeParseInt(body.get("units")));
+        if (body.containsKey("vendorId")) product.setVendorId(safeParseString(body.get("vendorId")));
+
+        if (body.containsKey("images")) {
+            try { product.setImagesJson(mapper.writeValueAsString(body.get("images"))); } catch(Exception e){}
+        }
+        if (body.containsKey("sizes")) {
+            try { product.setSizesJson(mapper.writeValueAsString(body.get("sizes"))); } catch(Exception e){}
+        }
+        if (body.containsKey("tags")) {
+            try { product.setTagsJson(mapper.writeValueAsString(body.get("tags"))); } catch(Exception e){}
+        }
+        if (body.containsKey("stockPerSize")) {
+            try { product.setStockPerSizeJson(mapper.writeValueAsString(body.get("stockPerSize"))); } catch(Exception e){}
+        }
+        if (body.containsKey("productSections")) {
+            try { product.setProductSectionsJson(mapper.writeValueAsString(body.get("productSections"))); } catch(Exception e){}
+        }
+
+        try {
+            vendorProductRepository.saveAndFlush(product);
+        } catch (Exception ex) {
+            System.err.println("Primary saveAndFlush failed, using native SQL upsert fallback: " + ex.getMessage());
+            try {
+                String nameVal = safeParseString(body.get("name"));
+                String priceVal = safeParseString(body.get("price"));
+                String imageVal = safeParseString(body.get("image"));
+                String categoryVal = safeParseString(body.get("category"));
+                String statusVal = safeParseString(body.get("status"));
+                
+                jdbcTemplate.update(
+                    "INSERT INTO vendor_products (id, full_json, name, price, image, category, status) VALUES (?, ?, ?, ?, ?, ?, ?) " +
+                    "ON CONFLICT (id) DO UPDATE SET full_json = EXCLUDED.full_json, name = EXCLUDED.name, price = EXCLUDED.price, image = EXCLUDED.image, category = EXCLUDED.category, status = EXCLUDED.status",
+                    id, jsonStr, nameVal, priceVal, imageVal, categoryVal, statusVal != null ? statusVal : "PUBLISHED"
+                );
+            } catch (Exception sqlEx) {
+                System.err.println("Native SQL fallback upsert failed: " + sqlEx.getMessage());
+            }
+        }
+
+        syncService.bumpVersion();
+        return ResponseEntity.ok(body);
     }
 
     @PutMapping({"/vendors/products/{id}", "/products/{id}"})
     public ResponseEntity<?> updateVendorProduct(@PathVariable String id, @RequestBody Map<String, Object> body) {
+        body.put("id", id);
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        String jsonStr = "";
+        try { jsonStr = mapper.writeValueAsString(body); } catch(Exception e){}
+
+        VendorProduct product = null;
         try {
-            VendorProduct product = vendorProductRepository.findById(id)
-                    .orElseGet(() -> {
-                        VendorProduct p = new VendorProduct();
-                        p.setId(id);
-                        return p;
-                    });
-
-            body.put("id", id);
-            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-            try {
-                product.setFullJson(mapper.writeValueAsString(body));
-            } catch (Exception e) {}
-
-            if (body.containsKey("name")) product.setName(safeParseString(body.get("name")));
-            if (body.containsKey("house")) product.setHouse(safeParseString(body.get("house")));
-            if (body.containsKey("price")) product.setPrice(safeParseString(body.get("price")));
-            if (body.containsKey("image")) product.setImage(safeParseString(body.get("image")));
-            if (body.containsKey("category")) product.setCategory(safeParseString(body.get("category")));
-            if (body.containsKey("gender")) product.setGender(safeParseString(body.get("gender")));
-            if (body.containsKey("tag")) product.setTag(safeParseString(body.get("tag")));
-            if (body.containsKey("sku")) product.setSku(safeParseString(body.get("sku")));
-            if (body.containsKey("originalPrice")) product.setOriginalPrice(safeParseString(body.get("originalPrice")));
-            if (body.containsKey("discount") && body.get("discount") != null) product.setDiscount(safeParseInt(body.get("discount")));
-            if (body.containsKey("status")) product.setStatus(safeParseString(body.get("status")));
-            if (body.containsKey("visibility")) product.setVisibility(safeParseString(body.get("visibility")));
-            if (body.containsKey("material")) product.setMaterial(safeParseString(body.get("material")));
-            if (body.containsKey("fabric")) product.setFabric(safeParseString(body.get("fabric")));
-            if (body.containsKey("color")) product.setColor(safeParseString(body.get("color")));
-            if (body.containsKey("collections")) product.setCollections(safeParseString(body.get("collections")));
-            if (body.containsKey("overviewTitle")) product.setOverviewTitle(safeParseString(body.get("overviewTitle")));
-            if (body.containsKey("description")) product.setDescription(safeParseString(body.get("description")));
-            if (body.containsKey("details")) product.setDetails(safeParseString(body.get("details")));
-            if (body.containsKey("productInfo")) product.setProductInfo(safeParseString(body.get("productInfo")));
-            if (body.containsKey("inStock")) product.setInStock(safeParseBoolean(body.get("inStock")));
-            if (body.containsKey("isNew")) product.setIsNew(safeParseBoolean(body.get("isNew")));
-            if (body.containsKey("isNewArrival")) product.setIsNewArrival(safeParseBoolean(body.get("isNewArrival")));
-            if (body.containsKey("isTrending")) product.setIsTrending(safeParseBoolean(body.get("isTrending")));
-            if (body.containsKey("isBestSeller")) product.setIsBestSeller(safeParseBoolean(body.get("isBestSeller")));
-            if (body.containsKey("isFeatured")) product.setIsFeatured(safeParseBoolean(body.get("isFeatured")));
-            if (body.containsKey("isRecommended")) product.setIsRecommended(safeParseBoolean(body.get("isRecommended")));
-            if (body.containsKey("seoTitle")) product.setSeoTitle(safeParseString(body.get("seoTitle")));
-            if (body.containsKey("seoDescription")) product.setSeoDescription(safeParseString(body.get("seoDescription")));
-            if (body.containsKey("seoKeywords")) product.setSeoKeywords(safeParseString(body.get("seoKeywords")));
-
-            if (body.containsKey("customRating") && body.get("customRating") != null) product.setCustomRating(safeParseDouble(body.get("customRating")));
-            if (body.containsKey("customReviewCount") && body.get("customReviewCount") != null) product.setCustomReviewCount(safeParseInt(body.get("customReviewCount")));
-            if (body.containsKey("rating") && body.get("rating") != null) product.setRating(safeParseDouble(body.get("rating")));
-            if (body.containsKey("reviewCount") && body.get("reviewCount") != null) product.setReviewCount(safeParseInt(body.get("reviewCount")));
-            if (body.containsKey("stockQuantity") && body.get("stockQuantity") != null) product.setStockQuantity(safeParseInt(body.get("stockQuantity")));
-            if (body.containsKey("units") && body.get("units") != null) product.setUnits(safeParseInt(body.get("units")));
-            if (body.containsKey("vendorId")) product.setVendorId(safeParseString(body.get("vendorId")));
-
-            if (body.containsKey("images")) {
-                try { product.setImagesJson(mapper.writeValueAsString(body.get("images"))); } catch(Exception e){}
-            }
-            if (body.containsKey("sizes")) {
-                try { product.setSizesJson(mapper.writeValueAsString(body.get("sizes"))); } catch(Exception e){}
-            }
-            if (body.containsKey("tags")) {
-                try { product.setTagsJson(mapper.writeValueAsString(body.get("tags"))); } catch(Exception e){}
-            }
-            if (body.containsKey("stockPerSize")) {
-                try { product.setStockPerSizeJson(mapper.writeValueAsString(body.get("stockPerSize"))); } catch(Exception e){}
-            }
-            if (body.containsKey("productSections")) {
-                try { product.setProductSectionsJson(mapper.writeValueAsString(body.get("productSections"))); } catch(Exception e){}
-            }
-
-            try {
-                vendorProductRepository.saveAndFlush(product);
-            } catch (Exception ex) {
-                System.err.println("Primary saveAndFlush update failed, using fallback save: " + ex.getMessage());
-                try {
-                    VendorProduct fallback = new VendorProduct();
-                    fallback.setId(id);
-                    fallback.setFullJson(mapper.writeValueAsString(body));
-                    if (body.containsKey("name")) fallback.setName(safeParseString(body.get("name")));
-                    if (body.containsKey("price")) fallback.setPrice(safeParseString(body.get("price")));
-                    if (body.containsKey("image")) fallback.setImage(safeParseString(body.get("image")));
-                    vendorProductRepository.saveAndFlush(fallback);
-                } catch (Exception ex2) {
-                    System.err.println("Fallback save also failed: " + ex2.getMessage());
-                }
-            }
-
-            syncService.bumpVersion();
-            return ResponseEntity.ok(body);
+            product = vendorProductRepository.findById(id).orElse(null);
         } catch (Exception e) {
-            e.printStackTrace();
-            System.err.println("Error updating vendor product: " + e.getMessage());
-            Map<String, Object> err = new HashMap<>();
-            err.put("error", "Failed to update product: " + e.getMessage());
-            return ResponseEntity.status(500).body(err);
+            System.err.println("findById update notice: " + e.getMessage());
         }
+        if (product == null) {
+            product = new VendorProduct();
+            product.setId(id);
+        }
+
+        try {
+            product.setFullJson(jsonStr);
+        } catch (Exception e) {}
+
+        if (body.containsKey("name")) product.setName(safeParseString(body.get("name")));
+        if (body.containsKey("house")) product.setHouse(safeParseString(body.get("house")));
+        if (body.containsKey("price")) product.setPrice(safeParseString(body.get("price")));
+        if (body.containsKey("image")) product.setImage(safeParseString(body.get("image")));
+        if (body.containsKey("category")) product.setCategory(safeParseString(body.get("category")));
+        if (body.containsKey("gender")) product.setGender(safeParseString(body.get("gender")));
+        if (body.containsKey("tag")) product.setTag(safeParseString(body.get("tag")));
+        if (body.containsKey("sku")) product.setSku(safeParseString(body.get("sku")));
+        if (body.containsKey("originalPrice")) product.setOriginalPrice(safeParseString(body.get("originalPrice")));
+        if (body.containsKey("discount") && body.get("discount") != null) product.setDiscount(safeParseInt(body.get("discount")));
+        if (body.containsKey("status")) product.setStatus(safeParseString(body.get("status")));
+        if (body.containsKey("visibility")) product.setVisibility(safeParseString(body.get("visibility")));
+        if (body.containsKey("material")) product.setMaterial(safeParseString(body.get("material")));
+        if (body.containsKey("fabric")) product.setFabric(safeParseString(body.get("fabric")));
+        if (body.containsKey("color")) product.setColor(safeParseString(body.get("color")));
+        if (body.containsKey("collections")) product.setCollections(safeParseString(body.get("collections")));
+        if (body.containsKey("overviewTitle")) product.setOverviewTitle(safeParseString(body.get("overviewTitle")));
+        if (body.containsKey("description")) product.setDescription(safeParseString(body.get("description")));
+        if (body.containsKey("details")) product.setDetails(safeParseString(body.get("details")));
+        if (body.containsKey("productInfo")) product.setProductInfo(safeParseString(body.get("productInfo")));
+        if (body.containsKey("inStock")) product.setInStock(safeParseBoolean(body.get("inStock")));
+        if (body.containsKey("isNew")) product.setIsNew(safeParseBoolean(body.get("isNew")));
+        if (body.containsKey("isNewArrival")) product.setIsNewArrival(safeParseBoolean(body.get("isNewArrival")));
+        if (body.containsKey("isTrending")) product.setIsTrending(safeParseBoolean(body.get("isTrending")));
+        if (body.containsKey("isBestSeller")) product.setIsBestSeller(safeParseBoolean(body.get("isBestSeller")));
+        if (body.containsKey("isFeatured")) product.setIsFeatured(safeParseBoolean(body.get("isFeatured")));
+        if (body.containsKey("isRecommended")) product.setIsRecommended(safeParseBoolean(body.get("isRecommended")));
+        if (body.containsKey("seoTitle")) product.setSeoTitle(safeParseString(body.get("seoTitle")));
+        if (body.containsKey("seoDescription")) product.setSeoDescription(safeParseString(body.get("seoDescription")));
+        if (body.containsKey("seoKeywords")) product.setSeoKeywords(safeParseString(body.get("seoKeywords")));
+
+        if (body.containsKey("customRating") && body.get("customRating") != null) product.setCustomRating(safeParseDouble(body.get("customRating")));
+        if (body.containsKey("customReviewCount") && body.get("customReviewCount") != null) product.setCustomReviewCount(safeParseInt(body.get("customReviewCount")));
+        if (body.containsKey("rating") && body.get("rating") != null) product.setRating(safeParseDouble(body.get("rating")));
+        if (body.containsKey("reviewCount") && body.get("reviewCount") != null) product.setReviewCount(safeParseInt(body.get("reviewCount")));
+        if (body.containsKey("stockQuantity") && body.get("stockQuantity") != null) product.setStockQuantity(safeParseInt(body.get("stockQuantity")));
+        if (body.containsKey("units") && body.get("units") != null) product.setUnits(safeParseInt(body.get("units")));
+        if (body.containsKey("vendorId")) product.setVendorId(safeParseString(body.get("vendorId")));
+
+        if (body.containsKey("images")) {
+            try { product.setImagesJson(mapper.writeValueAsString(body.get("images"))); } catch(Exception e){}
+        }
+        if (body.containsKey("sizes")) {
+            try { product.setSizesJson(mapper.writeValueAsString(body.get("sizes"))); } catch(Exception e){}
+        }
+        if (body.containsKey("tags")) {
+            try { product.setTagsJson(mapper.writeValueAsString(body.get("tags"))); } catch(Exception e){}
+        }
+        if (body.containsKey("stockPerSize")) {
+            try { product.setStockPerSizeJson(mapper.writeValueAsString(body.get("stockPerSize"))); } catch(Exception e){}
+        }
+        if (body.containsKey("productSections")) {
+            try { product.setProductSectionsJson(mapper.writeValueAsString(body.get("productSections"))); } catch(Exception e){}
+        }
+
+        try {
+            vendorProductRepository.saveAndFlush(product);
+        } catch (Exception ex) {
+            System.err.println("Primary saveAndFlush update failed, using native SQL upsert fallback: " + ex.getMessage());
+            try {
+                String nameVal = safeParseString(body.get("name"));
+                String priceVal = safeParseString(body.get("price"));
+                String imageVal = safeParseString(body.get("image"));
+                String categoryVal = safeParseString(body.get("category"));
+                String statusVal = safeParseString(body.get("status"));
+                
+                jdbcTemplate.update(
+                    "INSERT INTO vendor_products (id, full_json, name, price, image, category, status) VALUES (?, ?, ?, ?, ?, ?, ?) " +
+                    "ON CONFLICT (id) DO UPDATE SET full_json = EXCLUDED.full_json, name = EXCLUDED.name, price = EXCLUDED.price, image = EXCLUDED.image, category = EXCLUDED.category, status = EXCLUDED.status",
+                    id, jsonStr, nameVal, priceVal, imageVal, categoryVal, statusVal != null ? statusVal : "PUBLISHED"
+                );
+            } catch (Exception sqlEx) {
+                System.err.println("Native SQL fallback upsert failed: " + sqlEx.getMessage());
+            }
+        }
+
+        syncService.bumpVersion();
+        return ResponseEntity.ok(body);
+    }
+
+    @DeleteMapping({"/vendors/products/{id}", "/products/{id}"})
+    public ResponseEntity<?> deleteVendorProduct(@PathVariable String id) {
+        try {
+            vendorProductRepository.deleteById(id);
+        } catch (Exception e) {
+            try {
+                jdbcTemplate.update("DELETE FROM vendor_products WHERE id = ?", id);
+            } catch (Exception sqlEx) {}
+        }
+        syncService.bumpVersion();
+        return ResponseEntity.ok(Map.of("message", "Product deleted successfully", "id", id));
     }
 
     private String safeParseString(Object val) {
