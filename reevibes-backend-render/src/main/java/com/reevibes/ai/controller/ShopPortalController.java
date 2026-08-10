@@ -1828,13 +1828,5 @@ public class ShopPortalController {
         if (val instanceof Boolean) return (Boolean) val;
         return "true".equalsIgnoreCase(String.valueOf(val));
     }
-
-    @DeleteMapping("/vendors/products/{id}")
-    @Transactional
-    public ResponseEntity<?> deleteVendorProduct(@PathVariable String id) {
-        vendorProductRepository.deleteById(id);
-        syncService.bumpVersion();
-        return ResponseEntity.ok(Map.of("message", "Product deleted successfully"));
-    }
 }
 

@@ -69,10 +69,12 @@ public class DatabaseInitializer {
             };
 
             for (String q : alterQueries) {
-                try {
-                    jdbcTemplate.execute(q);
-                } catch (Exception e) {
-                    System.err.println("Column alter notice: " + e.getMessage());
+                if (q != null) {
+                    try {
+                        jdbcTemplate.execute(q);
+                    } catch (Exception e) {
+                        System.err.println("Column alter notice: " + e.getMessage());
+                    }
                 }
             }
 
