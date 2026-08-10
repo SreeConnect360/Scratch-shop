@@ -871,21 +871,49 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       }
 
       // 5. Fetch Homepage Layout
-      const layoutsRes = await fetch(`${BACKEND_URL}/api/homepage-layout`);
-      let mappedPubLayout = DEFAULT_HOMEPAGE_LAYOUT;
-      let mappedDraftLayout = DEFAULT_HOMEPAGE_LAYOUT;
-      if (layoutsRes.ok) {
-        const dbLayouts = await layoutsRes.json();
-        const pub = dbLayouts.find((l: any) => l.id === "published");
-        const draft = dbLayouts.find((l: any) => l.id === "draft");
-        if (pub) {
-          try { mappedPubLayout = JSON.parse(pub.layoutJson); } catch(e) {}
-        }
-        if (draft) {
-          try { mappedDraftLayout = JSON.parse(draft.layoutJson); } catch(e) {}
-        } else if (pub) {
-          mappedDraftLayout = mappedPubLayout;
-        }
+      const layoutsRes = await fetch(`${BACKEND_URL}/api/homepage-layout`).catch(() => null);
+      let mappedPubLayout: any = null;
+      let mappedDraftLayout: any = null;
+      if (layoutsRes && layoutsRes.ok) {
+        try {
+          const dbLayouts = await layoutsRes.json();
+          if (Array.isArray(dbLayouts)) {
+            const pub = dbLayouts.find((l: any) => l.id === "published");
+            const draft = dbLayouts.find((l: any) => l.id === "draft");
+            if (pub && pub.layoutJson) {
+              try { mappedPubLayout = typeof pub.layoutJson === "string" ? JSON.parse(pub.layoutJson) : pub.layoutJson; } catch(e) {}
+            }
+            if (draft && draft.layoutJson) {
+              try { mappedDraftLayout = typeof draft.layoutJson === "string" ? JSON.parse(draft.layoutJson) : draft.layoutJson; } catch(e) {}
+            } else if (mappedPubLayout) {
+              mappedDraftLayout = mappedPubLayout;
+            }
+          }
+        } catch(e) {}
+      }
+
+      if (!mappedPubLayout) {
+        try {
+          const pubRes = await fetch(`${BACKEND_URL}/api/homepage-layout/published`).catch(() => null);
+          if (pubRes && pubRes.ok) {
+            const data = await pubRes.json();
+            if (data && data.layoutJson) {
+              mappedPubLayout = typeof data.layoutJson === "string" ? JSON.parse(data.layoutJson) : data.layoutJson;
+            }
+          }
+        } catch(e) {}
+      }
+
+      if (!mappedDraftLayout) {
+        try {
+          const draftRes = await fetch(`${BACKEND_URL}/api/homepage-layout/draft`).catch(() => null);
+          if (draftRes && draftRes.ok) {
+            const data = await draftRes.json();
+            if (data && data.layoutJson) {
+              mappedDraftLayout = typeof data.layoutJson === "string" ? JSON.parse(data.layoutJson) : data.layoutJson;
+            }
+          }
+        } catch(e) {}
       }
 
       // 6. Fetch Orders
@@ -1027,8 +1055,8 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           addresses: { ...s.addresses, ...extraAddresses },
           shopWishlist: { ...s.shopWishlist, ...extraWishlists },
           shopCart: nextShopCart,
-          homepageLayout: mappedPubLayout,
-          homepageLayoutDraft: mappedDraftLayout,
+          homepageLayout: mappedPubLayout || s.homepageLayout || DEFAULT_HOMEPAGE_LAYOUT,
+          homepageLayoutDraft: mappedDraftLayout || mappedPubLayout || s.homepageLayoutDraft || DEFAULT_HOMEPAGE_LAYOUT,
           orders: mergedOrders,
           returns: mappedReturns,
           coupons: mappedCoupons,

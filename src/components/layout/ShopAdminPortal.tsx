@@ -5842,7 +5842,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                   </div>
                   
                   {selectedProductIds.length > 0 && (
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2 items-center">
                       <button
                         onClick={() => {
                           selectedProductIds.forEach(id => {
@@ -5856,7 +5856,22 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                         }}
                         className="bg-accent text-white px-4 py-1.5 text-[10px] uppercase tracking-widest font-bold rounded-full hover:bg-accent/90 transition-all cursor-pointer shadow-lg shadow-accent/20"
                       >
-                        Bulk Publish
+                        Bulk Publish ({selectedProductIds.length})
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (window.confirm(`Are you sure you want to delete ${selectedProductIds.length} selected product(s)? This action cannot be undone.`)) {
+                            const count = selectedProductIds.length;
+                            selectedProductIds.forEach(id => {
+                              deleteProduct(id);
+                            });
+                            setSelectedProductIds([]);
+                            triggerModal("success", "Products Deleted", `Successfully deleted ${count} selected products from production database.`, () => {});
+                          }
+                        }}
+                        className="bg-rose-600 hover:bg-rose-700 text-white px-4 py-1.5 text-[10px] uppercase tracking-widest font-bold rounded-full transition-all cursor-pointer shadow-lg shadow-rose-600/20 flex items-center gap-1"
+                      >
+                        <Trash2 className="w-3 h-3" /> Bulk Delete ({selectedProductIds.length})
                       </button>
                       <button
                         onClick={() => setSelectedProductIds([])}
