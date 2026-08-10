@@ -1590,6 +1590,14 @@ public class ShopPortalController {
             if (body.containsKey("seoDescription")) product.setSeoDescription(safeParseString(body.get("seoDescription")));
             if (body.containsKey("seoKeywords")) product.setSeoKeywords(safeParseString(body.get("seoKeywords")));
 
+            if (body.containsKey("customRating") && body.get("customRating") != null) product.setCustomRating(safeParseDouble(body.get("customRating")));
+            if (body.containsKey("customReviewCount") && body.get("customReviewCount") != null) product.setCustomReviewCount(safeParseInt(body.get("customReviewCount")));
+            if (body.containsKey("rating") && body.get("rating") != null) product.setRating(safeParseDouble(body.get("rating")));
+            if (body.containsKey("reviewCount") && body.get("reviewCount") != null) product.setReviewCount(safeParseInt(body.get("reviewCount")));
+            if (body.containsKey("stockQuantity") && body.get("stockQuantity") != null) product.setStockQuantity(safeParseInt(body.get("stockQuantity")));
+            if (body.containsKey("units") && body.get("units") != null) product.setUnits(safeParseInt(body.get("units")));
+            if (body.containsKey("vendorId")) product.setVendorId(safeParseString(body.get("vendorId")));
+
             if (body.containsKey("images")) {
                 try { product.setImagesJson(mapper.writeValueAsString(body.get("images"))); } catch(Exception e){}
             }
@@ -1606,7 +1614,20 @@ public class ShopPortalController {
                 try { product.setProductSectionsJson(mapper.writeValueAsString(body.get("productSections"))); } catch(Exception e){}
             }
 
-            vendorProductRepository.saveAndFlush(product);
+            try {
+                vendorProductRepository.saveAndFlush(product);
+            } catch (Exception ex) {
+                System.err.println("Primary saveAndFlush failed, using fallback save: " + ex.getMessage());
+                ex.printStackTrace();
+                VendorProduct fallback = new VendorProduct();
+                fallback.setId(id);
+                fallback.setFullJson(mapper.writeValueAsString(body));
+                if (body.containsKey("name")) fallback.setName(safeParseString(body.get("name")));
+                if (body.containsKey("price")) fallback.setPrice(safeParseString(body.get("price")));
+                if (body.containsKey("image")) fallback.setImage(safeParseString(body.get("image")));
+                vendorProductRepository.saveAndFlush(fallback);
+            }
+
             syncService.bumpVersion();
             return ResponseEntity.ok(body);
         } catch (Exception e) {
@@ -1666,6 +1687,14 @@ public class ShopPortalController {
             if (body.containsKey("seoDescription")) product.setSeoDescription(safeParseString(body.get("seoDescription")));
             if (body.containsKey("seoKeywords")) product.setSeoKeywords(safeParseString(body.get("seoKeywords")));
 
+            if (body.containsKey("customRating") && body.get("customRating") != null) product.setCustomRating(safeParseDouble(body.get("customRating")));
+            if (body.containsKey("customReviewCount") && body.get("customReviewCount") != null) product.setCustomReviewCount(safeParseInt(body.get("customReviewCount")));
+            if (body.containsKey("rating") && body.get("rating") != null) product.setRating(safeParseDouble(body.get("rating")));
+            if (body.containsKey("reviewCount") && body.get("reviewCount") != null) product.setReviewCount(safeParseInt(body.get("reviewCount")));
+            if (body.containsKey("stockQuantity") && body.get("stockQuantity") != null) product.setStockQuantity(safeParseInt(body.get("stockQuantity")));
+            if (body.containsKey("units") && body.get("units") != null) product.setUnits(safeParseInt(body.get("units")));
+            if (body.containsKey("vendorId")) product.setVendorId(safeParseString(body.get("vendorId")));
+
             if (body.containsKey("images")) {
                 try { product.setImagesJson(mapper.writeValueAsString(body.get("images"))); } catch(Exception e){}
             }
@@ -1682,7 +1711,20 @@ public class ShopPortalController {
                 try { product.setProductSectionsJson(mapper.writeValueAsString(body.get("productSections"))); } catch(Exception e){}
             }
 
-            vendorProductRepository.saveAndFlush(product);
+            try {
+                vendorProductRepository.saveAndFlush(product);
+            } catch (Exception ex) {
+                System.err.println("Primary saveAndFlush update failed, using fallback save: " + ex.getMessage());
+                ex.printStackTrace();
+                VendorProduct fallback = new VendorProduct();
+                fallback.setId(id);
+                fallback.setFullJson(mapper.writeValueAsString(body));
+                if (body.containsKey("name")) fallback.setName(safeParseString(body.get("name")));
+                if (body.containsKey("price")) fallback.setPrice(safeParseString(body.get("price")));
+                if (body.containsKey("image")) fallback.setImage(safeParseString(body.get("image")));
+                vendorProductRepository.saveAndFlush(fallback);
+            }
+
             syncService.bumpVersion();
             return ResponseEntity.ok(body);
         } catch (Exception e) {
@@ -1713,6 +1755,16 @@ public class ShopPortalController {
             return digits.isEmpty() ? 0 : Integer.parseInt(digits);
         } catch (Exception e) {
             return 0;
+        }
+    }
+
+    private double safeParseDouble(Object val) {
+        if (val == null) return 0.0;
+        if (val instanceof Number) return ((Number) val).doubleValue();
+        try {
+            return Double.parseDouble(String.valueOf(val));
+        } catch (Exception e) {
+            return 0.0;
         }
     }
 

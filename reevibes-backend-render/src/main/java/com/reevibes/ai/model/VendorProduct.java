@@ -19,6 +19,7 @@ public class VendorProduct {
     @Column(columnDefinition = "TEXT")
     private String house;
 
+    @Column(columnDefinition = "TEXT")
     private String price;
 
     @Column(columnDefinition = "TEXT")
@@ -30,15 +31,24 @@ public class VendorProduct {
     @Column(columnDefinition = "TEXT")
     private String category;
 
+    @Column(columnDefinition = "TEXT")
     private String gender;
 
     @Column(columnDefinition = "TEXT")
     private String tag;
 
+    @Column(columnDefinition = "TEXT")
     private String sku;
+
+    @Column(columnDefinition = "TEXT")
     private String originalPrice;
+
     private Integer discount = 0;
+
+    @Column(columnDefinition = "TEXT")
     private String status = "PUBLISHED";
+
+    @Column(columnDefinition = "TEXT")
     private String visibility = "VISIBLE";
 
     @Column(columnDefinition = "TEXT")
@@ -88,6 +98,7 @@ public class VendorProduct {
     private Boolean isFeatured = false;
     private Boolean isRecommended = false;
 
+    @Column(columnDefinition = "TEXT")
     private String vendorId;
     private Double customRating = 4.8;
     private Integer customReviewCount = 14;
