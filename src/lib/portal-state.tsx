@@ -740,6 +740,18 @@ export function PortalProvider({ children }: { children: ReactNode }) {
   const [isProductsLoading, setIsProductsLoading] = useState(true);
   const localVersionRef = useRef<number>(0);
 
+  const notifyBroadcastSync = useCallback(() => {
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("reevibes_last_sync", Date.now().toString());
+        window.dispatchEvent(new CustomEvent("reevibes-sync-event"));
+        const bc = new BroadcastChannel("reevibes_channel");
+        bc.postMessage("sync");
+        bc.close();
+      } catch(e) {}
+    }
+  }, []);
+
   // Fetch dynamic database vendors, products, buckets, and customers from PostgreSQL backend
   const fetchBackendState = useCallback(async (force?: boolean) => {
     try {
@@ -1060,7 +1072,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           orders: mergedOrders,
           returns: mappedReturns,
           coupons: mappedCoupons,
-          productReviews: mappedReviews
+          productReviews: mergedReviews
         };
       });
     } catch (err) {
@@ -1092,17 +1104,32 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 
     const handleSync = () => {
       setState(load());
+      fetchBackendState(true);
     };
     const handleStorage = (e: StorageEvent) => {
-      if (e.key && e.key.startsWith("reevibes:")) {
+      if (e.key && (e.key.startsWith("reevibes:") || e.key === "reevibes_store_v2" || e.key === "reevibes_last_sync")) {
         setState(load());
+        fetchBackendState(true);
       }
     };
+
+    let bc: BroadcastChannel | null = null;
+    try {
+      bc = new BroadcastChannel("reevibes_channel");
+      bc.onmessage = (msg) => {
+        if (msg.data === "sync") {
+          setState(load());
+          fetchBackendState(true);
+        }
+      };
+    } catch(e) {}
+
     window.addEventListener("storage", handleStorage);
     window.addEventListener("reevibes-sync-event", handleSync);
     return () => {
       window.removeEventListener("storage", handleStorage);
       window.removeEventListener("reevibes-sync-event", handleSync);
+      if (bc) bc.close();
     };
   }, [fetchBackendState]);
 
@@ -2019,6 +2046,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         save(next);
         return next;
       });
+      notifyBroadcastSync();
       
       const cleaned: any = {
         status: p.status || "PUBLISHED",
@@ -2041,6 +2069,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         if (res.ok) {
           toast.success("Product created & saved to production database!");
           fetchBackendState(true);
+          notifyBroadcastSync();
         } else {
           const errText = await res.text().catch(() => "");
           console.error("Product create failed:", res.status, errText);
@@ -2060,6 +2089,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         save(next);
         return next;
       });
+      notifyBroadcastSync();
       
       // Clean price strings to numbers if present
       const cleanedPatch: any = { ...patch };
@@ -2077,6 +2107,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         if (res.ok) {
           toast.success("Product updated in production database!");
           fetchBackendState(true);
+          notifyBroadcastSync();
         } else {
           toast.error("Failed to update product in production backend.");
         }
@@ -2088,12 +2119,14 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         save(next);
         return next;
       });
+      notifyBroadcastSync();
       fetch(`${BACKEND_URL}/api/vendors/products/${id}`, {
         method: "DELETE"
       }).then(res => {
         if (res.ok) {
           toast.success("Product deleted from production database!");
           fetchBackendState(true);
+          notifyBroadcastSync();
         } else {
           toast.error("Failed to delete product from production backend.");
         }
