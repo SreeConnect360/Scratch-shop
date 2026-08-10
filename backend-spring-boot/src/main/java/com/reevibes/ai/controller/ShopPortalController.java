@@ -1540,11 +1540,10 @@ public class ShopPortalController {
     }
 
     @PostMapping({"/vendors/products", "/products"})
-    @Transactional
     public ResponseEntity<?> createVendorProduct(@RequestBody Map<String, Object> body) {
         try {
-            String id = body.containsKey("id") && body.get("id") != null && !String.valueOf(body.get("id")).isEmpty() 
-                    ? String.valueOf(body.get("id")) 
+            String id = body.containsKey("id") && body.get("id") != null && !String.valueOf(body.get("id")).trim().isEmpty() 
+                    ? String.valueOf(body.get("id")).trim() 
                     : "vnd-" + System.currentTimeMillis() + "-catalog";
             body.put("id", id);
 
@@ -1618,14 +1617,17 @@ public class ShopPortalController {
                 vendorProductRepository.saveAndFlush(product);
             } catch (Exception ex) {
                 System.err.println("Primary saveAndFlush failed, using fallback save: " + ex.getMessage());
-                ex.printStackTrace();
-                VendorProduct fallback = new VendorProduct();
-                fallback.setId(id);
-                fallback.setFullJson(mapper.writeValueAsString(body));
-                if (body.containsKey("name")) fallback.setName(safeParseString(body.get("name")));
-                if (body.containsKey("price")) fallback.setPrice(safeParseString(body.get("price")));
-                if (body.containsKey("image")) fallback.setImage(safeParseString(body.get("image")));
-                vendorProductRepository.saveAndFlush(fallback);
+                try {
+                    VendorProduct fallback = new VendorProduct();
+                    fallback.setId(id);
+                    fallback.setFullJson(mapper.writeValueAsString(body));
+                    if (body.containsKey("name")) fallback.setName(safeParseString(body.get("name")));
+                    if (body.containsKey("price")) fallback.setPrice(safeParseString(body.get("price")));
+                    if (body.containsKey("image")) fallback.setImage(safeParseString(body.get("image")));
+                    vendorProductRepository.saveAndFlush(fallback);
+                } catch (Exception ex2) {
+                    System.err.println("Fallback save also failed: " + ex2.getMessage());
+                }
             }
 
             syncService.bumpVersion();
@@ -1640,7 +1642,6 @@ public class ShopPortalController {
     }
 
     @PutMapping({"/vendors/products/{id}", "/products/{id}"})
-    @Transactional
     public ResponseEntity<?> updateVendorProduct(@PathVariable String id, @RequestBody Map<String, Object> body) {
         try {
             VendorProduct product = vendorProductRepository.findById(id)
@@ -1715,14 +1716,17 @@ public class ShopPortalController {
                 vendorProductRepository.saveAndFlush(product);
             } catch (Exception ex) {
                 System.err.println("Primary saveAndFlush update failed, using fallback save: " + ex.getMessage());
-                ex.printStackTrace();
-                VendorProduct fallback = new VendorProduct();
-                fallback.setId(id);
-                fallback.setFullJson(mapper.writeValueAsString(body));
-                if (body.containsKey("name")) fallback.setName(safeParseString(body.get("name")));
-                if (body.containsKey("price")) fallback.setPrice(safeParseString(body.get("price")));
-                if (body.containsKey("image")) fallback.setImage(safeParseString(body.get("image")));
-                vendorProductRepository.saveAndFlush(fallback);
+                try {
+                    VendorProduct fallback = new VendorProduct();
+                    fallback.setId(id);
+                    fallback.setFullJson(mapper.writeValueAsString(body));
+                    if (body.containsKey("name")) fallback.setName(safeParseString(body.get("name")));
+                    if (body.containsKey("price")) fallback.setPrice(safeParseString(body.get("price")));
+                    if (body.containsKey("image")) fallback.setImage(safeParseString(body.get("image")));
+                    vendorProductRepository.saveAndFlush(fallback);
+                } catch (Exception ex2) {
+                    System.err.println("Fallback save also failed: " + ex2.getMessage());
+                }
             }
 
             syncService.bumpVersion();
@@ -1751,7 +1755,12 @@ public class ShopPortalController {
         if (val == null) return 0;
         if (val instanceof Number) return ((Number) val).intValue();
         try {
-            String digits = String.valueOf(val).replaceAll("[^0-9]", "");
+            String str = String.valueOf(val).trim();
+            if (str.isEmpty()) return 0;
+            if (str.contains(".")) {
+                return (int) Double.parseDouble(str);
+            }
+            String digits = str.replaceAll("[^0-9-]", "");
             return digits.isEmpty() ? 0 : Integer.parseInt(digits);
         } catch (Exception e) {
             return 0;
@@ -1762,7 +1771,8 @@ public class ShopPortalController {
         if (val == null) return 0.0;
         if (val instanceof Number) return ((Number) val).doubleValue();
         try {
-            return Double.parseDouble(String.valueOf(val));
+            String str = String.valueOf(val).trim().replaceAll("[^0-9.-]", "");
+            return str.isEmpty() ? 0.0 : Double.parseDouble(str);
         } catch (Exception e) {
             return 0.0;
         }
