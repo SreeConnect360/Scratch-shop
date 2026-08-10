@@ -1072,7 +1072,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           orders: mergedOrders,
           returns: mappedReturns,
           coupons: mappedCoupons,
-          productReviews: mergedReviews
+          productReviews: mappedReviews
         };
       });
     } catch (err) {
