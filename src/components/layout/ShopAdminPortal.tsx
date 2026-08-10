@@ -626,6 +626,10 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
 
   // Homepage Builder States
   const [draftLayout, setDraftLayout] = useState<any>(null);
+  const updateDraft = (nextLayout: any) => {
+    setDraftLayout(nextLayout);
+    updateHomepageLayoutDraft(nextLayout);
+  };
   const [activeSectionId, setActiveSectionId] = useState<string>("announcement");
   const [expandedSlideIndexMap, setExpandedSlideIndexMap] = useState<Record<string, number>>({});
   const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
@@ -662,7 +666,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
   };
 
   useEffect(() => {
-    if (state && !draftLayout) {
+    if (state?.homepageLayoutDraft || state?.homepageLayout) {
       const base = state.homepageLayoutDraft || state.homepageLayout || {};
       const layoutCopy: any = {
         ...DEFAULT_HOMEPAGE_LAYOUT,
@@ -674,9 +678,11 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
         newArrivals: { ...DEFAULT_HOMEPAGE_LAYOUT.newArrivals, ...(base.newArrivals || base.newArrival || {}) },
         campaign: { ...DEFAULT_HOMEPAGE_LAYOUT.campaign, ...(base.campaign || {}) },
         collections: { ...DEFAULT_HOMEPAGE_LAYOUT.collections, ...(base.collections || {}) },
+        liveFeed: { ...DEFAULT_HOMEPAGE_LAYOUT.liveFeed, ...(base.liveFeed || {}) },
         bestSellers: { ...DEFAULT_HOMEPAGE_LAYOUT.bestSellers, ...(base.bestSellers || {}) },
         limitedStock: { ...DEFAULT_HOMEPAGE_LAYOUT.limitedStock, ...(base.limitedStock || {}) },
         influencerPicks: { ...DEFAULT_HOMEPAGE_LAYOUT.influencerPicks, ...(base.influencerPicks || {}) },
+        reviews: { ...DEFAULT_HOMEPAGE_LAYOUT.reviews, ...(base.reviews || {}) },
         recentlyViewed: { ...DEFAULT_HOMEPAGE_LAYOUT.recentlyViewed, ...(base.recentlyViewed || {}) },
         brandStory: { ...DEFAULT_HOMEPAGE_LAYOUT.brandStory, ...(base.brandStory || {}) },
         chatbot: { enabled: true, ...(base.chatbot || {}) }
@@ -684,8 +690,8 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
 
       const standardKeys = [
         "announcement", "hero", "categories", "trending", "newArrivals",
-        "campaign", "collections", "bestSellers", "limitedStock",
-        "influencerPicks", "recentlyViewed", "brandStory", "chatbot"
+        "campaign", "collections", "liveFeed", "bestSellers", "limitedStock",
+        "influencerPicks", "reviews", "recentlyViewed", "brandStory", "chatbot"
       ];
       
       let existingOrder = Array.isArray(base.sectionOrder) ? [...base.sectionOrder] : [...DEFAULT_HOMEPAGE_LAYOUT.sectionOrder];
@@ -700,7 +706,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
       layoutCopy.sectionOrder = existingOrder;
       setDraftLayout(layoutCopy);
     }
-  }, [state, draftLayout]);
+  }, [state?.homepageLayoutDraft, state?.homepageLayout]);
 
   // Auto-hide announcement when countdown timer expires
   useEffect(() => {
@@ -3208,7 +3214,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                         const id = `section-${Date.now()}`;
                         const name = prompt("Enter Section Name:", "New Curation Section");
                         if (!name) return;
-                        setDraftLayout({
+                        updateDraft({
                           ...draftLayout,
                           sectionOrder: [...draftLayout.sectionOrder, id],
                           [id]: {
@@ -3231,7 +3237,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                         const id = `subbanner-${Date.now()}`;
                         const name = prompt("Enter Sub Banner Title:", "New Sub Banner");
                         if (!name) return;
-                        setDraftLayout({
+                        updateDraft({
                           ...draftLayout,
                           sectionOrder: [...draftLayout.sectionOrder, id],
                           [id]: {
@@ -3261,7 +3267,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                 <div className="space-y-2 max-h-[380px] overflow-y-auto pr-2 divide-y divide-white/5 scrollbar-thin">
                   {(() => {
                     const rawList = (draftLayout.sectionOrder || []).filter(
-                      (id: string) => !["navigation", "footer", "recommended", "flashSale", "lookbook", "newsletter"].includes(id)
+                      (id: string) => !["navigation", "footer"].includes(id)
                     );
                     const filteredList = rawList.includes("chatbot") ? rawList : [...rawList, "chatbot"];
                     return filteredList.map((secId: string, idx: number) => {
@@ -3278,9 +3284,11 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                       else if (secId === "newArrivals" || secId === "newArrival") displayName = "New Arrivals";
                       else if (secId === "campaign") displayName = "Campaign Banner";
                       else if (secId === "collections") displayName = "Featured Collections";
+                      else if (secId === "liveFeed") displayName = "liveFeed";
                       else if (secId === "bestSellers") displayName = "Best Sellers";
                       else if (secId === "limitedStock") displayName = "Limited Stock";
                       else if (secId === "influencerPicks") displayName = "Influencer Favorites";
+                      else if (secId === "reviews") displayName = "reviews";
                       else if (secId === "recentlyViewed") displayName = "Recently Viewed Products";
                       else if (secId === "recommended") displayName = "Recommended Products";
                       else if (secId === "brandStory") displayName = "Brand Story";
@@ -3316,7 +3324,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             <button
                               type="button"
                               onClick={() => {
-                                setDraftLayout({
+                                updateDraft({
                                   ...draftLayout,
                                   [secId]: { ...sec, enabled: !sec.enabled }
                                 });
@@ -3340,7 +3348,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                     const nextOrder = [...draftLayout.sectionOrder];
                                     nextOrder[globalIdx] = prevSecId;
                                     nextOrder[prevGlobalIdx] = secId;
-                                    setDraftLayout({ ...draftLayout, sectionOrder: nextOrder });
+                                    updateDraft({ ...draftLayout, sectionOrder: nextOrder });
                                   }}
                                   className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-20 cursor-pointer"
                                   title="Move Up"
@@ -3357,7 +3365,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                     const nextOrder = [...draftLayout.sectionOrder];
                                     nextOrder[globalIdx] = nextSecId;
                                     nextOrder[nextGlobalIdx] = secId;
-                                    setDraftLayout({ ...draftLayout, sectionOrder: nextOrder });
+                                    updateDraft({ ...draftLayout, sectionOrder: nextOrder });
                                   }}
                                   className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-20 cursor-pointer"
                                   title="Move Down"
@@ -3375,7 +3383,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                     const nextOrder = draftLayout.sectionOrder.filter((id: string) => id !== secId);
                                     const nextDraft = { ...draftLayout, sectionOrder: nextOrder };
                                     delete nextDraft[secId];
-                                    setDraftLayout(nextDraft);
+                                    updateDraft(nextDraft);
                                     if (activeSectionId === secId) {
                                       setActiveSectionId(nextOrder[0] || "announcement");
                                     }
@@ -3406,7 +3414,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                         type="checkbox"
                         checked={draftLayout[activeSectionId].enabled}
                         onChange={(e) => {
-                          setDraftLayout({
+                          updateDraft({
                             ...draftLayout,
                             [activeSectionId]: { ...draftLayout[activeSectionId], enabled: e.target.checked }
                           });
@@ -3428,7 +3436,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             type="text"
                             className="w-full bg-surface border border-border-subtle p-2 text-sm outline-none text-foreground"
                             value={draftLayout.announcement.text}
-                            onChange={(e) => setDraftLayout({
+                            onChange={(e) => updateDraft({
                               ...draftLayout,
                               announcement: { ...draftLayout.announcement, text: e.target.value }
                             })}
@@ -3440,7 +3448,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             type="text"
                             className="w-full bg-surface border border-border-subtle p-2 text-sm outline-none text-foreground font-mono"
                             value={draftLayout.announcement.linkUrl}
-                            onChange={(e) => setDraftLayout({
+                            onChange={(e) => updateDraft({
                               ...draftLayout,
                               announcement: { ...draftLayout.announcement, linkUrl: e.target.value }
                             })}
@@ -3453,7 +3461,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                               type="color"
                               className="w-8 h-8 rounded border border-white/10 bg-transparent cursor-pointer"
                               value={draftLayout.announcement.backgroundColor}
-                              onChange={(e) => setDraftLayout({
+                              onChange={(e) => updateDraft({
                                 ...draftLayout,
                                 announcement: { ...draftLayout.announcement, backgroundColor: e.target.value }
                               })}
@@ -3462,7 +3470,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                               type="text"
                               className="flex-1 bg-surface border border-border-subtle p-2 text-sm outline-none text-foreground font-mono"
                               value={draftLayout.announcement.backgroundColor}
-                              onChange={(e) => setDraftLayout({
+                              onChange={(e) => updateDraft({
                                 ...draftLayout,
                                 announcement: { ...draftLayout.announcement, backgroundColor: e.target.value }
                               })}
@@ -3478,7 +3486,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                               const active = e.target.checked;
                               const endsAt = new Date(draftLayout.announcement.countdownEndsAt);
                               const isFuture = active && !isNaN(endsAt.getTime()) && endsAt.getTime() > Date.now();
-                              setDraftLayout({
+                              updateDraft({
                                 ...draftLayout,
                                 announcement: {
                                   ...draftLayout.announcement,
@@ -3502,7 +3510,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                 const isoVal = val ? val + ":00" : "";
                                 const endsAt = new Date(isoVal);
                                 const isFuture = !isNaN(endsAt.getTime()) && endsAt.getTime() > Date.now();
-                                setDraftLayout({
+                                updateDraft({
                                   ...draftLayout,
                                   announcement: {
                                     ...draftLayout.announcement,
@@ -3535,7 +3543,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                       const nextVisible = e.target.checked
                                         ? [...draftLayout.navigation.visibleItems, navItem]
                                         : draftLayout.navigation.visibleItems.filter((x: string) => x !== navItem);
-                                      setDraftLayout({
+                                      updateDraft({
                                         ...draftLayout,
                                         navigation: { ...draftLayout.navigation, visibleItems: nextVisible }
                                       });
@@ -3549,7 +3557,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                       const t = order[navIdx];
                                       order[navIdx] = order[navIdx - 1];
                                       order[navIdx - 1] = t;
-                                      setDraftLayout({
+                                      updateDraft({
                                         ...draftLayout,
                                         navigation: { ...draftLayout.navigation, itemsOrder: order }
                                       });
@@ -3565,7 +3573,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                       const t = order[navIdx];
                                       order[navIdx] = order[navIdx + 1];
                                       order[navIdx + 1] = t;
-                                      setDraftLayout({
+                                      updateDraft({
                                         ...draftLayout,
                                         navigation: { ...draftLayout.navigation, itemsOrder: order }
                                       });
@@ -3593,7 +3601,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             type="checkbox"
                             checked={draftLayout.chatbot?.enabled !== false}
                             onChange={(e) => {
-                              setDraftLayout({
+                              updateDraft({
                                 ...draftLayout,
                                 chatbot: { ...draftLayout.chatbot, enabled: e.target.checked }
                               });
@@ -3630,7 +3638,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                 scheduleEnd: ""
                               };
                               const updated = [...draftLayout.hero.banners, newBanner];
-                              setDraftLayout({
+                              updateDraft({
                                 ...draftLayout,
                                 hero: { ...draftLayout.hero, banners: updated }
                               });
@@ -3667,7 +3675,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       const updated = draftLayout.hero.banners.filter((x: any) => x.id !== b.id);
-                                      setDraftLayout({
+                                      updateDraft({
                                         ...draftLayout,
                                         hero: { ...draftLayout.hero, banners: updated }
                                       });
@@ -3685,7 +3693,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                       value={b.type}
                                       onChange={(e) => {
                                         const updated = draftLayout.hero.banners.map((x: any) => x.id === b.id ? { ...x, type: e.target.value } : x);
-                                        setDraftLayout({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
+                                        updateDraft({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
                                       }}
                                       className="col-span-2 bg-surface border border-border-subtle p-2 outline-none text-foreground text-xs"
                                     >
@@ -3700,7 +3708,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                       value={b.title ?? ""}
                                       onChange={(e) => {
                                         const updated = draftLayout.hero.banners.map((x: any) => x.id === b.id ? { ...x, title: e.target.value } : x);
-                                        setDraftLayout({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
+                                        updateDraft({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
                                       }}
                                     />
                                     <input
@@ -3709,7 +3717,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                       value={b.subtitle ?? ""}
                                       onChange={(e) => {
                                         const updated = draftLayout.hero.banners.map((x: any) => x.id === b.id ? { ...x, subtitle: e.target.value } : x);
-                                        setDraftLayout({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
+                                        updateDraft({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
                                       }}
                                     />
                                     <input
@@ -3723,7 +3731,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                           const nextClickTarget = (!val.trim() && x.clickTarget === "button") ? "banner" : (x.clickTarget || "button");
                                           return { ...x, buttonText: val, clickTarget: nextClickTarget };
                                         });
-                                        setDraftLayout({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
+                                        updateDraft({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
                                       }}
                                     />
                                     <input
@@ -3732,7 +3740,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                       value={b.redirectUrl ?? ""}
                                       onChange={(e) => {
                                         const updated = draftLayout.hero.banners.map((x: any) => x.id === b.id ? { ...x, redirectUrl: e.target.value } : x);
-                                        setDraftLayout({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
+                                        updateDraft({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
                                       }}
                                     />
 
@@ -3744,7 +3752,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                           value={b.openIn || "sameTab"}
                                           onChange={(e) => {
                                             const updated = draftLayout.hero.banners.map((x: any) => x.id === b.id ? { ...x, openIn: e.target.value } : x);
-                                            setDraftLayout({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
+                                            updateDraft({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
                                           }}
                                           className="w-full bg-surface border border-border-subtle p-1.5 outline-none text-foreground text-xs rounded"
                                         >
@@ -3758,7 +3766,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                           value={(!b.buttonText?.trim() && b.clickTarget === "button") ? "banner" : (b.clickTarget || "button")}
                                           onChange={(e) => {
                                             const updated = draftLayout.hero.banners.map((x: any) => x.id === b.id ? { ...x, clickTarget: e.target.value } : x);
-                                            setDraftLayout({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
+                                            updateDraft({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
                                           }}
                                           className="w-full bg-surface border border-border-subtle p-1.5 outline-none text-foreground text-xs rounded"
                                         >
@@ -3776,7 +3784,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                       value={b.desktopImage ?? ""}
                                       onChange={(e) => {
                                         const updated = draftLayout.hero.banners.map((x: any) => x.id === b.id ? { ...x, desktopImage: e.target.value } : x);
-                                        setDraftLayout({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
+                                        updateDraft({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
                                       }}
                                     />
                                     <input
@@ -3785,7 +3793,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                       value={b.mobileImage ?? ""}
                                       onChange={(e) => {
                                         const updated = draftLayout.hero.banners.map((x: any) => x.id === b.id ? { ...x, mobileImage: e.target.value } : x);
-                                        setDraftLayout({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
+                                        updateDraft({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
                                       }}
                                     />
                                     <input
@@ -3794,7 +3802,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                       value={b.videoUrl || ""}
                                       onChange={(e) => {
                                         const updated = draftLayout.hero.banners.map((x: any) => x.id === b.id ? { ...x, videoUrl: e.target.value } : x);
-                                        setDraftLayout({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
+                                        updateDraft({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
                                       }}
                                     />
                                     <input
@@ -3803,7 +3811,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                       value={b.scheduleStart || ""}
                                       onChange={(e) => {
                                         const updated = draftLayout.hero.banners.map((x: any) => x.id === b.id ? { ...x, scheduleStart: e.target.value } : x);
-                                        setDraftLayout({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
+                                        updateDraft({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
                                       }}
                                     />
                                     <input
@@ -3812,7 +3820,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                       value={b.scheduleEnd || ""}
                                       onChange={(e) => {
                                         const updated = draftLayout.hero.banners.map((x: any) => x.id === b.id ? { ...x, scheduleEnd: e.target.value } : x);
-                                        setDraftLayout({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
+                                        updateDraft({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
                                       }}
                                     />
 
@@ -3862,7 +3870,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                 value={cat.redirectUrl}
                                 onChange={(e) => {
                                   const updated = draftLayout.categories.items.map((x: any) => x.id === cat.id ? { ...x, redirectUrl: e.target.value } : x);
-                                  setDraftLayout({ ...draftLayout, categories: { ...draftLayout.categories, items: updated } });
+                                  updateDraft({ ...draftLayout, categories: { ...draftLayout.categories, items: updated } });
                                 }}
                               />
                               <input
@@ -3871,7 +3879,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                 value={cat.image}
                                 onChange={(e) => {
                                   const updated = draftLayout.categories.items.map((x: any) => x.id === cat.id ? { ...x, image: e.target.value } : x);
-                                  setDraftLayout({ ...draftLayout, categories: { ...draftLayout.categories, items: updated } });
+                                  updateDraft({ ...draftLayout, categories: { ...draftLayout.categories, items: updated } });
                                 }}
                               />
                             </div>
@@ -3890,7 +3898,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                               type="text"
                               className="w-full bg-surface border border-border-subtle p-2 outline-none font-mono"
                               value={draftLayout.flashSale.startDate}
-                              onChange={(e) => setDraftLayout({
+                              onChange={(e) => updateDraft({
                                 ...draftLayout,
                                 flashSale: { ...draftLayout.flashSale, startDate: e.target.value }
                               })}
@@ -3902,7 +3910,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                               type="text"
                               className="w-full bg-surface border border-border-subtle p-2 outline-none font-mono"
                               value={draftLayout.flashSale.endDate}
-                              onChange={(e) => setDraftLayout({
+                              onChange={(e) => updateDraft({
                                 ...draftLayout,
                                 flashSale: { ...draftLayout.flashSale, endDate: e.target.value }
                               })}
@@ -3915,7 +3923,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             type="number"
                             className="w-full bg-surface border border-border-subtle p-2 outline-none font-mono"
                             value={draftLayout.flashSale.discount}
-                            onChange={(e) => setDraftLayout({
+                            onChange={(e) => updateDraft({
                               ...draftLayout,
                               flashSale: { ...draftLayout.flashSale, discount: Number(e.target.value) }
                             })}
@@ -3936,7 +3944,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                       const next = e.target.checked
                                         ? [...draftLayout.flashSale.products, p.id]
                                         : draftLayout.flashSale.products.filter((x: string) => x !== p.id);
-                                      setDraftLayout({
+                                      updateDraft({
                                         ...draftLayout,
                                         flashSale: { ...draftLayout.flashSale, products: next }
                                       });
@@ -3959,7 +3967,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                           <input
                             type="checkbox"
                             checked={draftLayout.trending.autoMode}
-                            onChange={(e) => setDraftLayout({
+                            onChange={(e) => updateDraft({
                               ...draftLayout,
                               trending: { ...draftLayout.trending, autoMode: e.target.checked }
                             })}
@@ -3985,7 +3993,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                         const next = e.target.checked
                                           ? [...draftLayout.trending.manualProducts, p.id]
                                           : draftLayout.trending.manualProducts.filter((x: string) => x !== p.id);
-                                        setDraftLayout({
+                                        updateDraft({
                                           ...draftLayout,
                                           trending: { ...draftLayout.trending, manualProducts: next }
                                         });
@@ -4010,7 +4018,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             type="number"
                             className="w-full bg-surface border border-border-subtle p-2 outline-none font-mono"
                             value={draftLayout.newArrival?.productCount || 3}
-                            onChange={(e) => setDraftLayout({
+                            onChange={(e) => updateDraft({
                               ...draftLayout,
                               newArrival: { ...draftLayout.newArrival, productCount: Number(e.target.value) }
                             })}
@@ -4021,7 +4029,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                           <select
                             className="w-full bg-surface border border-border-subtle p-2 outline-none text-foreground text-xs"
                             value={draftLayout.newArrival?.layoutStyle || "grid"}
-                            onChange={(e) => setDraftLayout({
+                            onChange={(e) => updateDraft({
                               ...draftLayout,
                               newArrival: { ...draftLayout.newArrival, layoutStyle: e.target.value }
                             })}
@@ -4042,7 +4050,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             type="text"
                             className="w-full bg-surface border border-border-subtle p-2 outline-none text-foreground"
                             value={draftLayout.campaign.heading}
-                            onChange={(e) => setDraftLayout({
+                            onChange={(e) => updateDraft({
                               ...draftLayout,
                               campaign: { ...draftLayout.campaign, heading: e.target.value }
                             })}
@@ -4054,7 +4062,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             type="text"
                             className="w-full bg-surface border border-border-subtle p-2 outline-none text-foreground"
                             value={draftLayout.campaign.ctaText || "Shop Campaign"}
-                            onChange={(e) => setDraftLayout({
+                            onChange={(e) => updateDraft({
                               ...draftLayout,
                               campaign: { ...draftLayout.campaign, ctaText: e.target.value }
                             })}
@@ -4066,7 +4074,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             type="text"
                             className="w-full bg-surface border border-border-subtle p-2 outline-none text-foreground font-mono"
                             value={draftLayout.campaign.redirectUrl}
-                            onChange={(e) => setDraftLayout({
+                            onChange={(e) => updateDraft({
                               ...draftLayout,
                               campaign: { ...draftLayout.campaign, redirectUrl: e.target.value }
                             })}
@@ -4078,7 +4086,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             type="text"
                             className="w-full bg-surface border border-border-subtle p-2 outline-none text-foreground font-mono"
                             value={draftLayout.campaign.image}
-                            onChange={(e) => setDraftLayout({
+                            onChange={(e) => updateDraft({
                               ...draftLayout,
                               campaign: { ...draftLayout.campaign, image: e.target.value }
                             })}
@@ -4095,7 +4103,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                           <select
                             className="w-full bg-surface border border-border-subtle p-2 outline-none text-foreground text-xs"
                             value={draftLayout.collections.collectionId}
-                            onChange={(e) => setDraftLayout({
+                            onChange={(e) => updateDraft({
                               ...draftLayout,
                               collections: { ...draftLayout.collections, collectionId: e.target.value }
                             })}
@@ -4113,7 +4121,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             type="text"
                             className="w-full bg-surface border border-border-subtle p-2 outline-none text-foreground font-mono"
                             value={draftLayout.collections.coverImage}
-                            onChange={(e) => setDraftLayout({
+                            onChange={(e) => updateDraft({
                               ...draftLayout,
                               collections: { ...draftLayout.collections, coverImage: e.target.value }
                             })}
@@ -4129,7 +4137,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                         <select
                           className="w-full bg-surface border border-border-subtle p-2 outline-none text-foreground text-xs"
                           value={draftLayout.liveFeed.mode}
-                          onChange={(e) => setDraftLayout({
+                          onChange={(e) => updateDraft({
                             ...draftLayout,
                             liveFeed: { ...draftLayout.liveFeed, mode: e.target.value }
                           })}
@@ -4148,7 +4156,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                           <input
                             type="checkbox"
                             checked={draftLayout.bestSellers.autoMode}
-                            onChange={(e) => setDraftLayout({
+                            onChange={(e) => updateDraft({
                               ...draftLayout,
                               bestSellers: { ...draftLayout.bestSellers, autoMode: e.target.checked }
                             })}
@@ -4171,7 +4179,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                         const next = e.target.checked
                                           ? [...draftLayout.bestSellers.manualProducts, p.id]
                                           : draftLayout.bestSellers.manualProducts.filter((x: string) => x !== p.id);
-                                        setDraftLayout({
+                                        updateDraft({
                                           ...draftLayout,
                                           bestSellers: { ...draftLayout.bestSellers, manualProducts: next }
                                         });
@@ -4195,7 +4203,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                           type="number"
                           className="w-full bg-surface border border-border-subtle p-2 outline-none font-mono text-sm"
                           value={draftLayout.limitedStock.threshold}
-                          onChange={(e) => setDraftLayout({
+                          onChange={(e) => updateDraft({
                             ...draftLayout,
                             limitedStock: { ...draftLayout.limitedStock, threshold: Number(e.target.value) }
                           })}
@@ -4221,7 +4229,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                     const next = e.target.checked
                                       ? [...draftLayout.influencerPicks.products, p.id]
                                       : draftLayout.influencerPicks.products.filter((x: string) => x !== p.id);
-                                    setDraftLayout({
+                                    updateDraft({
                                       ...draftLayout,
                                       influencerPicks: { ...draftLayout.influencerPicks, products: next }
                                     });
@@ -4257,7 +4265,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                     const next = e.target.checked
                                       ? [...draftLayout.reviews.featuredReviewIds, r.id]
                                       : draftLayout.reviews.featuredReviewIds.filter((x: string) => x !== r.id);
-                                    setDraftLayout({
+                                    updateDraft({
                                       ...draftLayout,
                                       reviews: { ...draftLayout.reviews, featuredReviewIds: next }
                                     });
@@ -4280,7 +4288,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             type="text"
                             className="w-full bg-surface border border-border-subtle p-2 outline-none text-foreground font-mono"
                             value={draftLayout.lookbook.image}
-                            onChange={(e) => setDraftLayout({
+                            onChange={(e) => updateDraft({
                               ...draftLayout,
                               lookbook: { ...draftLayout.lookbook, image: e.target.value }
                             })}
@@ -4302,7 +4310,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                 const y = Math.round(((e.clientY - rect.top) / rect.height) * 100);
                                 const pId = prompt("Enter product ID to tag (e.g. pr1, pr2, prm1):", "pr1");
                                 if (pId && productsList.some(p => p.id === pId)) {
-                                  setDraftLayout({
+                                  updateDraft({
                                     ...draftLayout,
                                     lookbook: {
                                       ...draftLayout.lookbook,
@@ -4323,7 +4331,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                   e.stopPropagation();
                                   if (confirm("Delete this tagged product point?")) {
                                     const nextTags = draftLayout.lookbook.taggedProducts.filter((_: any, idx: number) => idx !== tIdx);
-                                    setDraftLayout({
+                                    updateDraft({
                                       ...draftLayout,
                                       lookbook: { ...draftLayout.lookbook, taggedProducts: nextTags }
                                     });
@@ -4345,7 +4353,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                   <button
                                     onClick={() => {
                                       const nextTags = draftLayout.lookbook.taggedProducts.filter((_: any, idx: number) => idx !== tIdx);
-                                      setDraftLayout({
+                                      updateDraft({
                                         ...draftLayout,
                                         lookbook: { ...draftLayout.lookbook, taggedProducts: nextTags }
                                       });
@@ -4369,7 +4377,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                         <select
                           className="w-full bg-surface border border-border-subtle p-2 outline-none text-foreground text-xs"
                           value={draftLayout.recommended.algorithm}
-                          onChange={(e) => setDraftLayout({
+                          onChange={(e) => updateDraft({
                             ...draftLayout,
                             recommended: { ...draftLayout.recommended, algorithm: e.target.value }
                           })}
@@ -4389,7 +4397,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             rows={4}
                             className="w-full bg-surface border border-border-subtle p-2 outline-none text-foreground"
                             value={draftLayout.brandStory.text}
-                            onChange={(e) => setDraftLayout({
+                            onChange={(e) => updateDraft({
                               ...draftLayout,
                               brandStory: { ...draftLayout.brandStory, text: e.target.value }
                             })}
@@ -4401,7 +4409,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             className="w-full bg-surface border border-border-subtle p-2 outline-none text-foreground"
                             placeholder="Discover Our Story"
                             value={draftLayout.brandStory.buttonText ?? draftLayout.brandStory.linkText ?? "Discover Our Story"}
-                            onChange={(e) => setDraftLayout({
+                            onChange={(e) => updateDraft({
                               ...draftLayout,
                               brandStory: { ...draftLayout.brandStory, buttonText: e.target.value, linkText: e.target.value }
                             })}
@@ -4413,7 +4421,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             className="w-full bg-surface border border-border-subtle p-2 outline-none text-foreground font-mono"
                             placeholder="/categories"
                             value={draftLayout.brandStory.redirectUrl ?? draftLayout.brandStory.linkUrl ?? "/categories"}
-                            onChange={(e) => setDraftLayout({
+                            onChange={(e) => updateDraft({
                               ...draftLayout,
                               brandStory: { ...draftLayout.brandStory, redirectUrl: e.target.value, linkUrl: e.target.value }
                             })}
@@ -4424,7 +4432,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                           <input
                             className="w-full bg-surface border border-border-subtle p-2 outline-none text-foreground font-mono"
                             value={draftLayout.brandStory.image1}
-                            onChange={(e) => setDraftLayout({
+                            onChange={(e) => updateDraft({
                               ...draftLayout,
                               brandStory: { ...draftLayout.brandStory, image1: e.target.value }
                             })}
@@ -4435,7 +4443,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                           <input
                             className="w-full bg-surface border border-border-subtle p-2 outline-none text-foreground font-mono"
                             value={draftLayout.brandStory.image2}
-                            onChange={(e) => setDraftLayout({
+                            onChange={(e) => updateDraft({
                               ...draftLayout,
                               brandStory: { ...draftLayout.brandStory, image2: e.target.value }
                             })}
@@ -4452,7 +4460,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                           type="number"
                           className="w-full bg-surface border border-border-subtle p-2 outline-none font-mono text-sm"
                           value={draftLayout.newsletter.rewardAmount}
-                          onChange={(e) => setDraftLayout({
+                          onChange={(e) => updateDraft({
                             ...draftLayout,
                             newsletter: { ...draftLayout.newsletter, rewardAmount: Number(e.target.value) }
                           })}
@@ -4469,7 +4477,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             rows={3}
                             className="w-full bg-surface border border-border-subtle p-2 outline-none text-foreground"
                             value={draftLayout.footer.aboutText}
-                            onChange={(e) => setDraftLayout({
+                            onChange={(e) => updateDraft({
                               ...draftLayout,
                               footer: { ...draftLayout.footer, aboutText: e.target.value }
                             })}
@@ -4480,7 +4488,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                           <input
                             className="w-full bg-surface border border-border-subtle p-2 outline-none text-foreground"
                             value={draftLayout.footer.phone}
-                            onChange={(e) => setDraftLayout({
+                            onChange={(e) => updateDraft({
                               ...draftLayout,
                               footer: { ...draftLayout.footer, phone: e.target.value }
                             })}
@@ -4491,7 +4499,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                           <input
                             className="w-full bg-surface border border-border-subtle p-2 outline-none text-foreground font-mono"
                             value={draftLayout.footer.email}
-                            onChange={(e) => setDraftLayout({
+                            onChange={(e) => updateDraft({
                               ...draftLayout,
                               footer: { ...draftLayout.footer, email: e.target.value }
                             })}
@@ -4502,7 +4510,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                           <input
                             className="w-full bg-surface border border-border-subtle p-2 outline-none text-foreground"
                             value={draftLayout.footer.address}
-                            onChange={(e) => setDraftLayout({
+                            onChange={(e) => updateDraft({
                               ...draftLayout,
                               footer: { ...draftLayout.footer, address: e.target.value }
                             })}
@@ -4524,7 +4532,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                               type="text"
                               className="w-full bg-surface border border-border-subtle p-2 outline-none text-foreground text-xs"
                               value={secData.title || secData.name || ""}
-                              onChange={(e) => setDraftLayout({
+                              onChange={(e) => updateDraft({
                                 ...draftLayout,
                                 [activeSectionId]: {
                                   ...secData,
@@ -4553,7 +4561,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                   yOffset: 0
                                 };
                                 const updated = [...slides, newBanner];
-                                setDraftLayout({
+                                updateDraft({
                                   ...draftLayout,
                                   [activeSectionId]: {
                                     ...secData,
@@ -4575,7 +4583,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                               <button
                                 type="button"
                                 onClick={() => {
-                                  setDraftLayout({
+                                  updateDraft({
                                     ...draftLayout,
                                     [activeSectionId]: {
                                       ...secData,
@@ -4629,7 +4637,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         const updated = slides.filter((x: any) => x.id !== b.id);
-                                        setDraftLayout({
+                                        updateDraft({
                                           ...draftLayout,
                                           [activeSectionId]: {
                                             ...secData,
@@ -4655,7 +4663,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                           value={b.desktopImage || ""}
                                           onChange={(e) => {
                                             const updated = slides.map((x: any) => x.id === b.id ? { ...x, desktopImage: e.target.value } : x);
-                                            setDraftLayout({ ...draftLayout, [activeSectionId]: { ...secData, banners: updated } });
+                                            updateDraft({ ...draftLayout, [activeSectionId]: { ...secData, banners: updated } });
                                           }}
                                         />
                                       </div>
@@ -4668,7 +4676,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                           value={b.mobileImage || ""}
                                           onChange={(e) => {
                                             const updated = slides.map((x: any) => x.id === b.id ? { ...x, mobileImage: e.target.value } : x);
-                                            setDraftLayout({ ...draftLayout, [activeSectionId]: { ...secData, banners: updated } });
+                                            updateDraft({ ...draftLayout, [activeSectionId]: { ...secData, banners: updated } });
                                           }}
                                         />
                                       </div>
@@ -4681,7 +4689,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                           value={b.redirectUrl || ""}
                                           onChange={(e) => {
                                             const updated = slides.map((x: any) => x.id === b.id ? { ...x, redirectUrl: e.target.value } : x);
-                                            setDraftLayout({ ...draftLayout, [activeSectionId]: { ...secData, banners: updated } });
+                                            updateDraft({ ...draftLayout, [activeSectionId]: { ...secData, banners: updated } });
                                           }}
                                         />
                                       </div>
@@ -4694,7 +4702,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                           value={b.title || ""}
                                           onChange={(e) => {
                                             const updated = slides.map((x: any) => x.id === b.id ? { ...x, title: e.target.value } : x);
-                                            setDraftLayout({ ...draftLayout, [activeSectionId]: { ...secData, banners: updated } });
+                                            updateDraft({ ...draftLayout, [activeSectionId]: { ...secData, banners: updated } });
                                           }}
                                         />
                                       </div>
@@ -4707,7 +4715,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                           value={b.subtitle || ""}
                                           onChange={(e) => {
                                             const updated = slides.map((x: any) => x.id === b.id ? { ...x, subtitle: e.target.value } : x);
-                                            setDraftLayout({ ...draftLayout, [activeSectionId]: { ...secData, banners: updated } });
+                                            updateDraft({ ...draftLayout, [activeSectionId]: { ...secData, banners: updated } });
                                           }}
                                         />
                                       </div>
@@ -4792,7 +4800,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             type="text"
                             className="w-full bg-surface border border-border-subtle p-2 outline-none text-foreground text-xs"
                             value={draftLayout[activeSectionId].name || ""}
-                            onChange={(e) => setDraftLayout({
+                            onChange={(e) => updateDraft({
                               ...draftLayout,
                               [activeSectionId]: { ...draftLayout[activeSectionId], name: e.target.value }
                             })}
@@ -4804,7 +4812,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             type="text"
                             className="w-full bg-surface border border-border-subtle p-2 outline-none text-foreground text-xs"
                             value={draftLayout[activeSectionId].subname || ""}
-                            onChange={(e) => setDraftLayout({
+                            onChange={(e) => updateDraft({
                               ...draftLayout,
                               [activeSectionId]: { ...draftLayout[activeSectionId], subname: e.target.value }
                             })}
@@ -4831,7 +4839,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                         const next = e.target.checked
                                           ? [...currentBuckets, bkt.id]
                                           : currentBuckets.filter((id: string) => id !== bkt.id);
-                                        setDraftLayout({
+                                        updateDraft({
                                           ...draftLayout,
                                           [activeSectionId]: { ...draftLayout[activeSectionId], bucketIds: next }
                                         });
@@ -4862,7 +4870,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                       const next = e.target.checked
                                         ? [...currentProducts, p.id]
                                         : currentProducts.filter((id: string) => id !== p.id);
-                                      setDraftLayout({
+                                      updateDraft({
                                         ...draftLayout,
                                         [activeSectionId]: { ...draftLayout[activeSectionId], productIds: next }
                                       });

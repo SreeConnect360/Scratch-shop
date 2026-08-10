@@ -859,7 +859,49 @@ function ShopHome() {
         );
 
       case "reviews":
-        return null;
+        const featuredIds = layout?.reviews?.featuredReviewIds || [];
+        const allRevs = Object.entries(state.productReviews || {}).flatMap(([pId, list]) =>
+          (list || []).map((r: any) => ({ ...r, productId: pId }))
+        );
+        const selectedRevs = featuredIds.length > 0
+          ? allRevs.filter(r => featuredIds.includes(r.id))
+          : allRevs.slice(0, 3);
+
+        if (selectedRevs.length === 0) return null;
+
+        return (
+          <section key={sectionId} className="max-w-7xl mx-auto px-3 sm:px-5 space-y-8">
+            <FadeUp>
+              <div className="border-b border-border-subtle pb-4 text-center">
+                <p className="editorial-eyebrow text-accent">Client Testimonials</p>
+                <h2 className="font-serif text-3xl mt-1">What Our Collectors Say</h2>
+              </div>
+            </FadeUp>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {selectedRevs.map(r => {
+                const prod = products.find(p => p.id === r.productId);
+                return (
+                  <div key={r.id} className="glass p-6 rounded-2xl border border-white/10 space-y-4 flex flex-col justify-between">
+                    <div className="space-y-3">
+                      <div className="flex gap-1 text-gold">
+                        {Array.from({ length: r.rating || 5 }).map((_, i) => (
+                          <Star key={i} size={14} fill="currentColor" />
+                        ))}
+                      </div>
+                      <p className="text-sm italic text-foreground leading-relaxed font-serif">"{r.comment}"</p>
+                    </div>
+                    <div className="flex items-center justify-between pt-4 border-t border-white/5">
+                      <span className="text-xs font-bold text-accent font-mono">— {r.userName}</span>
+                      {prod && (
+                        <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">{prod.name}</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        );
 
       case "lookbook":
         return null;
