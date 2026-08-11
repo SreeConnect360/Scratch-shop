@@ -2079,35 +2079,41 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       });
     },
     updateProduct: (id, patch) => {
+      let fullPayload: any = { ...patch, id };
       setState(s => {
+        const existing = (s.products || []).find(p => p.id === id);
+        if (existing) {
+          fullPayload = { ...existing, ...patch, id };
+        }
         const next = {
           ...s,
-          products: (s.products || []).map(p => p.id === id ? { ...p, ...patch } : p)
+          products: (s.products || []).map(p => p.id === id ? fullPayload : p)
         };
         save(next);
         return next;
       });
       notifyBroadcastSync();
       
-      // Clean price strings to numbers if present
-      const cleanedPatch: any = { ...patch };
-      if (cleanedPatch.price !== undefined && cleanedPatch.price !== null) {
-        cleanedPatch.price = cleanedPatch.price.toString().replace(/[^0-9.]/g, "");
+      const payloadToSend = { ...fullPayload };
+      if (payloadToSend.price !== undefined && payloadToSend.price !== null) {
+        payloadToSend.price = payloadToSend.price.toString().replace(/[^0-9.]/g, "");
       }
-      if (cleanedPatch.originalPrice !== undefined && cleanedPatch.originalPrice !== null) {
-        cleanedPatch.originalPrice = cleanedPatch.originalPrice.toString().replace(/[^0-9.]/g, "");
+      if (payloadToSend.originalPrice !== undefined && payloadToSend.originalPrice !== null) {
+        payloadToSend.originalPrice = payloadToSend.originalPrice.toString().replace(/[^0-9.]/g, "");
       }
       fetch(`${BACKEND_URL}/api/vendors/products/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(cleanedPatch)
-      }).then(res => {
+        body: JSON.stringify(payloadToSend)
+      }).then(async res => {
         if (res.ok) {
           toast.success("Product updated in production database!");
           fetchBackendState(true);
           notifyBroadcastSync();
         } else {
-          toast.error("Failed to update product in production backend.");
+          const errText = await res.text().catch(() => "");
+          console.error("Product update failed:", res.status, errText);
+          toast.error(`Failed to update product in production backend (${res.status}).`);
         }
       }).catch(err => console.error("Failed to sync product update to backend:", err));
     },

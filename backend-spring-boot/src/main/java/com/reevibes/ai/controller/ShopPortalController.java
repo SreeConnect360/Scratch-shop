@@ -1615,6 +1615,9 @@ public class ShopPortalController {
         try {
             List<VendorProduct> list = vendorProductRepository.findAll();
             for (VendorProduct p : list) {
+                if ("DELETED".equalsIgnoreCase(p.getStatus())) {
+                    continue;
+                }
                 Map<String, Object> map = new java.util.HashMap<>();
                 if (p.getFullJson() != null && !p.getFullJson().isEmpty()) {
                     try {
@@ -1669,6 +1672,9 @@ public class ShopPortalController {
             try {
                 List<Map<String, Object>> rows = jdbcTemplate.queryForList("SELECT id, full_json, name, price, image, category, status FROM vendor_products");
                 for (Map<String, Object> row : rows) {
+                    if ("DELETED".equalsIgnoreCase(String.valueOf(row.get("status")))) {
+                        continue;
+                    }
                     Map<String, Object> map = new HashMap<>();
                     String fullJson = (String) row.get("full_json");
                     if (fullJson != null && !fullJson.isEmpty()) {
@@ -1695,8 +1701,6 @@ public class ShopPortalController {
                 : "vnd-" + System.currentTimeMillis() + "-catalog";
         body.put("id", id);
         com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-        String jsonStr = "";
-        try { jsonStr = mapper.writeValueAsString(body); } catch(Exception e){}
 
         VendorProduct product = null;
         try {
@@ -1708,6 +1712,16 @@ public class ShopPortalController {
             product = new VendorProduct();
             product.setId(id);
         }
+
+        if (product.getFullJson() != null && !product.getFullJson().isEmpty()) {
+            try {
+                Map<String, Object> existingMap = mapper.readValue(product.getFullJson(), Map.class);
+                existingMap.putAll(body);
+                body = existingMap;
+            } catch (Exception e) {}
+        }
+        String jsonStr = "";
+        try { jsonStr = mapper.writeValueAsString(body); } catch(Exception e){}
 
         try {
             product.setFullJson(jsonStr);
@@ -1797,8 +1811,6 @@ public class ShopPortalController {
     public ResponseEntity<?> updateVendorProduct(@PathVariable String id, @RequestBody Map<String, Object> body) {
         body.put("id", id);
         com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-        String jsonStr = "";
-        try { jsonStr = mapper.writeValueAsString(body); } catch(Exception e){}
 
         VendorProduct product = null;
         try {
@@ -1810,6 +1822,16 @@ public class ShopPortalController {
             product = new VendorProduct();
             product.setId(id);
         }
+
+        if (product.getFullJson() != null && !product.getFullJson().isEmpty()) {
+            try {
+                Map<String, Object> existingMap = mapper.readValue(product.getFullJson(), Map.class);
+                existingMap.putAll(body);
+                body = existingMap;
+            } catch (Exception e) {}
+        }
+        String jsonStr = "";
+        try { jsonStr = mapper.writeValueAsString(body); } catch(Exception e){}
 
         try {
             product.setFullJson(jsonStr);
@@ -1898,7 +1920,14 @@ public class ShopPortalController {
     @DeleteMapping({"/vendors/products/{id}", "/products/{id}"})
     public ResponseEntity<?> deleteVendorProduct(@PathVariable String id) {
         try {
-            vendorProductRepository.deleteById(id);
+            VendorProduct p = vendorProductRepository.findById(id).orElse(null);
+            if (p != null) {
+                p.setStatus("DELETED");
+                p.setVisibility("HIDDEN");
+                vendorProductRepository.saveAndFlush(p);
+            } else {
+                jdbcTemplate.update("UPDATE vendor_products SET status = 'DELETED', visibility = 'HIDDEN' WHERE id = ?", id);
+            }
         } catch (Exception e) {
             try {
                 jdbcTemplate.update("DELETE FROM vendor_products WHERE id = ?", id);
