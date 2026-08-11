@@ -1751,10 +1751,16 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         };
       });
 
+      notifyBroadcastSync();
       fetch(`${BACKEND_URL}/api/orders/${orderId}/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status, ...patch })
+      }).then(res => {
+        if (res.ok) {
+          notifyBroadcastSync();
+          fetchBackendState(true);
+        }
       }).catch(err => console.error("Failed to sync order status update to backend:", err));
     },
     acceptOrder: async (userId, orderId) => {
@@ -1785,6 +1791,8 @@ export function PortalProvider({ children }: { children: ReactNode }) {
               userNotifications: { ...s.userNotifications, [userId]: [newNotif, ...existingUserNotifs] }
             };
           });
+          notifyBroadcastSync();
+          await fetchBackendState(true);
           return data;
         }
       } catch (err) {
@@ -2459,11 +2467,17 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         const updated = productRevs.map(r => r.id === reviewId ? { ...r, status: nextStatus as any } : r);
         return { ...s, productReviews: { ...s.productReviews, [productId]: updated } };
       });
+      notifyBroadcastSync();
 
       fetch(`${BACKEND_URL}/api/reviews/${reviewId}/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: nextStatus })
+      }).then(res => {
+        if (res.ok) {
+          notifyBroadcastSync();
+          fetchBackendState(true);
+        }
       }).catch(err => console.error("Failed to sync review moderation to backend:", err));
     },
     addReview: (productId, r) => {
@@ -2627,6 +2641,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       }).then(res => {
         if (res.ok) {
           toast.success(`Bucket "${name}" created & saved to production!`);
+          notifyBroadcastSync();
           fetchBackendState(true);
         } else {
           toast.error("Failed to create bucket on production database.");
@@ -2638,6 +2653,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         const next = (s.buckets || []).map(b => b.id === id ? { ...b, ...patch } : b);
         return { ...s, buckets: next };
       });
+      notifyBroadcastSync();
 
       const bodyPatch: any = {};
       if (patch.name !== undefined) bodyPatch.name = patch.name;
@@ -2652,6 +2668,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       }).then(res => {
         if (res.ok) {
           toast.success("Bucket updated in production database!");
+          notifyBroadcastSync();
           fetchBackendState(true);
         } else {
           toast.error("Failed to update bucket in production backend.");
@@ -2663,12 +2680,14 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         ...s,
         buckets: (s.buckets || []).filter(b => b.id !== id)
       }));
+      notifyBroadcastSync();
 
       fetch(`${BACKEND_URL}/api/buckets/${id}`, {
         method: "DELETE"
       }).then(res => {
         if (res.ok) {
           toast.success("Bucket deleted from production database!");
+          notifyBroadcastSync();
           fetchBackendState(true);
         } else {
           toast.error("Failed to delete bucket from production backend.");
@@ -2677,6 +2696,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     },
     reorderBuckets: (buckets) => {
       setState(s => ({ ...s, buckets }));
+      notifyBroadcastSync();
       Promise.all(buckets.map(b =>
         fetch(`${BACKEND_URL}/api/buckets/${b.id}`, {
           method: "PUT",
@@ -2688,7 +2708,10 @@ export function PortalProvider({ children }: { children: ReactNode }) {
             hidden: b.hidden ?? false
           })
         })
-      )).then(() => fetchBackendState(true))
+      )).then(() => {
+        notifyBroadcastSync();
+        fetchBackendState(true);
+      })
       .catch(err => console.error("Failed to sync bucket reorder to backend:", err));
     },
     createVendor: (v) => setState(s => {
