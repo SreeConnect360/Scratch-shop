@@ -49,6 +49,11 @@ class SupabaseService {
 
     try {
       debugPrint('Starting native Google Sign-In SDK...');
+      // Force sign out first so Gmail account picker tab always pops up
+      try {
+        await _googleSignIn.signOut();
+      } catch (_) {}
+
       final googleUser = await _googleSignIn.signIn();
       if (googleUser != null) {
         final googleEmail = googleUser.email;
@@ -110,7 +115,6 @@ class SupabaseService {
       }
     } catch (e) {
       debugPrint('Native Google Sign-In error: $e');
-      throw Exception('Google Sign-In was cancelled or failed to authenticate.');
     }
 
     return null;

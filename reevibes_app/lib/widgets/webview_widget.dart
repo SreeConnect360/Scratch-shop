@@ -213,9 +213,21 @@ class ReeVibesWebViewState extends State<ReeVibesWebView> {
         ''';
 
         await _controller.runJavaScript(injectJs);
+        return;
       }
     } catch (e) {
       debugPrint('Google Sign-In trigger error: $e');
+    }
+
+    // Fallback: Open Google / Gmail account selector tab in external browser
+    try {
+      final oauthUrl = '${AppConfig.websiteUrl}/_shop.login';
+      final uri = Uri.parse(oauthUrl);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } catch (err) {
+      debugPrint('Browser OAuth fallback launch error: $err');
     }
   }
 
@@ -227,6 +239,9 @@ class ReeVibesWebViewState extends State<ReeVibesWebView> {
         url.contains('accounts.google.com/o/oauth2/v2/auth') ||
         (url.contains('supabase.co/auth/v1/authorize') && url.contains('provider=google'))) {
       _performNativeGoogleSignIn();
+      // Also open Google account picker URL in external browser if native SDK doesn't intercept
+      final uri = Uri.parse(url);
+      launchUrl(uri, mode: LaunchMode.externalApplication).catchError((_) => false);
       return NavigationDecision.prevent;
     }
 
