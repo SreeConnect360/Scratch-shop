@@ -643,7 +643,7 @@ function ShopHome() {
         }
 
         if (trendingProductsList.length === 0) {
-          trendingProductsList = (products.length > 0 ? products : PRODUCTS).slice(0, 4);
+          trendingProductsList = products.slice(0, 4);
         }
 
         return (
@@ -673,10 +673,7 @@ function ShopHome() {
 
       case "newArrivals":
         const naConfig = layout.newArrival || layout.newArrivals || { productCount: 3, layoutStyle: "grid" };
-        let naProducts = (products.length > 0 ? products : PRODUCTS).slice(0, naConfig.productCount || 3);
-        if (naProducts.length === 0) {
-          naProducts = PRODUCTS.slice(0, naConfig.productCount || 3);
-        }
+        let naProducts = products.slice(0, naConfig.productCount || 3);
 
         return (
           <section key={sectionId} className="max-w-7xl mx-auto px-3 sm:px-5 space-y-8">
@@ -780,7 +777,7 @@ function ShopHome() {
         }
 
         if (bsProducts.length === 0) {
-          bsProducts = (products.length > 0 ? products : PRODUCTS).slice(1, 5);
+          bsProducts = products.slice(1, 5);
         }
 
         return (

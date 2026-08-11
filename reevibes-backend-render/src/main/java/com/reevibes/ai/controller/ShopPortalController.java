@@ -1920,21 +1920,34 @@ public class ShopPortalController {
     @DeleteMapping({"/vendors/products/{id}", "/products/{id}"})
     public ResponseEntity<?> deleteVendorProduct(@PathVariable String id) {
         try {
-            VendorProduct p = vendorProductRepository.findById(id).orElse(null);
-            if (p != null) {
-                p.setStatus("DELETED");
-                p.setVisibility("HIDDEN");
-                vendorProductRepository.saveAndFlush(p);
-            } else {
-                jdbcTemplate.update("UPDATE vendor_products SET status = 'DELETED', visibility = 'HIDDEN' WHERE id = ?", id);
-            }
+            jdbcTemplate.update("DELETE FROM vendor_products WHERE id = ?", id);
+            vendorProductRepository.deleteById(id);
         } catch (Exception e) {
             try {
-                jdbcTemplate.update("DELETE FROM vendor_products WHERE id = ?", id);
+                VendorProduct p = vendorProductRepository.findById(id).orElse(null);
+                if (p != null) {
+                    p.setStatus("DELETED");
+                    p.setVisibility("HIDDEN");
+                    vendorProductRepository.saveAndFlush(p);
+                } else {
+                    jdbcTemplate.update("UPDATE vendor_products SET status = 'DELETED', visibility = 'HIDDEN' WHERE id = ?", id);
+                }
             } catch (Exception sqlEx) {}
         }
         syncService.bumpVersion();
         return ResponseEntity.ok(Map.of("message", "Product deleted successfully", "id", id));
+    }
+
+    @DeleteMapping({"/vendors/products/clear-all", "/products/clear-all"})
+    public ResponseEntity<?> clearAllVendorProducts() {
+        try {
+            jdbcTemplate.update("DELETE FROM vendor_products");
+            vendorProductRepository.deleteAll();
+        } catch (Exception e) {
+            System.err.println("Clear all products warning: " + e.getMessage());
+        }
+        syncService.bumpVersion();
+        return ResponseEntity.ok(Map.of("message", "All products cleared successfully"));
     }
 
     private String safeParseString(Object val) {

@@ -545,7 +545,7 @@ const DEFAULT: PortalState = {
     { code: "FESTIVE20", discount: 20, type: "percentage", expiryDate: "2026-12-31", usageLimit: 100, userEligibility: "All", active: true },
     { code: "REEVIBES10", discount: 10, type: "percentage", expiryDate: "2026-12-31", usageLimit: 200, userEligibility: "All", active: true }
   ],
-  products: PRODUCTS,
+  products: [],
   returns: [
     {
       id: "RET-101",
@@ -576,16 +576,15 @@ const DEFAULT: PortalState = {
 };
 
 function load(): PortalState {
-  if (typeof window === "undefined") return { ...DEFAULT, products: PRODUCTS };
+  if (typeof window === "undefined") return { ...DEFAULT, products: [] };
   try {
     const raw = window.localStorage.getItem(KEY);
-    if (!raw) return { ...DEFAULT, products: PRODUCTS };
+    if (!raw) return { ...DEFAULT, products: [] };
     const parsed = JSON.parse(raw);
-    let prods = (parsed.products && parsed.products.length > 0) ? parsed.products : PRODUCTS;
+    let prods = Array.isArray(parsed.products) ? parsed.products : [];
     if (prods.length > 0 && prods.some((p: any) => p.id === "pr1" || p.id === "prw9" || p.id === "prm1")) {
       prods = prods.filter((p: any) => !p.id.startsWith("pr1") && !p.id.startsWith("pr2") && !p.id.startsWith("pr3") && !p.id.startsWith("pr4") && !p.id.startsWith("pr5") && !p.id.startsWith("pr6") && !p.id.startsWith("prm") && !p.id.startsWith("prw"));
     }
-    if (prods.length === 0) prods = PRODUCTS;
     const merged = { ...DEFAULT, ...parsed };
     return {
       ...merged,
@@ -785,10 +784,10 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 
       // 2. Fetch Products
       const res = await fetch(`${BACKEND_URL}/api/vendors/products`);
-      let mappedProducts = PRODUCTS;
+      let mappedProducts: any[] = [];
       if (res.ok) {
         const dbProducts = await res.json();
-        if (dbProducts && Array.isArray(dbProducts) && dbProducts.length > 0) {
+        if (dbProducts && Array.isArray(dbProducts)) {
           mappedProducts = dbProducts.map((p: any) => {
             let imgs: string[] = [];
             if (p.images && Array.isArray(p.images) && p.images.length > 0) {
@@ -1036,10 +1035,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
             }
           }
         }
-        const currentProds = s.products || [];
-        const dbIds = new Set(mappedProducts.map(p => String(p.id)));
-        const unsyncedLocalProds = currentProds.filter(p => !dbIds.has(String(p.id)));
-        const mergedProducts = [...mappedProducts, ...unsyncedLocalProds];
+        const mergedProducts = mappedProducts;
 
         // Merge DB orders with local unsynced orders
         const mergedOrders: Record<string, any[]> = { ...mappedOrders };
