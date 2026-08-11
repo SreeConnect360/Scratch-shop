@@ -301,6 +301,16 @@ public class ShopPortalController {
         return ResponseEntity.ok(list);
     }
 
+    @GetMapping({"/homepage-layout/live", "/homepage-layout/published"})
+    public ResponseEntity<HomepageLayout> getLiveHomepageLayout() {
+        return getHomepageLayoutById("published");
+    }
+
+    @GetMapping("/homepage-layout/draft")
+    public ResponseEntity<HomepageLayout> getDraftHomepageLayout() {
+        return getHomepageLayoutById("draft");
+    }
+
     @GetMapping("/homepage-layout/{id}")
     public ResponseEntity<HomepageLayout> getHomepageLayoutById(@PathVariable String id) {
         HomepageLayout layout = null;
@@ -344,6 +354,79 @@ public class ShopPortalController {
         
         String targetId = (id != null && !id.isEmpty()) ? id : (body.containsKey("id") ? String.valueOf(body.get("id")) : "published");
         
+        String jsonStr = extractLayoutJsonString(body);
+
+        HomepageLayout layout = saveLayoutToDatabase(targetId, jsonStr);
+        syncService.bumpVersion();
+        return ResponseEntity.ok(layout);
+    }
+
+    @PostMapping("/homepage-layout/publish")
+    public ResponseEntity<Map<String, Object>> publishHomepageLayout(@RequestBody(required = false) Map<String, Object> body) {
+        String jsonStr = "";
+        if (body != null && !body.isEmpty()) {
+            jsonStr = extractLayoutJsonString(body);
+        }
+
+        if (jsonStr.isEmpty() || "{}".equals(jsonStr.trim())) {
+            // Fetch current draft layout from DB
+            HomepageLayout draftLayout = getHomepageLayoutById("draft").getBody();
+            if (draftLayout != null && draftLayout.getLayoutJson() != null && !draftLayout.getLayoutJson().isEmpty()) {
+                jsonStr = draftLayout.getLayoutJson();
+            }
+        }
+
+        long nowVersion = System.currentTimeMillis();
+        // Save to both "published" and "draft" in DB
+        saveLayoutToDatabase("published", jsonStr);
+        saveLayoutToDatabase("draft", jsonStr);
+        
+        syncService.bumpVersion();
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", "success");
+        response.put("message", "Published live to production database");
+        response.put("version", nowVersion);
+        response.put("id", "published");
+        response.put("layoutJson", jsonStr);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/homepage-layout/revert")
+    public ResponseEntity<Map<String, Object>> revertHomepageLayout() {
+        HomepageLayout pubLayout = getHomepageLayoutById("published").getBody();
+        String jsonStr = (pubLayout != null && pubLayout.getLayoutJson() != null) ? pubLayout.getLayoutJson() : "{}";
+        
+        saveLayoutToDatabase("draft", jsonStr);
+        syncService.bumpVersion();
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", "success");
+        response.put("message", "Reverted draft layout to live published version");
+        response.put("id", "draft");
+        response.put("layoutJson", jsonStr);
+        return ResponseEntity.ok(response);
+    }
+
+    private String extractLayoutJsonString(Map<String, Object> body) {
+        if (body == null) return "{}";
+        try {
+            if (body.containsKey("layoutJson")) {
+                Object rawJson = body.get("layoutJson");
+                if (rawJson instanceof String) {
+                    return (String) rawJson;
+                } else {
+                    return objectMapper.writeValueAsString(rawJson);
+                }
+            } else {
+                return objectMapper.writeValueAsString(body);
+            }
+        } catch (Exception e) {
+            return body.toString();
+        }
+    }
+
+    private HomepageLayout saveLayoutToDatabase(String targetId, String jsonStr) {
         HomepageLayout layout = null;
         try {
             layout = homepageLayoutRepository.findById(targetId).orElse(null);
@@ -354,22 +437,6 @@ public class ShopPortalController {
             layout.setId(targetId);
         }
         
-        String jsonStr = "";
-        try {
-            if (body.containsKey("layoutJson")) {
-                Object rawJson = body.get("layoutJson");
-                if (rawJson instanceof String) {
-                    jsonStr = (String) rawJson;
-                } else {
-                    jsonStr = objectMapper.writeValueAsString(rawJson);
-                }
-            } else {
-                jsonStr = objectMapper.writeValueAsString(body);
-            }
-        } catch (Exception e) {
-            jsonStr = body.toString();
-        }
-
         layout.setLayoutJson(jsonStr);
         try {
             homepageLayoutRepository.saveAndFlush(layout);
@@ -377,16 +444,15 @@ public class ShopPortalController {
             System.err.println("Primary saveAndFlush homepage layout failed, using native SQL fallback: " + ex.getMessage());
             try {
                 jdbcTemplate.update(
-                    "INSERT INTO homepage_layout (id, layout_json) VALUES (?, ?) ON CONFLICT (id) DO UPDATE SET layout_json = EXCLUDED.layout_json",
-                    targetId, jsonStr
+                    "INSERT INTO homepage_layout (id, layout_json, version, updated_at, published_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) " +
+                    "ON CONFLICT (id) DO UPDATE SET layout_json = EXCLUDED.layout_json, version = EXCLUDED.version, updated_at = CURRENT_TIMESTAMP, published_at = CURRENT_TIMESTAMP",
+                    targetId, jsonStr, System.currentTimeMillis()
                 );
             } catch (Exception sqlEx) {
                 System.err.println("Native SQL homepage layout fallback failed: " + sqlEx.getMessage());
             }
         }
-
-        syncService.bumpVersion();
-        return ResponseEntity.ok(layout);
+        return layout;
     }
 
     // --- COUPONS ---

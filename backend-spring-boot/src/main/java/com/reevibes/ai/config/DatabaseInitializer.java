@@ -79,6 +79,27 @@ public class DatabaseInitializer {
             }
 
             System.out.println("vendor_products table schema successfully verified!");
+
+            // Initialize homepage_layout table
+            System.out.println("Initializing and verifying homepage_layout database schema in PostgreSQL...");
+            jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS homepage_layout (id VARCHAR(255) PRIMARY KEY)");
+            String[] layoutAlterQueries = {
+                "ALTER TABLE homepage_layout ADD COLUMN IF NOT EXISTS layout_json TEXT",
+                "ALTER TABLE homepage_layout ADD COLUMN IF NOT EXISTS version BIGINT DEFAULT 1",
+                "ALTER TABLE homepage_layout ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+                "ALTER TABLE homepage_layout ADD COLUMN IF NOT EXISTS published_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+                "ALTER TABLE homepage_layout ADD COLUMN IF NOT EXISTS updated_by VARCHAR(255) DEFAULT 'admin'"
+            };
+            for (String q : layoutAlterQueries) {
+                if (q != null) {
+                    try {
+                        jdbcTemplate.execute(q);
+                    } catch (Exception e) {
+                        System.err.println("homepage_layout alter notice: " + e.getMessage());
+                    }
+                }
+            }
+            System.out.println("homepage_layout table schema successfully verified!");
         } catch (Exception e) {
             System.err.println("Failed to initialize database schema: " + e.getMessage());
             e.printStackTrace();

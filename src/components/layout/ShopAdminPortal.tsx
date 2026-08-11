@@ -3166,15 +3166,14 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                   triggerModal(
                     "warning",
                     "Publish Homepage",
-                    "Are you sure you want to push all draft modifications live to shop.reevibes.com? This will overwrite the active homepage layout.",
-                    () => {
+                    "Are you sure you want to push all draft modifications live to shop.reevibes.com? This will save to the production database and update all connected clients.",
+                    async () => {
                       updateHomepageLayoutDraft(draftLayout);
-                      publishHomepageLayout(draftLayout);
-                      triggerModal("success", "Homepage Published", "The new homepage layout has been published successfully and is now live.", () => {});
+                      await publishHomepageLayout(draftLayout);
                     }
                   );
                 }}
-                className="editorial-label text-xs bg-accent text-white px-4 py-2 rounded-full hover:bg-accent/90 transition-all shadow-md"
+                className="editorial-label text-xs bg-accent text-white px-4 py-2 rounded-full hover:bg-accent/90 transition-all shadow-md cursor-pointer"
               >
                 Publish Live
               </button>
@@ -3183,15 +3182,14 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                   triggerModal(
                     "danger",
                     "Revert Layout Changes",
-                    "Are you sure you want to discard all your draft changes and restore the homepage layout to the last published live version?",
-                    () => {
-                      revertHomepageLayout();
+                    "Are you sure you want to discard all your draft changes and restore the homepage layout to the last published live version in the database?",
+                    async () => {
+                      await revertHomepageLayout();
                       setDraftLayout(null); // Force re-render from state
-                      triggerModal("success", "Reverted Successfully", "Draft layout has been reverted to the live version.", () => {});
                     }
                   );
                 }}
-                className="editorial-label text-xs border border-rose-500/30 text-rose-400 hover:bg-rose-500/10 px-4 py-2 rounded-full transition-all"
+                className="editorial-label text-xs border border-rose-500/30 text-rose-400 hover:bg-rose-500/10 px-4 py-2 rounded-full transition-all cursor-pointer"
               >
                 Revert Changes
               </button>

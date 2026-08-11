@@ -711,8 +711,8 @@ type Ctx = {
   addReview: (productId: string, r: Omit<ProductReview, "id" | "status" | "date">) => void;
   updateHomepageLayout: (layout: Partial<PortalState["homepageLayout"]>) => void;
   updateHomepageLayoutDraft: (layout: Partial<PortalState["homepageLayoutDraft"]>) => void;
-  publishHomepageLayout: (layoutToPublish?: Partial<PortalState["homepageLayoutDraft"]>) => void;
-  revertHomepageLayout: () => void;
+  publishHomepageLayout: (layoutToPublish?: Partial<PortalState["homepageLayoutDraft"]>) => Promise<void>;
+  revertHomepageLayout: () => Promise<void>;
   createBucket: (name: string, productIds: string[], starProductId?: string) => void;
   updateBucket: (id: string, patch: Partial<Bucket>) => void;
   deleteBucket: (id: string) => void;
@@ -2517,8 +2517,12 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ layoutJson: JSON.stringify(nextLayout) })
       }).then(res => {
-        if (res.ok) fetchBackendState(true);
-        else console.error("Failed to sync published homepage layout, status:", res.status);
+        if (res.ok) {
+          fetchBackendState(true);
+          notifyBroadcastSync();
+        } else {
+          console.error("Failed to sync published homepage layout, status:", res.status);
+        }
       }).catch(err => console.error("Failed to sync published homepage layout:", err));
     },
     updateHomepageLayoutDraft: (layoutPatch) => {
@@ -2533,67 +2537,72 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         save(next);
         return next;
       });
+      notifyBroadcastSync();
+
       fetch(`${BACKEND_URL}/api/homepage-layout/draft`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ layoutJson: JSON.stringify(nextLayout) })
       }).then(res => {
-        if (res.ok) fetchBackendState(true);
-        else console.error("Failed to sync draft homepage layout, status:", res.status);
+        if (res.ok) {
+          fetchBackendState(true);
+          notifyBroadcastSync();
+        } else {
+          console.error("Failed to sync draft homepage layout, status:", res.status);
+        }
       }).catch(err => console.error("Failed to sync draft homepage layout:", err));
     },
-    publishHomepageLayout: (layoutToPublish?: any) => {
+    publishHomepageLayout: async (layoutToPublish?: any) => {
       let targetLayout: any;
       setState(s => {
         targetLayout = layoutToPublish || s.homepageLayoutDraft || s.homepageLayout;
-        const next = { ...s, homepageLayout: targetLayout, homepageLayoutDraft: targetLayout };
-        save(next);
-        return next;
+        return s;
       });
-      if (targetLayout) {
-        const jsonStr = JSON.stringify(targetLayout);
-        Promise.all([
-          fetch(`${BACKEND_URL}/api/homepage-layout/published`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ layoutJson: jsonStr })
-          }),
-          fetch(`${BACKEND_URL}/api/homepage-layout/draft`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ layoutJson: jsonStr })
-          })
-        ]).then(([pubRes, draftRes]) => {
-          if (pubRes.ok && draftRes.ok) {
-            toast.success("Homepage layout published live to production database!");
-            fetchBackendState(true);
-          } else {
-            console.error("Failed to publish layout to production backend:", pubRes.status, draftRes.status);
-            toast.error("Failed to publish homepage layout to production database.");
-          }
-        }).catch(err => {
-          console.error("Failed to publish homepage layout:", err);
-          toast.error("Failed to publish homepage layout to production database.");
+
+      if (!targetLayout) return;
+      const jsonStr = JSON.stringify(targetLayout);
+
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/homepage-layout/publish`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ layoutJson: jsonStr })
         });
+
+        if (res.ok) {
+          setState(s => {
+            const next = { ...s, homepageLayout: targetLayout, homepageLayoutDraft: targetLayout };
+            save(next);
+            return next;
+          });
+          notifyBroadcastSync();
+          await fetchBackendState(true);
+          toast.success("Homepage layout published live to database!");
+        } else {
+          const errText = await res.text().catch(() => "");
+          console.error("Failed to publish layout to backend:", res.status, errText);
+          toast.error("Publish failed. Changes were not saved to database.");
+        }
+      } catch(err) {
+        console.error("Network error publishing homepage layout:", err);
+        toast.error("Publish failed due to network error. Check backend connection.");
       }
     },
-    revertHomepageLayout: () => {
-      let liveLayout: any;
-      setState(s => {
-        liveLayout = s.homepageLayout;
-        const next = { ...s, homepageLayoutDraft: liveLayout };
-        save(next);
-        return next;
-      });
-      if (liveLayout) {
-        fetch(`${BACKEND_URL}/api/homepage-layout/draft`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ layoutJson: JSON.stringify(liveLayout) })
-        }).then(res => {
-          if (res.ok) fetchBackendState(true);
-          else console.error("Failed to revert homepage layout, status:", res.status);
-        }).catch(err => console.error("Failed to revert homepage layout:", err));
+    revertHomepageLayout: async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/homepage-layout/revert`, {
+          method: "POST"
+        });
+        if (res.ok) {
+          notifyBroadcastSync();
+          await fetchBackendState(true);
+          toast.success("Draft layout reverted to the live published version.");
+        } else {
+          toast.error("Failed to revert layout from backend database.");
+        }
+      } catch(err) {
+        console.error("Failed to revert homepage layout:", err);
+        toast.error("Network error reverting layout.");
       }
     },
     createBucket: (name, productIds, starProductId) => {
