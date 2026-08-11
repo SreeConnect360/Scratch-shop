@@ -545,7 +545,7 @@ const DEFAULT: PortalState = {
     { code: "FESTIVE20", discount: 20, type: "percentage", expiryDate: "2026-12-31", usageLimit: 100, userEligibility: "All", active: true },
     { code: "REEVIBES10", discount: 10, type: "percentage", expiryDate: "2026-12-31", usageLimit: 200, userEligibility: "All", active: true }
   ],
-  products: [],
+  products: PRODUCTS,
   returns: [
     {
       id: "RET-101",
@@ -576,15 +576,16 @@ const DEFAULT: PortalState = {
 };
 
 function load(): PortalState {
-  if (typeof window === "undefined") return { ...DEFAULT, products: [] };
+  if (typeof window === "undefined") return { ...DEFAULT, products: PRODUCTS };
   try {
     const raw = window.localStorage.getItem(KEY);
-    if (!raw) return { ...DEFAULT, products: [] };
+    if (!raw) return { ...DEFAULT, products: PRODUCTS };
     const parsed = JSON.parse(raw);
-    let prods = parsed.products || [];
+    let prods = (parsed.products && parsed.products.length > 0) ? parsed.products : PRODUCTS;
     if (prods.length > 0 && prods.some((p: any) => p.id === "pr1" || p.id === "prw9" || p.id === "prm1")) {
       prods = prods.filter((p: any) => !p.id.startsWith("pr1") && !p.id.startsWith("pr2") && !p.id.startsWith("pr3") && !p.id.startsWith("pr4") && !p.id.startsWith("pr5") && !p.id.startsWith("pr6") && !p.id.startsWith("prm") && !p.id.startsWith("prw"));
     }
+    if (prods.length === 0) prods = PRODUCTS;
     const merged = { ...DEFAULT, ...parsed };
     return {
       ...merged,
@@ -1103,12 +1104,10 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     fetchBackendState();
 
     const handleSync = () => {
-      setState(load());
       fetchBackendState(true);
     };
     const handleStorage = (e: StorageEvent) => {
       if (e.key && (e.key.startsWith("reevibes:") || e.key === "reevibes_store_v2" || e.key === "reevibes_last_sync")) {
-        setState(load());
         fetchBackendState(true);
       }
     };
@@ -1118,7 +1117,6 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       bc = new BroadcastChannel("reevibes_channel");
       bc.onmessage = (msg) => {
         if (msg.data === "sync") {
-          setState(load());
           fetchBackendState(true);
         }
       };

@@ -399,14 +399,14 @@ function ShopHome() {
                   isBannerClickTarget ? "md:cursor-pointer" : ""
                 }`}
               >
-                <AnimatePresence mode="sync">
+                <AnimatePresence mode="popLayout" initial={false}>
                   <motion.div
-                    key={activeHeroIdx}
-                    initial={{ opacity: 0, scale: 1.04 }}
+                    key={currentBanner.id || activeHeroIdx}
+                    initial={{ opacity: 0.85, scale: 1.02 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0 }}
-                    transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
-                    className="absolute inset-0"
+                    transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                    className="absolute inset-0 bg-zinc-950"
                   >
                     {currentBanner.type === "Video Banner" && currentBanner.videoUrl ? (
                       <motion.video
@@ -642,7 +642,9 @@ function ShopHome() {
           trendingProductsList = products.filter(p => (trendingCuration.manualProducts || []).includes(p.id));
         }
 
-        if (trendingProductsList.length === 0) return null;
+        if (trendingProductsList.length === 0) {
+          trendingProductsList = (products.length > 0 ? products : PRODUCTS).slice(0, 4);
+        }
 
         return (
           <section key={sectionId} className="max-w-7xl mx-auto px-3 sm:px-5 space-y-8">
@@ -671,8 +673,10 @@ function ShopHome() {
 
       case "newArrivals":
         const naConfig = layout.newArrival || layout.newArrivals || { productCount: 3, layoutStyle: "grid" };
-        const naProducts = products.slice(0, naConfig.productCount || 3);
-        if (naProducts.length === 0) return null;
+        let naProducts = (products.length > 0 ? products : PRODUCTS).slice(0, naConfig.productCount || 3);
+        if (naProducts.length === 0) {
+          naProducts = PRODUCTS.slice(0, naConfig.productCount || 3);
+        }
 
         return (
           <section key={sectionId} className="max-w-7xl mx-auto px-3 sm:px-5 space-y-8">
@@ -775,7 +779,9 @@ function ShopHome() {
           bsProducts = products.filter(p => (bsConfig.manualProducts || []).includes(p.id));
         }
 
-        if (bsProducts.length === 0) return null;
+        if (bsProducts.length === 0) {
+          bsProducts = (products.length > 0 ? products : PRODUCTS).slice(1, 5);
+        }
 
         return (
           <section key={sectionId} className="max-w-7xl mx-auto px-3 sm:px-5 space-y-8">
