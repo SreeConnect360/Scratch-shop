@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Heart } from "lucide-react";
 import { toast } from "sonner";
 import { PublicLayout } from "@/components/layout/PublicLayout";
@@ -14,6 +14,12 @@ export const Route = createFileRoute("/FashionBattle/house-of-fashion")({
 function HousePage() {
   const { state, toggleWishlist } = usePortal();
   const wishlist = state.user ? (state.wishlist[state.user.id] ?? []) : [];
+
+  const publishedProducts = (state.products || []).filter(
+    p => (!p.status || p.status === "PUBLISHED" || p.status === "published") &&
+    p.visibility !== "HIDDEN"
+  );
+  const displayProducts = publishedProducts.length > 0 ? publishedProducts : PRODUCTS;
 
   const handleWishlist = (e: React.MouseEvent, productId: string, productName: string) => {
     e.preventDefault();
@@ -44,9 +50,13 @@ function HousePage() {
       </section>
 
       <section className="px-6 lg:px-16 py-16 grid grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-16">
-        {PRODUCTS.map((p, i) => (
+        {displayProducts.map((p, i) => (
           <FadeUp key={p.id} delay={(i % 6) * 0.05}>
-            <div className="group cursor-pointer">
+            <Link
+              to="/FashionBattle/house-of-fashion/$productId"
+              params={{ productId: p.id }}
+              className="group cursor-pointer block"
+            >
               <div className="aspect-[3/4] overflow-hidden bg-surface relative">
                 <img src={p.image} alt={p.name} className="w-full h-full object-cover img-cinematic transition-transform duration-[1500ms] group-hover:scale-105" />
                 {p.tag && <div className="absolute top-3 left-3 bg-white text-black editorial-label px-2.5 py-1">{p.tag}</div>}
@@ -66,7 +76,7 @@ function HousePage() {
                 </div>
                 <div className="font-serif text-lg">{p.price}</div>
               </div>
-            </div>
+            </Link>
           </FadeUp>
         ))}
       </section>

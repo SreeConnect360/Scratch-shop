@@ -11,6 +11,11 @@ import {
   PLATFORM_USERS, CONTESTANT_APPLICATIONS, ABUSE_REPORTS, PRODUCTS,
   type PlatformUser, type ContestantApplication, type AbuseReport, type Role, type Product,
 } from "./data";
+import {
+  fetchAdminCatalogFromSupabase,
+  upsertCatalogProductToSupabase,
+  deleteCatalogProductFromSupabase,
+} from "./supabase-catalog";
 
 const KEY = "reevibes:portal:v3";
 
@@ -782,44 +787,61 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // 2. Fetch Products
-      const res = await fetch(`${BACKEND_URL}/api/vendors/products`);
-      let mappedProducts: any[] = [];
-      if (res.ok) {
-        const dbProducts = await res.json();
-        if (dbProducts && Array.isArray(dbProducts)) {
-          mappedProducts = dbProducts.map((p: any) => {
-            let imgs: string[] = [];
-            if (p.images && Array.isArray(p.images) && p.images.length > 0) {
-              imgs = p.images;
-            } else if (p.image) {
-              imgs = [p.image];
-            } else if (p.img) {
-              imgs = [p.img];
-            }
-
-            imgs = imgs.map((imgUrl: string) => {
-              if (!imgUrl) return "";
-              if (imgUrl.startsWith("http://localhost:8081")) {
-                return imgUrl.replace("http://localhost:8081", BACKEND_URL);
-              }
-              return imgUrl;
-            }).filter(Boolean);
-
-            const primaryImg = imgs[0] || p.image || p.img || "";
-
-            return {
-              ...p,
-              id: String(p.id),
-              house: p.house || p.brand || "Maison Curation",
-              price: typeof p.price === "number" ? `₹${p.price.toLocaleString("en-IN")}` : (p.price?.toString().startsWith("₹") ? p.price : `₹${p.price}`),
-              images: imgs.length > 0 ? imgs : [primaryImg],
-              image: primaryImg,
-              img: primaryImg
-            };
-          });
-        }
+      // 2. Fetch Products from Supabase admin_product_catalog (Primary Multi-Device Truth)
+      let supabaseProducts: Product[] = [];
+      try {
+        supabaseProducts = await fetchAdminCatalogFromSupabase();
+      } catch (e) {
+        console.warn("Error fetching admin catalog from Supabase:", e);
       }
+
+      let backendProducts: any[] = [];
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/vendors/products`);
+        if (res.ok) {
+          const dbProducts = await res.json();
+          if (dbProducts && Array.isArray(dbProducts)) {
+            backendProducts = dbProducts.map((p: any) => {
+              let imgs: string[] = [];
+              if (p.images && Array.isArray(p.images) && p.images.length > 0) {
+                imgs = p.images;
+              } else if (p.image) {
+                imgs = [p.image];
+              } else if (p.img) {
+                imgs = [p.img];
+              }
+
+              imgs = imgs.map((imgUrl: string) => {
+                if (!imgUrl) return "";
+                if (imgUrl.startsWith("http://localhost:8081")) {
+                  return imgUrl.replace("http://localhost:8081", BACKEND_URL);
+                }
+                return imgUrl;
+              }).filter(Boolean);
+
+              const primaryImg = imgs[0] || p.image || p.img || "";
+
+              return {
+                ...p,
+                id: String(p.id),
+                house: p.house || p.brand || "Maison Curation",
+                price: typeof p.price === "number" ? `₹${p.price.toLocaleString("en-IN")}` : (p.price?.toString().startsWith("₹") ? p.price : `₹${p.price}`),
+                images: imgs.length > 0 ? imgs : [primaryImg],
+                image: primaryImg,
+                img: primaryImg
+              };
+            });
+          }
+        }
+      } catch (e) {
+        // Backend offline or spinning up, Supabase has the truth
+      }
+
+      // Combine: Backend items first, then Supabase items take precedence
+      const productMap = new Map<string, any>();
+      backendProducts.forEach(p => productMap.set(String(p.id), p));
+      supabaseProducts.forEach(p => productMap.set(String(p.id), p));
+      const mappedProducts = Array.from(productMap.values());
 
       // 3. Fetch Buckets
       const bucketsRes = await fetch(`${BACKEND_URL}/api/buckets`);
@@ -2036,7 +2058,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 
     setAdminMode: (mode) => setState(s => ({ ...s, adminMode: mode })),
     createProduct: (p) => {
-      const id = (p as any).id || `vnd-${Date.now()}-catalog`;
+      const id = (p as any).id || `prd-${Date.now()}`;
       const newProduct: Product = {
         id,
         status: p.status || "PUBLISHED",
@@ -2049,6 +2071,17 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         return next;
       });
       notifyBroadcastSync();
+
+      // 1. Direct Supabase Persistence to admin_product_catalog (Instant multi-device truth)
+      upsertCatalogProductToSupabase({ ...p, id }).then((res) => {
+        if (res.ok) {
+          toast.success("Product saved to Supabase catalog!");
+          fetchBackendState(true);
+          notifyBroadcastSync();
+        } else {
+          console.error("Supabase catalog save error:", res.error);
+        }
+      }).catch(err => console.error("Supabase upsert failure:", err));
       
       const cleaned: any = {
         status: p.status || "PUBLISHED",
@@ -2069,17 +2102,14 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify(cleaned)
       }).then(async res => {
         if (res.ok) {
-          toast.success("Product created & saved to production database!");
           fetchBackendState(true);
           notifyBroadcastSync();
         } else {
           const errText = await res.text().catch(() => "");
-          console.error("Product create failed:", res.status, errText);
-          toast.error(`Failed to save product (${res.status}). ${errText.slice(0, 100)}`);
+          console.warn("Backend vendors/products sync response:", res.status, errText);
         }
       }).catch(err => {
-        console.error("Failed to sync new product to backend:", err);
-        toast.error("Network error saving product. Check backend connection.");
+        console.warn("Backend vendors/products sync warning:", err);
       });
     },
     updateProduct: (id, patch) => {
@@ -2097,6 +2127,17 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         return next;
       });
       notifyBroadcastSync();
+
+      // 1. Direct Supabase Persistence to admin_product_catalog
+      upsertCatalogProductToSupabase(fullPayload).then((res) => {
+        if (res.ok) {
+          toast.success("Product updated in Supabase catalog!");
+          fetchBackendState(true);
+          notifyBroadcastSync();
+        } else {
+          console.error("Supabase catalog update error:", res.error);
+        }
+      }).catch(err => console.error("Supabase update failure:", err));
       
       const payloadToSend = { ...fullPayload };
       if (payloadToSend.price !== undefined && payloadToSend.price !== null) {
@@ -2111,15 +2152,13 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify(payloadToSend)
       }).then(async res => {
         if (res.ok) {
-          toast.success("Product updated in production database!");
           fetchBackendState(true);
           notifyBroadcastSync();
         } else {
           const errText = await res.text().catch(() => "");
-          console.error("Product update failed:", res.status, errText);
-          toast.error(`Failed to update product in production backend (${res.status}).`);
+          console.warn("Backend update sync response:", res.status, errText);
         }
-      }).catch(err => console.error("Failed to sync product update to backend:", err));
+      }).catch(err => console.warn("Backend update sync warning:", err));
     },
     deleteProduct: (id) => {
       setState(s => {
@@ -2128,17 +2167,26 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         return next;
       });
       notifyBroadcastSync();
+
+      // 1. Direct Supabase delete from admin_product_catalog
+      deleteCatalogProductFromSupabase(id).then((res) => {
+        if (res.ok) {
+          toast.success("Product deleted from Supabase catalog!");
+          fetchBackendState(true);
+          notifyBroadcastSync();
+        } else {
+          console.error("Supabase catalog delete error:", res.error);
+        }
+      }).catch(err => console.error("Supabase delete failure:", err));
+
       fetch(`${BACKEND_URL}/api/vendors/products/${id}`, {
         method: "DELETE"
       }).then(res => {
         if (res.ok) {
-          toast.success("Product deleted from production database!");
           fetchBackendState(true);
           notifyBroadcastSync();
-        } else {
-          toast.error("Failed to delete product from production backend.");
         }
-      }).catch(err => console.error("Failed to sync product deletion to backend:", err));
+      }).catch(err => console.warn("Backend delete sync warning:", err));
     },
     requestReturn: (req) => {
       const returnId = `RET-${Math.floor(100 + Math.random() * 900)}`;

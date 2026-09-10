@@ -32,12 +32,10 @@ function SearchResultsPage() {
     }
   }, [reloadProducts]);
 
-  // Exclude legacy dummy seed products so only live backend products display
+  // Display all live published products from database catalog
   const products = (state.products || []).filter(
     p => (!p.status || p.status === "PUBLISHED" || p.status === "published") &&
-    p.id !== "pr1" && p.id !== "pr2" && p.id !== "pr3" && p.id !== "pr4" && p.id !== "pr5" && p.id !== "pr6" &&
-    p.id !== "prm1" && p.id !== "prm2" && p.id !== "prm3" && p.id !== "prm4" &&
-    p.id !== "prw7" && p.id !== "prw8" && p.id !== "prw9"
+    p.visibility !== "HIDDEN"
   );
   const user = state.user;
   const wishlist = state.shopWishlist[user?.id || ""];

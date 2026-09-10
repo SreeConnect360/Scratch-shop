@@ -9,16 +9,13 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/FashionBattle/house-of-fashion/$productId")({
   loader: ({ params }) => {
-    const product = PRODUCTS.find(p => p.id === params.productId);
-    if (!product) throw notFound();
-    return { product };
+    return { productId: params.productId };
   },
-  head: ({ loaderData }) => ({
-    meta: loaderData ? [
-      { title: `${loaderData.product.name} — ${loaderData.product.house}` },
-      { name: "description", content: `${loaderData.product.name} by ${loaderData.product.house}.` },
-      { property: "og:image", content: loaderData.product.image },
-    ] : [],
+  head: () => ({
+    meta: [
+      { title: "Piece Details — ReeVibes House of Fashion" },
+      { name: "description", content: "Curated luxury piece from ReeVibes atelier collection." },
+    ],
   }),
   notFoundComponent: () => (
     <PublicLayout>
@@ -35,10 +32,26 @@ export const Route = createFileRoute("/FashionBattle/house-of-fashion/$productId
 });
 
 function ProductPage() {
-  const { product } = Route.useLoaderData();
+  const { productId } = Route.useLoaderData();
   const { state, addToCart, toggleWishlist } = usePortal();
+  const product = (state.products || []).find(p => p.id === productId) || PRODUCTS.find(p => p.id === productId);
+
+  if (!product) {
+    return (
+      <PublicLayout>
+        <div className="min-h-[60vh] flex items-center justify-center text-center">
+          <div>
+            <p className="editorial-label text-accent">404</p>
+            <h1 className="mt-3 font-serif text-5xl">Piece not found</h1>
+            <Link to="/FashionBattle/house-of-fashion" className="mt-6 inline-block editorial-label hover:text-accent">← Boutique</Link>
+          </div>
+        </div>
+      </PublicLayout>
+    );
+  }
+
   const [added, setAdded] = useState(false);
-  const related = PRODUCTS.filter(p => p.id !== product.id).slice(0, 3);
+  const related = (state.products || []).filter(p => p.id !== product.id && (!p.status || p.status === "PUBLISHED" || p.status === "published")).slice(0, 3);
   const wishlist = state.user ? (state.wishlist[state.user.id] ?? []) : [];
 
   const handleWishlist = (e: React.MouseEvent, productId: string, productName: string) => {

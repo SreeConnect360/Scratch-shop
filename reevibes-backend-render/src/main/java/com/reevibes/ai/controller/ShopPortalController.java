@@ -33,6 +33,7 @@ public class ShopPortalController {
     private final ProductReviewRepository reviewRepository;
     private final VendorRepository vendorRepository;
     private final VendorProductRepository vendorProductRepository;
+    private final AdminProductCatalogRepository adminProductCatalogRepository;
     private final SyncService syncService;
     private final com.reevibes.ai.service.ShiprocketService shiprocketService;
     private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
@@ -50,6 +51,7 @@ public class ShopPortalController {
             ProductReviewRepository reviewRepository,
             VendorRepository vendorRepository,
             VendorProductRepository vendorProductRepository,
+            AdminProductCatalogRepository adminProductCatalogRepository,
             SyncService syncService,
             com.reevibes.ai.service.ShiprocketService shiprocketService,
             org.springframework.jdbc.core.JdbcTemplate jdbcTemplate) {
@@ -63,6 +65,7 @@ public class ShopPortalController {
         this.reviewRepository = reviewRepository;
         this.vendorRepository = vendorRepository;
         this.vendorProductRepository = vendorProductRepository;
+        this.adminProductCatalogRepository = adminProductCatalogRepository;
         this.syncService = syncService;
         this.shiprocketService = shiprocketService;
         this.jdbcTemplate = jdbcTemplate;
@@ -1606,16 +1609,84 @@ public class ShopPortalController {
         return ResponseEntity.ok(Map.of("message", "Vendor deleted successfully"));
     }
 
-    // --- VENDOR PRODUCTS ---
-    @GetMapping({"/vendors/products", "/products"})
+    // --- VENDOR & ADMIN PRODUCTS CATALOG ---
+    @GetMapping({"/vendors/products", "/products", "/admin/products"})
     public ResponseEntity<List<Map<String, Object>>> getVendorProducts() {
         com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
         List<Map<String, Object>> result = new ArrayList<>();
+        Map<String, Map<String, Object>> idMap = new HashMap<>();
         
         try {
+            // 1. Try loading from admin_product_catalog table (Primary database catalog)
+            try {
+                List<AdminProductCatalog> adminList = adminProductCatalogRepository.findAll();
+                for (AdminProductCatalog p : adminList) {
+                    if ("DELETED".equalsIgnoreCase(p.getStatus())) {
+                        continue;
+                    }
+                    Map<String, Object> map = new HashMap<>();
+                    if (p.getRawJson() != null && !p.getRawJson().isEmpty()) {
+                        try { map = mapper.readValue(p.getRawJson(), Map.class); } catch (Exception e) {}
+                    }
+                    map.put("id", p.getId());
+                    if (p.getName() != null) map.put("name", p.getName());
+                    if (p.getHouse() != null) map.put("house", p.getHouse());
+                    if (p.getBrand() != null) map.put("brand", p.getBrand());
+                    if (p.getPrice() != null) map.put("price", p.getPrice());
+                    if (p.getOriginalPrice() != null) map.put("originalPrice", p.getOriginalPrice());
+                    if (p.getDiscount() != null) map.put("discount", p.getDiscount());
+                    if (p.getImage() != null) map.put("image", p.getImage());
+                    if (p.getCategory() != null) map.put("category", p.getCategory());
+                    if (p.getGender() != null) map.put("gender", p.getGender());
+                    if (p.getTag() != null) map.put("tag", p.getTag());
+                    if (p.getSku() != null) map.put("sku", p.getSku());
+                    if (p.getStatus() != null) map.put("status", p.getStatus());
+                    if (p.getVisibility() != null) map.put("visibility", p.getVisibility());
+                    if (p.getMaterial() != null) map.put("material", p.getMaterial());
+                    if (p.getFabric() != null) map.put("fabric", p.getFabric());
+                    if (p.getColor() != null) map.put("color", p.getColor());
+                    if (p.getCollections() != null) map.put("collections", p.getCollections());
+                    if (p.getOverviewTitle() != null) map.put("overviewTitle", p.getOverviewTitle());
+                    if (p.getDescription() != null) map.put("description", p.getDescription());
+                    if (p.getDetails() != null) map.put("details", p.getDetails());
+                    if (p.getProductInfo() != null) map.put("productInfo", p.getProductInfo());
+                    if (p.getInStock() != null) map.put("inStock", p.getInStock());
+                    if (p.getIsNew() != null) map.put("isNew", p.getIsNew());
+                    if (p.getIsNewArrival() != null) map.put("isNewArrival", p.getIsNewArrival());
+                    if (p.getIsTrending() != null) map.put("isTrending", p.getIsTrending());
+                    if (p.getIsBestSeller() != null) map.put("isBestSeller", p.getIsBestSeller());
+                    if (p.getIsFeatured() != null) map.put("isFeatured", p.getIsFeatured());
+                    if (p.getIsRecommended() != null) map.put("isRecommended", p.getIsRecommended());
+
+                    if (p.getImagesJson() != null && !p.getImagesJson().isEmpty() && !map.containsKey("images")) {
+                        try { map.put("images", mapper.readValue(p.getImagesJson(), List.class)); } catch(Exception e){}
+                    }
+                    if (p.getVideosJson() != null && !p.getVideosJson().isEmpty() && !map.containsKey("videos")) {
+                        try { map.put("videos", mapper.readValue(p.getVideosJson(), List.class)); } catch(Exception e){}
+                    }
+                    if (p.getSizesJson() != null && !p.getSizesJson().isEmpty() && !map.containsKey("sizes")) {
+                        try { map.put("sizes", mapper.readValue(p.getSizesJson(), List.class)); } catch(Exception e){}
+                    }
+                    if (p.getTagsJson() != null && !p.getTagsJson().isEmpty() && !map.containsKey("tags")) {
+                        try { map.put("tags", mapper.readValue(p.getTagsJson(), List.class)); } catch(Exception e){}
+                    }
+                    if (p.getStockPerSizeJson() != null && !p.getStockPerSizeJson().isEmpty() && !map.containsKey("stockPerSize")) {
+                        try { map.put("stockPerSize", mapper.readValue(p.getStockPerSizeJson(), Map.class)); } catch(Exception e){}
+                    }
+                    if (p.getCategoriesList() != null && !p.getCategoriesList().isEmpty() && !map.containsKey("categoriesList")) {
+                        try { map.put("categoriesList", mapper.readValue(p.getCategoriesList(), List.class)); } catch(Exception e){}
+                    }
+
+                    idMap.put(p.getId(), map);
+                }
+            } catch (Exception adminEx) {
+                System.err.println("adminProductCatalogRepository findAll notice: " + adminEx.getMessage());
+            }
+
+            // 2. Also check vendorProductRepository
             List<VendorProduct> list = vendorProductRepository.findAll();
             for (VendorProduct p : list) {
-                if ("DELETED".equalsIgnoreCase(p.getStatus())) {
+                if ("DELETED".equalsIgnoreCase(p.getStatus()) || idMap.containsKey(p.getId())) {
                     continue;
                 }
                 Map<String, Object> map = new java.util.HashMap<>();
@@ -1664,8 +1735,9 @@ public class ShopPortalController {
                 if (p.getStockPerSizeJson() != null && !p.getStockPerSizeJson().isEmpty() && !map.containsKey("stockPerSize")) {
                     try { map.put("stockPerSize", mapper.readValue(p.getStockPerSizeJson(), Map.class)); } catch(Exception e){}
                 }
-                result.add(map);
+                idMap.put(p.getId(), map);
             }
+            result.addAll(idMap.values());
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             System.err.println("JPA findAll vendor products failed, querying native SQL fallback: " + e.getMessage());
@@ -1694,7 +1766,93 @@ public class ShopPortalController {
         }
     }
 
-    @PostMapping({"/vendors/products", "/products"})
+    private void syncToAdminProductCatalog(String id, Map<String, Object> body, String jsonStr) {
+        try {
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            AdminProductCatalog catalogItem = null;
+            try {
+                catalogItem = adminProductCatalogRepository.findById(id).orElse(null);
+            } catch (Exception e) {}
+            if (catalogItem == null) {
+                catalogItem = new AdminProductCatalog();
+                catalogItem.setId(id);
+            }
+            catalogItem.setRawJson(jsonStr);
+
+            if (body.containsKey("name")) catalogItem.setName(safeParseString(body.get("name")));
+            if (body.containsKey("house")) catalogItem.setHouse(safeParseString(body.get("house")));
+            if (body.containsKey("brand")) catalogItem.setBrand(safeParseString(body.get("brand")));
+            if (catalogItem.getBrand() == null && catalogItem.getHouse() != null) catalogItem.setBrand(catalogItem.getHouse());
+            if (catalogItem.getHouse() == null && catalogItem.getBrand() != null) catalogItem.setHouse(catalogItem.getBrand());
+
+            if (body.containsKey("price")) catalogItem.setPrice(safeParseString(body.get("price")));
+            if (body.containsKey("originalPrice")) catalogItem.setOriginalPrice(safeParseString(body.get("originalPrice")));
+            if (body.containsKey("discount") && body.get("discount") != null) catalogItem.setDiscount(safeParseInt(body.get("discount")));
+
+            if (body.containsKey("image")) catalogItem.setImage(safeParseString(body.get("image")));
+            if (body.containsKey("category")) catalogItem.setCategory(safeParseString(body.get("category")));
+            if (body.containsKey("gender")) catalogItem.setGender(safeParseString(body.get("gender")));
+            if (body.containsKey("tag")) catalogItem.setTag(safeParseString(body.get("tag")));
+            if (body.containsKey("sku")) catalogItem.setSku(safeParseString(body.get("sku")));
+            if (body.containsKey("status")) catalogItem.setStatus(safeParseString(body.get("status")));
+            if (body.containsKey("visibility")) catalogItem.setVisibility(safeParseString(body.get("visibility")));
+
+            if (body.containsKey("material")) catalogItem.setMaterial(safeParseString(body.get("material")));
+            if (body.containsKey("fabric")) catalogItem.setFabric(safeParseString(body.get("fabric")));
+            if (body.containsKey("color")) catalogItem.setColor(safeParseString(body.get("color")));
+            if (body.containsKey("collections")) catalogItem.setCollections(safeParseString(body.get("collections")));
+            if (body.containsKey("overviewTitle")) catalogItem.setOverviewTitle(safeParseString(body.get("overviewTitle")));
+            if (body.containsKey("description")) catalogItem.setDescription(safeParseString(body.get("description")));
+            if (body.containsKey("details")) catalogItem.setDetails(safeParseString(body.get("details")));
+            if (body.containsKey("productInfo")) catalogItem.setProductInfo(safeParseString(body.get("productInfo")));
+
+            if (body.containsKey("inStock")) catalogItem.setInStock(safeParseBoolean(body.get("inStock")));
+            if (body.containsKey("isNew")) catalogItem.setIsNew(safeParseBoolean(body.get("isNew")));
+            if (body.containsKey("isNewArrival")) catalogItem.setIsNewArrival(safeParseBoolean(body.get("isNewArrival")));
+            if (body.containsKey("isTrending")) catalogItem.setIsTrending(safeParseBoolean(body.get("isTrending")));
+            if (body.containsKey("isBestSeller")) catalogItem.setIsBestSeller(safeParseBoolean(body.get("isBestSeller")));
+            if (body.containsKey("isFeatured")) catalogItem.setIsFeatured(safeParseBoolean(body.get("isFeatured")));
+            if (body.containsKey("isRecommended")) catalogItem.setIsRecommended(safeParseBoolean(body.get("isRecommended")));
+
+            if (body.containsKey("customRating") && body.get("customRating") != null) catalogItem.setCustomRating(safeParseDouble(body.get("customRating")));
+            if (body.containsKey("customReviewCount") && body.get("customReviewCount") != null) catalogItem.setCustomReviewCount(safeParseInt(body.get("customReviewCount")));
+            if (body.containsKey("rating") && body.get("rating") != null) catalogItem.setRating(safeParseDouble(body.get("rating")));
+            if (body.containsKey("reviewCount") && body.get("reviewCount") != null) catalogItem.setReviewCount(safeParseInt(body.get("reviewCount")));
+            if (body.containsKey("stockQuantity") && body.get("stockQuantity") != null) catalogItem.setStockQuantity(safeParseInt(body.get("stockQuantity")));
+
+            if (body.containsKey("seoTitle")) catalogItem.setSeoTitle(safeParseString(body.get("seoTitle")));
+            if (body.containsKey("seoDescription")) catalogItem.setSeoDescription(safeParseString(body.get("seoDescription")));
+            if (body.containsKey("seoKeywords")) catalogItem.setSeoKeywords(safeParseString(body.get("seoKeywords")));
+
+            if (body.containsKey("images")) {
+                try { catalogItem.setImagesJson(mapper.writeValueAsString(body.get("images"))); } catch(Exception e){}
+            }
+            if (body.containsKey("videos")) {
+                try { catalogItem.setVideosJson(mapper.writeValueAsString(body.get("videos"))); } catch(Exception e){}
+            }
+            if (body.containsKey("sizes")) {
+                try { catalogItem.setSizesJson(mapper.writeValueAsString(body.get("sizes"))); } catch(Exception e){}
+            }
+            if (body.containsKey("tags")) {
+                try { catalogItem.setTagsJson(mapper.writeValueAsString(body.get("tags"))); } catch(Exception e){}
+            }
+            if (body.containsKey("stockPerSize")) {
+                try { catalogItem.setStockPerSizeJson(mapper.writeValueAsString(body.get("stockPerSize"))); } catch(Exception e){}
+            }
+            if (body.containsKey("categoriesList")) {
+                try { catalogItem.setCategoriesList(mapper.writeValueAsString(body.get("categoriesList"))); } catch(Exception e){}
+            }
+            if (body.containsKey("productSections")) {
+                try { catalogItem.setProductSectionsJson(mapper.writeValueAsString(body.get("productSections"))); } catch(Exception e){}
+            }
+
+            adminProductCatalogRepository.saveAndFlush(catalogItem);
+        } catch (Exception e) {
+            System.err.println("syncToAdminProductCatalog notice: " + e.getMessage());
+        }
+    }
+
+    @PostMapping({"/vendors/products", "/products", "/admin/products"})
     public ResponseEntity<?> createVendorProduct(@RequestBody Map<String, Object> body) {
         String id = body.containsKey("id") && body.get("id") != null && !String.valueOf(body.get("id")).trim().isEmpty() 
                 ? String.valueOf(body.get("id")).trim() 
@@ -1803,11 +1961,14 @@ public class ShopPortalController {
             }
         }
 
+        // Also persist directly to admin_product_catalog table
+        syncToAdminProductCatalog(id, body, jsonStr);
+
         syncService.bumpVersion();
         return ResponseEntity.ok(body);
     }
 
-    @PutMapping({"/vendors/products/{id}", "/products/{id}"})
+    @PutMapping({"/vendors/products/{id}", "/products/{id}", "/admin/products/{id}"})
     public ResponseEntity<?> updateVendorProduct(@PathVariable String id, @RequestBody Map<String, Object> body) {
         body.put("id", id);
         com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
@@ -1913,12 +2074,22 @@ public class ShopPortalController {
             }
         }
 
+        // Also persist directly to admin_product_catalog table
+        syncToAdminProductCatalog(id, body, jsonStr);
+
         syncService.bumpVersion();
         return ResponseEntity.ok(body);
     }
 
-    @DeleteMapping({"/vendors/products/{id}", "/products/{id}"})
+    @DeleteMapping({"/vendors/products/{id}", "/products/{id}", "/admin/products/{id}"})
     public ResponseEntity<?> deleteVendorProduct(@PathVariable String id) {
+        try {
+            adminProductCatalogRepository.deleteById(id);
+        } catch (Exception e) {}
+        try {
+            jdbcTemplate.update("DELETE FROM admin_product_catalog WHERE id = ?", id);
+        } catch (Exception e) {}
+
         try {
             jdbcTemplate.update("DELETE FROM vendor_products WHERE id = ?", id);
             vendorProductRepository.deleteById(id);
