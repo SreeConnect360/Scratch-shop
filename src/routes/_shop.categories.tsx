@@ -13,6 +13,7 @@ import { ProductCard } from "@/components/public/ProductCard";
 
 const categoriesSearchSchema = z.object({
   gender: z.enum(["Men", "Women", "Unisex", "All"]).optional(),
+  category: z.string().optional(),
   tag: z.string().optional(),
   bucketId: z.string().optional(),
   view: z.string().optional(),
@@ -140,30 +141,64 @@ function parseStyleQuery(q: string): StyleFilters {
 }
 
 function CategoriesPage() {
-  const { state, toggleShopWishlist, addToShopCart } = usePortal();
+  const { state, toggleShopWishlist, addToShopCart, reloadProducts } = usePortal();
   const searchParams = Route.useSearch();
   const quickAdd = useContext(QuickAddContext);
   const navigate = useNavigate();
   
   const [styleInput, setStyleInput] = useState(searchParams.q || "");
 
+  // Re-verify latest catalog from Supabase on mount across any device/session
+  useEffect(() => {
+    if (reloadProducts) {
+      reloadProducts(true);
+    }
+  }, [reloadProducts]);
+
   useEffect(() => {
     setStyleInput(searchParams.q || "");
   }, [searchParams.q]);
 
   const products = useMemo(() => {
-    return ((state.products as any[]) || PRODUCTS).filter((p: any) => !p.status || p.status === "PUBLISHED" || p.status === "published");
+    const rawList = (state.products && state.products.length > 0) ? state.products : PRODUCTS;
+    return (rawList as any[]).filter((p: any) => {
+      const st = String(p.status || "PUBLISHED").toUpperCase();
+      const vis = String(p.visibility || "VISIBLE").toUpperCase();
+      return st !== "DELETED" && st !== "DRAFT" && vis !== "HIDDEN";
+    });
   }, [state.products]);
 
   const parsedFilters = useMemo(() => parseStyleQuery(searchParams.q || ""), [searchParams.q]);
   
   const genderFilter = searchParams.gender || parsedFilters.gender || "All";
-  const categoryFilter = parsedFilters.category || "All";
+  const categoryFilter = searchParams.category || parsedFilters.category || "All";
   const categoriesFilter = parsedFilters.categories || [];
   const sizeFilter = parsedFilters.size || "";
   const colorFilter = parsedFilters.color || "";
   const priceLimitFilter = parsedFilters.priceLimit || null;
   const tagFilter = searchParams.tag || parsedFilters.tag || "";
+
+  // Available unique categories extracted dynamically from Supabase products + baseline catalog
+  const availableCategories = useMemo(() => {
+    const set = new Set<string>();
+    ["All", "Tops", "Shirts", "T-Shirts", "Bottoms", "Dresses", "Hoodies", "Cargos", "Accessories"].forEach(c => set.add(c));
+    products.forEach((p: any) => {
+      if (p.category && typeof p.category === "string" && p.category.trim()) {
+        const catName = p.category.trim();
+        const formatted = catName.charAt(0).toUpperCase() + catName.slice(1);
+        set.add(formatted);
+      }
+      if (Array.isArray(p.categoriesList)) {
+        p.categoriesList.forEach((c: string) => {
+          if (c && typeof c === "string" && c.trim()) {
+            const formatted = c.trim().charAt(0).toUpperCase() + c.trim().slice(1);
+            set.add(formatted);
+          }
+        });
+      }
+    });
+    return Array.from(set);
+  }, [products]);
 
   const parsePrice = useCallback((priceStr: string): number => {
     return Number(priceStr.replace(/[^0-9.]/g, ""));
@@ -193,13 +228,23 @@ function CategoriesPage() {
         }
       }
 
-      // 3. Category filtering
+      // 3. Category filtering (Robust support for category string and categories array)
       if (categoriesFilter.length > 0) {
-        if (!categoriesFilter.includes(p.category)) {
-          return false;
-        }
-      } else if (categoryFilter !== "All" && p.category !== categoryFilter) {
-        return false;
+        const matchesCategory = categoriesFilter.some(cat => {
+          const catLower = cat.toLowerCase();
+          const pCatLower = (p.category || "").toLowerCase();
+          const pTypeLower = (p.type || "").toLowerCase();
+          const pList = Array.isArray(p.categoriesList) ? p.categoriesList.map((c: string) => c.toLowerCase()) : [];
+          return pCatLower.includes(catLower) || catLower.includes(pCatLower) || pTypeLower.includes(catLower) || pList.includes(catLower);
+        });
+        if (!matchesCategory) return false;
+      } else if (categoryFilter !== "All") {
+        const targetCatLower = categoryFilter.toLowerCase();
+        const pCatLower = (p.category || "").toLowerCase();
+        const pTypeLower = (p.type || "").toLowerCase();
+        const pList = Array.isArray(p.categoriesList) ? p.categoriesList.map((c: string) => c.toLowerCase()) : [];
+        const matches = pCatLower === targetCatLower || pCatLower.includes(targetCatLower) || targetCatLower.includes(pCatLower) || pTypeLower === targetCatLower || pList.includes(targetCatLower);
+        if (!matches) return false;
       }
 
       // 4. Size filtering
@@ -367,6 +412,15 @@ function CategoriesPage() {
     }
     
     if (filterType === "category") {
+      navigate({
+        to: "/categories",
+        search: (prev: any) => {
+          const next = { ...prev };
+          delete next.category;
+          return next;
+        },
+        replace: true
+      });
       newQ = newQ.replace(/\b(shirts?|t-shirts?|t shirts?|tshirts?|tops?|bottoms?|pants?|trousers?|accessories?|couture|gown|dress)es?\b/gi, "").trim();
     } else if (filterType === "size") {
       newQ = newQ.replace(/\b(xs|s|m|l|xl|xxl)\b/gi, "").trim();
@@ -499,6 +553,80 @@ function CategoriesPage() {
           </button>
         </section>
       )}
+
+      {/* Category Tabs & Quick Filter Controls */}
+      <section className="px-4 sm:px-6 lg:px-16 pt-2 pb-2 space-y-4">
+        {/* Horizontal Category Navigation Bar */}
+        <div className="flex items-center justify-between gap-4 flex-wrap pb-3 border-b border-white/10">
+          <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar py-1 max-w-full">
+            {availableCategories.map((cat) => {
+              const isSelected = (cat === "All" && categoryFilter === "All") || (categoryFilter.toLowerCase() === cat.toLowerCase());
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => {
+                    navigate({
+                      to: "/categories",
+                      search: (prev: any) => ({
+                        ...prev,
+                        category: cat === "All" ? undefined : cat,
+                      }),
+                      replace: true,
+                    });
+                  }}
+                  className={cn(
+                    "px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs font-semibold tracking-wider transition-all duration-200 uppercase whitespace-nowrap cursor-pointer",
+                    isSelected
+                      ? "bg-accent text-obsidian shadow-[0_0_20px_-3px_rgba(200,169,106,0.6)] font-bold scale-[1.02]"
+                      : "bg-white/5 hover:bg-white/10 text-muted-foreground hover:text-foreground border border-white/10"
+                  )}
+                >
+                  {cat}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center gap-3 shrink-0">
+            {/* Gender Filters */}
+            <div className="flex items-center gap-1 bg-white/5 border border-white/10 p-1 rounded-full text-[10px] uppercase font-bold tracking-wider">
+              {["All", "Women", "Men", "Unisex"].map((g) => {
+                const isSelected = genderFilter === g;
+                return (
+                  <button
+                    key={g}
+                    type="button"
+                    onClick={() => {
+                      navigate({
+                        to: "/categories",
+                        search: (prev: any) => ({
+                          ...prev,
+                          gender: g === "All" ? undefined : (g as any),
+                        }),
+                        replace: true,
+                      });
+                    }}
+                    className={cn(
+                      "px-2.5 py-1 rounded-full transition-colors cursor-pointer",
+                      isSelected
+                        ? "bg-accent text-obsidian shadow-sm font-bold"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {g}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Counter */}
+            <span className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest hidden md:inline-block">
+              {filteredProducts.length} {filteredProducts.length === 1 ? "Piece" : "Pieces"}
+            </span>
+          </div>
+        </div>
+      </section>
 
       {/* Product Grid */}
       <section className="px-4 sm:px-6 lg:px-16 py-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 sm:gap-x-4 gap-y-8 sm:gap-y-10 bg-transparent items-start">

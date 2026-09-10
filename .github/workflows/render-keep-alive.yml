@@ -1,0 +1,27 @@
+name: Render Backend 24/7 Keep-Alive
+
+on:
+  schedule:
+    # Run every 10 minutes (* /10) around the clock
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  keep-alive:
+    name: Ping Render Free Instance
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping Render Backend Health Endpoint
+        run: |
+          echo "Sending keep-alive ping to Render backend at $(date)..."
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://scratch-render-sj9n.onrender.com/health || echo "000")
+          echo "Render health status response: $HTTP_STATUS"
+          if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 400 ]; then
+            echo "Render backend is alive and responding!"
+          else
+            echo "Instance was cold or waking up. Retrying in 10s..."
+            sleep 10
+            RETRY_STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://scratch-render-sj9n.onrender.com/health || echo "000")
+            echo "Render retry status response: $RETRY_STATUS"
+          fi

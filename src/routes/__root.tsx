@@ -139,11 +139,19 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+import { useEffect } from "react";
+import { startRenderKeepAlive } from "@/lib/render-keep-alive";
 import { Toaster } from "@/components/ui/sonner";
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "855678728689-s70vh2t24a6c7m48506416qcqt9htgfc.apps.googleusercontent.com";
+
+  useEffect(() => {
+    // Keep Render free backend active every 9-10 minutes to eliminate 50s cold start delay
+    startRenderKeepAlive();
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <GoogleOAuthProvider clientId={googleClientId}>
@@ -157,3 +165,4 @@ function RootComponent() {
     </QueryClientProvider>
   );
 }
+

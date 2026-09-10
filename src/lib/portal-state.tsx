@@ -837,11 +837,24 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         // Backend offline or spinning up, Supabase has the truth
       }
 
-      // Combine: Backend items first, then Supabase items take precedence
+      // Combine: PRODUCTS baseline first, backend items second, Supabase catalog takes highest authority
       const productMap = new Map<string, any>();
+      (PRODUCTS || []).forEach(p => productMap.set(String(p.id), p));
       backendProducts.forEach(p => productMap.set(String(p.id), p));
       supabaseProducts.forEach(p => productMap.set(String(p.id), p));
-      const mappedProducts = Array.from(productMap.values());
+
+      // Separate Supabase catalog items to place them at the very top of catalog displays
+      const supabaseIds = new Set(supabaseProducts.map(p => String(p.id)));
+      const topSupabaseProducts = supabaseProducts.filter((p: any) => {
+        const st = String(p.status || "PUBLISHED").toUpperCase();
+        return st !== "DELETED";
+      });
+      const otherProducts = Array.from(productMap.values()).filter((p: any) => {
+        const st = String(p.status || "PUBLISHED").toUpperCase();
+        return !supabaseIds.has(String(p.id)) && st !== "DELETED";
+      });
+      const mappedProducts = [...topSupabaseProducts, ...otherProducts];
+
 
       // 3. Fetch Buckets
       const bucketsRes = await fetch(`${BACKEND_URL}/api/buckets`);

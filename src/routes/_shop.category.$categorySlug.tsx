@@ -13,15 +13,22 @@ function CategoryProductsPage() {
   const { state, toggleShopWishlist, addToShopCart } = usePortal();
 
   // Find category display name from the slug
-  const allProducts = (state.products as any[]) || [];
+  const allProducts = (state.products && state.products.length > 0) ? (state.products as any[]) : [];
   const activeCategory = allProducts.find(
     (p) => p.category && p.category.toLowerCase().replace(/[^a-z0-9]+/g, "-") === categorySlug
   )?.category || categorySlug.split("-").map((word: string) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
 
-  // Filter products by category slug
-  const filteredProducts = allProducts.filter(
-    (p) => p.category && p.category.toLowerCase().replace(/[^a-z0-9]+/g, "-") === categorySlug && (!p.status || p.status === "PUBLISHED" || p.status === "published")
-  );
+  // Filter products by category slug (support category, type, and categoriesList)
+  const filteredProducts = allProducts.filter((p: any) => {
+    const slug = categorySlug.toLowerCase();
+    const pCat = (p.category || "").toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    const pType = (p.type || "").toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    const pList = Array.isArray(p.categoriesList) ? p.categoriesList.map((c: string) => c.toLowerCase().replace(/[^a-z0-9]+/g, "-")) : [];
+    const matches = pCat === slug || pType === slug || pList.includes(slug) || pCat.includes(slug) || slug.includes(pCat);
+    const st = String(p.status || "PUBLISHED").toUpperCase();
+    const vis = String(p.visibility || "VISIBLE").toUpperCase();
+    return matches && st !== "DELETED" && st !== "DRAFT" && vis !== "HIDDEN";
+  });
 
   const wishlist = state.user ? (state.shopWishlist[state.user.id] || []) : [];
 
