@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 @Service
+@SuppressWarnings("null")
 public class RenderKeepAliveService {
 
     private static final Logger log = LoggerFactory.getLogger(RenderKeepAliveService.class);
@@ -24,6 +25,9 @@ public class RenderKeepAliveService {
      */
     @Scheduled(fixedRate = 540000, initialDelay = 60000)
     public void sendRenderKeepAlivePing() {
+        if (renderHealthUrl == null || renderHealthUrl.trim().isEmpty()) {
+            return;
+        }
         try {
             log.info("RenderKeepAliveService: Sending keep-alive ping to {}", renderHealthUrl);
             String response = restTemplate.getForObject(renderHealthUrl, String.class);
