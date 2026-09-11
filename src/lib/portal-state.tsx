@@ -2685,13 +2685,13 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       // Successful redemption
       const nextUsedCount = targetCard.usedCount + 1;
       const isNowFullyRedeemed = targetCard.usageType === "custom" && targetCard.usageLimit !== undefined && nextUsedCount >= targetCard.usageLimit;
-      const nextStatus = isNowFullyRedeemed ? "Fully Redeemed" : targetCard.status;
+      const nextStatus: WalletGiftCard["status"] = isNowFullyRedeemed ? "Fully Redeemed" : targetCard.status;
       const nextRedeemedUsers = [...(targetCard.redeemedUsers || []), userId];
       const nextUserRedeemedCards = Array.from(new Set([...userRedeemedList, code]));
       const currentWalletBal = state.wallets[userId] ?? 0;
       const newWalletBal = currentWalletBal + targetCard.amount;
 
-      const updatedCard = {
+      const updatedCard: WalletGiftCard = {
         ...targetCard,
         usedCount: nextUsedCount,
         status: nextStatus,
