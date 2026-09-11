@@ -111,7 +111,7 @@ export async function saveHomepageLayoutToSupabase(
   }
 
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/homepage_layout`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/homepage_layout?on_conflict=id`, {
       method: "POST",
       headers: getHeaders("resolution=merge-duplicates"),
       body: JSON.stringify(payload),
@@ -160,7 +160,7 @@ export async function publishHomepageLayoutToSupabase(
   ];
 
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/homepage_layout`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/homepage_layout?on_conflict=id`, {
       method: "POST",
       headers: getHeaders("resolution=merge-duplicates"),
       body: JSON.stringify(batch),

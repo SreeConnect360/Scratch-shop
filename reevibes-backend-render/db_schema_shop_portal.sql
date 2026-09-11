@@ -14,7 +14,8 @@ CREATE TABLE IF NOT EXISTS platform_users (
     addresses TEXT,
     wishlist TEXT,
     cart TEXT,
-    last_login VARCHAR(50)
+    last_login VARCHAR(50),
+    wallet_balance NUMERIC DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS product_buckets (

@@ -255,6 +255,11 @@ public class ShopPortalController {
         if (body.containsKey("wishlist")) user.setWishlist(safeParseString(body.get("wishlist")));
         if (body.containsKey("cart")) user.setCart(safeParseString(body.get("cart")));
         if (body.containsKey("lastLogin")) user.setLastLogin(safeParseString(body.get("lastLogin")));
+        if (body.containsKey("walletBalance")) {
+            try {
+                user.setWalletBalance(Double.parseDouble(body.get("walletBalance").toString()));
+            } catch (Exception ignored) {}
+        }
         if (body.containsKey("roles")) {
             Object rolesVal = body.get("roles");
             if (rolesVal instanceof List) {

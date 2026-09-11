@@ -53,6 +53,9 @@ public class PlatformUser {
     @Column(name = "last_login", length = 50)
     private String lastLogin;
 
+    @Column(name = "wallet_balance")
+    private Double walletBalance = 0.0;
+
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
 
@@ -94,4 +97,7 @@ public class PlatformUser {
 
     public String getLastLogin() { return lastLogin; }
     public void setLastLogin(String lastLogin) { this.lastLogin = lastLogin; }
+
+    public Double getWalletBalance() { return walletBalance; }
+    public void setWalletBalance(Double walletBalance) { this.walletBalance = walletBalance; }
 }

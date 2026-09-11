@@ -662,24 +662,12 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
   // Homepage Builder States
   const [draftLayout, setDraftLayout] = useState<any>(null);
   const [homepageSyncStatus, setHomepageSyncStatus] = useState<"saved" | "saving">("saved");
-  const draftSyncTimerRef = useRef<any>(null);
+  const draftInitializedRef = useRef<boolean>(false);
+  const [isPublishingLive, setIsPublishingLive] = useState<boolean>(false);
 
-  const updateDraft = (nextLayout: any, immediate: boolean = false) => {
+  const updateDraft = (nextLayout: any) => {
     setDraftLayout(nextLayout);
-    setHomepageSyncStatus("saving");
-
-    if (immediate) {
-      if (draftSyncTimerRef.current) clearTimeout(draftSyncTimerRef.current);
-      updateHomepageLayoutDraft(nextLayout);
-      setTimeout(() => setHomepageSyncStatus("saved"), 250);
-      return;
-    }
-
-    if (draftSyncTimerRef.current) clearTimeout(draftSyncTimerRef.current);
-    draftSyncTimerRef.current = setTimeout(() => {
-      updateHomepageLayoutDraft(nextLayout);
-      setHomepageSyncStatus("saved");
-    }, 350);
+    setHomepageSyncStatus("saved");
   };
 
   // Re-fetch latest layout directly from Supabase when entering homepage tab
@@ -733,7 +721,8 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
   };
 
   useEffect(() => {
-    if (state?.homepageLayoutDraft || state?.homepageLayout) {
+    if (!draftInitializedRef.current && (state?.homepageLayoutDraft || state?.homepageLayout)) {
+      draftInitializedRef.current = true;
       const base = state.homepageLayoutDraft || state.homepageLayout || {};
       const layoutCopy: any = {
         ...DEFAULT_HOMEPAGE_LAYOUT,
@@ -3346,20 +3335,31 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                 External Preview <ArrowUpRight className="w-3.5 h-3.5" />
               </button>
               <button
-                onClick={() => {
-                  triggerModal(
-                    "warning",
-                    "Publish Homepage",
-                    "Are you sure you want to push all draft modifications live to shop.reevibes.com? This will save to the production database and update all connected clients.",
-                    async () => {
-                      updateHomepageLayoutDraft(draftLayout);
-                      await publishHomepageLayout(draftLayout);
+                disabled={isPublishingLive}
+                onClick={async () => {
+                  if (!draftLayout) return;
+                  setIsPublishingLive(true);
+                  try {
+                    const ok = await publishHomepageLayout(draftLayout);
+                    if (ok) {
+                      toast.success("Published live! Changes are now active on reevibes.com and synced across all devices and networks.");
                     }
-                  );
+                  } catch (err: any) {
+                    toast.error(err?.message || "Failed to publish live.");
+                  } finally {
+                    setIsPublishingLive(false);
+                  }
                 }}
-                className="editorial-label text-xs bg-accent text-white px-4 py-2 rounded-full hover:bg-accent/90 transition-all shadow-md cursor-pointer"
+                className="editorial-label text-xs bg-accent text-white px-5 py-2 rounded-full hover:bg-accent/90 transition-all shadow-md cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
               >
-                Publish Live
+                {isPublishingLive ? (
+                  <>
+                    <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Publishing Live...</span>
+                  </>
+                ) : (
+                  <span>Publish Live</span>
+                )}
               </button>
               <button
                 onClick={() => {
@@ -3369,6 +3369,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                     "Are you sure you want to discard all your draft changes and restore the homepage layout to the last published live version in the database?",
                     async () => {
                       await revertHomepageLayout();
+                      draftInitializedRef.current = false;
                       setDraftLayout(null); // Force re-render from state
                     }
                   );
@@ -3587,7 +3588,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
 
               {/* Active Section Configurator */}
               {activeSectionId && draftLayout[activeSectionId] && (
-                <AdminCard className="space-y-4 animate-in slide-in-from-bottom-2 duration-200">
+                <AdminCard className="space-y-4">
                   <div className="flex justify-between items-center border-b border-white/10 pb-3">
                     <h4 className="font-serif text-md capitalize">{activeSectionId.replace(/([A-Z])/g, " $1")} Editor</h4>
                     <div className="flex items-center gap-2">
@@ -3599,7 +3600,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                           updateDraft({
                             ...draftLayout,
                             [activeSectionId]: { ...draftLayout[activeSectionId], enabled: e.target.checked }
-                          }, true);
+                          });
                         }}
                         className="rounded border-white/10 text-accent focus:ring-accent w-4 h-4"
                       />
@@ -3987,24 +3988,42 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                         updateDraft({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
                                       }}
                                     />
-                                    <input
-                                      placeholder="Schedule Start (YYYY-MM-DD)"
-                                      className="bg-surface border border-border-subtle p-2 outline-none"
-                                      value={b.scheduleStart || ""}
-                                      onChange={(e) => {
-                                        const updated = draftLayout.hero.banners.map((x: any) => x.id === b.id ? { ...x, scheduleStart: e.target.value } : x);
-                                        updateDraft({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
-                                      }}
-                                    />
-                                    <input
-                                      placeholder="Schedule End (YYYY-MM-DD)"
-                                      className="bg-surface border border-border-subtle p-2 outline-none"
-                                      value={b.scheduleEnd || ""}
-                                      onChange={(e) => {
-                                        const updated = draftLayout.hero.banners.map((x: any) => x.id === b.id ? { ...x, scheduleEnd: e.target.value } : x);
-                                        updateDraft({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
-                                      }}
-                                    />
+                                    <div className="space-y-1">
+                                      <label className="text-[10px] text-muted-foreground font-semibold">Schedule Start (Date)</label>
+                                      <input
+                                        type="date"
+                                        className="w-full bg-surface border border-border-subtle p-2 outline-none"
+                                        value={b.scheduleStart || ""}
+                                        onChange={(e) => {
+                                          const updated = draftLayout.hero.banners.map((x: any) => x.id === b.id ? { ...x, scheduleStart: e.target.value } : x);
+                                          updateDraft({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
+                                        }}
+                                      />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <label className="text-[10px] text-muted-foreground font-semibold">Schedule End / Expiry Date</label>
+                                      <input
+                                        type="date"
+                                        className="w-full bg-surface border border-border-subtle p-2 outline-none"
+                                        value={b.scheduleEnd || b.expiryDate || ""}
+                                        onChange={(e) => {
+                                          const updated = draftLayout.hero.banners.map((x: any) => x.id === b.id ? { ...x, scheduleEnd: e.target.value, expiryDate: e.target.value } : x);
+                                          updateDraft({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
+                                        }}
+                                      />
+                                    </div>
+                                    <div className="col-span-2 space-y-1">
+                                      <label className="text-[10px] text-muted-foreground font-semibold">Expire Time (HH:mm - Optional)</label>
+                                      <input
+                                        type="time"
+                                        className="w-full bg-surface border border-border-subtle p-2 outline-none"
+                                        value={b.expiryTime || ""}
+                                        onChange={(e) => {
+                                          const updated = draftLayout.hero.banners.map((x: any) => x.id === b.id ? { ...x, expiryTime: e.target.value } : x);
+                                          updateDraft({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
+                                        }}
+                                      />
+                                    </div>
 
                                     {/* Visual preview inside slide panel */}
                                     <div className="col-span-2 flex gap-3 mt-2 p-2 bg-zinc-950/40 border border-white/5 rounded">
@@ -4863,6 +4882,19 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                         />
                                       </div>
                                       <div className="col-span-2 space-y-1">
+                                        <label className="text-muted-foreground font-semibold">Video URL Option (Optional .mp4 or .webm)</label>
+                                        <input
+                                          type="text"
+                                          placeholder="https://.../video.mp4"
+                                          className="w-full bg-surface border border-border-subtle p-2 outline-none font-mono"
+                                          value={b.videoUrl || ""}
+                                          onChange={(e) => {
+                                            const updated = slides.map((x: any) => x.id === b.id ? { ...x, videoUrl: e.target.value } : x);
+                                            updateDraft({ ...draftLayout, [activeSectionId]: { ...secData, banners: updated } });
+                                          }}
+                                        />
+                                      </div>
+                                      <div className="col-span-2 space-y-1">
                                         <label className="text-muted-foreground font-semibold">Redirect Link URL</label>
                                         <input
                                           type="text"
@@ -4871,6 +4903,42 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                           value={b.redirectUrl || ""}
                                           onChange={(e) => {
                                             const updated = slides.map((x: any) => x.id === b.id ? { ...x, redirectUrl: e.target.value } : x);
+                                            updateDraft({ ...draftLayout, [activeSectionId]: { ...secData, banners: updated } });
+                                          }}
+                                        />
+                                      </div>
+                                      <div className="space-y-1">
+                                        <label className="text-muted-foreground font-semibold">Schedule Start (Date)</label>
+                                        <input
+                                          type="date"
+                                          className="w-full bg-surface border border-border-subtle p-2 outline-none"
+                                          value={b.scheduleStart || ""}
+                                          onChange={(e) => {
+                                            const updated = slides.map((x: any) => x.id === b.id ? { ...x, scheduleStart: e.target.value } : x);
+                                            updateDraft({ ...draftLayout, [activeSectionId]: { ...secData, banners: updated } });
+                                          }}
+                                        />
+                                      </div>
+                                      <div className="space-y-1">
+                                        <label className="text-muted-foreground font-semibold">Expiry Date (YYYY-MM-DD)</label>
+                                        <input
+                                          type="date"
+                                          className="w-full bg-surface border border-border-subtle p-2 outline-none"
+                                          value={b.expiryDate || b.scheduleEnd || ""}
+                                          onChange={(e) => {
+                                            const updated = slides.map((x: any) => x.id === b.id ? { ...x, expiryDate: e.target.value, scheduleEnd: e.target.value } : x);
+                                            updateDraft({ ...draftLayout, [activeSectionId]: { ...secData, banners: updated } });
+                                          }}
+                                        />
+                                      </div>
+                                      <div className="col-span-2 space-y-1">
+                                        <label className="text-muted-foreground font-semibold">Expire Time (HH:mm - Optional)</label>
+                                        <input
+                                          type="time"
+                                          className="w-full bg-surface border border-border-subtle p-2 outline-none"
+                                          value={b.expiryTime || ""}
+                                          onChange={(e) => {
+                                            const updated = slides.map((x: any) => x.id === b.id ? { ...x, expiryTime: e.target.value } : x);
                                             updateDraft({ ...draftLayout, [activeSectionId]: { ...secData, banners: updated } });
                                           }}
                                         />
@@ -4901,6 +4969,19 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                           }}
                                         />
                                       </div>
+                                      <div className="col-span-2 space-y-1">
+                                        <label className="text-muted-foreground font-semibold">Button Text</label>
+                                        <input
+                                          type="text"
+                                          placeholder="Explore Collection"
+                                          className="w-full bg-surface border border-border-subtle p-2 outline-none"
+                                          value={b.buttonText || ""}
+                                          onChange={(e) => {
+                                            const updated = slides.map((x: any) => x.id === b.id ? { ...x, buttonText: e.target.value } : x);
+                                            updateDraft({ ...draftLayout, [activeSectionId]: { ...secData, banners: updated } });
+                                          }}
+                                        />
+                                      </div>
 
                                       {/* Visual Preview thumbnails inside custom banner slide panel */}
                                       <div className="col-span-2 flex gap-3 mt-2 p-2 bg-zinc-950/40 border border-white/5 rounded">
@@ -4914,6 +4995,14 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                           <div className="flex-1 space-y-1">
                                             <span className="text-[9px] text-muted-foreground">Mobile Preview:</span>
                                             <img src={b.mobileImage} className="w-full h-16 object-cover rounded border border-white/10" alt="" />
+                                          </div>
+                                        )}
+                                        {b.videoUrl && (
+                                          <div className="flex-1 space-y-1">
+                                            <span className="text-[9px] text-muted-foreground">Video Preview:</span>
+                                            <div className="w-full h-16 bg-zinc-900 border border-white/10 rounded flex items-center justify-center text-[10px] text-accent font-semibold truncate px-1">
+                                              {b.videoUrl.split("/").pop()}
+                                            </div>
                                           </div>
                                         )}
                                       </div>

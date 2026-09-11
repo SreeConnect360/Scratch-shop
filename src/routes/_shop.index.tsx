@@ -334,7 +334,22 @@ function ShopHome() {
       case "hero":
         const heroData = layout.hero;
         if (!heroData.banners || heroData.banners.length === 0) return null;
-        const currentBanner = heroData.banners[activeHeroIdx % heroData.banners.length];
+        const nowMs = Date.now();
+        const activeBanners = heroData.banners.filter((b: any) => {
+          if (b.scheduleStart) {
+            const start = new Date(b.scheduleStart).getTime();
+            if (!isNaN(start) && nowMs < start) return false;
+          }
+          const endStr = b.scheduleEnd || b.expiryDate;
+          if (endStr) {
+            const fullEndStr = b.expiryTime ? `${endStr}T${b.expiryTime}:00` : `${endStr}T23:59:59`;
+            const end = new Date(fullEndStr).getTime();
+            if (!isNaN(end) && nowMs > end) return false;
+          }
+          return true;
+        });
+        if (activeBanners.length === 0) return null;
+        const currentBanner = activeBanners[activeHeroIdx % activeBanners.length];
 
         const hasSubtitle = Boolean(currentBanner.subtitle && currentBanner.subtitle.trim().length > 0);
         const hasTitle = Boolean(currentBanner.title && currentBanner.title.trim().length > 0);
@@ -413,7 +428,7 @@ function ShopHome() {
                     transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
                     className="absolute inset-0 bg-zinc-950"
                   >
-                    {currentBanner.type === "Video Banner" && currentBanner.videoUrl ? (
+                    {(currentBanner.type === "Video Banner" || (currentBanner.videoUrl && currentBanner.videoUrl.trim().length > 0)) && currentBanner.videoUrl ? (
                       <motion.video
                         src={currentBanner.videoUrl}
                         autoPlay
@@ -497,7 +512,7 @@ function ShopHome() {
                 <button
                   type="button"
                   aria-label="Previous banner"
-                  onClick={() => goHero(-1, heroData.banners.length)}
+                  onClick={() => goHero(-1, activeBanners.length)}
                   className="glass absolute left-4 top-1/2 z-30 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full text-white opacity-0 transition-all duration-300 hover:border-gold/40 hover:text-gold-soft group-hover:opacity-100 focus-visible:opacity-100 sm:flex cursor-pointer"
                   style={{ position: "absolute", left: "1rem" }}
                 >
@@ -506,7 +521,7 @@ function ShopHome() {
                 <button
                   type="button"
                   aria-label="Next banner"
-                  onClick={() => goHero(1, heroData.banners.length)}
+                  onClick={() => goHero(1, activeBanners.length)}
                   className="glass absolute right-4 top-1/2 z-30 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full text-white opacity-0 transition-all duration-300 hover:border-gold/40 hover:text-gold-soft group-hover:opacity-100 focus-visible:opacity-100 sm:flex cursor-pointer"
                   style={{ position: "absolute", right: "1rem" }}
                 >
@@ -514,13 +529,13 @@ function ShopHome() {
                 </button>
 
                 {/* dots */}
-                {heroData.banners.length > 1 && (
+                {activeBanners.length > 1 && (
                   <div
                     className="absolute bottom-5 right-6 z-35 flex items-center gap-2 sm:bottom-7 sm:right-9"
                     role="tablist"
                     aria-label="Choose banner"
                   >
-                    {heroData.banners.map((_: any, idx: number) => {
+                    {activeBanners.map((_: any, idx: number) => {
                       const isActive = idx === activeHeroIdx;
                       return (
                         <button
@@ -1252,20 +1267,45 @@ function ShopHome() {
 }
 
 function RotatableBanner({ banner, sectionId }: { banner: any; sectionId: string }) {
-  const slides = banner.banners || [
+  if (!banner || banner.enabled === false) return null;
+
+  const nowMs = Date.now();
+  const rawSlides = banner.banners || [
     {
       id: "root",
       desktopImage: banner.desktopImage,
       mobileImage: banner.mobileImage || banner.desktopImage,
+      videoUrl: banner.videoUrl,
       redirectUrl: banner.redirectUrl || "/shop",
       scale: banner.scale || 1.0,
       xOffset: banner.xOffset || 0,
       yOffset: banner.yOffset || 0,
       title: banner.title || banner.name || "Showcase Collection",
       subtitle: banner.subtitle || "",
-      buttonText: banner.buttonText || "Discover Collection"
+      buttonText: banner.buttonText || "Discover Collection",
+      scheduleStart: banner.scheduleStart,
+      scheduleEnd: banner.scheduleEnd || banner.expiryDate,
+      expiryDate: banner.expiryDate,
+      expiryTime: banner.expiryTime
     }
   ];
+
+  // Filter expired or not-yet-started slides
+  const slides = rawSlides.filter((s: any) => {
+    if (s.scheduleStart) {
+      const start = new Date(s.scheduleStart).getTime();
+      if (!isNaN(start) && nowMs < start) return false;
+    }
+    const endStr = s.scheduleEnd || s.expiryDate;
+    if (endStr) {
+      const fullEndStr = s.expiryTime ? `${endStr}T${s.expiryTime}:00` : `${endStr}T23:59:59`;
+      const end = new Date(fullEndStr).getTime();
+      if (!isNaN(end) && nowMs > end) return false;
+    }
+    return true;
+  });
+
+  if (slides.length === 0) return null;
 
   const [activeIdx, setActiveIdx] = useState(0);
 
@@ -1278,6 +1318,7 @@ function RotatableBanner({ banner, sectionId }: { banner: any; sectionId: string
   }, [slides.length]);
 
   const currentSlide = slides[activeIdx % slides.length] || slides[0];
+  const isVideo = Boolean(currentSlide.videoUrl && currentSlide.videoUrl.trim().length > 0);
 
   return (
     <section key={sectionId} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-16 relative">
@@ -1287,14 +1328,25 @@ function RotatableBanner({ banner, sectionId }: { banner: any; sectionId: string
             to={currentSlide.redirectUrl || "/shop"}
             className="absolute inset-0 block w-full h-full z-20"
           >
-            <div
-              className="absolute inset-0 w-full h-full bg-center bg-cover transition-transform duration-700 group-hover:scale-[1.05]"
-              style={{
-                backgroundImage: `url(${currentSlide.desktopImage})`,
-                transform: `scale(${currentSlide.scale || 1.0}) translate(${currentSlide.xOffset || 0}%, ${currentSlide.yOffset || 0}%)`,
-                transformOrigin: "center center"
-              }}
-            />
+            {isVideo ? (
+              <video
+                src={currentSlide.videoUrl}
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.05]"
+              />
+            ) : (
+              <div
+                className="absolute inset-0 w-full h-full bg-center bg-cover transition-transform duration-700 group-hover:scale-[1.05]"
+                style={{
+                  backgroundImage: `url(${currentSlide.desktopImage})`,
+                  transform: `scale(${currentSlide.scale || 1.0}) translate(${currentSlide.xOffset || 0}%, ${currentSlide.yOffset || 0}%)`,
+                  transformOrigin: "center center"
+                }}
+              />
+            )}
             <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/40 to-transparent" />
             <div className="absolute inset-0 p-8 md:p-12 flex flex-col justify-center space-y-3 max-w-xl z-10">
               <span className="text-[10px] uppercase tracking-[0.2em] text-accent font-bold">Featured Showcase</span>

@@ -341,8 +341,11 @@ function ShopDashboard() {
   };
 
   // Gift Card Redemption Logic
-  const handleRedeemGiftCard = () => {
-    if (!user) return;
+  const handleRedeemGiftCard = async () => {
+    if (!user) {
+      toast.error("Please log in to redeem gift cards and vouchers.");
+      return;
+    }
     const code = giftCardInput.trim().toUpperCase();
     if (!code) {
       toast.error("Please enter a gift card or voucher code.");
@@ -350,15 +353,19 @@ function ShopDashboard() {
     }
 
     setIsRedeeming(true);
-    const res = redeemWalletGiftCard(user.id, code);
-
-    if (res.success) {
-      toast.success(res.message);
-      setGiftCardInput("");
-    } else {
-      toast.error(res.message);
+    try {
+      const res = await redeemWalletGiftCard(user.id, code);
+      if (res.success) {
+        toast.success(res.message);
+        setGiftCardInput("");
+      } else {
+        toast.error(res.message);
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to redeem code.");
+    } finally {
+      setIsRedeeming(false);
     }
-    setIsRedeeming(false);
   };
 
   // Saved Addresses State
@@ -1801,7 +1808,7 @@ function ShopDashboard() {
                     <div>
                       <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Available Balance</div>
                       <div className="font-serif text-3xl sm:text-4xl font-bold text-accent mt-1">
-                        ₹{(state.wallets[user.id] ?? 0).toLocaleString()}
+                        ₹{((state.wallets[user.id] !== undefined ? state.wallets[user.id] : user.walletBalance) ?? 0).toLocaleString()}
                       </div>
                     </div>
                     <div className="px-3 py-1 rounded-full bg-accent/20 border border-accent/40 text-accent text-[10px] uppercase font-bold tracking-wider">

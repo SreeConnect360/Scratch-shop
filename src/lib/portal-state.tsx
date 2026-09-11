@@ -90,6 +90,7 @@ export type PortalUser = {
   avatar?: string;
   gender?: string;
   emailVerified?: boolean;
+  walletBalance?: number;
   roles: Role[];
 };
 
@@ -752,7 +753,7 @@ type Ctx = {
   updateWalletGiftCard: (id: string, patch: Partial<WalletGiftCard>) => void;
   toggleWalletGiftCardStatus: (id: string) => void;
   deleteWalletGiftCard: (id: string) => void;
-  redeemWalletGiftCard: (userId: string, code: string) => { success: boolean; message: string; amount?: number };
+  redeemWalletGiftCard: (userId: string, code: string) => Promise<{ success: boolean; message: string; amount?: number }>;
 
   // Shopping Platform Actions
   setAdminMode: (mode: "Contest" | "Shop") => void;
@@ -765,12 +766,12 @@ type Ctx = {
   updateReturnDetails: (returnId: string, patch: Partial<ReturnRequest>) => void;
   suspendCustomer: (id: string) => void;
   reactivateCustomer: (id: string) => void;
-  addWalletCredit: (userId: string, amount: number) => void;
+  addWalletCredit: (userId: string, amount: number) => Promise<void>;
   moderateReview: (productId: string, reviewId: string, action: "approve" | "hide") => void;
   addReview: (productId: string, r: Omit<ProductReview, "id" | "status" | "date">) => void;
   updateHomepageLayout: (layout: Partial<PortalState["homepageLayout"]>) => void;
   updateHomepageLayoutDraft: (layout: Partial<PortalState["homepageLayoutDraft"]>) => void;
-  publishHomepageLayout: (layoutToPublish?: Partial<PortalState["homepageLayoutDraft"]>) => Promise<void>;
+  publishHomepageLayout: (layoutToPublish?: Partial<PortalState["homepageLayoutDraft"]>) => Promise<boolean>;
   revertHomepageLayout: () => Promise<void>;
   createBucket: (name: string, productIds: string[], starProductId?: string, thumbnail?: string) => void;
   updateBucket: (id: string, patch: Partial<Bucket>) => void;
@@ -1201,6 +1202,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
               dob: match.dob || currentUser.dob,
               gender: match.gender || currentUser.gender,
               roles: match.roles || currentUser.roles,
+              walletBalance: Number(match.walletBalance) || 0,
             };
             if (match.cart && Array.isArray(match.cart)) {
               nextShopCart = match.cart;
@@ -1873,9 +1875,11 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 
         // Deduct wallet if used
         let nextWallets = s.wallets;
+        let nextBal = s.wallets[userId] ?? 0;
         if (walletUsed > 0) {
           const curBal = s.wallets[userId] ?? 0;
-          nextWallets = { ...s.wallets, [userId]: Math.max(0, curBal - walletUsed) };
+          nextBal = Math.max(0, curBal - walletUsed);
+          nextWallets = { ...s.wallets, [userId]: nextBal };
         }
 
         const newNotif: Notif = {
@@ -1897,6 +1901,8 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 
         return {
           ...s,
+          user: s.user && s.user.id === userId && walletUsed > 0 ? { ...s.user, walletBalance: nextBal } : s.user,
+          users: (s.users || []).map(u => u.id === userId && walletUsed > 0 ? { ...u, walletBalance: nextBal } : u),
           orders: { ...s.orders, [userId]: [newOrder, ...list] },
           products: nextProducts,
           coupons: nextCoupons,
@@ -1907,24 +1913,40 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           userNotifications: nextUserNotifs
         };
       });
+      const finalBal = Math.max(0, (state.wallets[userId] ?? 0) - walletUsed);
       patchCustomerAccountInSupabase(userId, {
         orders: [newOrder, ...(state.orders[userId] || [])],
         cart: [],
-        walletBalance: Math.max(0, (state.wallets[userId] ?? 0) - walletUsed)
+        walletBalance: finalBal
       }).catch(err => console.error("Failed to sync new order to Supabase customer_accounts:", err));
+      fetch(`${BACKEND_URL}/api/customers/${userId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ walletBalance: finalBal, cart: "[]" })
+      }).catch(() => null);
       return orderId;
     },
 
-    deductWalletBalance: (userId, amount) => {
+    deductWalletBalance: async (userId, amount) => {
+      const cur = state.wallets[userId] ?? 0;
+      const nextBal = Math.max(0, cur - amount);
+      await patchCustomerAccountInSupabase(userId, { walletBalance: nextBal }).catch(err => console.error("Failed to sync wallet deduction to Supabase:", err));
+      fetch(`${BACKEND_URL}/api/customers/${userId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ walletBalance: nextBal })
+      }).catch(() => null);
       setState(s => {
-        const cur = s.wallets[userId] ?? 0;
-        const nextBal = Math.max(0, cur - amount);
-        patchCustomerAccountInSupabase(userId, { walletBalance: nextBal }).catch(err => console.error("Failed to sync wallet deduction to Supabase:", err));
-        return {
+        const next = {
           ...s,
+          user: s.user && s.user.id === userId ? { ...s.user, walletBalance: nextBal } : s.user,
+          users: (s.users || []).map(u => u.id === userId ? { ...u, walletBalance: nextBal } : u),
           wallets: { ...s.wallets, [userId]: nextBal }
         };
+        save(next);
+        return next;
       });
+      notifyBroadcastSync();
     },
 
     updateOrderStatus: (userId, orderId, status, patch) => {
@@ -2624,19 +2646,31 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ status: "Active" })
       }).catch(err => console.error("Failed to sync customer reactivation to backend:", err));
     },
-    addWalletCredit: (userId, amount) => setState(s => {
-      const bal = s.wallets[userId] ?? 0;
+    addWalletCredit: async (userId, amount) => {
+      const bal = state.wallets[userId] ?? 0;
       const nextBal = bal + amount;
-      patchCustomerAccountInSupabase(userId, { walletBalance: nextBal }).catch(err => console.error("Failed to sync wallet credit to Supabase:", err));
-      return {
-        ...s,
-        wallets: { ...s.wallets, [userId]: nextBal },
-        notifications: [
-          { id: `n-${Date.now()}`, icon: "wallet", title: "Wallet Credit Added", body: `₹${amount.toLocaleString()} has been added to your wallet.`, time: "now", unread: true },
-          ...s.notifications
-        ]
-      };
-    }),
+      await patchCustomerAccountInSupabase(userId, { walletBalance: nextBal }).catch(err => console.error("Failed to sync wallet credit to Supabase:", err));
+      fetch(`${BACKEND_URL}/api/customers/${userId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ walletBalance: nextBal })
+      }).catch(() => null);
+      setState(s => {
+        const next = {
+          ...s,
+          user: s.user && s.user.id === userId ? { ...s.user, walletBalance: nextBal } : s.user,
+          users: (s.users || []).map(u => u.id === userId ? { ...u, walletBalance: nextBal } : u),
+          wallets: { ...s.wallets, [userId]: nextBal },
+          notifications: [
+            { id: `n-${Date.now()}`, icon: "wallet", title: "Wallet Credit Added", body: `₹${amount.toLocaleString()} has been added to your wallet.`, time: "now", unread: true },
+            ...s.notifications
+          ]
+        };
+        save(next);
+        return next;
+      });
+      notifyBroadcastSync();
+    },
     addWalletGiftCard: (gc) => {
       const newGc: WalletGiftCard = {
         id: `wgc-${Date.now()}`,
@@ -2738,102 +2772,180 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         }
       }).catch(err => console.error("Supabase gift card delete error:", err));
     },
-    redeemWalletGiftCard: (userId, inputCode) => {
+    redeemWalletGiftCard: async (userId, inputCode) => {
       const code = inputCode.trim().toUpperCase();
       const currentCards = state.walletGiftCards || DEFAULT_WALLET_GIFT_CARDS;
-      const targetCard = currentCards.find(g => g.code.toUpperCase() === code);
+      let targetCard = currentCards.find(g => g.code.toUpperCase() === code);
+      let targetCoupon = (state.coupons || []).find(c => c.code.toUpperCase() === code);
 
-      if (!targetCard) {
-        return { success: false, message: "Invalid gift card code." };
+      if (!targetCard && !targetCoupon) {
+        return { success: false, message: "Invalid gift card or coupon code." };
       }
 
-      // Check Expiration Date
-      const today = new Date().toISOString().split("T")[0];
-      if (targetCard.validityType === "custom" && targetCard.expiryDate && targetCard.expiryDate < today) {
-        setState(s => ({
-          ...s,
-          walletGiftCards: (s.walletGiftCards || []).map(g => g.id === targetCard.id ? { ...g, status: "Expired" } : g)
-        }));
-        upsertWalletGiftCardToSupabase({ ...targetCard, status: "Expired" }).catch(() => null);
-        return { success: false, message: "Gift card has expired." };
+      let creditAmount = 0;
+      let isCoupon = false;
+
+      if (targetCard) {
+        // Check Expiration Date
+        const today = new Date().toISOString().split("T")[0];
+        if (targetCard.validityType === "custom" && targetCard.expiryDate && targetCard.expiryDate < today) {
+          setState(s => ({
+            ...s,
+            walletGiftCards: (s.walletGiftCards || []).map(g => g.id === targetCard!.id ? { ...g, status: "Expired" } : g)
+          }));
+          upsertWalletGiftCardToSupabase({ ...targetCard, status: "Expired" }).catch(() => null);
+          return { success: false, message: "Gift card has expired." };
+        }
+
+        if (targetCard.status === "Inactive") {
+          return { success: false, message: "Gift card is inactive." };
+        }
+
+        if (targetCard.status === "Expired") {
+          return { success: false, message: "Gift card has expired." };
+        }
+
+        if (targetCard.status === "Fully Redeemed") {
+          return { success: false, message: "Gift card usage limit has been reached." };
+        }
+
+        // Check Usage Limit
+        if (targetCard.usageType === "custom" && (targetCard.usageLimit !== undefined) && targetCard.usedCount >= targetCard.usageLimit) {
+          setState(s => ({
+            ...s,
+            walletGiftCards: (s.walletGiftCards || []).map(g => g.id === targetCard!.id ? { ...g, status: "Fully Redeemed" } : g)
+          }));
+          upsertWalletGiftCardToSupabase({ ...targetCard, status: "Fully Redeemed" }).catch(() => null);
+          return { success: false, message: "Gift card usage limit has been reached." };
+        }
+
+        // Check if User already redeemed this gift card code on their account
+        const userRedeemedList = state.userRedeemedGiftCards?.[userId] || [];
+        if (userRedeemedList.includes(code) || targetCard.redeemedUsers?.includes(userId)) {
+          return { success: false, message: "You have already redeemed this gift card code once on your account." };
+        }
+
+        creditAmount = targetCard.amount;
+      } else if (targetCoupon) {
+        isCoupon = true;
+        if (!targetCoupon.active) {
+          return { success: false, message: "Coupon code is inactive." };
+        }
+        const today = new Date().toISOString().split("T")[0];
+        if (targetCoupon.expiryDate && targetCoupon.expiryDate !== "unlimited" && targetCoupon.expiryDate < today) {
+          return { success: false, message: "Coupon code has expired." };
+        }
+        if (targetCoupon.usageLimit && targetCoupon.usageLimit > 0 && targetCoupon.usedCount >= targetCoupon.usageLimit) {
+          return { success: false, message: "Coupon usage limit has been reached." };
+        }
+        const userRedeemedList = state.userRedeemedGiftCards?.[userId] || [];
+        if (userRedeemedList.includes(code)) {
+          return { success: false, message: "You have already redeemed this coupon code once on your account." };
+        }
+
+        creditAmount = Number(targetCoupon.discount) || 0;
       }
 
-      if (targetCard.status === "Inactive") {
-        return { success: false, message: "Gift card is inactive." };
-      }
-
-      if (targetCard.status === "Expired") {
-        return { success: false, message: "Gift card has expired." };
-      }
-
-      if (targetCard.status === "Fully Redeemed") {
-        return { success: false, message: "Gift card usage limit has been reached." };
-      }
-
-      // Check Usage Limit
-      if (targetCard.usageType === "custom" && (targetCard.usageLimit !== undefined) && targetCard.usedCount >= targetCard.usageLimit) {
-        setState(s => ({
-          ...s,
-          walletGiftCards: (s.walletGiftCards || []).map(g => g.id === targetCard.id ? { ...g, status: "Fully Redeemed" } : g)
-        }));
-        upsertWalletGiftCardToSupabase({ ...targetCard, status: "Fully Redeemed" }).catch(() => null);
-        return { success: false, message: "Gift card usage limit has been reached." };
-      }
-
-      // Check if User already redeemed this gift card code on their account
-      const userRedeemedList = state.userRedeemedGiftCards?.[userId] || [];
-      if (userRedeemedList.includes(code) || targetCard.redeemedUsers?.includes(userId)) {
-        return { success: false, message: "You have already redeemed this gift card code once on your account." };
+      if (creditAmount <= 0) {
+        return { success: false, message: "This code does not contain a valid wallet credit balance." };
       }
 
       // Successful redemption
-      const nextUsedCount = targetCard.usedCount + 1;
-      const isNowFullyRedeemed = targetCard.usageType === "custom" && targetCard.usageLimit !== undefined && nextUsedCount >= targetCard.usageLimit;
-      const nextStatus: WalletGiftCard["status"] = isNowFullyRedeemed ? "Fully Redeemed" : targetCard.status;
-      const nextRedeemedUsers = [...(targetCard.redeemedUsers || []), userId];
+      const userRedeemedList = state.userRedeemedGiftCards?.[userId] || [];
       const nextUserRedeemedCards = Array.from(new Set([...userRedeemedList, code]));
       const currentWalletBal = state.wallets[userId] ?? 0;
-      const newWalletBal = currentWalletBal + targetCard.amount;
+      const newWalletBal = currentWalletBal + creditAmount;
 
-      const updatedCard: WalletGiftCard = {
-        ...targetCard,
-        usedCount: nextUsedCount,
-        status: nextStatus,
-        redeemedUsers: nextRedeemedUsers
-      };
+      // 1. Immediately persist new wallet balance to Supabase customer_accounts table
+      const patched = await patchCustomerAccountInSupabase(userId, { walletBalance: newWalletBal });
+      if (!patched) {
+        console.warn("Retrying patch customer account wallet balance in Supabase...");
+        await patchCustomerAccountInSupabase(userId, { walletBalance: newWalletBal });
+      }
 
-      setState(s => {
-        const next = {
-          ...s,
-          wallets: { ...s.wallets, [userId]: newWalletBal },
-          userRedeemedGiftCards: { ...s.userRedeemedGiftCards, [userId]: nextUserRedeemedCards },
-          walletGiftCards: (s.walletGiftCards || []).map(g => g.id === targetCard.id ? updatedCard : g),
-          notifications: [
-            {
-              id: `n-${Date.now()}`,
-              icon: "wallet",
-              title: "Gift Card Redeemed",
-              body: `₹${targetCard.amount.toLocaleString()} added to your wallet via gift card ${targetCard.code}.`,
-              time: "now",
-              unread: true
-            },
-            ...s.notifications
-          ]
+      // 2. Persist to Render backend
+      fetch(`${BACKEND_URL}/api/customers/${userId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ walletBalance: newWalletBal })
+      }).catch(err => console.warn("Failed to sync customer wallet to secondary backend:", err));
+
+      // 3. Update target gift card / coupon status in Supabase
+      if (targetCard) {
+        const nextUsedCount = targetCard.usedCount + 1;
+        const isNowFullyRedeemed = targetCard.usageType === "custom" && targetCard.usageLimit !== undefined && nextUsedCount >= targetCard.usageLimit;
+        const nextStatus: WalletGiftCard["status"] = isNowFullyRedeemed ? "Fully Redeemed" : targetCard.status;
+        const nextRedeemedUsers = [...(targetCard.redeemedUsers || []), userId];
+        const updatedCard: WalletGiftCard = {
+          ...targetCard,
+          usedCount: nextUsedCount,
+          status: nextStatus,
+          redeemedUsers: nextRedeemedUsers
         };
-        save(next);
-        return next;
-      });
-      notifyBroadcastSync();
 
-      // Persist redemption to Supabase in real time
-      redeemWalletGiftCardInSupabase(targetCard.id, nextUsedCount, nextStatus, nextRedeemedUsers).catch(err =>
-        console.error("Failed to patch gift card redemption in Supabase:", err)
-      );
+        redeemWalletGiftCardInSupabase(targetCard.id, nextUsedCount, nextStatus, nextRedeemedUsers).catch(err =>
+          console.error("Failed to patch gift card redemption in Supabase:", err)
+        );
+
+        setState(s => {
+          const next = {
+            ...s,
+            user: s.user && s.user.id === userId ? { ...s.user, walletBalance: newWalletBal } : s.user,
+            users: (s.users || []).map(u => u.id === userId ? { ...u, walletBalance: newWalletBal } : u),
+            wallets: { ...s.wallets, [userId]: newWalletBal },
+            userRedeemedGiftCards: { ...s.userRedeemedGiftCards, [userId]: nextUserRedeemedCards },
+            walletGiftCards: (s.walletGiftCards || []).map(g => g.id === targetCard!.id ? updatedCard : g),
+            notifications: [
+              {
+                id: `n-${Date.now()}`,
+                icon: "wallet",
+                title: "Gift Card Redeemed",
+                body: `₹${creditAmount.toLocaleString()} added to your wallet via gift card ${code}.`,
+                time: "now",
+                unread: true
+              },
+              ...s.notifications
+            ]
+          };
+          save(next);
+          return next;
+        });
+      } else if (targetCoupon) {
+        const nextUsed = (targetCoupon.usedCount || 0) + 1;
+        const updatedCoupon = { ...targetCoupon, usedCount: nextUsed };
+        upsertCouponToSupabase(updatedCoupon).catch(() => null);
+
+        setState(s => {
+          const next = {
+            ...s,
+            user: s.user && s.user.id === userId ? { ...s.user, walletBalance: newWalletBal } : s.user,
+            users: (s.users || []).map(u => u.id === userId ? { ...u, walletBalance: newWalletBal } : u),
+            wallets: { ...s.wallets, [userId]: newWalletBal },
+            userRedeemedGiftCards: { ...s.userRedeemedGiftCards, [userId]: nextUserRedeemedCards },
+            coupons: (s.coupons || []).map(c => c.code.toUpperCase() === code ? updatedCoupon : c),
+            notifications: [
+              {
+                id: `n-${Date.now()}`,
+                icon: "wallet",
+                title: "Coupon Redeemed to Wallet",
+                body: `₹${creditAmount.toLocaleString()} added to your wallet via voucher ${code}.`,
+                time: "now",
+                unread: true
+              },
+              ...s.notifications
+            ]
+          };
+          save(next);
+          return next;
+        });
+      }
+
+      notifyBroadcastSync();
 
       return {
         success: true,
-        message: `🎉 Gift card redeemed! ₹${targetCard.amount.toLocaleString()} added to your wallet balance.`,
-        amount: targetCard.amount
+        message: `🎉 Code redeemed! ₹${creditAmount.toLocaleString()} added to your wallet balance.`,
+        amount: creditAmount
       };
     },
     moderateReview: (productId, reviewId, action) => {
@@ -2943,13 +3055,11 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       }).catch(err => console.error("Failed to sync draft homepage layout:", err));
     },
     publishHomepageLayout: async (layoutToPublish?: any) => {
-      let targetLayout: any;
-      setState(s => {
-        targetLayout = layoutToPublish || s.homepageLayoutDraft || s.homepageLayout;
-        return s;
-      });
-
-      if (!targetLayout) return;
+      const targetLayout = layoutToPublish || state.homepageLayoutDraft || state.homepageLayout;
+      if (!targetLayout) {
+        toast.error("No layout configuration found to publish.");
+        return false;
+      }
 
       // 1. Direct Supabase Persistence (Immediate multi-device publication)
       const sbRes = await publishHomepageLayoutToSupabase(targetLayout);
@@ -2960,14 +3070,14 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           return next;
         });
         notifyBroadcastSync();
-        toast.success("Homepage layout published live to database (Supabase)!");
       } else {
         console.error("Supabase publish error:", sbRes.error);
-        toast.error("Failed to publish layout directly to Supabase.");
+        toast.error(`Failed to publish layout to Supabase: ${sbRes.error || "Unknown error"}`);
+        return false;
       }
 
       // 2. Secondary Render backend sync
-      const jsonStr = JSON.stringify(targetLayout);
+      const jsonStr = typeof targetLayout === "string" ? targetLayout : JSON.stringify(targetLayout);
       try {
         const res = await fetch(`${BACKEND_URL}/api/homepage-layout/publish`, {
           method: "POST",
@@ -2980,6 +3090,8 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       } catch(err) {
         console.warn("Secondary backend publish network warning:", err);
       }
+
+      return true;
     },
     revertHomepageLayout: async () => {
       try {
