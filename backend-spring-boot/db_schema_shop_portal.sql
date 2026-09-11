@@ -77,7 +77,26 @@ CREATE TABLE IF NOT EXISTS shop_coupons (
     usage_limit INT NOT NULL,
     user_eligibility VARCHAR(50) NOT NULL,
     active BOOLEAN DEFAULT TRUE NOT NULL,
-    used_count INT DEFAULT 0
+    used_count INT DEFAULT 0,
+    product_type VARCHAR(100) DEFAULT '',
+    brand VARCHAR(100) DEFAULT '',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS wallet_gift_cards (
+    id VARCHAR(100) PRIMARY KEY,
+    code VARCHAR(100) UNIQUE NOT NULL,
+    amount NUMERIC(12, 2) NOT NULL,
+    usage_type VARCHAR(50) DEFAULT 'unlimited',
+    usage_limit INT DEFAULT 100,
+    used_count INT DEFAULT 0,
+    validity_type VARCHAR(50) DEFAULT 'unlimited',
+    expiry_date VARCHAR(50),
+    status VARCHAR(50) DEFAULT 'Active',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    redeemed_users TEXT DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS shop_orders (

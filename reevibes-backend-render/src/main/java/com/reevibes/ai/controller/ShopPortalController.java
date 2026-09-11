@@ -532,13 +532,15 @@ public class ShopPortalController {
         if (coupon.getUsageLimit() != null && coupon.getUsageLimit() > 0 && coupon.getUsedCount() >= coupon.getUsageLimit()) {
             return ResponseEntity.status(400).body(Map.of("valid", false, "message", "Coupon usage limit has been reached."));
         }
-        return ResponseEntity.ok(Map.of(
-            "valid", true,
-            "code", coupon.getCode(),
-            "discount", coupon.getDiscount(),
-            "type", coupon.getType(),
-            "userEligibility", coupon.getUserEligibility()
-        ));
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("valid", true);
+        resp.put("code", coupon.getCode());
+        resp.put("discount", coupon.getDiscount());
+        resp.put("type", coupon.getType());
+        resp.put("userEligibility", coupon.getUserEligibility() != null ? coupon.getUserEligibility() : "All");
+        resp.put("productType", coupon.getProductType() != null ? coupon.getProductType() : "");
+        resp.put("brand", coupon.getBrand() != null ? coupon.getBrand() : "");
+        return ResponseEntity.ok(resp);
     }
 
     // --- REVIEWS ---

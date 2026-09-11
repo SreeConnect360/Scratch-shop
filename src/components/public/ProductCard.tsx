@@ -1,8 +1,9 @@
-import { useState, useRef, useCallback, useContext, memo } from "react";
+import { useState, useRef, useCallback, useContext, useMemo, memo } from "react";
 import { Link } from "@tanstack/react-router";
-import { Heart, ShoppingBag, ChevronLeft, ChevronRight, Star } from "lucide-react";
+import { Heart, ShoppingBag, ChevronLeft, ChevronRight, Star, Ticket, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import { usePortal } from "@/lib/portal-state";
+import { getEligibleCouponsForProduct } from "@/lib/supabase-coupons";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -52,6 +53,16 @@ export const ProductCard = memo(function ProductCard({
   const [isTitleHovered, setIsTitleHovered] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
+  // Coupon state on card
+  const [appliedCoupon, setAppliedCoupon] = useState<any | null>(null);
+
+  // Eligible coupons for this product based on Product Type and/or Brand targeting
+  const eligibleCoupons = useMemo(() => {
+    return getEligibleCouponsForProduct(targetProduct, state.coupons || []);
+  }, [targetProduct, state.coupons]);
+
+  const bestCoupon = eligibleCoupons.length > 0 ? eligibleCoupons[0] : null;
+
   const ref = useRef<HTMLDivElement>(null);
   const frame = useRef(0);
 
@@ -96,13 +107,18 @@ export const ProductCard = memo(function ProductCard({
   const handleAddToCartClick = (e: React.MouseEvent) => {
     e.preventDefault();
     if (quickAdd) {
-      quickAdd.openQuickAdd(p);
+      const productToAdd = {
+        ...p,
+        price: displayFinalPrice,
+        appliedCoupon: appliedCoupon?.code,
+        cashbackAmount: appliedCoupon?.type === "wallet" ? appliedCoupon.discount : undefined
+      };
+      quickAdd.openQuickAdd(productToAdd);
     }
   };
 
   // Calculate discounted price if applicable
   const pct = discountPercent || p.discount || 0;
-  const hasDiscount = !!(pct || p.originalPrice);
   let origPrice = p.price;
   let finalPrice = p.price;
 
@@ -120,6 +136,26 @@ export const ProductCard = memo(function ProductCard({
     } catch { /* ignore */ }
   }
 
+  // If coupon is applied, apply discount (unless wallet cashback)
+  if (appliedCoupon && appliedCoupon.type !== "wallet") {
+    try {
+      const baseNum = Number(String(finalPrice).replace(/[^0-9]/g, "")) || Number(String(origPrice).replace(/[^0-9]/g, ""));
+      if (baseNum > 0) {
+        if (appliedCoupon.type === "percentage") {
+          const couponDiscount = Math.round(baseNum * (Number(appliedCoupon.discount) / 100));
+          origPrice = origPrice || finalPrice;
+          finalPrice = `₹${Math.max(0, baseNum - couponDiscount).toLocaleString()}`;
+        } else if (appliedCoupon.type === "fixed") {
+          const couponDiscount = Math.min(baseNum, Number(appliedCoupon.discount));
+          origPrice = origPrice || finalPrice;
+          finalPrice = `₹${Math.max(0, baseNum - couponDiscount).toLocaleString()}`;
+        }
+      }
+    } catch { /* ignore */ }
+  }
+
+  const hasDiscount = !!(pct || p.originalPrice || (appliedCoupon && appliedCoupon.type !== "wallet"));
+
   const ensureRupees = (val: any) => {
     if (val === undefined || val === null) return "";
     const clean = String(val).trim();
@@ -131,7 +167,7 @@ export const ProductCard = memo(function ProductCard({
 
   // Calculate final discount percentage if we have both prices
   let displayPct = pct;
-  if (hasDiscount && !displayPct) {
+  if (hasDiscount) {
     try {
       const origNumeric = Number(String(origPrice).replace(/[^0-9]/g, ""));
       const finalNumeric = Number(String(finalPrice).replace(/[^0-9]/g, ""));
@@ -282,6 +318,45 @@ export const ProductCard = memo(function ProductCard({
                 </div>
               </div>
             </div>
+            {/* Coupon Offer Badge (Horizontal Variant) */}
+            {bestCoupon && (
+              <div className="flex items-center gap-2 mt-2">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (appliedCoupon?.code === bestCoupon.code) {
+                      setAppliedCoupon(null);
+                      toast.info(`Coupon ${bestCoupon.code} removed.`);
+                    } else {
+                      setAppliedCoupon(bestCoupon);
+                      if (bestCoupon.type === "wallet") {
+                        toast.success(`🎉 Cashback coupon ${bestCoupon.code} applied! Receive ₹${bestCoupon.discount.toLocaleString()} in ReeVibes wallet upon delivery.`);
+                      } else {
+                        toast.success(`🎉 Coupon ${bestCoupon.code} applied! Price reduced.`);
+                      }
+                    }
+                  }}
+                  className={cn(
+                    "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-all cursor-pointer",
+                    appliedCoupon?.code === bestCoupon.code
+                      ? "bg-[#D4AF37] text-black border-[#D4AF37] shadow-sm font-bold"
+                      : "bg-amber-500/10 text-amber-300 border-amber-500/30 hover:bg-amber-500/20"
+                  )}
+                >
+                  <Ticket size={11} className="shrink-0" />
+                  <span>
+                    {appliedCoupon?.code === bestCoupon.code
+                      ? `Applied: ${bestCoupon.code} ✓`
+                      : `Apply ${bestCoupon.code}: ${bestCoupon.type === "percentage" ? `${bestCoupon.discount}% OFF` : bestCoupon.type === "fixed" ? `₹${bestCoupon.discount} OFF` : `₹${bestCoupon.discount} Cashback`}`}
+                  </span>
+                </button>
+                {appliedCoupon?.type === "wallet" && (
+                  <span className="text-[10px] text-emerald-400 font-medium">₹{appliedCoupon.discount} Cashback on Delivery</span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Price + Actions Row */}
@@ -475,6 +550,49 @@ export const ProductCard = memo(function ProductCard({
               <Star size={11} className="fill-gold text-gold" />
               {(p.rating || 4.8).toFixed(1)}
             </p>
+
+            {/* Coupon Offer Badge (Vertical Variant) */}
+            {bestCoupon && (
+              <div className="mt-1">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (appliedCoupon?.code === bestCoupon.code) {
+                      setAppliedCoupon(null);
+                      toast.info(`Coupon ${bestCoupon.code} removed.`);
+                    } else {
+                      setAppliedCoupon(bestCoupon);
+                      if (bestCoupon.type === "wallet") {
+                        toast.success(`🎉 Cashback coupon ${bestCoupon.code} applied! Receive ₹${bestCoupon.discount.toLocaleString()} in ReeVibes wallet upon delivery.`);
+                      } else {
+                        toast.success(`🎉 Coupon ${bestCoupon.code} applied! Price reduced.`);
+                      }
+                    }
+                  }}
+                  className={cn(
+                    "flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold tracking-wide border transition-all cursor-pointer z-10",
+                    appliedCoupon?.code === bestCoupon.code
+                      ? "bg-[#D4AF37] text-black border-[#D4AF37] shadow-sm"
+                      : "bg-amber-500/10 text-amber-300 border-amber-500/30 hover:bg-amber-500/20"
+                  )}
+                >
+                  <Ticket size={10} className="shrink-0" />
+                  <span>
+                    {appliedCoupon?.code === bestCoupon.code
+                      ? `${bestCoupon.code} Applied ✓`
+                      : `Use ${bestCoupon.code} (${bestCoupon.type === "percentage" ? `${bestCoupon.discount}% OFF` : bestCoupon.type === "fixed" ? `₹${bestCoupon.discount} OFF` : `₹${bestCoupon.discount} Cashback`})`}
+                  </span>
+                </button>
+              </div>
+            )}
+            {appliedCoupon?.type === "wallet" && (
+              <div className="text-[9px] text-emerald-400 font-medium flex items-center gap-1 mt-0.5">
+                <Sparkles size={10} className="shrink-0 text-emerald-400" />
+                <span>₹{appliedCoupon.discount} wallet cashback on delivery</span>
+              </div>
+            )}
           </div>
           <div className="shrink-0 text-right">
             <span className="block text-[13px] text-gold sm:text-[15px] font-bold">

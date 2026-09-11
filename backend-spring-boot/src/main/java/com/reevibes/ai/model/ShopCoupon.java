@@ -36,6 +36,12 @@ public class ShopCoupon {
     @Column(name = "used_count")
     private Integer usedCount = 0;
 
+    @Column(name = "product_type", length = 100)
+    private String productType;
+
+    @Column(name = "brand", length = 100)
+    private String brand;
+
     public String getCode() { return code; }
     public void setCode(String code) { this.code = code; }
 
@@ -59,4 +65,10 @@ public class ShopCoupon {
 
     public Integer getUsedCount() { return usedCount; }
     public void setUsedCount(Integer usedCount) { this.usedCount = usedCount; }
+
+    public String getProductType() { return productType; }
+    public void setProductType(String productType) { this.productType = productType; }
+
+    public String getBrand() { return brand; }
+    public void setBrand(String brand) { this.brand = brand; }
 }

@@ -32,7 +32,7 @@ const formatOrderDateTime = (dateStr: string) => {
 
 export function ShopAdminPortal({ tab }: { tab: string }) {
   const [statusFilter, setStatusFilter] = useState<string>("All");
-  const { state, fetchBackendState, createProduct, updateProduct, deleteProduct, updateOrderStatus, acceptOrder, fetchCourierQuotes, assignAWB, schedulePickup, cancelOrder, fetchOrderLabel, fetchOrderInvoice, syncShiprocketTracking, assignReturnPickup, processSplitRefund, approveReturn, rejectReturn, updateReturnDetails, suspendCustomer, reactivateCustomer, addCoupon, removeCoupon, moderateReview, addWalletCredit, updateHomepageLayoutDraft, publishHomepageLayout, revertHomepageLayout, createBucket, updateBucket, deleteBucket, reorderBuckets, toggleShopWishlist, addWalletGiftCard, updateWalletGiftCard, toggleWalletGiftCardStatus, deleteWalletGiftCard } = usePortal();
+  const { state, fetchBackendState, createProduct, updateProduct, deleteProduct, updateOrderStatus, acceptOrder, fetchCourierQuotes, assignAWB, schedulePickup, cancelOrder, fetchOrderLabel, fetchOrderInvoice, syncShiprocketTracking, assignReturnPickup, processSplitRefund, approveReturn, rejectReturn, updateReturnDetails, suspendCustomer, reactivateCustomer, addCoupon, removeCoupon, toggleCouponActive, moderateReview, addWalletCredit, updateHomepageLayoutDraft, publishHomepageLayout, revertHomepageLayout, createBucket, updateBucket, deleteBucket, reorderBuckets, toggleShopWishlist, addWalletGiftCard, updateWalletGiftCard, toggleWalletGiftCardStatus, deleteWalletGiftCard } = usePortal();
 
   // Dynamic products list from state
   const productsList = state.products || [];
@@ -78,6 +78,25 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
   }, [returnsList, returnsFilter]);
   const customersList = state.users || [];
   const couponsList = state.coupons || [];
+
+  // Derive distinct Product Types and Brands from published product catalog for smart suggestions
+  const availableProductTypes = useMemo(() => {
+    const types = new Set<string>();
+    (state.products || []).forEach(p => {
+      if (p.type) types.add(p.type.trim());
+      if (p.category) types.add(p.category.trim());
+    });
+    return Array.from(types).filter(Boolean).sort();
+  }, [state.products]);
+
+  const availableBrands = useMemo(() => {
+    const brands = new Set<string>();
+    (state.products || []).forEach(p => {
+      if (p.house) brands.add(p.house.trim());
+      if ((p as any).brand) brands.add((p as any).brand.trim());
+    });
+    return Array.from(brands).filter(Boolean).sort();
+  }, [state.products]);
   // Local UI States
   const [catalogTab, setCatalogTab] = useState<"all" | "published" | "unpublished">("all");
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
@@ -431,7 +450,9 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
     expiryDate: "2026-12-31",
     userLimitType: "limited", // "unlimited" | "limited"
     usageLimit: 100,
-    userEligibility: "All"
+    userEligibility: "All",
+    productType: "",
+    brand: ""
   });
   const [isAddingCoupon, setIsAddingCoupon] = useState(false);
 
@@ -882,10 +903,12 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
     addCoupon({
       code: couponForm.code,
       discount: couponForm.discount,
-      type: couponForm.type as "fixed" | "percentage",
+      type: couponForm.type as "fixed" | "percentage" | "wallet",
       expiryDate: finalExpiryDate,
       usageLimit: finalUsageLimit,
-      userEligibility: couponForm.userEligibility
+      userEligibility: couponForm.userEligibility,
+      productType: couponForm.productType.trim(),
+      brand: couponForm.brand.trim()
     });
     setIsAddingCoupon(false);
     setCouponForm({
@@ -896,9 +919,11 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
       expiryDate: "2026-12-31",
       userLimitType: "limited",
       usageLimit: 100,
-      userEligibility: "All"
+      userEligibility: "All",
+      productType: "",
+      brand: ""
     });
-    triggerModal("success", "Coupon Created", "New coupon successfully generated and active.", () => {});
+    triggerModal("success", "Coupon Created", "New coupon successfully saved to Supabase and live across all devices.", () => {});
   };
 
   const handleGiftCardSubmit = (e: React.FormEvent) => {
@@ -6629,25 +6654,75 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
 
               {isAddingCoupon && (
                 <AdminCard className="space-y-6 animate-in slide-in-from-top-4 duration-200">
-                  <h4 className="font-serif text-lg font-bold">Create Coupon Code</h4>
+                  <div className="flex justify-between items-center border-b border-white/10 pb-3">
+                    <div>
+                      <h4 className="font-serif text-lg font-bold">Create Store Coupon Code</h4>
+                      <p className="text-xs text-muted-foreground">Target specific Product Types, Brands, or create Storewide offers</p>
+                    </div>
+                    <button onClick={() => setIsAddingCoupon(false)} className="text-muted-foreground hover:text-foreground cursor-pointer">
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
                   <form onSubmit={handleCouponSubmit} className="grid md:grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <label className="text-xs text-muted-foreground font-semibold">Coupon Code</label>
-                      <input required className="w-full bg-surface border border-border-subtle p-2.5 text-sm outline-none font-mono focus:border-accent text-foreground rounded-xl" placeholder="DIWALI30" value={couponForm.code} onChange={e => setCouponForm({...couponForm, code: e.target.value})} />
+                      <input required className="w-full bg-surface border border-border-subtle p-2.5 text-sm outline-none font-mono uppercase focus:border-accent text-foreground rounded-xl" placeholder="DIWALI30" value={couponForm.code} onChange={e => setCouponForm({...couponForm, code: e.target.value.toUpperCase()})} />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-xs text-muted-foreground font-semibold">Discount Value</label>
-                      <input required type="number" className="w-full bg-surface border border-border-subtle p-2.5 text-sm outline-none font-mono focus:border-accent text-foreground rounded-xl" value={couponForm.discount} onChange={e => setCouponForm({...couponForm, discount: Number(e.target.value)})} />
+                      <label className="text-xs text-muted-foreground font-semibold">Discount / Cashback Value</label>
+                      <input required type="number" min="1" className="w-full bg-surface border border-border-subtle p-2.5 text-sm outline-none font-mono focus:border-accent text-foreground rounded-xl" value={couponForm.discount} onChange={e => setCouponForm({...couponForm, discount: Number(e.target.value)})} />
                     </div>
                     <div className="space-y-2">
                       <label className="text-xs text-muted-foreground font-semibold">Coupon Type</label>
                       <select className="w-full bg-surface border border-border-subtle p-2.5 text-sm outline-none text-foreground focus:border-accent rounded-xl" value={couponForm.type} onChange={e => setCouponForm({...couponForm, type: e.target.value as any})}>
-                        <option value="percentage">Percentage (%)</option>
-                        <option value="fixed">Fixed Amount (₹)</option>
-                        <option value="wallet">Wallet Cashback</option>
+                        <option value="percentage">Percentage (%) Discount</option>
+                        <option value="fixed">Fixed Amount (₹) Discount</option>
+                        <option value="wallet">Wallet+ Cashback (Credited upon delivery)</option>
                       </select>
                     </div>
-                    
+
+                    {/* PRODUCT TYPE TARGETING */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs text-muted-foreground font-semibold">Product Type / Category</label>
+                        <span className="text-[10px] text-accent/80 font-mono">Optional</span>
+                      </div>
+                      <input
+                        list="catalog-product-types-list"
+                        className="w-full bg-surface border border-border-subtle p-2.5 text-sm outline-none text-foreground focus:border-accent rounded-xl"
+                        placeholder="e.g. Tops, Dresses, Outerwear (leave blank for all)"
+                        value={couponForm.productType}
+                        onChange={e => setCouponForm({ ...couponForm, productType: e.target.value })}
+                      />
+                      <datalist id="catalog-product-types-list">
+                        {availableProductTypes.map(t => (
+                          <option key={t} value={t} />
+                        ))}
+                      </datalist>
+                      <p className="text-[10px] text-muted-foreground">Matches product category or type in catalog.</p>
+                    </div>
+
+                    {/* BRAND / HOUSE TARGETING */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs text-muted-foreground font-semibold">Brand / Fashion House</label>
+                        <span className="text-[10px] text-accent/80 font-mono">Optional</span>
+                      </div>
+                      <input
+                        list="catalog-brands-list"
+                        className="w-full bg-surface border border-border-subtle p-2.5 text-sm outline-none text-foreground focus:border-accent rounded-xl"
+                        placeholder="e.g. Maison Lumière, Atelier Reine (leave blank for all)"
+                        value={couponForm.brand}
+                        onChange={e => setCouponForm({ ...couponForm, brand: e.target.value })}
+                      />
+                      <datalist id="catalog-brands-list">
+                        {availableBrands.map(b => (
+                          <option key={b} value={b} />
+                        ))}
+                      </datalist>
+                      <p className="text-[10px] text-muted-foreground">Matches product fashion house or brand in catalog.</p>
+                    </div>
+
                     <div className="space-y-2">
                       <label className="text-xs text-muted-foreground font-semibold">User Eligibility Limit</label>
                       <select className="w-full bg-surface border border-border-subtle p-2.5 text-sm outline-none text-foreground focus:border-accent rounded-xl" value={couponForm.userLimitType} onChange={e => setCouponForm({...couponForm, userLimitType: e.target.value})}>
@@ -6678,38 +6753,128 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
 
                     <div className="md:col-span-3 flex justify-end gap-3 pt-4 border-t border-border-subtle">
                       <AdminButton type="button" variant="outline" onClick={() => setIsAddingCoupon(false)}>Cancel</AdminButton>
-                      <button type="submit" className="editorial-label bg-accent text-white px-6 py-2.5 hover:bg-accent/90 rounded-full cursor-pointer">Add Coupon</button>
+                      <button type="submit" className="editorial-label bg-accent text-white px-6 py-2.5 hover:bg-accent/90 rounded-full cursor-pointer shadow-md">
+                        Add Coupon (Save to Supabase)
+                      </button>
                     </div>
                   </form>
                 </AdminCard>
               )}
 
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {couponsList.map(c => (
-                  <AdminCard key={c.code} className="relative overflow-hidden flex flex-col justify-between min-h-48 p-5">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-accent/5 rounded-full -mr-8 -mt-8" />
-                    <div className="space-y-1">
-                      <div className="font-mono text-xl font-bold tracking-widest text-accent">{c.code}</div>
-                      <div className="text-xs text-muted-foreground uppercase tracking-wider">{c.type} discount</div>
-                    </div>
-                    
-                    <div className="text-xs space-y-1 my-3 text-muted-foreground border-y border-white/5 py-2">
-                      <div>
-                        <span className="font-semibold text-foreground/80">Expiry:</span>{" "}
-                        {c.expiryDate === "unlimited" || !c.expiryDate ? "Unlimited (No Expiry)" : c.expiryDate}
-                      </div>
-                      <div>
-                        <span className="font-semibold text-foreground/80">Claims:</span>{" "}
-                        {c.usageLimit === -1 || !c.usageLimit ? `${c.usedCount || 0} / Unlimited` : `${c.usedCount || 0} / ${c.usageLimit} users`}
-                      </div>
-                    </div>
+                {couponsList.map(c => {
+                  const today = new Date().toISOString().slice(0, 10);
+                  const isExpired = c.expiryDate && c.expiryDate !== "unlimited" && today > c.expiryDate;
+                  const isLimitReached = c.usageLimit !== undefined && c.usageLimit !== -1 && c.usageLimit > 0 && (c.usedCount || 0) >= c.usageLimit;
+                  const isActive = Boolean(c.active) && !isExpired && !isLimitReached;
 
-                    <div className="flex justify-between items-end pt-2">
-                      <div className="font-serif text-2xl font-bold">{c.type === "percentage" ? `${c.discount}% OFF` : `₹${c.discount.toLocaleString()} OFF`}</div>
-                      <button onClick={() => removeCoupon(c.code)} className="text-xs text-rose-400 hover:text-rose-500 uppercase font-semibold cursor-pointer">Delete</button>
-                    </div>
-                  </AdminCard>
-                ))}
+                  const hasProductType = Boolean(c.productType && c.productType.trim());
+                  const hasBrand = Boolean(c.brand && c.brand.trim());
+
+                  return (
+                    <AdminCard key={c.code} className="relative overflow-hidden flex flex-col justify-between min-h-56 p-5 border border-white/10 hover:border-accent/40 transition-colors">
+                      <div className="absolute top-0 right-0 w-28 h-28 bg-accent/5 rounded-full -mr-10 -mt-10 pointer-events-none" />
+                      
+                      <div>
+                        {/* Header: Code & Status */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="space-y-1">
+                            <div className="font-mono text-xl font-bold tracking-widest text-accent flex items-center gap-2">
+                              {c.code}
+                            </div>
+                            <div className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">
+                              {c.type === "wallet" ? "Wallet Cashback" : `${c.type} discount`}
+                            </div>
+                          </div>
+
+                          {/* Status Badge */}
+                          <div className="flex flex-col items-end gap-1">
+                            {isExpired ? (
+                              <span className="bg-rose-500/15 border border-rose-500/30 text-rose-400 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
+                                Expired
+                              </span>
+                            ) : isLimitReached ? (
+                              <span className="bg-amber-500/15 border border-amber-500/30 text-amber-400 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
+                                Max Limit
+                              </span>
+                            ) : c.active ? (
+                              <span className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Active
+                              </span>
+                            ) : (
+                              <span className="bg-zinc-500/20 border border-zinc-500/30 text-zinc-400 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
+                                Paused
+                              </span>
+                            )}
+                            <span className="text-[9px] text-muted-foreground/70 font-mono">Cloud Synced</span>
+                          </div>
+                        </div>
+
+                        {/* Targeting Scope Chips */}
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          {hasProductType && (
+                            <span className="bg-purple-500/15 border border-purple-500/30 text-purple-300 text-[10px] font-semibold px-2 py-0.5 rounded-md flex items-center gap-1">
+                              <span>Type:</span> <span className="text-white font-bold">{c.productType}</span>
+                            </span>
+                          )}
+                          {hasBrand && (
+                            <span className="bg-blue-500/15 border border-blue-500/30 text-blue-300 text-[10px] font-semibold px-2 py-0.5 rounded-md flex items-center gap-1">
+                              <span>Brand:</span> <span className="text-white font-bold">{c.brand}</span>
+                            </span>
+                          )}
+                          {!hasProductType && !hasBrand && (
+                            <span className="bg-white/5 border border-white/10 text-muted-foreground text-[10px] font-semibold px-2 py-0.5 rounded-md">
+                              🌐 Storewide (All Products)
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Details & Claims */}
+                      <div className="text-xs space-y-1.5 my-3 text-muted-foreground border-y border-white/5 py-2.5">
+                        <div className="flex justify-between items-center">
+                          <span className="font-semibold text-foreground/80">Expiry:</span>
+                          <span>{c.expiryDate === "unlimited" || !c.expiryDate ? "Unlimited (No Expiry)" : c.expiryDate}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="font-semibold text-foreground/80">Claims:</span>
+                          <span>{c.usageLimit === -1 || !c.usageLimit ? `${c.usedCount || 0} / Unlimited` : `${c.usedCount || 0} / ${c.usageLimit} users`}</span>
+                        </div>
+                      </div>
+
+                      {/* Footer: Value & Actions */}
+                      <div className="flex justify-between items-end pt-1">
+                        <div>
+                          <div className="font-serif text-2xl font-bold text-foreground">
+                            {c.type === "percentage" ? `${c.discount}% OFF` : c.type === "wallet" ? `₹${c.discount.toLocaleString()} Cashback` : `₹${c.discount.toLocaleString()} OFF`}
+                          </div>
+                          {c.type === "wallet" && (
+                            <div className="text-[10px] text-emerald-400 font-medium">Credited to wallet upon delivery</div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => toggleCouponActive(c.code)}
+                            className={`text-xs uppercase font-semibold cursor-pointer transition-colors ${
+                              c.active ? "text-amber-400 hover:text-amber-300" : "text-emerald-400 hover:text-emerald-300"
+                            }`}
+                            title={c.active ? "Pause coupon" : "Activate coupon"}
+                          >
+                            {c.active ? "Pause" : "Activate"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeCoupon(c.code)}
+                            className="text-xs text-rose-400 hover:text-rose-500 uppercase font-semibold cursor-pointer"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    </AdminCard>
+                  );
+                })}
               </div>
             </div>
           )}

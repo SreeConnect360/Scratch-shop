@@ -27,10 +27,13 @@ import {
 import { toast } from "sonner";
 import { getCurrentLocation, reverseGeocodeCoordinates, fetchPincodeDetails, parseAddressComponents } from "@/lib/locationService";
 
+import { isCouponValid, isProductEligibleForCoupon } from "@/lib/supabase-coupons";
+
 const cartSearchSchema = z.object({
   buyNow: z.string().optional(),
   productId: z.string().optional(),
   size: z.string().optional(),
+  coupon: z.string().optional(),
 });
 
 export const Route = createFileRoute("/_shop/cart")({
@@ -377,8 +380,36 @@ export function ShopCart() {
     return selectedItems.reduce((sum, item) => sum + item.qty, 0);
   }, [selectedItems]);
 
-  const discountPercent = activeCoupon ? activeCoupon.discount : 0;
-  const discountAmount = useMemo(() => Math.round((selectedTotal * discountPercent) / 100), [selectedTotal, discountPercent]);
+  // Discount calculation based on percentage / fixed / cashback
+  const discountAmount = useMemo(() => {
+    if (!activeCoupon) return 0;
+    if (activeCoupon.type === "wallet") return 0; // Cashback does not reduce payable price
+
+    const hasTarget = Boolean(activeCoupon.productType || activeCoupon.brand);
+    const eligibleSubtotal = hasTarget
+      ? selectedItems.reduce((sum, item) => {
+          const catalogProd = state.products?.find(p => p.id === item.productId) || item;
+          if (isProductEligibleForCoupon(catalogProd, activeCoupon)) {
+            return sum + Number(String(item.price).replace(/[^0-9.]/g, "")) * item.qty;
+          }
+          return sum;
+        }, 0)
+      : selectedTotal;
+
+    if (activeCoupon.type === "percentage") {
+      return Math.round((eligibleSubtotal * Number(activeCoupon.discount)) / 100);
+    }
+    if (activeCoupon.type === "fixed") {
+      return Math.min(eligibleSubtotal, Number(activeCoupon.discount));
+    }
+    return 0;
+  }, [selectedItems, selectedTotal, activeCoupon, state.products]);
+
+  const cashbackAmount = useMemo(() => {
+    if (!activeCoupon || activeCoupon.type !== "wallet") return 0;
+    return Number(activeCoupon.discount) || 0;
+  }, [activeCoupon]);
+
   const finalTotal = useMemo(() => Math.max(0, selectedTotal - discountAmount), [selectedTotal, discountAmount]);
 
   // Address parsing helper
@@ -540,11 +571,16 @@ export function ShopCart() {
   // Apply Coupon Code
   const handleApplyCoupon = (e: React.FormEvent) => {
     e.preventDefault();
-    const coupon = state.coupons.find(
-      (c) => c.code === couponCode.trim().toUpperCase() && c.active
-    );
+    const codeUpper = couponCode.trim().toUpperCase();
+    const coupon = state.coupons.find((c) => c.code.toUpperCase() === codeUpper);
+
     if (!coupon) {
       toast.error("Invalid coupon code.");
+      return;
+    }
+
+    if (!coupon.active) {
+      toast.error("This coupon is currently inactive.");
       return;
     }
 
@@ -556,17 +592,38 @@ export function ShopCart() {
       }
     }
 
-    if (coupon.usageLimit !== undefined && coupon.usageLimit !== -1) {
+    if (coupon.usageLimit !== undefined && coupon.usageLimit !== -1 && coupon.usageLimit > 0) {
       if ((coupon.usedCount || 0) >= coupon.usageLimit) {
         toast.error("Coupon usage limit has been reached.");
         return;
       }
     }
 
+    // Check targeting scope (Product Type / Brand)
+    const hasTarget = Boolean(coupon.productType || coupon.brand);
+    if (hasTarget) {
+      const hasMatchingItem = selectedItems.some((item) => {
+        const catalogProd = state.products?.find((p) => p.id === item.productId) || item;
+        return isProductEligibleForCoupon(catalogProd, coupon);
+      });
+
+      if (!hasMatchingItem) {
+        const targetDesc = [coupon.brand, coupon.productType].filter(Boolean).join(" ");
+        toast.error(`This coupon only applies to ${targetDesc} items in your bag.`);
+        return;
+      }
+    }
+
     setActiveCoupon(coupon);
     setAppliedCoupon(coupon.code);
-    const initialDiscount = Math.round((selectedTotal * coupon.discount) / 100);
-    toast.success(`Coupon applied: ₹${initialDiscount.toLocaleString()} OFF`);
+
+    if (coupon.type === "wallet") {
+      toast.success(`🎉 Cashback coupon applied! You will receive ₹${coupon.discount.toLocaleString()} in your ReeVibes wallet upon delivery.`);
+    } else if (coupon.type === "percentage") {
+      toast.success(`🎉 Coupon ${coupon.code} applied: ${coupon.discount}% OFF on eligible items.`);
+    } else {
+      toast.success(`🎉 Coupon ${coupon.code} applied: ₹${coupon.discount.toLocaleString()} FLAT OFF.`);
+    }
   };
 
   // Initial Order placement trigger - Stock Verification
@@ -1590,8 +1647,14 @@ export function ShopCart() {
               </div>
               {discountAmount > 0 && (
                 <div className="flex justify-between text-emerald-400">
-                  <span>Coupon Discount ({discountPercent}%)</span>
+                  <span>Coupon Discount ({activeCoupon?.type === "percentage" ? `${activeCoupon.discount}%` : `₹${activeCoupon?.discount}`})</span>
                   <span className="font-serif">-₹{discountAmount.toLocaleString()}</span>
+                </div>
+              )}
+              {cashbackAmount > 0 && (
+                <div className="flex justify-between items-center text-emerald-400 p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                  <span className="font-semibold">Wallet Cashback (Upon Delivery)</span>
+                  <span className="font-serif font-bold">+₹{cashbackAmount.toLocaleString()}</span>
                 </div>
               )}
               <div className="flex justify-between">

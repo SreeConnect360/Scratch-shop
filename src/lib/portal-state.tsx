@@ -38,6 +38,25 @@ export {
   publishHomepageLayoutToSupabase,
   revertHomepageLayoutInSupabase,
 };
+import {
+  type SupabaseShopCoupon,
+  type SupabaseWalletGiftCard,
+  fetchCouponsFromSupabase,
+  upsertCouponToSupabase,
+  deleteCouponFromSupabase,
+  fetchWalletGiftCardsFromSupabase,
+  upsertWalletGiftCardToSupabase,
+  deleteWalletGiftCardFromSupabase,
+  redeemWalletGiftCardInSupabase,
+  isCouponValid,
+  isProductEligibleForCoupon,
+  getEligibleCouponsForProduct,
+} from "./supabase-coupons";
+export {
+  isCouponValid,
+  isProductEligibleForCoupon,
+  getEligibleCouponsForProduct,
+};
 
 const KEY = "reevibes:portal:v3";
 
@@ -159,6 +178,10 @@ export type ShopCoupon = {
   userEligibility: string;
   active: boolean;
   usedCount?: number;
+  productType?: string;
+  brand?: string;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export type WalletGiftCard = {
@@ -707,8 +730,9 @@ type Ctx = {
   syncShiprocketTracking: (userId: string, orderId: string) => Promise<any>;
   assignReturnPickup: (returnId: string) => Promise<any>;
   processSplitRefund: (returnId: string) => Promise<any>;
-  addCoupon: (coupon: { code: string; discount: number; type?: "fixed" | "percentage" | "wallet"; expiryDate?: string; usageLimit?: number; userEligibility?: string }) => void;
+  addCoupon: (coupon: { code: string; discount: number; type?: "fixed" | "percentage" | "wallet"; expiryDate?: string; usageLimit?: number; userEligibility?: string; productType?: string; brand?: string }) => void;
   removeCoupon: (code: string) => void;
+  toggleCouponActive: (code: string) => void;
   addWalletGiftCard: (giftCard: Omit<WalletGiftCard, "id" | "usedCount" | "createdAt" | "status"> & { status?: WalletGiftCard["status"] }) => void;
   updateWalletGiftCard: (id: string, patch: Partial<WalletGiftCard>) => void;
   toggleWalletGiftCardStatus: (id: string) => void;
@@ -1072,16 +1096,38 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         }));
       }
 
-      // 8. Fetch Coupons
-      const couponsRes = await fetch(`${BACKEND_URL}/api/coupons`);
+      // 8. Fetch Coupons from Supabase first (fallback to backend)
       let mappedCoupons = [];
-      if (couponsRes.ok) {
-        const dbCoupons = await couponsRes.json();
-        mappedCoupons = dbCoupons.map((c: any) => ({
-          ...c,
-          discount: Number(c.discount),
-          usedCount: c.usedCount || 0
-        }));
+      try {
+        const sbCoupons = await fetchCouponsFromSupabase();
+        if (sbCoupons && sbCoupons.length > 0) {
+          mappedCoupons = sbCoupons;
+        } else {
+          const couponsRes = await fetch(`${BACKEND_URL}/api/coupons`);
+          if (couponsRes.ok) {
+            const dbCoupons = await couponsRes.json();
+            mappedCoupons = dbCoupons.map((c: any) => ({
+              ...c,
+              discount: Number(c.discount),
+              usedCount: c.usedCount || 0,
+              productType: c.productType || "",
+              brand: c.brand || ""
+            }));
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to fetch coupons from Supabase:", err);
+      }
+
+      // 8b. Fetch Wallet Gift Cards from Supabase
+      let mappedGiftCards: WalletGiftCard[] = [];
+      try {
+        const sbGiftCards = await fetchWalletGiftCardsFromSupabase();
+        if (sbGiftCards && sbGiftCards.length > 0) {
+          mappedGiftCards = sbGiftCards as WalletGiftCard[];
+        }
+      } catch (err) {
+        console.warn("Failed to fetch wallet gift cards from Supabase:", err);
       }
 
       // 9. Fetch Reviews
@@ -1160,7 +1206,8 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           homepageLayoutDraft: mappedDraftLayout || mappedPubLayout || s.homepageLayoutDraft || DEFAULT_HOMEPAGE_LAYOUT,
           orders: mergedOrders,
           returns: mappedReturns,
-          coupons: mappedCoupons,
+          coupons: mappedCoupons.length > 0 ? mappedCoupons : s.coupons,
+          walletGiftCards: mappedGiftCards.length > 0 ? mappedGiftCards : s.walletGiftCards,
           productReviews: mappedReviews
         };
       });
@@ -2081,52 +2128,97 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       }
     },
     addCoupon: (coupon) => {
-      const upperCode = coupon.code.toUpperCase();
-      const newCoupon = {
+      const upperCode = coupon.code.trim().toUpperCase();
+      const newCoupon: ShopCoupon = {
         code: upperCode,
-        discount: coupon.discount,
+        discount: Number(coupon.discount),
         type: coupon.type ?? "percentage",
-        expiryDate: coupon.expiryDate ?? "2026-12-31",
+        expiryDate: coupon.expiryDate ?? "unlimited",
         usageLimit: coupon.usageLimit ?? 100,
         userEligibility: coupon.userEligibility ?? "All",
-        active: true
+        active: true,
+        usedCount: 0,
+        productType: (coupon.productType || "").trim(),
+        brand: (coupon.brand || "").trim(),
+        createdAt: new Date().toISOString()
       };
 
       setState(s => {
-        if (s.coupons.some(c => c.code === upperCode)) return s;
-        return {
-          ...s,
-          coupons: [...s.coupons, newCoupon]
-        };
+        const filtered = (s.coupons || []).filter(c => c.code !== upperCode);
+        const next = { ...s, coupons: [newCoupon, ...filtered] };
+        save(next);
+        return next;
       });
+      notifyBroadcastSync();
 
+      // 1. Direct Supabase Persistence (Multi-device truth)
+      upsertCouponToSupabase(newCoupon).then(res => {
+        if (res.ok) {
+          toast.success(`Coupon ${upperCode} saved to Supabase!`);
+          notifyBroadcastSync();
+        } else {
+          console.error("Supabase coupon error:", res.error);
+        }
+      }).catch(err => console.error("Supabase coupon save exception:", err));
+
+      // 2. Secondary backend sync
       fetch(`${BACKEND_URL}/api/coupons`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newCoupon)
-      }).then(res => {
-        if (res.ok) {
-          toast.success(`Coupon ${upperCode} saved to production database!`);
-          fetchBackendState(true);
-        } else {
-          toast.error("Failed to save coupon to production.");
-        }
       }).catch(err => console.error("Failed to sync new coupon to backend:", err));
     },
     removeCoupon: (code) => {
-      const upperCode = code.toUpperCase();
-      setState(s => ({ ...s, coupons: s.coupons.filter(c => c.code !== upperCode) }));
+      const upperCode = code.trim().toUpperCase();
+      setState(s => {
+        const next = { ...s, coupons: (s.coupons || []).filter(c => c.code !== upperCode) };
+        save(next);
+        return next;
+      });
+      notifyBroadcastSync();
 
-      fetch(`${BACKEND_URL}/api/coupons/${upperCode}`, {
-        method: "DELETE"
-      }).then(res => {
+      // 1. Direct Supabase Deletion
+      deleteCouponFromSupabase(upperCode).then(res => {
         if (res.ok) {
-          toast.success(`Coupon ${upperCode} deleted from production!`);
-          fetchBackendState(true);
-        } else {
-          toast.error("Failed to delete coupon from production.");
+          toast.success(`Coupon ${upperCode} deleted from Supabase!`);
+          notifyBroadcastSync();
         }
-      }).catch(err => console.error("Failed to sync coupon deletion to backend:", err));
+      }).catch(err => console.error("Supabase coupon delete exception:", err));
+
+      // 2. Secondary backend sync
+      fetch(`${BACKEND_URL}/api/coupons/${upperCode}`, { method: "DELETE" }).catch(() => null);
+    },
+    toggleCouponActive: (code) => {
+      const upperCode = code.trim().toUpperCase();
+      let updatedCoupon: ShopCoupon | null = null;
+      setState(s => {
+        const updated = (s.coupons || []).map(c => {
+          if (c.code === upperCode) {
+            updatedCoupon = { ...c, active: !c.active };
+            return updatedCoupon;
+          }
+          return c;
+        });
+        const next = { ...s, coupons: updated };
+        save(next);
+        return next;
+      });
+      notifyBroadcastSync();
+
+      if (updatedCoupon) {
+        upsertCouponToSupabase(updatedCoupon).then(res => {
+          if (res.ok) {
+            toast.success(`Coupon ${upperCode} status updated in Supabase!`);
+            notifyBroadcastSync();
+          }
+        }).catch(err => console.error("Supabase coupon status update error:", err));
+
+        fetch(`${BACKEND_URL}/api/coupons`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updatedCoupon)
+        }).catch(() => null);
+      }
     },
 
     setAdminMode: (mode) => setState(s => ({ ...s, adminMode: mode })),
@@ -2458,7 +2550,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         ]
       };
     }),
-    addWalletGiftCard: (gc) => setState(s => {
+    addWalletGiftCard: (gc) => {
       const newGc: WalletGiftCard = {
         id: `wgc-${Date.now()}`,
         code: gc.code.trim().toUpperCase(),
@@ -2472,27 +2564,93 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         createdAt: new Date().toISOString().split("T")[0],
         redeemedUsers: []
       };
-      return {
-        ...s,
-        walletGiftCards: [newGc, ...(s.walletGiftCards || [])]
-      };
-    }),
-    updateWalletGiftCard: (id, patch) => setState(s => ({
-      ...s,
-      walletGiftCards: (s.walletGiftCards || []).map(g => g.id === id ? { ...g, ...patch } : g)
-    })),
-    toggleWalletGiftCardStatus: (id) => setState(s => ({
-      ...s,
-      walletGiftCards: (s.walletGiftCards || []).map(g => {
-        if (g.id !== id) return g;
-        const nextStatus = g.status === "Active" ? "Inactive" : "Active";
-        return { ...g, status: nextStatus };
-      })
-    })),
-    deleteWalletGiftCard: (id) => setState(s => ({
-      ...s,
-      walletGiftCards: (s.walletGiftCards || []).filter(g => g.id !== id)
-    })),
+      setState(s => {
+        const next = {
+          ...s,
+          walletGiftCards: [newGc, ...(s.walletGiftCards || []).filter(c => c.code !== newGc.code)]
+        };
+        save(next);
+        return next;
+      });
+      notifyBroadcastSync();
+
+      // Direct Supabase Persistence
+      upsertWalletGiftCardToSupabase(newGc).then(res => {
+        if (res.ok) {
+          toast.success(`Gift card ${newGc.code} saved to Supabase!`);
+          notifyBroadcastSync();
+        } else {
+          console.error("Supabase gift card error:", res.error);
+        }
+      }).catch(err => console.error("Supabase gift card save exception:", err));
+    },
+    updateWalletGiftCard: (id, patch) => {
+      let updatedCard: WalletGiftCard | null = null;
+      setState(s => {
+        const updated = (s.walletGiftCards || []).map(g => {
+          if (g.id === id) {
+            updatedCard = { ...g, ...patch };
+            return updatedCard;
+          }
+          return g;
+        });
+        const next = { ...s, walletGiftCards: updated };
+        save(next);
+        return next;
+      });
+      notifyBroadcastSync();
+
+      if (updatedCard) {
+        upsertWalletGiftCardToSupabase(updatedCard).then(res => {
+          if (res.ok) {
+            toast.success("Gift card updated in Supabase!");
+            notifyBroadcastSync();
+          }
+        }).catch(err => console.error("Supabase gift card update error:", err));
+      }
+    },
+    toggleWalletGiftCardStatus: (id) => {
+      let updatedCard: WalletGiftCard | null = null;
+      setState(s => {
+        const updated = (s.walletGiftCards || []).map(g => {
+          if (g.id !== id) return g;
+          const nextStatus = g.status === "Active" ? "Inactive" : "Active";
+          updatedCard = { ...g, status: nextStatus };
+          return updatedCard;
+        });
+        const next = { ...s, walletGiftCards: updated };
+        save(next);
+        return next;
+      });
+      notifyBroadcastSync();
+
+      if (updatedCard) {
+        upsertWalletGiftCardToSupabase(updatedCard).then(res => {
+          if (res.ok) {
+            notifyBroadcastSync();
+          }
+        }).catch(err => console.error("Supabase gift card toggle error:", err));
+      }
+    },
+    deleteWalletGiftCard: (id) => {
+      setState(s => {
+        const next = {
+          ...s,
+          walletGiftCards: (s.walletGiftCards || []).filter(g => g.id !== id)
+        };
+        save(next);
+        return next;
+      });
+      notifyBroadcastSync();
+
+      // Direct Supabase Deletion
+      deleteWalletGiftCardFromSupabase(id).then(res => {
+        if (res.ok) {
+          toast.success("Gift card deleted from Supabase!");
+          notifyBroadcastSync();
+        }
+      }).catch(err => console.error("Supabase gift card delete error:", err));
+    },
     redeemWalletGiftCard: (userId, inputCode) => {
       const code = inputCode.trim().toUpperCase();
       const currentCards = state.walletGiftCards || DEFAULT_WALLET_GIFT_CARDS;
@@ -2509,6 +2667,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           ...s,
           walletGiftCards: (s.walletGiftCards || []).map(g => g.id === targetCard.id ? { ...g, status: "Expired" } : g)
         }));
+        upsertWalletGiftCardToSupabase({ ...targetCard, status: "Expired" }).catch(() => null);
         return { success: false, message: "Gift card has expired." };
       }
 
@@ -2530,6 +2689,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           ...s,
           walletGiftCards: (s.walletGiftCards || []).map(g => g.id === targetCard.id ? { ...g, status: "Fully Redeemed" } : g)
         }));
+        upsertWalletGiftCardToSupabase({ ...targetCard, status: "Fully Redeemed" }).catch(() => null);
         return { success: false, message: "Gift card usage limit has been reached." };
       }
 
@@ -2548,28 +2708,40 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       const currentWalletBal = state.wallets[userId] ?? 0;
       const newWalletBal = currentWalletBal + targetCard.amount;
 
-      setState(s => ({
-        ...s,
-        wallets: { ...s.wallets, [userId]: newWalletBal },
-        userRedeemedGiftCards: { ...s.userRedeemedGiftCards, [userId]: nextUserRedeemedCards },
-        walletGiftCards: (s.walletGiftCards || []).map(g => g.id === targetCard.id ? {
-          ...g,
-          usedCount: nextUsedCount,
-          status: nextStatus,
-          redeemedUsers: nextRedeemedUsers
-        } : g),
-        notifications: [
-          {
-            id: `n-${Date.now()}`,
-            icon: "wallet",
-            title: "Gift Card Redeemed",
-            body: `₹${targetCard.amount.toLocaleString()} added to your wallet via gift card ${targetCard.code}.`,
-            time: "now",
-            unread: true
-          },
-          ...s.notifications
-        ]
-      }));
+      const updatedCard = {
+        ...targetCard,
+        usedCount: nextUsedCount,
+        status: nextStatus,
+        redeemedUsers: nextRedeemedUsers
+      };
+
+      setState(s => {
+        const next = {
+          ...s,
+          wallets: { ...s.wallets, [userId]: newWalletBal },
+          userRedeemedGiftCards: { ...s.userRedeemedGiftCards, [userId]: nextUserRedeemedCards },
+          walletGiftCards: (s.walletGiftCards || []).map(g => g.id === targetCard.id ? updatedCard : g),
+          notifications: [
+            {
+              id: `n-${Date.now()}`,
+              icon: "wallet",
+              title: "Gift Card Redeemed",
+              body: `₹${targetCard.amount.toLocaleString()} added to your wallet via gift card ${targetCard.code}.`,
+              time: "now",
+              unread: true
+            },
+            ...s.notifications
+          ]
+        };
+        save(next);
+        return next;
+      });
+      notifyBroadcastSync();
+
+      // Persist redemption to Supabase in real time
+      redeemWalletGiftCardInSupabase(targetCard.id, nextUsedCount, nextStatus, nextRedeemedUsers).catch(err =>
+        console.error("Failed to patch gift card redemption in Supabase:", err)
+      );
 
       return {
         success: true,

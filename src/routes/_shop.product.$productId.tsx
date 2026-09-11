@@ -29,10 +29,13 @@ import {
   Lock,
   Copy,
   Mail,
-  MessageCircle
+  MessageCircle,
+  Ticket,
+  Tag
 } from "lucide-react";
 import { ProductCard } from "@/components/public/ProductCard";
 import { parseProductInfoMarkup, type ProductSection } from "@/lib/data";
+import { getEligibleCouponsForProduct } from "@/lib/supabase-coupons";
 
 export const Route = createFileRoute("/_shop/product/$productId")({
   component: ProductDetail,
@@ -220,6 +223,14 @@ function ProductDetail() {
   const [pincode, setPincode] = useState("");
   const [deliveryEstimation, setDeliveryEstimation] = useState("");
 
+  // Coupon state on product detail page
+  const [appliedCoupon, setAppliedCoupon] = useState<any | null>(null);
+
+  // Eligible coupons for this product based on Product Type and/or Brand targeting
+  const eligibleCoupons = useMemo(() => {
+    return getEligibleCouponsForProduct(product, state.coupons || []);
+  }, [product, state.coupons]);
+
   const userId = state.user?.id;
   const isFavorite = userId ? (state.shopWishlist[userId] || []).includes(product?.id || "") : false;
 
@@ -242,7 +253,6 @@ function ProductDetail() {
 
   // Price calculations
   const pct = product.discount || 0;
-  const hasDiscount = !!(pct || product.originalPrice);
   let origPrice = product.price;
   let finalPrice = product.price;
 
@@ -262,6 +272,26 @@ function ProductDetail() {
     }
   }
 
+  // If coupon is applied, calculate coupon discount (unless wallet cashback)
+  if (appliedCoupon && appliedCoupon.type !== "wallet") {
+    try {
+      const baseNum = Number(String(finalPrice).replace(/[^0-9]/g, "")) || Number(String(origPrice).replace(/[^0-9]/g, ""));
+      if (baseNum > 0) {
+        if (appliedCoupon.type === "percentage") {
+          const couponDiscount = Math.round(baseNum * (Number(appliedCoupon.discount) / 100));
+          origPrice = origPrice || finalPrice;
+          finalPrice = `₹${Math.max(0, baseNum - couponDiscount).toLocaleString()}`;
+        } else if (appliedCoupon.type === "fixed") {
+          const couponDiscount = Math.min(baseNum, Number(appliedCoupon.discount));
+          origPrice = origPrice || finalPrice;
+          finalPrice = `₹${Math.max(0, baseNum - couponDiscount).toLocaleString()}`;
+        }
+      }
+    } catch { /* ignore */ }
+  }
+
+  const hasDiscount = !!(pct || product.originalPrice || (appliedCoupon && appliedCoupon.type !== "wallet"));
+
   const ensureRupees = (val: any) => {
     if (val === undefined || val === null) return "";
     const clean = String(val).trim();
@@ -277,7 +307,7 @@ function ProductDetail() {
     const origNum = Number(String(origPrice).replace(/[^0-9]/g, ""));
     const finalNum = Number(String(finalPrice).replace(/[^0-9]/g, ""));
     if (origNum && finalNum && origNum > finalNum) {
-      if (!displayPct) displayPct = Math.round(((origNum - finalNum) / origNum) * 100);
+      displayPct = Math.round(((origNum - finalNum) / origNum) * 100);
       saveAmount = `₹${(origNum - finalNum).toLocaleString()}`;
     }
   } catch {}
@@ -351,7 +381,7 @@ function ProductDetail() {
       toast.error("Please select a size before adding to bag.");
       return;
     }
-    const item = {
+    const item: any = {
       productId: product.id,
       name: product.name,
       house: product.house,
@@ -360,6 +390,12 @@ function ProductDetail() {
       qty: quantity,
       selectedSize,
     };
+    if (appliedCoupon) {
+      item.appliedCoupon = appliedCoupon.code;
+      if (appliedCoupon.type === "wallet") {
+        item.cashbackAmount = appliedCoupon.discount;
+      }
+    }
     addToShopCart(item);
     triggerPopup(
       `${product.name} (${selectedSize}) added to bag!`,
@@ -379,7 +415,7 @@ function ProductDetail() {
       toast.error("Please select a size before proceeding.");
       return;
     }
-    addToShopCart({
+    const item: any = {
       productId: product.id,
       name: product.name,
       house: product.house,
@@ -387,10 +423,22 @@ function ProductDetail() {
       image: product.image,
       qty: quantity,
       selectedSize,
-    });
+    };
+    if (appliedCoupon) {
+      item.appliedCoupon = appliedCoupon.code;
+      if (appliedCoupon.type === "wallet") {
+        item.cashbackAmount = appliedCoupon.discount;
+      }
+    }
+    addToShopCart(item);
     navigate({
       to: "/cart",
-      search: { buyNow: "true", productId: product.id, size: selectedSize } as any,
+      search: {
+        buyNow: "true",
+        productId: product.id,
+        size: selectedSize,
+        coupon: appliedCoupon ? appliedCoupon.code : undefined
+      } as any,
     });
   };
 
@@ -767,6 +815,110 @@ function ProductDetail() {
                 </span>
               )}
             </div>
+
+            {/* ─── ELIGIBLE COUPON OFFERS & CASHBACK CARD ─── */}
+            {eligibleCoupons.length > 0 && (
+              <div className="flex flex-col gap-2.5 p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-background to-amber-500/5 border border-[#D4AF37]/30 shadow-[0_4px_20px_-4px_rgba(212,175,55,0.15)]">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-[#D4AF37] uppercase tracking-wider">
+                    <Ticket className="w-4 h-4" /> Available Offers & Coupons
+                  </div>
+                  <span className="text-[10px] font-semibold text-muted-foreground">
+                    {eligibleCoupons.length} offer{eligibleCoupons.length > 1 ? "s" : ""} available
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {eligibleCoupons.map((coupon) => {
+                    const isApplied = appliedCoupon?.code === coupon.code;
+                    const isCashback = coupon.type === "wallet";
+
+                    return (
+                      <div
+                        key={coupon.code}
+                        className={cn(
+                          "flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-xl border transition-all",
+                          isApplied
+                            ? "bg-[#D4AF37]/15 border-[#D4AF37] shadow-[0_0_15px_rgba(212,175,55,0.2)]"
+                            : "bg-white/5 border-white/10 hover:border-[#D4AF37]/40"
+                        )}
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-mono font-extrabold text-sm tracking-wider text-accent bg-accent/15 px-2 py-0.5 rounded border border-accent/30">
+                              {coupon.code}
+                            </span>
+                            <span className="text-xs font-bold text-foreground">
+                              {coupon.type === "percentage"
+                                ? `${coupon.discount}% OFF`
+                                : coupon.type === "fixed"
+                                ? `₹${coupon.discount.toLocaleString()} FLAT OFF`
+                                : `₹${coupon.discount.toLocaleString()} Wallet Cashback`}
+                            </span>
+                            {coupon.productType && (
+                              <span className="text-[9px] bg-purple-500/15 text-purple-300 border border-purple-500/30 px-1.5 py-0.2 rounded font-medium">
+                                {coupon.productType}
+                              </span>
+                            )}
+                            {coupon.brand && (
+                              <span className="text-[9px] bg-blue-500/15 text-blue-300 border border-blue-500/30 px-1.5 py-0.2 rounded font-medium">
+                                {coupon.brand}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">
+                            {isCashback
+                              ? `Receive ₹${coupon.discount.toLocaleString()} cashback directly in your ReeVibes wallet when this piece is delivered.`
+                              : coupon.productType && coupon.brand
+                              ? `Exclusive offer valid on ${coupon.brand} ${coupon.productType}.`
+                              : coupon.productType
+                              ? `Applicable on all ${coupon.productType}.`
+                              : coupon.brand
+                              ? `Exclusive brand coupon for ${coupon.brand}.`
+                              : "Storewide offer applicable on this item."}
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (isApplied) {
+                              setAppliedCoupon(null);
+                              toast.info(`Coupon ${coupon.code} removed.`);
+                            } else {
+                              setAppliedCoupon(coupon);
+                              if (isCashback) {
+                                toast.success(`🎉 Cashback offer applied! You will receive ₹${coupon.discount.toLocaleString()} in your ReeVibes wallet upon delivery.`);
+                              } else {
+                                toast.success(`🎉 Coupon ${coupon.code} applied! Price reduced.`);
+                              }
+                            }
+                          }}
+                          className={cn(
+                            "self-start sm:self-auto text-xs font-bold uppercase tracking-wider px-4 py-2 rounded-full cursor-pointer transition-all shrink-0",
+                            isApplied
+                              ? "bg-[#D4AF37] text-black hover:bg-[#D4AF37]/90 shadow-md font-extrabold"
+                              : "bg-white/10 text-foreground hover:bg-white/20 border border-white/10"
+                          )}
+                        >
+                          {isApplied ? "Applied ✓" : "Apply Coupon"}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Live Applied Cashback Banner */}
+                {appliedCoupon && appliedCoupon.type === "wallet" && (
+                  <div className="flex items-center gap-2 mt-1 p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-semibold">
+                    <Sparkles className="w-4 h-4 shrink-0 text-emerald-400" />
+                    <span>
+                      ReeVibes Wallet Cashback: <strong>₹{appliedCoupon.discount.toLocaleString()}</strong> will be credited to your account upon successful delivery.
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="h-px w-full bg-border/40" />
 
