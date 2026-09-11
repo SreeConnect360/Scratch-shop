@@ -101,6 +101,14 @@ public class DatabaseSeeder implements CommandLineRunner {
         safeExecuteDdl("ALTER TABLE vendor_products ALTER COLUMN seo_title TYPE TEXT;");
         safeExecuteDdl("ALTER TABLE vendor_products ALTER COLUMN seo_keywords TYPE TEXT;");
 
+        safeExecuteDdl("ALTER TABLE product_reviews ADD COLUMN IF NOT EXISTS user_id VARCHAR(50);");
+        safeExecuteDdl("ALTER TABLE product_reviews ADD COLUMN IF NOT EXISTS order_id VARCHAR(50);");
+        safeExecuteDdl("ALTER TABLE product_reviews ADD COLUMN IF NOT EXISTS product_name VARCHAR(255);");
+        safeExecuteDdl("ALTER TABLE product_reviews ADD COLUMN IF NOT EXISTS product_image TEXT;");
+        safeExecuteDdl("ALTER TABLE product_reviews ADD COLUMN IF NOT EXISTS user_email VARCHAR(100);");
+        safeExecuteDdl("ALTER TABLE product_reviews ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();");
+        safeExecuteDdl("DELETE FROM product_reviews WHERE id IN ('rev1', 'rev2', 'rev3', 'rev-1786283913135');");
+
         if (intentRepository.count() == 0) {
             seedIntents();
         }
@@ -110,7 +118,7 @@ public class DatabaseSeeder implements CommandLineRunner {
         seedCoupons();
         seedOrders();
         seedReturns();
-        seedReviews();
+        // seedReviews(); - Disabled: reviews are created solely by verified purchasers in the shop portal
     }
 
     @Transactional

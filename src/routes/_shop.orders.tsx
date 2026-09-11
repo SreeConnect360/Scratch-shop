@@ -46,7 +46,7 @@ function ShopOrdersPage() {
   const [selectedReturnDetails, setSelectedReturnDetails] = useState<any | null>(null);
 
   // Review Form States
-  const [reviewFormItem, setReviewFormItem] = useState<{ productId: string; orderId: string } | null>(null);
+  const [reviewFormItem, setReviewFormItem] = useState<{ productId: string; orderId: string; productName?: string; productImage?: string } | null>(null);
   const [reviewText, setReviewText] = useState("");
   const [reviewRating, setReviewRating] = useState(5);
 
@@ -219,6 +219,22 @@ function ShopOrdersPage() {
                           <span className="text-[10px] uppercase tracking-wider text-muted-foreground block font-semibold">Total Amount</span>
                           <span className="font-mono text-sm sm:text-base font-bold text-accent">₹{order.total.toLocaleString()}</span>
                         </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setReviewFormItem({
+                              productId: firstItem?.productId || firstItem?.id || "vnd-1",
+                              orderId: order.id,
+                              productName: firstItem?.name || "Apparel",
+                              productImage: firstItem?.image || ""
+                            });
+                          }}
+                          className="text-[10px] uppercase font-bold px-3 py-1 rounded-full border border-accent/40 bg-accent/10 text-accent hover:bg-accent hover:text-white cursor-pointer transition-colors flex items-center gap-1 shadow-sm mt-1"
+                        >
+                          <Star className="w-3 h-3 fill-current" />
+                          <span>Rate & Review</span>
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -431,17 +447,22 @@ function ShopOrdersPage() {
                     <div className="text-right shrink-0">
                       <div className="font-mono font-bold text-sm text-foreground">₹{((item.price || 0) * (item.qty || 1)).toLocaleString()}</div>
                       <div className="flex gap-1.5 mt-1.5 justify-end">
-                        {selectedOrderDetails.status === "Delivered" && (
-                          <button
-                            onClick={() => {
-                              setReviewFormItem({ productId: item.productId, orderId: selectedOrderDetails.id });
-                              setSelectedOrderDetails(null);
-                            }}
-                            className="text-[9px] uppercase font-bold px-2 py-0.5 rounded-full border border-accent/30 text-accent hover:bg-accent hover:text-white cursor-pointer"
-                          >
-                            Review
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReviewFormItem({
+                              productId: item.productId || item.id,
+                              orderId: selectedOrderDetails.id,
+                              productName: item.name,
+                              productImage: item.image
+                            });
+                            setSelectedOrderDetails(null);
+                          }}
+                          className="text-[9px] uppercase font-bold px-2.5 py-1 rounded-full border border-accent/40 bg-accent/10 text-accent hover:bg-accent hover:text-white cursor-pointer transition-colors flex items-center gap-1"
+                        >
+                          <Star className="w-2.5 h-2.5 fill-current" />
+                          <span>Rate & Review</span>
+                        </button>
                         {returnEligibility.eligible ? (
                           <button
                             onClick={() => {
@@ -802,6 +823,140 @@ function ShopOrdersPage() {
                 className="flex-1 bg-accent text-white hover:bg-accent/90 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest transition-transform hover:scale-105 active:scale-95 shadow-md cursor-pointer"
               >
                 Submit Return Request
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Review & Rating Form Modal */}
+      {reviewFormItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="liquid-glass max-w-lg w-full p-6 md:p-8 space-y-6 shadow-2xl bg-white dark:bg-zinc-950 border border-black/15 dark:border-white/20 rounded-3xl animate-in zoom-in-95 duration-200 text-foreground">
+            <div className="flex justify-between items-center border-b border-black/10 dark:border-white/10 pb-4">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-accent/15 text-accent">
+                  <Star className="w-5 h-5 fill-current" />
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase tracking-widest text-accent font-bold">Verified Buyer Feedback</span>
+                  <h3 className="font-serif text-xl font-bold mt-0.5">Rate & Review</h3>
+                </div>
+              </div>
+              <button onClick={() => setReviewFormItem(null)} className="text-muted-foreground hover:text-foreground">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Product Summary */}
+            <div className="flex items-center gap-3.5 p-3 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
+              {reviewFormItem.productImage && (
+                <img
+                  src={reviewFormItem.productImage}
+                  alt={reviewFormItem.productName || "Product"}
+                  className="w-14 h-16 object-cover rounded-xl border border-black/10 dark:border-white/10 shrink-0"
+                />
+              )}
+              <div className="min-w-0">
+                <div className="font-serif font-bold text-sm text-foreground truncate">
+                  {reviewFormItem.productName || "Luxury Apparel"}
+                </div>
+                <div className="text-[10px] text-muted-foreground font-mono mt-0.5 flex items-center gap-2">
+                  <span>Product Code: <strong className="text-foreground">{reviewFormItem.productId}</strong></span>
+                  <span>•</span>
+                  <span>Order: <strong className="text-accent">#{reviewFormItem.orderId}</strong></span>
+                </div>
+              </div>
+            </div>
+
+            {/* Rating Stars Selector */}
+            <div className="space-y-2 text-center">
+              <label className="block text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                Your Overall Rating
+              </label>
+              <div className="flex items-center justify-center gap-2 py-1">
+                {[1, 2, 3, 4, 5].map((starVal) => (
+                  <button
+                    key={starVal}
+                    type="button"
+                    onClick={() => setReviewRating(starVal)}
+                    className="p-1 hover:scale-125 transition-transform cursor-pointer focus:outline-none"
+                  >
+                    <Star
+                      className={`w-8 h-8 ${
+                        starVal <= reviewRating
+                          ? "text-amber-400 fill-amber-400 drop-shadow-[0_2px_8px_rgba(251,191,36,0.5)]"
+                          : "text-zinc-600 fill-transparent hover:text-amber-300"
+                      }`}
+                    />
+                  </button>
+                ))}
+              </div>
+              <span className="text-xs font-bold text-amber-500 block">
+                {reviewRating === 5 && "Outstanding — 5 Stars"}
+                {reviewRating === 4 && "Very Good — 4 Stars"}
+                {reviewRating === 3 && "Average — 3 Stars"}
+                {reviewRating === 2 && "Below Expectations — 2 Stars"}
+                {reviewRating === 1 && "Poor — 1 Star"}
+              </span>
+            </div>
+
+            {/* Review Comment Input */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <label className="block text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                  Written Review
+                </label>
+                <span className="text-[10px] font-mono text-muted-foreground">{reviewText.length} / 500 characters</span>
+              </div>
+              <textarea
+                maxLength={500}
+                placeholder="Describe your fit, quality, styling experience, and material feel..."
+                className="w-full bg-black/5 dark:bg-white/5 border border-black/15 dark:border-white/10 rounded-2xl p-3 text-xs outline-none focus:border-accent h-28 text-foreground resize-none leading-relaxed"
+                value={reviewText}
+                onChange={e => setReviewText(e.target.value)}
+              />
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex gap-3 pt-4 border-t border-black/10 dark:border-white/10">
+              <button
+                type="button"
+                onClick={() => setReviewFormItem(null)}
+                className="flex-1 bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 border border-black/15 dark:border-white/15 py-2.5 rounded-full text-xs text-foreground font-semibold transition-colors uppercase tracking-wider cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!reviewText.trim()}
+                onClick={() => {
+                  if (!reviewText.trim()) {
+                    toast.error("Please provide a written review comment.");
+                    return;
+                  }
+                  addReview(reviewFormItem.productId, {
+                    userId: user.id,
+                    userEmail: user.email,
+                    userName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || "Verified Buyer",
+                    orderId: reviewFormItem.orderId,
+                    productName: reviewFormItem.productName,
+                    productImage: reviewFormItem.productImage,
+                    rating: reviewRating,
+                    comment: reviewText.trim(),
+                  });
+                  toast.success("Thank you! Your verified purchase review has been submitted.");
+                  setReviewFormItem(null);
+                  setReviewText("");
+                  setReviewRating(5);
+                }}
+                className={`flex-1 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest transition-transform shadow-md cursor-pointer ${
+                  reviewText.trim()
+                    ? "bg-accent text-white hover:bg-accent/90 hover:scale-105 active:scale-95"
+                    : "bg-black/20 dark:bg-white/10 text-muted-foreground cursor-not-allowed"
+                }`}
+              >
+                Submit Review
               </button>
             </div>
           </div>

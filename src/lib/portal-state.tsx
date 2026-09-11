@@ -100,6 +100,18 @@ export {
   updateCustomerStatusInSupabase,
   checkCustomerSuspendedInSupabase
 };
+import {
+  fetchReviewsFromSupabase,
+  insertReviewToSupabase,
+  updateReviewStatusInSupabase,
+  deleteReviewFromSupabase
+} from "./supabase-reviews";
+export {
+  fetchReviewsFromSupabase,
+  insertReviewToSupabase,
+  updateReviewStatusInSupabase,
+  deleteReviewFromSupabase
+};
 
 const KEY = "reevibes:portal:v3";
 
@@ -203,13 +215,20 @@ export function isReturnEligible(order: any): { eligible: boolean; reason?: stri
 
 export type ProductReview = {
   id: string;
+  productId?: string;
+  userId?: string;
   userName: string;
+  userEmail?: string;
+  orderId?: string;
+  productName?: string;
+  productImage?: string;
   rating: number;
   comment: string;
   images?: string[];
   videos?: string[];
   date: string;
   status?: "Approved" | "Hidden";
+  createdAt?: string;
 };
 
 
@@ -320,15 +339,7 @@ const DEFAULT_CONTESTS: PublishedContest[] = [
   { id: "ct-ts-26", country: "Telangana", year: 2026, stage: "Judgement", published: false },
 ];
 
-const DEFAULT_REVIEWS: Record<string, ProductReview[]> = {
-  "pr1": [
-    { id: "rev1", userName: "Aditi Rao", rating: 5, comment: "Absolutely stunning dress! Fits perfectly and the silk material feels incredibly premium.", date: "2026-06-14", status: "Approved" },
-    { id: "rev2", userName: "Priya Sharma", rating: 4, comment: "Beautiful design, though it was slightly loose around the waist. High quality styling.", date: "2026-06-12", status: "Approved" }
-  ],
-  "pr2": [
-    { id: "rev3", userName: "Deepika Patel", rating: 5, comment: "Warm, luxurious, and elegant. Exceeded all my expectations.", date: "2026-06-15", status: "Approved" }
-  ]
-};
+const DEFAULT_REVIEWS: Record<string, ProductReview[]> = {};
 
 const DEFAULT_BUCKETS: Bucket[] = [
   { id: "bkt1", name: "Summer Essentials", productIds: ["pr1", "pr3"], starProductId: "pr1", thumbnail: "", displayOrder: 0, hidden: false },
@@ -648,6 +659,17 @@ function load(): PortalState {
     delete cleanedShopWishlist["USR-1000"];
     delete cleanedShopWishlist["usr-1000"];
 
+    // Purge mock reviews (rev1, rev2, rev3, etc.)
+    const cleanedReviews: Record<string, ProductReview[]> = {};
+    if (merged.productReviews && typeof merged.productReviews === "object") {
+      Object.entries(merged.productReviews).forEach(([pId, revList]) => {
+        if (Array.isArray(revList)) {
+          const filtered = revList.filter((r: any) => r && !["rev1", "rev2", "rev3", "rev-1786283913135"].includes(r.id));
+          if (filtered.length > 0) cleanedReviews[pId] = filtered;
+        }
+      });
+    }
+
     return {
       ...merged,
       products: prods,
@@ -659,6 +681,7 @@ function load(): PortalState {
       addresses: cleanedAddresses,
       wishlist: cleanedWishlist,
       shopWishlist: cleanedShopWishlist,
+      productReviews: cleanedReviews,
       contests: Array.isArray(merged.contests) ? merged.contests : DEFAULT.contests,
       applications: Array.isArray(merged.applications) ? merged.applications : DEFAULT.applications,
       homepageLayout: merged.homepageLayout || DEFAULT.homepageLayout,
@@ -776,7 +799,8 @@ type Ctx = {
   reactivateCustomer: (id: string) => void;
   addWalletCredit: (userId: string, amount: number) => Promise<void>;
   moderateReview: (productId: string, reviewId: string, action: "approve" | "hide") => void;
-  addReview: (productId: string, r: Omit<ProductReview, "id" | "status" | "date">) => void;
+  deleteReview: (productId: string, reviewId: string) => void;
+  addReview: (productId: string, r: Omit<ProductReview, "id" | "status" | "date"> & { userId?: string; userEmail?: string; orderId?: string; productName?: string; productImage?: string }) => void;
   updateHomepageLayout: (layout: Partial<PortalState["homepageLayout"]>) => void;
   updateHomepageLayoutDraft: (layout: Partial<PortalState["homepageLayoutDraft"]>) => void;
   publishHomepageLayout: (layoutToPublish?: Partial<PortalState["homepageLayoutDraft"]>) => Promise<boolean>;
@@ -1243,27 +1267,45 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 
       let mappedGiftCards: WalletGiftCard[] = supabaseGiftCards as WalletGiftCard[];
 
-      // 10. Fetch Reviews
-      let mappedReviews: Record<string, any[]> = {};
+      // 10. Fetch Reviews directly from Supabase with backend fallback
+      let mappedReviews: Record<string, ProductReview[]> = {};
       try {
-        const reviewsRes = await safeBackendFetch("/api/reviews", undefined, 2500);
-        if (reviewsRes && reviewsRes.ok) {
-          const dbReviews = await reviewsRes.json();
-          dbReviews.forEach((r: any) => {
-            if (!mappedReviews[r.productId]) mappedReviews[r.productId] = [];
-            mappedReviews[r.productId].push({
-              id: r.id,
-              userName: r.userName,
-              rating: r.rating,
-              comment: r.comment,
-              date: r.reviewDate,
-              status: r.status,
-              images: r.images ? r.images.split(",") : [],
-              videos: r.videos ? r.videos.split(",") : []
-            });
+        const supabaseReviews = await fetchReviewsFromSupabase();
+        if (supabaseReviews && supabaseReviews.length > 0) {
+          supabaseReviews.forEach((r) => {
+            const pId = r.productId || "unknown";
+            if (!mappedReviews[pId]) mappedReviews[pId] = [];
+            mappedReviews[pId].push(r);
           });
+        } else {
+          const reviewsRes = await safeBackendFetch("/api/reviews", undefined, 2000);
+          if (reviewsRes && reviewsRes.ok) {
+            const dbReviews = await reviewsRes.json();
+            dbReviews.forEach((r: any) => {
+              const pId = r.productId || "unknown";
+              if (!mappedReviews[pId]) mappedReviews[pId] = [];
+              mappedReviews[pId].push({
+                id: r.id,
+                productId: r.productId,
+                userId: r.userId,
+                userName: r.userName,
+                userEmail: r.userEmail,
+                orderId: r.orderId,
+                productName: r.productName,
+                productImage: r.productImage,
+                rating: r.rating,
+                comment: r.comment,
+                date: r.reviewDate,
+                status: r.status,
+                images: r.images ? (typeof r.images === "string" ? r.images.split(",") : r.images) : [],
+                videos: r.videos ? (typeof r.videos === "string" ? r.videos.split(",") : r.videos) : []
+              });
+            });
+          }
         }
-      } catch {}
+      } catch (err) {
+        console.warn("Reviews fetch error:", err);
+      }
 
 
       setState(s => {
@@ -3234,29 +3276,51 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       });
       notifyBroadcastSync();
 
+      // Direct Supabase sync
+      updateReviewStatusInSupabase(reviewId, nextStatus as any);
+
+      // Backend sync
       fetch(`${BACKEND_URL}/api/reviews/${reviewId}/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: nextStatus })
-      }).then(res => {
-        if (res.ok) {
-          notifyBroadcastSync();
-          fetchBackendState(true);
-        }
       }).catch(err => console.error("Failed to sync review moderation to backend:", err));
+    },
+    deleteReview: (productId, reviewId) => {
+      setState(s => {
+        const productRevs = s.productReviews[productId] ?? [];
+        const updated = productRevs.filter(r => r.id !== reviewId);
+        return { ...s, productReviews: { ...s.productReviews, [productId]: updated } };
+      });
+      notifyBroadcastSync();
+
+      // Direct Supabase deletion
+      deleteReviewFromSupabase(reviewId);
+
+      // Backend sync
+      fetch(`${BACKEND_URL}/api/reviews/${reviewId}`, {
+        method: "DELETE"
+      }).catch(err => console.error("Failed to sync review deletion to backend:", err));
     },
     addReview: (productId, r) => {
       const reviewId = `rev-${Date.now()}`;
       const reviewDate = new Date().toISOString().slice(0, 10);
-      const newReview: any = {
+      const newReview: ProductReview = {
         id: reviewId,
-        userName: r.userName,
+        productId,
+        userId: r.userId,
+        userName: r.userName || "Verified Customer",
+        userEmail: r.userEmail,
+        orderId: r.orderId,
+        productName: r.productName,
+        productImage: r.productImage,
         rating: r.rating,
         comment: r.comment,
-        images: r.images,
-        videos: r.videos,
+        images: r.images || [],
+        videos: r.videos || [],
         date: reviewDate,
-        status: "Approved"
+        status: "Approved",
+        createdAt: new Date().toISOString()
       };
 
       setState(s => {
@@ -3266,13 +3330,23 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           productReviews: { ...s.productReviews, [productId]: [newReview, ...productRevs] }
         };
       });
+      notifyBroadcastSync();
 
+      // Direct Supabase insert
+      insertReviewToSupabase(newReview);
+
+      // Backend sync
       fetch(`${BACKEND_URL}/api/reviews`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: reviewId,
           productId,
+          userId: r.userId || null,
+          userEmail: r.userEmail || null,
+          orderId: r.orderId || null,
+          productName: r.productName || null,
+          productImage: r.productImage || null,
           userName: r.userName,
           rating: r.rating,
           comment: r.comment,

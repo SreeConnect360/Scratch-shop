@@ -141,7 +141,7 @@ function renderLine(line: string) {
 
 function ProductDetail() {
   const productId = Route.useParams().productId;
-  const { state, isProductsLoading, reloadProducts, toggleShopWishlist, addToShopCart, removeFromShopCart, recordProductView } = usePortal();
+  const { state, isProductsLoading, reloadProducts, toggleShopWishlist, addToShopCart, removeFromShopCart, recordProductView, addReview } = usePortal();
   const { triggerPopup } = useShopNotification();
   const { theme } = useTheme();
   const navigate = useNavigate();
@@ -277,6 +277,25 @@ function ProductDetail() {
 
   const userId = state.user?.id;
   const isFavorite = userId ? (state.shopWishlist[userId] || []).includes(product?.id || "") : false;
+
+  // Reviews and Verified Buyer State
+  const [productReviewRating, setProductReviewRating] = useState<number>(5);
+  const [productReviewComment, setProductReviewComment] = useState<string>("");
+  const [isSubmittingReview, setIsSubmittingReview] = useState<boolean>(false);
+
+  const userOrders = useMemo(() => {
+    if (!userId) return [];
+    return state.orders[userId] || [];
+  }, [userId, state.orders]);
+
+  const verifiedOrderForProduct = useMemo(() => {
+    if (!userId || !userOrders.length || !product?.id) return null;
+    return userOrders.find((ord: any) =>
+      (ord.items || []).some((it: any) => it.productId === product.id || it.id === product.id)
+    ) || null;
+  }, [userId, userOrders, product?.id]);
+
+  const hasOrderedProduct = Boolean(verifiedOrderForProduct);
 
   if (isStillLoading) {
     return (
@@ -1242,6 +1261,258 @@ function ProductDetail() {
               </div>
             </div>
 
+          </div>
+        </div>
+
+        {/* ─── CUSTOMER RATINGS & VERIFIED BUYER REVIEWS ────────────────────── */}
+        <div className="mt-16 pt-10 border-t border-border/40 space-y-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <span className="text-xs font-bold uppercase tracking-[0.25em] text-[#D4AF37]">
+                AUTHENTIC EXPERIENCES
+              </span>
+              <h3 className="text-xl sm:text-2xl font-serif font-bold text-foreground mt-0.5">
+                Customer Ratings & Reviews
+              </h3>
+            </div>
+            
+            {/* Aggregate Score Pill */}
+            {effectiveRating && (
+              <div className="flex items-center gap-3 bg-black/5 dark:bg-white/5 border border-border/40 px-4 py-2 rounded-2xl w-fit">
+                <div className="flex items-center text-amber-400">
+                  {[...Array(5)].map((_, i) => {
+                    const score = Number(effectiveRating || 5);
+                    const fill = i + 1 <= score ? 1 : (i < score ? 0.5 : 0);
+                    return (
+                      <Star
+                        key={i}
+                        className={cn("w-4 h-4 text-amber-400", fill > 0 ? "fill-amber-400" : "fill-transparent")}
+                      />
+                    );
+                  })}
+                </div>
+                <span className="font-bold text-sm text-foreground">{effectiveRating} / 5</span>
+                {effectiveReviewCount && (
+                  <span className="text-xs text-muted-foreground">({effectiveReviewCount} {effectiveReviewCount === 1 ? "Review" : "Reviews"})</span>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Rate & Write Review Card */}
+          <div className="p-6 sm:p-8 rounded-3xl bg-black/5 dark:bg-white/5 border border-border/40 space-y-6">
+            <div className="flex items-center justify-between border-b border-border/40 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-[#D4AF37]/15 text-[#D4AF37]">
+                  <Star className="w-5 h-5 fill-current" />
+                </div>
+                <div>
+                  <h4 className="font-serif font-bold text-base text-foreground">Share Your Experience</h4>
+                  <p className="text-xs text-muted-foreground">Exclusive to verified purchasers who ordered this piece</p>
+                </div>
+              </div>
+
+              {hasOrderedProduct && (
+                <span className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 text-xs font-mono font-bold flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>Verified Buyer</span>
+                </span>
+              )}
+            </div>
+
+            {hasOrderedProduct ? (
+              <div className="space-y-5">
+                {/* Star Rating Selector */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">
+                    Your Rating
+                  </label>
+                  <div className="flex items-center gap-2">
+                    {[1, 2, 3, 4, 5].map((starVal) => (
+                      <button
+                        key={starVal}
+                        type="button"
+                        onClick={() => setProductReviewRating(starVal)}
+                        className="p-1 hover:scale-125 transition-transform cursor-pointer focus:outline-none"
+                      >
+                        <Star
+                          className={cn(
+                            "w-7 h-7 transition-colors",
+                            starVal <= productReviewRating
+                              ? "text-amber-400 fill-amber-400 drop-shadow-[0_2px_6px_rgba(251,191,36,0.4)]"
+                              : "text-zinc-500 fill-transparent hover:text-amber-300"
+                          )}
+                        />
+                      </button>
+                    ))}
+                    <span className="text-xs font-bold text-[#D4AF37] ml-2">
+                      {productReviewRating === 5 && "Outstanding — 5 Stars"}
+                      {productReviewRating === 4 && "Very Good — 4 Stars"}
+                      {productReviewRating === 3 && "Average — 3 Stars"}
+                      {productReviewRating === 2 && "Below Expectations — 2 Stars"}
+                      {productReviewRating === 1 && "Poor — 1 Star"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Comment Textarea */}
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">
+                      Write Review
+                    </label>
+                    <span className="text-[10px] font-mono text-muted-foreground">{productReviewComment.length} / 500</span>
+                  </div>
+                  <textarea
+                    rows={3}
+                    maxLength={500}
+                    value={productReviewComment}
+                    onChange={(e) => setProductReviewComment(e.target.value)}
+                    placeholder="Tell us about the fit, texture, drape, and styling of this creation..."
+                    className="w-full p-4 rounded-2xl bg-white/50 dark:bg-zinc-900/60 border border-border/50 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-[#D4AF37] resize-none transition-colors"
+                  />
+                </div>
+
+                {/* Submit Action */}
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    disabled={!productReviewComment.trim() || isSubmittingReview}
+                    onClick={async () => {
+                      if (!productReviewComment.trim()) {
+                        toast.error("Please provide a written review.");
+                        return;
+                      }
+                      setIsSubmittingReview(true);
+                      try {
+                        addReview(product.id, {
+                          userId,
+                          userEmail: state.user?.email,
+                          userName: `${state.user?.firstName || ''} ${state.user?.lastName || ''}`.trim() || "Verified Buyer",
+                          orderId: verifiedOrderForProduct?.id,
+                          productName: product.name,
+                          productImage: product.image,
+                          rating: productReviewRating,
+                          comment: productReviewComment.trim(),
+                        });
+                        toast.success("Thank you! Your verified review and rating have been recorded.");
+                        setProductReviewComment("");
+                        setProductReviewRating(5);
+                      } catch {
+                        toast.error("Failed to submit review. Please try again.");
+                      } finally {
+                        setIsSubmittingReview(false);
+                      }
+                    }}
+                    className={cn(
+                      "px-6 py-3 rounded-full text-xs font-bold uppercase tracking-widest transition-all cursor-pointer shadow-md",
+                      productReviewComment.trim() && !isSubmittingReview
+                        ? "bg-[#D4AF37] hover:bg-[#c49f2f] text-black hover:scale-105 active:scale-95"
+                        : "bg-black/10 dark:bg-white/10 text-muted-foreground cursor-not-allowed"
+                    )}
+                  >
+                    {isSubmittingReview ? "Submitting..." : "Submit Verified Review"}
+                  </button>
+                </div>
+              </div>
+            ) : !userId ? (
+              /* Not Signed In Notice */
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-foreground">
+                <div className="flex items-center gap-3">
+                  <Lock className="w-5 h-5 text-[#D4AF37] shrink-0" />
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    Only verified purchasers who have ordered this piece can share their rating and review. Please sign in with the account used for purchasing.
+                  </p>
+                </div>
+                <Link
+                  to="/login"
+                  search={{ redirect: typeof window !== "undefined" ? window.location.pathname : "" } as any}
+                  className="px-5 py-2 rounded-full bg-[#D4AF37] text-black font-extrabold text-xs uppercase tracking-wider hover:bg-[#c49f2f] transition-all shrink-0 cursor-pointer shadow-md"
+                >
+                  Sign In
+                </Link>
+              </div>
+            ) : (
+              /* Signed In but Has Not Ordered Notice */
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-2xl bg-black/5 dark:bg-white/5 border border-border/40 text-foreground">
+                <div className="flex items-center gap-3">
+                  <ShieldCheck className="w-5 h-5 text-accent shrink-0" />
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    Reviews on ReeVibes are reserved exclusively for members who have purchased this creation. Once your order is placed, you can share your feedback and rating anytime.
+                  </p>
+                </div>
+                <Link
+                  to="/orders"
+                  className="px-5 py-2 rounded-full border border-accent/40 bg-accent/10 text-accent font-extrabold text-xs uppercase tracking-wider hover:bg-accent hover:text-white transition-all shrink-0 cursor-pointer shadow-sm"
+                >
+                  My Orders
+                </Link>
+              </div>
+            )}
+          </div>
+
+          {/* Approved Reviews Feed */}
+          <div className="space-y-4">
+            {approvedReviews.length === 0 ? (
+              <div className="p-8 text-center rounded-3xl bg-black/5 dark:bg-white/5 border border-border/40 space-y-2">
+                <p className="font-serif text-lg font-bold text-foreground">No Customer Reviews Yet</p>
+                <p className="text-xs text-muted-foreground max-w-md mx-auto">
+                  Be the first verified purchaser to share feedback and styling impressions on this creation.
+                </p>
+              </div>
+            ) : (
+              approvedReviews.map((rev) => (
+                <div
+                  key={rev.id}
+                  className="p-5 sm:p-6 rounded-3xl bg-black/5 dark:bg-white/5 border border-border/40 space-y-3 transition-colors hover:border-[#D4AF37]/30"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <span className="font-serif font-bold text-sm text-foreground">
+                        {rev.userName || "Verified Buyer"}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 text-[10px] font-mono font-semibold flex items-center gap-1">
+                        <Check className="w-3 h-3 stroke-[3]" />
+                        <span>Verified Buyer</span>
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-muted-foreground font-mono">
+                      {rev.date}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center text-amber-400 gap-1">
+                    {[...Array(5)].map((_, i) => (
+                      <Star
+                        key={i}
+                        className={cn(
+                          "w-4 h-4",
+                          i < (rev.rating || 5) ? "fill-amber-400 text-amber-400" : "fill-transparent text-zinc-600"
+                        )}
+                      />
+                    ))}
+                    <span className="text-xs font-bold text-foreground ml-1">{rev.rating || 5}.0</span>
+                  </div>
+
+                  <p className="text-xs sm:text-sm text-foreground/90 leading-relaxed italic">
+                    "{rev.comment}"
+                  </p>
+
+                  {((rev.images && rev.images.length > 0) || (rev.videos && rev.videos.length > 0)) && (
+                    <div className="flex flex-wrap gap-2 pt-2">
+                      {(rev.images || []).map((img, i) => (
+                        <img
+                          key={i}
+                          src={img}
+                          alt="Review attachment"
+                          className="w-16 h-16 object-cover rounded-xl border border-border/40"
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
           </div>
         </div>
 

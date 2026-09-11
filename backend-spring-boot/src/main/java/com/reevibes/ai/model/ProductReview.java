@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "product_reviews")
@@ -17,8 +18,23 @@ public class ProductReview {
     @Column(name = "product_id", nullable = false, length = 50)
     private String productId;
 
+    @Column(name = "user_id", length = 50)
+    private String userId;
+
     @Column(name = "user_name", nullable = false, length = 100)
     private String userName;
+
+    @Column(name = "user_email", length = 100)
+    private String userEmail;
+
+    @Column(name = "order_id", length = 50)
+    private String orderId;
+
+    @Column(name = "product_name", length = 255)
+    private String productName;
+
+    @Column(name = "product_image", columnDefinition = "TEXT")
+    private String productImage;
 
     @Column(nullable = false)
     private Integer rating;
@@ -38,14 +54,32 @@ public class ProductReview {
     @Column(nullable = false, length = 20)
     private String status = "Approved";
 
+    @Column(name = "created_at")
+    private LocalDateTime createdAt = LocalDateTime.now();
+
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
 
     public String getProductId() { return productId; }
     public void setProductId(String productId) { this.productId = productId; }
 
+    public String getUserId() { return userId; }
+    public void setUserId(String userId) { this.userId = userId; }
+
     public String getUserName() { return userName; }
     public void setUserName(String userName) { this.userName = userName; }
+
+    public String getUserEmail() { return userEmail; }
+    public void setUserEmail(String userEmail) { this.userEmail = userEmail; }
+
+    public String getOrderId() { return orderId; }
+    public void setOrderId(String orderId) { this.orderId = orderId; }
+
+    public String getProductName() { return productName; }
+    public void setProductName(String productName) { this.productName = productName; }
+
+    public String getProductImage() { return productImage; }
+    public void setProductImage(String productImage) { this.productImage = productImage; }
 
     public Integer getRating() { return rating; }
     public void setRating(Integer rating) { this.rating = rating; }
@@ -64,4 +98,7 @@ public class ProductReview {
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

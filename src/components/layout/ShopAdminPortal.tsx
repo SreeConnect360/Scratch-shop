@@ -33,7 +33,7 @@ const formatOrderDateTime = (dateStr: string) => {
 
 export function ShopAdminPortal({ tab }: { tab: string }) {
   const [statusFilter, setStatusFilter] = useState<string>("All");
-  const { state, fetchBackendState, createProduct, updateProduct, deleteProduct, updateOrderStatus, acceptOrder, fetchCourierQuotes, assignAWB, schedulePickup, cancelOrder, fetchOrderLabel, fetchOrderInvoice, syncShiprocketTracking, assignReturnPickup, processSplitRefund, approveReturn, rejectReturn, updateReturnDetails, suspendCustomer, reactivateCustomer, addCoupon, removeCoupon, toggleCouponActive, moderateReview, addWalletCredit, updateHomepageLayoutDraft, publishHomepageLayout, revertHomepageLayout, createBucket, updateBucket, deleteBucket, reorderBuckets, toggleShopWishlist, addWalletGiftCard, updateWalletGiftCard, toggleWalletGiftCardStatus, deleteWalletGiftCard } = usePortal();
+  const { state, fetchBackendState, createProduct, updateProduct, deleteProduct, updateOrderStatus, acceptOrder, fetchCourierQuotes, assignAWB, schedulePickup, cancelOrder, fetchOrderLabel, fetchOrderInvoice, syncShiprocketTracking, assignReturnPickup, processSplitRefund, approveReturn, rejectReturn, updateReturnDetails, suspendCustomer, reactivateCustomer, addCoupon, removeCoupon, toggleCouponActive, moderateReview, deleteReview, addWalletCredit, updateHomepageLayoutDraft, publishHomepageLayout, revertHomepageLayout, createBucket, updateBucket, deleteBucket, reorderBuckets, toggleShopWishlist, addWalletGiftCard, updateWalletGiftCard, toggleWalletGiftCardStatus, deleteWalletGiftCard } = usePortal();
 
   // Dynamic products list from state
   const productsList = state.products || [];
@@ -117,6 +117,8 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
   const [quotesLoading, setQuotesLoading] = useState(false);
   const [pickupDate, setPickupDate] = useState(new Date().toISOString().split("T")[0]);
   const [orderSubTab, setOrderSubTab] = useState<"ordered" | "delivering" | "delivered">("ordered");
+  const [reviewsFilter, setReviewsFilter] = useState<"all" | "approved" | "hidden">("all");
+  const [reviewsSearch, setReviewsSearch] = useState<string>("");
 
   useEffect(() => {
     if (selectedOrderDetails) {
@@ -7349,39 +7351,365 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
       )}
 
       {/* 8. REVIEWS MODERATION */}
-      {tab === "reviews" && (
-        <AdminCard className="space-y-6 animate-in fade-in duration-200">
-          <h3 className="font-serif text-xl">Product Reviews Moderation</h3>
-          <div className="space-y-4">
-            {Object.entries(state.productReviews).flatMap(([productId, list]) =>
-              list.map(r => ({ ...r, productId }))
-            ).map(r => (
-              <div key={r.id} className="border-b border-border-subtle pb-4 last:border-0 flex justify-between gap-4">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span className="font-serif font-bold text-sm">{r.userName}</span>
-                    <span className="text-[10px] text-muted-foreground font-mono">{r.date}</span>
-                    <div className="flex items-center text-amber-400">
-                      {[...Array(5)].map((_, i) => (
-                        <Star key={i} className={`w-3 h-3 fill-current ${i < r.rating ? "text-amber-400" : "text-zinc-600"}`} />
-                      ))}
-                    </div>
-                  </div>
-                  <p className="text-sm italic">"{r.comment}"</p>
-                  <div className="text-[10px] text-muted-foreground">Product Code: {r.productId}</div>
+      {tab === "reviews" && (() => {
+        const allReviews = Object.entries(state.productReviews || {}).flatMap(([productId, list]) =>
+          (list || []).map(r => ({ ...r, productId: r.productId || productId }))
+        );
+
+        const approvedCount = allReviews.filter(r => r.status === "Approved").length;
+        const hiddenCount = allReviews.filter(r => r.status === "Hidden").length;
+        const avgRating = allReviews.length > 0
+          ? (allReviews.reduce((sum, r) => sum + (Number(r.rating) || 0), 0) / allReviews.length).toFixed(1)
+          : "5.0";
+
+        const filtered = allReviews.filter(r => {
+          if (reviewsFilter === "approved" && r.status !== "Approved") return false;
+          if (reviewsFilter === "hidden" && r.status === "Approved") return false;
+          if (reviewsSearch.trim()) {
+            const q = reviewsSearch.toLowerCase().trim();
+            const p = state.products.find(prod => prod.id === r.productId);
+            const pName = (r.productName || p?.name || "").toLowerCase();
+            const pId = (r.productId || "").toLowerCase();
+            const uName = (r.userName || "").toLowerCase();
+            const uEmail = (r.userEmail || "").toLowerCase();
+            const uId = (r.userId || "").toLowerCase();
+            const oId = (r.orderId || "").toLowerCase();
+            const comm = (r.comment || "").toLowerCase();
+            return pName.includes(q) || pId.includes(q) || uName.includes(q) || uEmail.includes(q) || uId.includes(q) || oId.includes(q) || comm.includes(q);
+          }
+          return true;
+        });
+
+        return (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            {/* Header & KPI Summary Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <AdminCard className="p-5 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground block">Total Verified Reviews</span>
+                  <div className="text-2xl font-serif font-bold mt-1 text-foreground">{allReviews.length}</div>
+                  <span className="text-[11px] text-muted-foreground">Direct from Supabase database</span>
                 </div>
-                <div className="flex flex-col gap-2 justify-center shrink-0">
-                  {r.status === "Approved" ? (
-                    <button onClick={() => moderateReview(r.productId, r.id, "hide")} className="text-[10px] uppercase font-bold border border-rose-500/30 hover:border-rose-500 text-rose-400 px-3 py-1.5 flex items-center gap-1"><EyeOff className="w-3.5 h-3.5" /> Hide Review</button>
-                  ) : (
-                    <button onClick={() => moderateReview(r.productId, r.id, "approve")} className="text-[10px] uppercase font-bold border border-emerald-500/30 hover:border-emerald-500 text-emerald-400 px-3 py-1.5 flex items-center gap-1"><Eye className="w-3.5 h-3.5" /> Approve</button>
+                <div className="w-12 h-12 rounded-2xl bg-accent/15 border border-accent/30 flex items-center justify-center text-accent">
+                  <Star className="w-6 h-6 fill-current" />
+                </div>
+              </AdminCard>
+
+              <AdminCard className="p-5 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-500 block">Live On Storefront</span>
+                  <div className="text-2xl font-serif font-bold mt-1 text-emerald-500">{approvedCount}</div>
+                  <span className="text-[11px] text-muted-foreground">Visible to all shoppers</span>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-500">
+                  <Eye className="w-6 h-6" />
+                </div>
+              </AdminCard>
+
+              <AdminCard className="p-5 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-rose-500 block">Hidden / Moderated</span>
+                  <div className="text-2xl font-serif font-bold mt-1 text-rose-500">{hiddenCount}</div>
+                  <span className="text-[11px] text-muted-foreground">Hidden by Admin</span>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-500">
+                  <EyeOff className="w-6 h-6" />
+                </div>
+              </AdminCard>
+
+              <AdminCard className="p-5 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-amber-500 block">Average Rating</span>
+                  <div className="text-2xl font-serif font-bold mt-1 text-amber-500 flex items-center gap-1.5">
+                    <span>{avgRating}</span>
+                    <Star className="w-5 h-5 fill-current text-amber-400" />
+                  </div>
+                  <span className="text-[11px] text-muted-foreground">Across verified orders</span>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-500">
+                  <BarChart3 className="w-6 h-6" />
+                </div>
+              </AdminCard>
+            </div>
+
+            {/* Filter Bar & Search */}
+            <AdminCard className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="relative flex-1 sm:w-72">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Search by customer, product, order ID, or user ID..."
+                    value={reviewsSearch}
+                    onChange={e => setReviewsSearch(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 text-xs bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-xl outline-none focus:border-accent text-foreground"
+                  />
+                  {reviewsSearch && (
+                    <button onClick={() => setReviewsSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
                   )}
                 </div>
               </div>
-            ))}
+
+              <div className="flex items-center gap-2 self-end sm:self-auto">
+                <button
+                  onClick={() => setReviewsFilter("all")}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-xl border transition-all cursor-pointer ${
+                    reviewsFilter === "all" ? "bg-accent text-white border-accent shadow-sm" : "border-black/10 dark:border-white/10 text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  All ({allReviews.length})
+                </button>
+                <button
+                  onClick={() => setReviewsFilter("approved")}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-xl border transition-all cursor-pointer ${
+                    reviewsFilter === "approved" ? "bg-emerald-600 text-white border-emerald-600 shadow-sm" : "border-black/10 dark:border-white/10 text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Live ({approvedCount})
+                </button>
+                <button
+                  onClick={() => setReviewsFilter("hidden")}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-xl border transition-all cursor-pointer ${
+                    reviewsFilter === "hidden" ? "bg-rose-600 text-white border-rose-600 shadow-sm" : "border-black/10 dark:border-white/10 text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Hidden ({hiddenCount})
+                </button>
+              </div>
+            </AdminCard>
+
+            {/* Reviews Cards List */}
+            <div className="space-y-4">
+              {filtered.length === 0 ? (
+                <AdminCard className="p-12 text-center space-y-4">
+                  <div className="w-16 h-16 rounded-full bg-accent/15 border border-accent/30 flex items-center justify-center mx-auto text-accent">
+                    <Star className="w-8 h-8" />
+                  </div>
+                  <div>
+                    <h4 className="font-serif text-xl font-bold text-foreground">No Reviews Found</h4>
+                    <p className="text-xs text-muted-foreground max-w-md mx-auto mt-1">
+                      {allReviews.length === 0
+                        ? "The reviews database is currently clean. As verified buyers order products and leave feedback, their ratings and reviews will appear here with full customer dossier and product linkage."
+                        : "No reviews match your current search and filter criteria."}
+                    </p>
+                  </div>
+                </AdminCard>
+              ) : (
+                filtered.map(r => {
+                  const product = state.products.find(p => p.id === r.productId) || {
+                    id: r.productId,
+                    name: r.productName || "Luxury Apparel",
+                    price: "₹99,000",
+                    image: r.productImage || "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=600&q=80",
+                    category: "Curation"
+                  };
+                  const prodImage = r.productImage || product.image || "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=600&q=80";
+                  const prodName = r.productName || product.name || "Luxury Apparel";
+
+                  const handleOpenCustomerDossier = () => {
+                    const cust = state.users.find(u =>
+                      (r.userId && u.id === r.userId) ||
+                      (r.userEmail && u.email && u.email.toLowerCase() === r.userEmail.toLowerCase())
+                    );
+
+                    if (cust) {
+                      setSelectedCustomerDetails(cust);
+                    } else {
+                      setSelectedCustomerDetails({
+                        id: r.userId || "USR-CUSTOMER",
+                        firstName: r.userName || "Verified Customer",
+                        lastName: "",
+                        email: r.userEmail || "",
+                        phone: "",
+                        country: "India",
+                        status: "Active",
+                        walletBalance: 0,
+                        wishlist: [],
+                        cart: [],
+                        orders: []
+                      });
+                    }
+                    setDossierTab("details");
+                  };
+
+                  return (
+                    <AdminCard key={r.id} className="p-5 space-y-4 hover:border-accent/40 transition-colors">
+                      <div className="flex flex-col lg:flex-row gap-5 items-start justify-between">
+                        
+                        {/* 1. Product Link & Preview Card */}
+                        <div className="flex items-center gap-3.5 sm:min-w-[280px] max-w-sm shrink-0 p-3 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
+                          <img
+                            src={prodImage}
+                            alt={prodName}
+                            className="w-16 h-20 object-cover rounded-xl border border-black/10 dark:border-white/10 shrink-0 cursor-pointer hover:scale-105 transition-transform"
+                            onClick={() => setSelectedProductPreview(product)}
+                          />
+                          <div className="min-w-0 space-y-1">
+                            <span className="text-[9px] uppercase tracking-wider text-accent font-bold block">Reviewed Product</span>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedProductPreview(product)}
+                              className="font-serif font-bold text-sm text-foreground hover:text-accent transition-colors truncate block text-left cursor-pointer"
+                              title={prodName}
+                            >
+                              {prodName}
+                            </button>
+                            <div className="text-[10px] text-muted-foreground font-mono flex items-center gap-2">
+                              <span>Code: <strong className="text-foreground">{r.productId}</strong></span>
+                              {product.price && <span>• <strong className="text-accent">{product.price}</strong></span>}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedProductPreview(product)}
+                              className="text-[10px] font-semibold text-accent hover:underline flex items-center gap-1 cursor-pointer pt-0.5"
+                            >
+                              <span>View Product Details</span>
+                              <ArrowUpRight className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* 2. Review Content & User Information */}
+                        <div className="flex-1 min-w-0 space-y-2.5">
+                          {/* User Header with Clickable User ID Badge */}
+                          <div className="flex flex-wrap items-center gap-2.5">
+                            {/* Clickable User ID badge opening Customer Curation Dossier */}
+                            <button
+                              type="button"
+                              onClick={handleOpenCustomerDossier}
+                              className="px-2.5 py-1 rounded-full bg-accent/15 hover:bg-accent hover:text-white border border-accent/40 text-accent font-mono text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm group"
+                              title="Click to inspect customer profile, orders, wallet, and cart in Customer Curation Dossier"
+                            >
+                              <Users className="w-3.5 h-3.5" />
+                              <span>{r.userId || "USR-CUSTOMER"}</span>
+                              <span className="text-[9px] opacity-75 group-hover:opacity-100">↗</span>
+                            </button>
+
+                            <span className="font-serif font-bold text-sm text-foreground">{r.userName}</span>
+                            
+                            {r.userEmail && (
+                              <span className="text-xs text-muted-foreground font-mono">({r.userEmail})</span>
+                            )}
+
+                            {r.orderId && (
+                              <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[10px] font-mono font-semibold flex items-center gap-1">
+                                <ShieldCheck className="w-3 h-3" />
+                                <span>Verified Order #{r.orderId}</span>
+                              </span>
+                            )}
+
+                            <span className="text-[11px] text-muted-foreground font-mono ml-auto">
+                              {r.date}
+                            </span>
+                          </div>
+
+                          {/* Star Rating Display */}
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center text-amber-400">
+                              {[...Array(5)].map((_, i) => (
+                                <Star
+                                  key={i}
+                                  className={`w-4 h-4 fill-current ${i < (r.rating || 5) ? "text-amber-400" : "text-zinc-600 fill-transparent"}`}
+                                />
+                              ))}
+                            </div>
+                            <span className="text-xs font-bold text-foreground">{r.rating || 5}.0 / 5</span>
+                          </div>
+
+                          {/* Review Comment Quote Box */}
+                          <div className="p-3.5 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
+                            <p className="text-xs sm:text-sm text-foreground leading-relaxed italic">
+                              "{r.comment}"
+                            </p>
+                          </div>
+
+                          {/* Media attachments */}
+                          {((r.images && r.images.length > 0) || (r.videos && r.videos.length > 0)) && (
+                            <div className="flex flex-wrap gap-2 pt-1">
+                              {(r.images || []).map((img, i) => (
+                                <img key={i} src={img} alt="review attachment" className="w-14 h-14 object-cover rounded-xl border border-black/10 dark:border-white/10" />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* 3. Moderation Status & Action Controls */}
+                        <div className="flex flex-row lg:flex-col items-end lg:items-end justify-between w-full lg:w-auto gap-3 shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-black/10 dark:border-white/10">
+                          {/* Status Badge */}
+                          <div className="flex items-center gap-2">
+                            {r.status === "Approved" ? (
+                              <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/15 border border-emerald-500/30 text-emerald-500 flex items-center gap-1.5">
+                                <Check className="w-3.5 h-3.5" />
+                                <span>Live on Store</span>
+                              </span>
+                            ) : (
+                              <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-zinc-500/15 border border-zinc-500/30 text-zinc-400 flex items-center gap-1.5">
+                                <EyeOff className="w-3.5 h-3.5" />
+                                <span>Hidden</span>
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Admin Action Buttons */}
+                          <div className="flex items-center gap-2">
+                            {r.status === "Approved" ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  moderateReview(r.productId, r.id, "hide");
+                                  toast.info(`Review by ${r.userName} hidden from storefront.`);
+                                }}
+                                className="text-[11px] uppercase font-bold border border-rose-500/30 hover:border-rose-500 bg-rose-500/10 text-rose-400 px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+                              >
+                                <EyeOff className="w-3.5 h-3.5" />
+                                <span>Hide Review</span>
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  moderateReview(r.productId, r.id, "approve");
+                                  toast.success(`Review by ${r.userName} published to storefront!`);
+                                }}
+                                className="text-[11px] uppercase font-bold border border-emerald-500/30 hover:border-emerald-500 bg-emerald-500/10 text-emerald-400 px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>Show Review</span>
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setModal({
+                                  type: "danger",
+                                  title: "Delete Review Permanently",
+                                  desc: `Are you sure you want to delete this review by ${r.userName}? This will permanently remove it from the Supabase database.`,
+                                  action: () => {
+                                    deleteReview(r.productId, r.id);
+                                    toast.success("Review deleted successfully.");
+                                  }
+                                });
+                              }}
+                              className="text-[11px] uppercase font-bold border border-rose-500/20 hover:border-rose-500 text-rose-500 hover:bg-rose-500/10 p-2 rounded-xl transition-colors cursor-pointer"
+                              title="Delete review"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+
+                      </div>
+                    </AdminCard>
+                  );
+                })
+              )}
+            </div>
           </div>
-        </AdminCard>
-      )}
+        );
+      })()}
 
 
     </div>

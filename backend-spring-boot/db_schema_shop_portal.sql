@@ -241,3 +241,40 @@ CREATE TABLE IF NOT EXISTS user_addresses (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS product_reviews (
+    id VARCHAR(50) PRIMARY KEY,
+    product_id VARCHAR(50) NOT NULL,
+    user_id VARCHAR(50),
+    user_name VARCHAR(100) NOT NULL,
+    user_email VARCHAR(100),
+    order_id VARCHAR(50),
+    product_name VARCHAR(255),
+    product_image TEXT,
+    rating INT NOT NULL DEFAULT 5,
+    comment TEXT NOT NULL,
+    images TEXT,
+    videos TEXT,
+    review_date VARCHAR(20) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'Approved',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE product_reviews ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'product_reviews' AND policyname = 'Allow public select on product_reviews') THEN
+    CREATE POLICY "Allow public select on product_reviews" ON product_reviews FOR SELECT USING (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'product_reviews' AND policyname = 'Allow public insert on product_reviews') THEN
+    CREATE POLICY "Allow public insert on product_reviews" ON product_reviews FOR INSERT WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'product_reviews' AND policyname = 'Allow public update on product_reviews') THEN
+    CREATE POLICY "Allow public update on product_reviews" ON product_reviews FOR UPDATE USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'product_reviews' AND policyname = 'Allow public delete on product_reviews') THEN
+    CREATE POLICY "Allow public delete on product_reviews" ON product_reviews FOR DELETE USING (true);
+  END IF;
+END $$;
+
+
