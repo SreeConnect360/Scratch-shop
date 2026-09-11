@@ -160,3 +160,33 @@ CREATE TABLE IF NOT EXISTS vendors (
     products_json TEXT,
     revenue NUMERIC(12, 2) DEFAULT 0
 );
+
+CREATE TABLE IF NOT EXISTS homepage_layout (
+    id VARCHAR(50) PRIMARY KEY,
+    layout_json TEXT NOT NULL DEFAULT '{}',
+    version BIGINT DEFAULT 1,
+    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    published_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_by VARCHAR(100) DEFAULT 'admin'
+);
+
+ALTER TABLE homepage_layout ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'homepage_layout' AND policyname = 'Allow public select on homepage_layout') THEN
+    CREATE POLICY "Allow public select on homepage_layout" ON homepage_layout FOR SELECT USING (true);
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'homepage_layout' AND policyname = 'Allow public insert on homepage_layout') THEN
+    CREATE POLICY "Allow public insert on homepage_layout" ON homepage_layout FOR INSERT WITH CHECK (true);
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'homepage_layout' AND policyname = 'Allow public update on homepage_layout') THEN
+    CREATE POLICY "Allow public update on homepage_layout" ON homepage_layout FOR UPDATE USING (true) WITH CHECK (true);
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'homepage_layout' AND policyname = 'Allow public delete on homepage_layout') THEN
+    CREATE POLICY "Allow public delete on homepage_layout" ON homepage_layout FOR DELETE USING (true);
+  END IF;
+END $$;

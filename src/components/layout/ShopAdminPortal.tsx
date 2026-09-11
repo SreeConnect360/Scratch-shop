@@ -32,7 +32,7 @@ const formatOrderDateTime = (dateStr: string) => {
 
 export function ShopAdminPortal({ tab }: { tab: string }) {
   const [statusFilter, setStatusFilter] = useState<string>("All");
-  const { state, createProduct, updateProduct, deleteProduct, updateOrderStatus, acceptOrder, fetchCourierQuotes, assignAWB, schedulePickup, cancelOrder, fetchOrderLabel, fetchOrderInvoice, syncShiprocketTracking, assignReturnPickup, processSplitRefund, approveReturn, rejectReturn, updateReturnDetails, suspendCustomer, reactivateCustomer, addCoupon, removeCoupon, moderateReview, addWalletCredit, updateHomepageLayoutDraft, publishHomepageLayout, revertHomepageLayout, createBucket, updateBucket, deleteBucket, reorderBuckets, toggleShopWishlist, addWalletGiftCard, updateWalletGiftCard, toggleWalletGiftCardStatus, deleteWalletGiftCard } = usePortal();
+  const { state, fetchBackendState, createProduct, updateProduct, deleteProduct, updateOrderStatus, acceptOrder, fetchCourierQuotes, assignAWB, schedulePickup, cancelOrder, fetchOrderLabel, fetchOrderInvoice, syncShiprocketTracking, assignReturnPickup, processSplitRefund, approveReturn, rejectReturn, updateReturnDetails, suspendCustomer, reactivateCustomer, addCoupon, removeCoupon, moderateReview, addWalletCredit, updateHomepageLayoutDraft, publishHomepageLayout, revertHomepageLayout, createBucket, updateBucket, deleteBucket, reorderBuckets, toggleShopWishlist, addWalletGiftCard, updateWalletGiftCard, toggleWalletGiftCardStatus, deleteWalletGiftCard } = usePortal();
 
   // Dynamic products list from state
   const productsList = state.products || [];
@@ -626,10 +626,33 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
 
   // Homepage Builder States
   const [draftLayout, setDraftLayout] = useState<any>(null);
-  const updateDraft = (nextLayout: any) => {
+  const [homepageSyncStatus, setHomepageSyncStatus] = useState<"saved" | "saving">("saved");
+  const draftSyncTimerRef = useRef<any>(null);
+
+  const updateDraft = (nextLayout: any, immediate: boolean = false) => {
     setDraftLayout(nextLayout);
-    updateHomepageLayoutDraft(nextLayout);
+    setHomepageSyncStatus("saving");
+
+    if (immediate) {
+      if (draftSyncTimerRef.current) clearTimeout(draftSyncTimerRef.current);
+      updateHomepageLayoutDraft(nextLayout);
+      setTimeout(() => setHomepageSyncStatus("saved"), 250);
+      return;
+    }
+
+    if (draftSyncTimerRef.current) clearTimeout(draftSyncTimerRef.current);
+    draftSyncTimerRef.current = setTimeout(() => {
+      updateHomepageLayoutDraft(nextLayout);
+      setHomepageSyncStatus("saved");
+    }, 350);
   };
+
+  // Re-fetch latest layout directly from Supabase when entering homepage tab
+  useEffect(() => {
+    if (tab === "homepage") {
+      fetchBackendState(true);
+    }
+  }, [tab, fetchBackendState]);
   const [activeSectionId, setActiveSectionId] = useState<string>("announcement");
   const [expandedSlideIndexMap, setExpandedSlideIndexMap] = useState<Record<string, number>>({});
   const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
@@ -3217,9 +3240,15 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
         <div className="space-y-6 animate-in fade-in duration-200">
           {/* Header & Controls Bar */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-surface-2 border border-border-subtle p-4 rounded-2xl liquid-glass">
-            <div>
-              <h3 className="font-serif text-xl">Homepage Layout Dashboard</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">Customize, reorder, and publish sections for shop.reevibes.com</p>
+            <div className="flex items-center gap-3">
+              <div>
+                <h3 className="font-serif text-xl">Homepage Layout Dashboard</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Customize, reorder, and publish sections for shop.reevibes.com</p>
+              </div>
+              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <span className={`w-2 h-2 rounded-full ${homepageSyncStatus === "saving" ? "bg-amber-400 animate-ping" : "bg-emerald-400 animate-pulse"}`} />
+                <span>{homepageSyncStatus === "saving" ? "Saving to Supabase..." : "Supabase Cloud Synced"}</span>
+              </div>
             </div>
             <div className="flex flex-wrap gap-2">
               <button
@@ -3293,7 +3322,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             bucketIds: [],
                             productIds: []
                           }
-                        });
+                        }, true);
                         setActiveSectionId(id);
                       }}
                       className="bg-accent/20 text-accent hover:bg-accent hover:text-white px-2.5 py-1.5 rounded-full text-[10px] uppercase font-bold tracking-wider cursor-pointer"
@@ -3322,7 +3351,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             yOffset: 0,
                             enabled: true
                           }
-                        });
+                        }, true);
                         setActiveSectionId(id);
                       }}
                       className="bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500 hover:text-white px-2.5 py-1.5 rounded-full text-[10px] uppercase font-bold tracking-wider cursor-pointer"
@@ -3395,7 +3424,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                 updateDraft({
                                   ...draftLayout,
                                   [secId]: { ...sec, enabled: !sec.enabled }
-                                });
+                                }, true);
                               }}
                               className={`p-1 rounded ${sec.enabled ? "text-accent" : "text-muted-foreground/40 hover:text-muted-foreground"}`}
                               title={sec.enabled ? "Hide Section" : "Show Section"}
@@ -3416,7 +3445,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                     const nextOrder = [...draftLayout.sectionOrder];
                                     nextOrder[globalIdx] = prevSecId;
                                     nextOrder[prevGlobalIdx] = secId;
-                                    updateDraft({ ...draftLayout, sectionOrder: nextOrder });
+                                    updateDraft({ ...draftLayout, sectionOrder: nextOrder }, true);
                                   }}
                                   className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-20 cursor-pointer"
                                   title="Move Up"
@@ -3433,7 +3462,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                     const nextOrder = [...draftLayout.sectionOrder];
                                     nextOrder[globalIdx] = nextSecId;
                                     nextOrder[nextGlobalIdx] = secId;
-                                    updateDraft({ ...draftLayout, sectionOrder: nextOrder });
+                                    updateDraft({ ...draftLayout, sectionOrder: nextOrder }, true);
                                   }}
                                   className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-20 cursor-pointer"
                                   title="Move Down"
@@ -3451,7 +3480,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                     const nextOrder = draftLayout.sectionOrder.filter((id: string) => id !== secId);
                                     const nextDraft = { ...draftLayout, sectionOrder: nextOrder };
                                     delete nextDraft[secId];
-                                    updateDraft(nextDraft);
+                                    updateDraft(nextDraft, true);
                                     if (activeSectionId === secId) {
                                       setActiveSectionId(nextOrder[0] || "announcement");
                                     }
@@ -3485,7 +3514,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                           updateDraft({
                             ...draftLayout,
                             [activeSectionId]: { ...draftLayout[activeSectionId], enabled: e.target.checked }
-                          });
+                          }, true);
                         }}
                         className="rounded border-white/10 text-accent focus:ring-accent w-4 h-4"
                       />

@@ -105,7 +105,12 @@ export const Route = createFileRoute("/_shop/")({
 });
 
 function ShopHome() {
-  const { state, toggleShopWishlist, addToShopCart } = usePortal();
+  const { state, toggleShopWishlist, addToShopCart, reloadHomepageLayout } = usePortal();
+
+  // Fresh load latest layout directly from Supabase on mount
+  useEffect(() => {
+    reloadHomepageLayout(true);
+  }, [reloadHomepageLayout]);
   
   const products = useMemo(() => {
     return (state.products || []).filter(p => !p.status || p.status === "PUBLISHED" || p.status === "published");

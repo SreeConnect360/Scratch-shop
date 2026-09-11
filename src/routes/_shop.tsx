@@ -90,7 +90,13 @@ export const Route = createFileRoute("/_shop")({
 });
 
 function ShopLayout() {
-  const { state, toggleShopWishlist, removeFromShopCart, updateHomepageLayout, updateHomepageLayoutDraft, addToShopCart, markNotificationsRead, dismissNotification, signOut } = usePortal();
+  const { state, toggleShopWishlist, removeFromShopCart, updateHomepageLayout, updateHomepageLayoutDraft, addToShopCart, markNotificationsRead, dismissNotification, signOut, reloadHomepageLayout } = usePortal();
+
+  // Fresh load latest layout directly from Supabase on mount
+  useEffect(() => {
+    reloadHomepageLayout?.(true);
+  }, [reloadHomepageLayout]);
+
   const { shopCount, shopTotal } = useCartTotal();
   const navigate = useNavigate();
   const location = useLocation();
