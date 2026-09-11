@@ -23,6 +23,75 @@ export interface ProductCardProps {
   variant?: "default" | "horizontal";
 }
 
+/**
+ * Renders a product title that smoothly scrolls right-to-left in a continuous loop
+ * on hover IF AND ONLY IF the title is long (overflows container width).
+ * Short titles remain static without scrolling.
+ */
+function HoverMarqueeTitle({
+  title,
+  className = "",
+}: {
+  title: string;
+  className?: string;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLSpanElement>(null);
+  const [isOverflowing, setIsOverflowing] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+
+  const checkOverflow = useCallback(() => {
+    if (containerRef.current && textRef.current) {
+      const containerWidth = containerRef.current.clientWidth;
+      const textWidth = textRef.current.scrollWidth;
+      setIsOverflowing(textWidth > containerWidth + 2);
+    }
+  }, []);
+
+  useEffect(() => {
+    checkOverflow();
+    window.addEventListener("resize", checkOverflow);
+    return () => window.removeEventListener("resize", checkOverflow);
+  }, [checkOverflow, title]);
+
+  const duration = useMemo(() => {
+    return Math.max(4, Math.min(12, title.length * 0.3));
+  }, [title]);
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative overflow-hidden w-full select-none"
+      onMouseEnter={() => {
+        checkOverflow();
+        setIsHovered(true);
+      }}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {isOverflowing && isHovered ? (
+        <div
+          className="flex whitespace-nowrap will-change-transform"
+          style={{
+            animation: `marquee ${duration}s linear infinite`,
+            width: "max-content",
+          }}
+        >
+          <span className={cn(className, "pr-8 inline-block")}>{title}</span>
+          <span className={cn(className, "pr-8 inline-block")}>{title}</span>
+        </div>
+      ) : (
+        <span
+          ref={textRef}
+          className={cn("block truncate", className)}
+          title={title}
+        >
+          {title}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export const ProductCard = memo(function ProductCard({
   p,
   toggleShopWishlist,
@@ -53,15 +122,7 @@ export const ProductCard = memo(function ProductCard({
   const [isTitleHovered, setIsTitleHovered] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
-  // Coupon state on card
-  const [appliedCoupon, setAppliedCoupon] = useState<any | null>(null);
 
-  // Eligible coupons for this product based on Product Type and/or Brand targeting
-  const eligibleCoupons = useMemo(() => {
-    return getEligibleCouponsForProduct(targetProduct, state.coupons || []);
-  }, [targetProduct, state.coupons]);
-
-  const bestCoupon = eligibleCoupons.length > 0 ? eligibleCoupons[0] : null;
 
   const ref = useRef<HTMLDivElement>(null);
   const frame = useRef(0);
@@ -110,8 +171,6 @@ export const ProductCard = memo(function ProductCard({
       const productToAdd = {
         ...p,
         price: displayFinalPrice,
-        appliedCoupon: appliedCoupon?.code,
-        cashbackAmount: appliedCoupon?.type === "wallet" ? appliedCoupon.discount : undefined
       };
       quickAdd.openQuickAdd(productToAdd);
     }
@@ -136,25 +195,7 @@ export const ProductCard = memo(function ProductCard({
     } catch { /* ignore */ }
   }
 
-  // If coupon is applied, apply discount (unless wallet cashback)
-  if (appliedCoupon && appliedCoupon.type !== "wallet") {
-    try {
-      const baseNum = Number(String(finalPrice).replace(/[^0-9]/g, "")) || Number(String(origPrice).replace(/[^0-9]/g, ""));
-      if (baseNum > 0) {
-        if (appliedCoupon.type === "percentage") {
-          const couponDiscount = Math.round(baseNum * (Number(appliedCoupon.discount) / 100));
-          origPrice = origPrice || finalPrice;
-          finalPrice = `₹${Math.max(0, baseNum - couponDiscount).toLocaleString()}`;
-        } else if (appliedCoupon.type === "fixed") {
-          const couponDiscount = Math.min(baseNum, Number(appliedCoupon.discount));
-          origPrice = origPrice || finalPrice;
-          finalPrice = `₹${Math.max(0, baseNum - couponDiscount).toLocaleString()}`;
-        }
-      }
-    } catch { /* ignore */ }
-  }
-
-  const hasDiscount = !!(pct || p.originalPrice || (appliedCoupon && appliedCoupon.type !== "wallet"));
+  const hasDiscount = !!(pct || p.originalPrice);
 
   const ensureRupees = (val: any) => {
     if (val === undefined || val === null) return "";
@@ -249,12 +290,12 @@ export const ProductCard = memo(function ProductCard({
             <Link
               to="/product/$productId"
               params={{ productId: p.id }}
-              className="hover:text-accent transition-colors block"
+              className="hover:text-accent transition-colors block min-w-0"
               onMouseEnter={() => setIsTitleHovered(true)}
               onMouseLeave={() => setIsTitleHovered(false)}
             >
-              <h3 className="text-sm sm:text-base md:text-lg text-ink font-sans font-semibold leading-tight truncate">
-                {p.name}
+              <h3 className="text-sm sm:text-base md:text-lg text-ink font-sans font-semibold leading-tight">
+                <HoverMarqueeTitle title={p.name} />
               </h3>
             </Link>
 
@@ -318,45 +359,6 @@ export const ProductCard = memo(function ProductCard({
                 </div>
               </div>
             </div>
-            {/* Coupon Offer Badge (Horizontal Variant) */}
-            {bestCoupon && (
-              <div className="flex items-center gap-2 mt-2">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (appliedCoupon?.code === bestCoupon.code) {
-                      setAppliedCoupon(null);
-                      toast.info(`Coupon ${bestCoupon.code} removed.`);
-                    } else {
-                      setAppliedCoupon(bestCoupon);
-                      if (bestCoupon.type === "wallet") {
-                        toast.success(`🎉 Cashback coupon ${bestCoupon.code} applied! Receive ₹${bestCoupon.discount.toLocaleString()} in ReeVibes wallet upon delivery.`);
-                      } else {
-                        toast.success(`🎉 Coupon ${bestCoupon.code} applied! Price reduced.`);
-                      }
-                    }
-                  }}
-                  className={cn(
-                    "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-all cursor-pointer",
-                    appliedCoupon?.code === bestCoupon.code
-                      ? "bg-[#D4AF37] text-black border-[#D4AF37] shadow-sm font-bold"
-                      : "bg-amber-500/10 text-amber-300 border-amber-500/30 hover:bg-amber-500/20"
-                  )}
-                >
-                  <Ticket size={11} className="shrink-0" />
-                  <span>
-                    {appliedCoupon?.code === bestCoupon.code
-                      ? `Applied: ${bestCoupon.code} ✓`
-                      : `Apply ${bestCoupon.code}: ${bestCoupon.type === "percentage" ? `${bestCoupon.discount}% OFF` : bestCoupon.type === "fixed" ? `₹${bestCoupon.discount} OFF` : `₹${bestCoupon.discount} Cashback`}`}
-                  </span>
-                </button>
-                {appliedCoupon?.type === "wallet" && (
-                  <span className="text-[10px] text-emerald-400 font-medium">₹{appliedCoupon.discount} Cashback on Delivery</span>
-                )}
-              </div>
-            )}
           </div>
 
           {/* Price + Actions Row */}
@@ -538,61 +540,18 @@ export const ProductCard = memo(function ProductCard({
             <Link
               to="/product/$productId"
               params={{ productId: p.id }}
-              className="hover:text-accent transition-colors block"
+              className="hover:text-accent transition-colors block min-w-0"
               onMouseEnter={() => setIsTitleHovered(true)}
               onMouseLeave={() => setIsTitleHovered(false)}
             >
-              <h3 className="truncate text-[13px] text-ink sm:text-[15px] font-sans font-medium leading-tight">
-                {p.name}
+              <h3 className="text-[13px] text-ink sm:text-[15px] font-sans font-medium leading-tight">
+                <HoverMarqueeTitle title={p.name} />
               </h3>
             </Link>
             <p className="mt-0.5 flex items-center gap-1 text-[11px] text-ink-muted sm:text-xs">
               <Star size={11} className="fill-gold text-gold" />
               {(p.rating || 4.8).toFixed(1)}
             </p>
-
-            {/* Coupon Offer Badge (Vertical Variant) */}
-            {bestCoupon && (
-              <div className="mt-1">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (appliedCoupon?.code === bestCoupon.code) {
-                      setAppliedCoupon(null);
-                      toast.info(`Coupon ${bestCoupon.code} removed.`);
-                    } else {
-                      setAppliedCoupon(bestCoupon);
-                      if (bestCoupon.type === "wallet") {
-                        toast.success(`🎉 Cashback coupon ${bestCoupon.code} applied! Receive ₹${bestCoupon.discount.toLocaleString()} in ReeVibes wallet upon delivery.`);
-                      } else {
-                        toast.success(`🎉 Coupon ${bestCoupon.code} applied! Price reduced.`);
-                      }
-                    }
-                  }}
-                  className={cn(
-                    "flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold tracking-wide border transition-all cursor-pointer z-10",
-                    appliedCoupon?.code === bestCoupon.code
-                      ? "bg-[#D4AF37] text-black border-[#D4AF37] shadow-sm"
-                      : "bg-amber-500/10 text-amber-300 border-amber-500/30 hover:bg-amber-500/20"
-                  )}
-                >
-                  <Ticket size={10} className="shrink-0" />
-                  <span>
-                    {appliedCoupon?.code === bestCoupon.code
-                      ? `${bestCoupon.code} Applied ✓`
-                      : `Use ${bestCoupon.code} (${bestCoupon.type === "percentage" ? `${bestCoupon.discount}% OFF` : bestCoupon.type === "fixed" ? `₹${bestCoupon.discount} OFF` : `₹${bestCoupon.discount} Cashback`})`}
-                  </span>
-                </button>
-              </div>
-            )}
-            {appliedCoupon?.type === "wallet" && (
-              <div className="text-[9px] text-emerald-400 font-medium flex items-center gap-1 mt-0.5">
-                <Sparkles size={10} className="shrink-0 text-emerald-400" />
-                <span>₹{appliedCoupon.discount} wallet cashback on delivery</span>
-              </div>
-            )}
           </div>
           <div className="shrink-0 text-right">
             <span className="block text-[13px] text-gold sm:text-[15px] font-bold">

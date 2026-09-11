@@ -476,9 +476,6 @@ function CategoriesPage() {
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="text-[9px] uppercase tracking-widest text-accent font-bold">Curation Collection</span>
-                            <span className="text-[9px] text-white/70 bg-white/10 px-2 py-0.5 rounded-full font-mono">
-                              {b.productIds?.length || 0} Products
-                            </span>
                           </div>
                           <h4 className="font-serif text-xl mt-1 text-white font-bold">{b.name}</h4>
                         </div>

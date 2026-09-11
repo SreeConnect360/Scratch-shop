@@ -57,6 +57,24 @@ export {
   isProductEligibleForCoupon,
   getEligibleCouponsForProduct,
 };
+import {
+  type CustomerAccount,
+  fetchCustomerAccountsFromSupabase,
+  fetchCustomerAccountByEmail,
+  fetchCustomerAccountById,
+  upsertCustomerAccountInSupabase,
+  patchCustomerAccountInSupabase,
+  deleteCustomerAccountFromSupabase
+} from "./supabase-customers";
+export type { CustomerAccount };
+export {
+  fetchCustomerAccountsFromSupabase,
+  fetchCustomerAccountByEmail,
+  fetchCustomerAccountById,
+  upsertCustomerAccountInSupabase,
+  patchCustomerAccountInSupabase,
+  deleteCustomerAccountFromSupabase
+};
 
 const KEY = "reevibes:portal:v3";
 
@@ -358,11 +376,11 @@ export const DEFAULT_HOMEPAGE_LAYOUT = {
     "footer"
   ],
   announcement: {
-    enabled: true,
+    enabled: false,
     text: "Summer Sale Live — Flat 20% Off on First Order",
     linkUrl: "/categories",
     backgroundColor: "#7c2d12",
-    countdownActive: true,
+    countdownActive: false,
     countdownEndsAt: "2026-07-31T23:59:59"
   },
   navigation: {
@@ -821,13 +839,15 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         supabaseBucketsRes,
         supabaseLayoutsRes,
         supabaseCouponsRes,
-        supabaseGiftCardsRes
+        supabaseGiftCardsRes,
+        supabaseCustomersRes
       ] = await Promise.allSettled([
         fetchAdminCatalogFromSupabase(),
         fetchBucketsFromSupabase(),
         fetchAllHomepageLayoutsFromSupabase(),
         fetchCouponsFromSupabase(),
-        fetchWalletGiftCardsFromSupabase()
+        fetchWalletGiftCardsFromSupabase(),
+        fetchCustomerAccountsFromSupabase()
       ]);
 
       const supabaseProducts: Product[] = supabaseProductsRes.status === "fulfilled" && Array.isArray(supabaseProductsRes.value) ? supabaseProductsRes.value : [];
@@ -835,6 +855,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       const supabaseLayouts = supabaseLayoutsRes.status === "fulfilled" ? supabaseLayoutsRes.value : null;
       const supabaseCoupons = supabaseCouponsRes.status === "fulfilled" && Array.isArray(supabaseCouponsRes.value) ? supabaseCouponsRes.value : [];
       const supabaseGiftCards = supabaseGiftCardsRes.status === "fulfilled" && Array.isArray(supabaseGiftCardsRes.value) ? supabaseGiftCardsRes.value : [];
+      const supabaseCustomers: CustomerAccount[] = supabaseCustomersRes.status === "fulfilled" && Array.isArray(supabaseCustomersRes.value) ? supabaseCustomersRes.value : [];
 
       // 1. Check Sync Version with backend (non-blocking)
       try {
@@ -960,52 +981,81 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         mappedBuckets = backendBuckets.sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
       }
 
-      // 5. Fetch Customers
+      // 5. Customer Accounts (Supabase is first-class source of truth, fallback to backend)
       let mappedCustomers: PlatformUser[] = [];
-      let extraAddresses: Record<string, string[]> = {};
+      let extraAddresses: Record<string, any[]> = {};
       let extraWishlists: Record<string, string[]> = {};
-      let dbCustomers: any[] = [];
-      try {
-        const customersRes = await safeBackendFetch("/api/customers", undefined, 2500);
-        if (customersRes && customersRes.ok) {
-          dbCustomers = await customersRes.json();
-          if (dbCustomers && Array.isArray(dbCustomers)) {
-            mappedCustomers = dbCustomers
-              .filter((u: any) => u && u.email && !u.email.toLowerCase().endsWith("@reevibes.com"))
-              .map((u: any) => {
-                let parsedAddrs: string[] = [];
-                try { if (u.addresses) parsedAddrs = JSON.parse(u.addresses); } catch(e) {}
-                let parsedWish: string[] = [];
-                try { if (u.wishlist) parsedWish = JSON.parse(u.wishlist); } catch(e) {}
-                let parsedCart: CartItem[] = [];
-                try { if (u.cart) parsedCart = JSON.parse(u.cart); } catch(e) {}
+      let extraWallets: Record<string, number> = {};
 
-                extraAddresses[u.id] = parsedAddrs;
-                extraWishlists[u.id] = parsedWish;
+      if (supabaseCustomers.length > 0) {
+        mappedCustomers = supabaseCustomers.map(c => {
+          extraAddresses[c.id] = c.addresses || [];
+          extraWishlists[c.id] = c.wishlist || [];
+          extraWallets[c.id] = c.walletBalance ?? 0;
 
-                return {
-                  id: u.id,
-                  firstName: u.firstName || "",
-                  lastName: u.lastName || "",
-                  email: u.email,
-                  phone: u.phone || "",
-                  country: u.country || "",
-                  dob: u.dob || "",
-                  gender: (u.gender as any) || "",
-                  status: (u.status as any) || "Active",
-                  roles: u.roles ? (typeof u.roles === "string" ? u.roles.split(",") : u.roles) as any[] : ["General"],
-                  addresses: parsedAddrs,
-                  wishlist: parsedWish,
-                  cart: parsedCart,
-                  lastLogin: u.lastLogin || undefined,
-                  age: 25,
-                  avatar: u.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent((u.firstName || "") + (u.lastName || ""))}`,
-                  registeredAt: u.registeredAt || new Date().toISOString().slice(0, 10)
-                };
-              });
+          return {
+            id: c.id,
+            firstName: c.firstName || "",
+            lastName: c.lastName || "",
+            email: c.email,
+            phone: c.phone || "",
+            country: c.country || "",
+            dob: c.dob || "",
+            gender: (c.gender as any) || "",
+            status: (c.status as any) || "Active",
+            roles: (c.roles as any) || ["General"],
+            addresses: c.addresses || [],
+            wishlist: c.wishlist || [],
+            cart: c.cart || [],
+            lastLogin: c.lastLogin,
+            age: c.age || 25,
+            avatar: c.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent((c.firstName || "") + (c.lastName || ""))}`,
+            registeredAt: c.createdAt ? c.createdAt.slice(0, 10) : new Date().toISOString().slice(0, 10),
+          };
+        });
+      } else {
+        try {
+          const customersRes = await safeBackendFetch("/api/customers", undefined, 2500);
+          if (customersRes && customersRes.ok) {
+            const dbCustomers = await customersRes.json();
+            if (dbCustomers && Array.isArray(dbCustomers)) {
+              mappedCustomers = dbCustomers
+                .filter((u: any) => u && u.email && !u.email.toLowerCase().endsWith("@reevibes.com"))
+                .map((u: any) => {
+                  let parsedAddrs: string[] = [];
+                  try { if (u.addresses) parsedAddrs = JSON.parse(u.addresses); } catch(e) {}
+                  let parsedWish: string[] = [];
+                  try { if (u.wishlist) parsedWish = JSON.parse(u.wishlist); } catch(e) {}
+                  let parsedCart: CartItem[] = [];
+                  try { if (u.cart) parsedCart = JSON.parse(u.cart); } catch(e) {}
+
+                  extraAddresses[u.id] = parsedAddrs;
+                  extraWishlists[u.id] = parsedWish;
+
+                  return {
+                    id: u.id,
+                    firstName: u.firstName || "",
+                    lastName: u.lastName || "",
+                    email: u.email,
+                    phone: u.phone || "",
+                    country: u.country || "",
+                    dob: u.dob || "",
+                    gender: (u.gender as any) || "",
+                    status: (u.status as any) || "Active",
+                    roles: u.roles ? (typeof u.roles === "string" ? u.roles.split(",") : u.roles) as any[] : ["General"],
+                    addresses: parsedAddrs,
+                    wishlist: parsedWish,
+                    cart: parsedCart,
+                    lastLogin: u.lastLogin || undefined,
+                    age: 25,
+                    avatar: u.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent((u.firstName || "") + (u.lastName || ""))}`,
+                    registeredAt: u.registeredAt || new Date().toISOString().slice(0, 10)
+                  };
+                });
+            }
           }
-        }
-      } catch {}
+        } catch {}
+      }
 
       // 6. Homepage Layout
       let mappedPubLayout: any = supabaseLayouts?.published || null;
@@ -1138,10 +1188,11 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         let nextUser = s.user;
         let nextShopCart = s.shopCart;
         if (currentUser) {
-          const match = dbCustomers?.find((u: any) => u.id === currentUser.id);
+          const match = mappedCustomers.find((u: any) => u.id === currentUser.id || u.email?.toLowerCase() === currentUser.email?.toLowerCase());
           if (match) {
             nextUser = {
               ...currentUser,
+              id: match.id,
               firstName: match.firstName || currentUser.firstName,
               lastName: match.lastName || currentUser.lastName,
               email: match.email || currentUser.email,
@@ -1149,10 +1200,10 @@ export function PortalProvider({ children }: { children: ReactNode }) {
               country: match.country || currentUser.country,
               dob: match.dob || currentUser.dob,
               gender: match.gender || currentUser.gender,
-              roles: match.roles ? match.roles.split(",") as any[] : currentUser.roles,
+              roles: match.roles || currentUser.roles,
             };
-            if (match.cart) {
-              try { nextShopCart = JSON.parse(match.cart); } catch(e) {}
+            if (match.cart && Array.isArray(match.cart)) {
+              nextShopCart = match.cart;
             }
           }
         }
@@ -1184,6 +1235,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           users: mergedCustomers,
           addresses: { ...s.addresses, ...extraAddresses },
           shopWishlist: { ...s.shopWishlist, ...extraWishlists },
+          wallets: { ...s.wallets, ...extraWallets },
           shopCart: nextShopCart,
           homepageLayout: mappedPubLayout || s.homepageLayout || DEFAULT_HOMEPAGE_LAYOUT,
           homepageLayoutDraft: mappedDraftLayout || mappedPubLayout || s.homepageLayoutDraft || DEFAULT_HOMEPAGE_LAYOUT,
@@ -1287,11 +1339,16 @@ export function PortalProvider({ children }: { children: ReactNode }) {
             addresses: {
               ...s.addresses,
               [match.id]: match.addresses || []
+            },
+            wallets: {
+              ...s.wallets,
+              [match.id]: match.walletBalance ?? (s.wallets[match.id] || 0)
             }
           };
           save(next);
           return next;
         });
+        patchCustomerAccountInSupabase(match.id, { lastLogin: new Date().toISOString() });
         fetch(`${BACKEND_URL}/api/customers/${match.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -1302,16 +1359,27 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       return false;
     },
     signUp: (u) => setState(s => {
-      const next = { ...s, user: { id: `usr-${Date.now()}`, roles: ["General"], ...u } as PortalUser };
+      const nextId = u.id || `usr-${Date.now()}`;
+      const next = { ...s, user: { id: nextId, roles: ["General"], ...u } as PortalUser };
       save(next);
-      if (u.id) {
-        const lastLoginTime = new Date().toLocaleString();
-        fetch(`${BACKEND_URL}/api/customers/${u.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ lastLogin: lastLoginTime })
-        }).catch(err => console.error("Failed to sync last login:", err));
-      }
+      upsertCustomerAccountInSupabase({
+        id: nextId,
+        email: u.email,
+        firstName: u.firstName || "",
+        lastName: u.lastName || "",
+        phone: u.phone || "",
+        country: u.country || "India",
+        dob: u.dob || "",
+        gender: u.gender || "",
+        status: "Active",
+        roles: ["General"],
+        cart: [],
+        wishlist: [],
+        addresses: [],
+        orders: [],
+        walletBalance: 0,
+        lastLogin: new Date().toISOString()
+      }).catch(e => console.error("Failed to sync signUp to Supabase:", e));
       return next;
     }),
     signOut: () => setState(s => {
@@ -1394,6 +1462,26 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         status: "Active",
       };
       
+      upsertCustomerAccountInSupabase({
+        id,
+        email: u.email,
+        firstName: u.firstName,
+        lastName: u.lastName,
+        gender: u.gender || "",
+        dob: u.dob || "",
+        age: 2026 - year,
+        country: u.country || "India",
+        phone: u.phone || "",
+        avatar: newUser.avatar,
+        status: "Active",
+        roles: ["General"],
+        cart: [],
+        wishlist: [],
+        addresses: [],
+        orders: [],
+        walletBalance: 0
+      }).catch(err => console.error("Failed to register customer on Supabase:", err));
+
       fetch(`${BACKEND_URL}/api/customers`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1508,6 +1596,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         };
       });
 
+      patchCustomerAccountInSupabase(id, patch as any).catch(err => console.error("Failed to sync customer details update to Supabase:", err));
       fetch(`${BACKEND_URL}/api/customers/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -1540,6 +1629,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           wallets: nextWallets,
         };
       });
+      deleteCustomerAccountFromSupabase(id).catch(err => console.error("Failed to delete customer from Supabase:", err));
 
       fetch(`${BACKEND_URL}/api/customers/${id}`, {
         method: "DELETE"
@@ -1613,6 +1703,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         nextMajorAddresses[userId] = address;
       }
       const nextList = [...list, address];
+      patchCustomerAccountInSupabase(userId, { addresses: nextList }).catch(err => console.error("Failed to sync addAddress to Supabase:", err));
       fetch(`${BACKEND_URL}/api/customers/${userId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -1637,6 +1728,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           delete nextMajorAddresses[userId];
         }
       }
+      patchCustomerAccountInSupabase(userId, { addresses: nextList }).catch(err => console.error("Failed to sync removeAddress to Supabase:", err));
       fetch(`${BACKEND_URL}/api/customers/${userId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -1657,6 +1749,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       if (major === oldAddr) {
         nextMajorAddresses[userId] = address;
       }
+      patchCustomerAccountInSupabase(userId, { addresses: nextList }).catch(err => console.error("Failed to sync updateAddress to Supabase:", err));
       fetch(`${BACKEND_URL}/api/customers/${userId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -1814,15 +1907,22 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           userNotifications: nextUserNotifs
         };
       });
+      patchCustomerAccountInSupabase(userId, {
+        orders: [newOrder, ...(state.orders[userId] || [])],
+        cart: [],
+        walletBalance: Math.max(0, (state.wallets[userId] ?? 0) - walletUsed)
+      }).catch(err => console.error("Failed to sync new order to Supabase customer_accounts:", err));
       return orderId;
     },
 
     deductWalletBalance: (userId, amount) => {
       setState(s => {
         const cur = s.wallets[userId] ?? 0;
+        const nextBal = Math.max(0, cur - amount);
+        patchCustomerAccountInSupabase(userId, { walletBalance: nextBal }).catch(err => console.error("Failed to sync wallet deduction to Supabase:", err));
         return {
           ...s,
-          wallets: { ...s.wallets, [userId]: Math.max(0, cur - amount) }
+          wallets: { ...s.wallets, [userId]: nextBal }
         };
       });
     },
@@ -2504,6 +2604,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         users: s.users.map(u => u.id === id ? { ...u, status: "Suspended" as const } : u)
       }));
 
+      patchCustomerAccountInSupabase(id, { status: "Suspended" }).catch(err => console.error("Failed to sync customer suspension to Supabase:", err));
       fetch(`${BACKEND_URL}/api/customers/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -2516,6 +2617,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         users: s.users.map(u => u.id === id ? { ...u, status: "Active" as const } : u)
       }));
 
+      patchCustomerAccountInSupabase(id, { status: "Active" }).catch(err => console.error("Failed to sync customer reactivation to Supabase:", err));
       fetch(`${BACKEND_URL}/api/customers/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -2524,9 +2626,11 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     },
     addWalletCredit: (userId, amount) => setState(s => {
       const bal = s.wallets[userId] ?? 0;
+      const nextBal = bal + amount;
+      patchCustomerAccountInSupabase(userId, { walletBalance: nextBal }).catch(err => console.error("Failed to sync wallet credit to Supabase:", err));
       return {
         ...s,
-        wallets: { ...s.wallets, [userId]: bal + amount },
+        wallets: { ...s.wallets, [userId]: nextBal },
         notifications: [
           { id: `n-${Date.now()}`, icon: "wallet", title: "Wallet Credit Added", body: `₹${amount.toLocaleString()} has been added to your wallet.`, time: "now", unread: true },
           ...s.notifications
@@ -3092,6 +3196,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         shopCart = [{ ...item, qty }, ...cartList];
       }
       if (s.user) {
+        patchCustomerAccountInSupabase(s.user.id, { cart: shopCart }).catch(err => console.error("Failed to sync cart to Supabase:", err));
         fetch(`${BACKEND_URL}/api/customers/${s.user.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -3108,6 +3213,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     removeFromShopCart: (id, size) => setState(s => {
       const shopCart = (s.shopCart || []).filter(c => size ? !(c.productId === id && c.selectedSize === size) : c.productId !== id);
       if (s.user) {
+        patchCustomerAccountInSupabase(s.user.id, { cart: shopCart }).catch(err => console.error("Failed to sync cart removal to Supabase:", err));
         fetch(`${BACKEND_URL}/api/customers/${s.user.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -3118,6 +3224,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     }),
     clearShopCart: () => setState(s => {
       if (s.user) {
+        patchCustomerAccountInSupabase(s.user.id, { cart: [] }).catch(err => console.error("Failed to clear cart in Supabase:", err));
         fetch(`${BACKEND_URL}/api/customers/${s.user.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -3133,6 +3240,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       }
       const list = s.shopWishlist[userId] ?? [];
       const next = list.includes(productId) ? list.filter(id => id !== productId) : [productId, ...list];
+      patchCustomerAccountInSupabase(userId, { wishlist: next }).catch(err => console.error("Failed to sync wishlist to Supabase:", err));
       fetch(`${BACKEND_URL}/api/customers/${userId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -3152,6 +3260,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         (c.productId === productId && c.selectedSize === selectedSize) ? { ...c, qty } : c
       );
       if (s.user) {
+        patchCustomerAccountInSupabase(s.user.id, { cart: shopCart }).catch(err => console.error("Failed to sync cart qty to Supabase:", err));
         fetch(`${BACKEND_URL}/api/customers/${s.user.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -3167,6 +3276,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           : c
       );
       if (s.user) {
+        patchCustomerAccountInSupabase(s.user.id, { cart: shopCart }).catch(err => console.error("Failed to sync cart size & qty to Supabase:", err));
         fetch(`${BACKEND_URL}/api/customers/${s.user.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -3179,6 +3289,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       const filtered = (s.shopCart || []).filter(c => !(c.productId === item.productId && c.selectedSize === item.selectedSize));
       const shopCart = [item, ...filtered];
       if (s.user) {
+        patchCustomerAccountInSupabase(s.user.id, { cart: shopCart }).catch(err => console.error("Failed to sync restore to cart to Supabase:", err));
         fetch(`${BACKEND_URL}/api/customers/${s.user.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },

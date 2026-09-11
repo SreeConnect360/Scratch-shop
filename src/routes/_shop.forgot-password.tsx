@@ -152,8 +152,30 @@ function ShopForgotPasswordPage() {
 
   const handleResetSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!password || password.length < 6) {
-      toast.error("Password must be at least 6 characters.");
+    const hasLowercase = /[a-z]/.test(password);
+    const hasUppercase = /[A-Z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSymbol = /[^A-Za-z0-9]/.test(password);
+    const isLessThan16 = password.length > 0 && password.length < 16;
+
+    if (!isLessThan16) {
+      toast.error("Password must be less than 16 characters.");
+      return;
+    }
+    if (!hasLowercase) {
+      toast.error("Password must include at least one lowercase letter.");
+      return;
+    }
+    if (!hasUppercase) {
+      toast.error("Password must include at least one uppercase letter.");
+      return;
+    }
+    if (!hasNumber) {
+      toast.error("Password must include at least one number.");
+      return;
+    }
+    if (!hasSymbol) {
+      toast.error("Password must include at least one symbol.");
       return;
     }
     if (password !== confirmPassword) {
@@ -334,28 +356,66 @@ function ShopForgotPasswordPage() {
               ) : (
                 /* STEP 3: RESET PASSWORD FORM */
                 <form onSubmit={handleResetSubmit} className="space-y-5">
-                  <label className="block relative">
-                    <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold flex items-center gap-1.5">
-                      <Lock className="w-3.5 h-3.5 text-accent" /> New Password
-                    </span>
-                    <div className="relative mt-2">
-                      <input
-                        type={showPassword ? "text" : "password"}
-                        placeholder="•••••••• (Min 6 characters)"
-                        value={password}
-                        onChange={e => setPassword(e.target.value)}
-                        className="w-full bg-white/5 border border-white/10 pl-4 pr-12 py-3 text-xs outline-none focus:border-accent rounded-full text-foreground transition-all"
-                        required
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
-                      >
-                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </label>
+                  <div>
+                    <label className="block relative">
+                      <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold flex items-center gap-1.5">
+                        <Lock className="w-3.5 h-3.5 text-accent" /> New Password
+                      </span>
+                      <div className="relative mt-2">
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          placeholder="•••••••• (Min 6 characters)"
+                          value={password}
+                          onChange={e => setPassword(e.target.value)}
+                          maxLength={16}
+                          className="w-full bg-white/5 border border-white/10 pl-4 pr-12 py-3 text-xs outline-none focus:border-accent rounded-full text-foreground transition-all"
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </label>
+
+                    {password.length > 0 && (
+                      <div className="mt-3 p-3 bg-white/5 border border-white/10 rounded-xl space-y-1.5 transition-all text-left">
+                        {password.length >= 16 && (
+                          <p className="text-[10px] text-rose-400 flex items-center gap-1.5">
+                            • Maximum 16 characters reached
+                          </p>
+                        )}
+                        {password.length >= 16 && (
+                          <p className="text-[10px] text-rose-400 flex items-center gap-1.5">
+                            • Must be less than 16 characters
+                          </p>
+                        )}
+                        {!/[a-z]/.test(password) && (
+                          <p className="text-[10px] text-rose-400 flex items-center gap-1.5">
+                            • Must include at least one lowercase letter
+                          </p>
+                        )}
+                        {!/[A-Z]/.test(password) && (
+                          <p className="text-[10px] text-rose-400 flex items-center gap-1.5">
+                            • Must include at least one uppercase/capital letter
+                          </p>
+                        )}
+                        {!/[0-9]/.test(password) && (
+                          <p className="text-[10px] text-rose-400 flex items-center gap-1.5">
+                            • Must include at least one number
+                          </p>
+                        )}
+                        {!/[^A-Za-z0-9]/.test(password) && (
+                          <p className="text-[10px] text-rose-400 flex items-center gap-1.5">
+                            • Must include at least one symbol
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
 
                   <label className="block relative">
                     <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold flex items-center gap-1.5">
@@ -367,6 +427,7 @@ function ShopForgotPasswordPage() {
                         placeholder="••••••••"
                         value={confirmPassword}
                         onChange={e => setConfirmPassword(e.target.value)}
+                        maxLength={16}
                         className="w-full bg-white/5 border border-white/10 pl-4 pr-12 py-3 text-xs outline-none focus:border-accent rounded-full text-foreground transition-all"
                         required
                       />

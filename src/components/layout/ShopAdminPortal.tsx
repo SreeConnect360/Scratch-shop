@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { usePortal, useCartTotal, DEFAULT_HOMEPAGE_LAYOUT } from "@/lib/portal-state";
 import { Link } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
@@ -530,9 +530,16 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
         "Email": c.email || "",
         "Phone": c.phone || "—",
         "Registered Date": c.registeredAt || "2026-07-13",
+        "Last Login": (c as any).lastLogin || "—",
         "Gender": c.gender || "—",
+        "Age": c.age || "—",
         "Date of Birth (DOB)": c.dob || "—",
         "Country": c.country || "—",
+        "Wallet Balance (₹)": state.wallets[c.id] ?? 0,
+        "Cart Items Count": (c.cart || []).length,
+        "Wishlist Count": (state.shopWishlist[c.id] || c.wishlist || []).length,
+        "Orders Count": (state.orders[c.id] || []).length,
+        "Status": c.status || "Active",
         "Address": addressStr
       };
     });
@@ -544,9 +551,16 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
       { wch: 30 },
       { wch: 18 },
       { wch: 18 },
+      { wch: 20 },
       { wch: 12 },
+      { wch: 8 },
       { wch: 20 },
       { wch: 18 },
+      { wch: 18 },
+      { wch: 16 },
+      { wch: 16 },
+      { wch: 14 },
+      { wch: 12 },
       { wch: 60 }
     ];
     const wb = XLSX.utils.book_new();
@@ -1769,7 +1783,53 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
               </div>
             )}
 
-            <div className="flex justify-end pt-4 border-t border-white/10">
+            <div className="flex flex-wrap justify-between items-center gap-3 pt-4 border-t border-white/10">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const amtStr = prompt(`Enter wallet credit amount (₹) to add for ${selectedCustomerDetails.firstName || "Customer"}:`);
+                    if (amtStr) {
+                      const num = Number(amtStr.replace(/[^0-9.]/g, ""));
+                      if (!isNaN(num) && num > 0) {
+                        addWalletCredit(selectedCustomerDetails.id, num);
+                        toast.success(`₹${num.toLocaleString()} credited to ${selectedCustomerDetails.firstName}'s wallet!`);
+                      } else {
+                        toast.error("Invalid amount entered.");
+                      }
+                    }
+                  }}
+                  className="editorial-label bg-accent/20 hover:bg-accent/30 text-accent border border-accent/40 px-3 py-1.5 rounded-full text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
+                >
+                  <IndianRupee className="w-3.5 h-3.5" /> Credit Wallet
+                </button>
+
+                {selectedCustomerDetails.status === "Active" ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      suspendCustomer(selectedCustomerDetails.id);
+                      setSelectedCustomerDetails((prev: any) => ({ ...prev, status: "Suspended" }));
+                      toast.warning(`Account of ${selectedCustomerDetails.firstName} suspended.`);
+                    }}
+                    className="editorial-label bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/30 px-3 py-1.5 rounded-full text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <ShieldAlert className="w-3.5 h-3.5" /> Suspend Account
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      reactivateCustomer(selectedCustomerDetails.id);
+                      setSelectedCustomerDetails((prev: any) => ({ ...prev, status: "Active" }));
+                      toast.success(`Account of ${selectedCustomerDetails.firstName} reactivated.`);
+                    }}
+                    className="editorial-label bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-full text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5" /> Reactivate Account
+                  </button>
+                )}
+              </div>
               <AdminButton variant="outline" onClick={() => setSelectedCustomerDetails(null)}>Close dossier</AdminButton>
             </div>
           </div>
@@ -6561,41 +6621,80 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
               <thead>
                 <tr className="border-b border-border-subtle text-muted-foreground text-xs uppercase tracking-widest">
                   <th className="pb-3">User ID</th>
-                  <th className="pb-3">Customer Name</th>
+                  <th className="pb-3">Customer</th>
                   <th className="pb-3">Contact</th>
-                  <th className="pb-3">Wallet Balance</th>
-                  <th className="pb-3 text-right">Orders Count</th>
+                  <th className="pb-3">Demographics</th>
+                  <th className="pb-3">Wallet</th>
+                  <th className="pb-3 text-center">Cart & Wishlist</th>
+                  <th className="pb-3 text-center">Orders</th>
+                  <th className="pb-3 text-right">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-subtle text-sm">
                 {customersList.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-muted-foreground text-sm">
+                    <td colSpan={8} className="py-8 text-center text-muted-foreground text-sm">
                       No registered user accounts found in the Customers Directory.
                     </td>
                   </tr>
                 ) : (
                   customersList.map(c => {
                     const bal = state.wallets[c.id] ?? 0;
-                    const orderCount = state.orders[c.id]?.length ?? 0;
+                    const orderCount = state.orders[c.id]?.length ?? (c as any).orders?.length ?? 0;
+                    const cartCount = (c.cart || []).length;
+                    const wishCount = (state.shopWishlist[c.id] || (c as any).wishlist || []).length;
+
                     return (
-                      <tr key={c.id} className="hover:bg-surface-2/40">
+                      <tr key={c.id} className="hover:bg-surface-2/40 transition-colors">
                         <td className="py-4">
                           <button
                             onClick={() => { setSelectedCustomerDetails(c); setDossierTab("details"); }}
-                            className="font-mono text-xs text-accent hover:underline text-left cursor-pointer"
+                            className="font-mono text-xs text-accent hover:underline text-left cursor-pointer font-bold"
                           >
                             {c.id}
                           </button>
                         </td>
-                        <td className="py-4 font-semibold">{c.firstName} {c.lastName}</td>
                         <td className="py-4">
-                          <div>{c.email}</div>
-                          <div className="text-xs text-muted-foreground">{c.phone}</div>
+                          <div className="flex items-center gap-2.5">
+                            <img
+                              src={c.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent((c.firstName || "") + (c.lastName || ""))}`}
+                              alt=""
+                              className="w-7 h-7 rounded-full bg-surface border border-white/10 shrink-0"
+                            />
+                            <div>
+                              <div className="font-semibold text-foreground">{c.firstName} {c.lastName}</div>
+                              <div className="text-[10px] text-muted-foreground">Joined: {c.registeredAt || "—"}</div>
+                            </div>
+                          </div>
                         </td>
-                        <td className="py-4 font-serif font-semibold text-accent">₹{bal.toLocaleString()}</td>
-                        <td className="py-4 text-right font-semibold pr-2">
-                          {orderCount}
+                        <td className="py-4">
+                          <div className="text-foreground text-xs">{c.email}</div>
+                          <div className="text-[11px] text-muted-foreground">{c.phone || "—"}</div>
+                        </td>
+                        <td className="py-4 text-xs">
+                          <div>{c.gender || "—"} {c.age ? `· ${c.age} yrs` : ""}</div>
+                          <div className="text-[10px] text-muted-foreground">{c.country || "India"}</div>
+                        </td>
+                        <td className="py-4 font-serif font-bold text-accent">
+                          ₹{bal.toLocaleString()}
+                        </td>
+                        <td className="py-4 text-center">
+                          <div className="inline-flex items-center gap-2 text-xs font-mono">
+                            <span className="bg-white/5 border border-white/10 px-2 py-0.5 rounded-full text-muted-foreground" title="Cart Items">
+                              🛒 {cartCount}
+                            </span>
+                            <span className="bg-white/5 border border-white/10 px-2 py-0.5 rounded-full text-muted-foreground" title="Wishlist Items">
+                              ❤️ {wishCount}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-4 text-center font-semibold">
+                          <span className="bg-accent/10 text-accent px-2.5 py-0.5 rounded-full text-xs font-mono">
+                            {orderCount}
+                          </span>
+                        </td>
+                        <td className="py-4 text-right">
+                          <StatusChip status={c.status || "Active"} tone={c.status === "Active" ? "success" : "danger"} />
                         </td>
                       </tr>
                     );
