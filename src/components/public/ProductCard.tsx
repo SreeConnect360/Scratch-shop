@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useContext, useMemo, memo, useEffect } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { Heart, ShoppingBag, ChevronLeft, ChevronRight, Star, Ticket, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import { usePortal } from "@/lib/portal-state";
@@ -102,6 +102,7 @@ export const ProductCard = memo(function ProductCard({
   variant = "default",
 }: ProductCardProps) {
   const { state } = usePortal();
+  const navigate = useNavigate();
   const { triggerPopup } = useShopNotification();
   const userId = state.user?.id;
 
@@ -306,10 +307,19 @@ export const ProductCard = memo(function ProductCard({
                 {(p.rating || 4.8).toFixed(1)}
               </p>
 
-              {p.house && (
-                <span className="text-[9px] uppercase tracking-wider bg-foreground/5 border border-foreground/10 px-2 py-0.5 rounded-full text-muted-foreground font-medium">
-                  {p.house}
-                </span>
+              {(p.house || p.brand) && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    navigate({ to: "/categories", search: { brand: p.house || p.brand } as any });
+                  }}
+                  className="text-[9px] uppercase tracking-wider bg-foreground/5 hover:bg-gold/15 border border-foreground/10 hover:border-gold/30 px-2 py-0.5 rounded-full text-muted-foreground hover:text-gold transition-colors font-medium cursor-pointer"
+                  title={`View all products from ${p.house || p.brand}`}
+                >
+                  {p.house || p.brand}
+                </button>
               )}
               {p.gender && (
                 <span className="text-[9px] uppercase tracking-wider bg-foreground/5 border border-foreground/10 px-2 py-0.5 rounded-full text-muted-foreground font-medium">
@@ -537,6 +547,20 @@ export const ProductCard = memo(function ProductCard({
       <div className="relative z-[2] flex flex-1 flex-col gap-2 p-2.5 sm:gap-3 sm:p-4 bg-white dark:bg-black/25">
         <div className="flex flex-1 items-start justify-between gap-2 sm:gap-2.5">
           <div className="min-w-0">
+            {(p.house || p.brand) && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  navigate({ to: "/categories", search: { brand: p.house || p.brand } as any });
+                }}
+                className="text-[9px] uppercase tracking-wider text-muted-foreground hover:text-gold hover:underline transition-colors font-semibold mb-0.5 block truncate max-w-full text-left cursor-pointer"
+                title={`View all products from ${p.house || p.brand}`}
+              >
+                {p.house || p.brand}
+              </button>
+            )}
             <Link
               to="/product/$productId"
               params={{ productId: p.id }}

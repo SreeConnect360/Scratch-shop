@@ -834,9 +834,14 @@ function ProductDetail() {
             
             {/* Brand Name & Category Tag */}
             <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-bold uppercase tracking-[0.25em] text-[#D4AF37]">
-                {product.house || "REEVIBES ATELIER"}
-              </span>
+              <Link
+                to="/categories"
+                search={{ brand: product.house || product.brand } as any}
+                className="text-xs font-bold uppercase tracking-[0.25em] text-[#D4AF37] hover:underline hover:text-gold cursor-pointer transition-colors"
+                title={`Explore all pieces by ${product.house || product.brand || "brand"}`}
+              >
+                {product.house || product.brand || "REEVIBES ATELIER"}
+              </Link>
               {(product.type || product.category) && (
                 <span className={cn("px-3 py-1 rounded-full text-[11px] font-semibold border tracking-wide", isDark ? "bg-white/5 border-white/10 text-slate-300" : "bg-slate-100 border-slate-200 text-slate-700")}>
                   {product.type || product.category}

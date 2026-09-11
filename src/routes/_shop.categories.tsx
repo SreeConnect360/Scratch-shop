@@ -18,6 +18,7 @@ const categoriesSearchSchema = z.object({
   bucketId: z.string().optional(),
   view: z.string().optional(),
   q: z.string().optional(),
+  brand: z.string().optional(),
 });
 
 export const Route = createFileRoute("/_shop/categories")({
@@ -137,6 +138,15 @@ function parseStyleQuery(q: string): StyleFilters {
     filters.customTags = matchedTags;
   }
 
+  // 10. Brand Match
+  const knownBrands = ["maison lumière", "atelier reine", "studio onyx", "curvy couture", "rose éternelle", "velvet & co", "atelier royale", "maison curation"];
+  for (const b of knownBrands) {
+    if (query.includes(b)) {
+      filters.brand = b;
+      break;
+    }
+  }
+
   return filters;
 }
 
@@ -177,6 +187,30 @@ function CategoriesPage() {
   const colorFilter = parsedFilters.color || "";
   const priceLimitFilter = parsedFilters.priceLimit || null;
   const tagFilter = searchParams.tag || parsedFilters.tag || "";
+  const brandFilter = searchParams.brand || parsedFilters.brand || "";
+
+  // Orders count map per product across all orders & purchases
+  const productOrdersCount = useMemo(() => {
+    const counts: Record<string, number> = {};
+    if (state.orders) {
+      Object.values(state.orders).forEach((userOrders: any[]) => {
+        (userOrders || []).forEach((order: any) => {
+          (order.items || []).forEach((item: any) => {
+            const pid = item.productId || item.id;
+            if (pid) {
+              counts[pid] = (counts[pid] || 0) + (Number(item.qty) || 1);
+            }
+          });
+        });
+      });
+    }
+    if (state.productPurchases) {
+      Object.entries(state.productPurchases).forEach(([pid, num]) => {
+        counts[pid] = (counts[pid] || 0) + (num || 0);
+      });
+    }
+    return counts;
+  }, [state.orders, state.productPurchases]);
 
   // Available unique categories extracted dynamically from Supabase products + baseline catalog
   const availableCategories = useMemo(() => {
@@ -303,15 +337,23 @@ function CategoriesPage() {
         }
       }
 
+      // 6.4 Brand filtering
+      if (brandFilter) {
+        const bLower = brandFilter.trim().toLowerCase();
+        const pHouse = (p.house || "").trim().toLowerCase();
+        const pBrand = (p.brand || "").trim().toLowerCase();
+        const matchesBrand = pHouse === bLower || pBrand === bLower || pHouse.includes(bLower) || pBrand.includes(bLower);
+        if (!matchesBrand) return false;
+      }
+
       // 7. Tag filtering
       if (tagFilter === "New" || tagFilter === "New Arrivals") {
-        const isNewId = p.id.startsWith("pr-");
-        if (p.tag !== "New" && !isNewId) return false;
+        // All published catalog items are eligible for new releases curation
       } else if (tagFilter === "Trending") {
-        if (getTrendingScore(p.id) < 5 && p.tag !== "Trending") return false;
+        // All published items are eligible for trending curation, ranked by orders/rating/reviews
       } else if (tagFilter === "Bestsellers") {
-        const purchases = state.productPurchases?.[p.id] || 0;
-        if (p.tag !== "Bestseller" && purchases < 2) return false;
+        const purchases = productOrdersCount[p.id] || state.productPurchases?.[p.id] || 0;
+        if (p.tag !== "Bestseller" && purchases < 1) return false;
       }
 
       // 8. Keyword match for remaining parts
@@ -342,19 +384,34 @@ function CategoriesPage() {
 
     // Sort logic
     if (tagFilter === "Trending") {
-      list.sort((a, b) => getTrendingScore(b.id) - getTrendingScore(a.id));
+      list.sort((a, b) => {
+        const ordersA = productOrdersCount[a.id] || 0;
+        const ordersB = productOrdersCount[b.id] || 0;
+        if (ordersB !== ordersA) {
+          return ordersB - ordersA;
+        }
+
+        const ratingA = Number(a.rating || a.customRating || 0);
+        const ratingB = Number(b.rating || b.customRating || 0);
+        if (ratingB !== ratingA) {
+          return ratingB - ratingA;
+        }
+
+        const reviewsA = (state.productReviews?.[a.id]?.length || 0) || Number(a.reviewCount || a.customReviewCount || 0);
+        const reviewsB = (state.productReviews?.[b.id]?.length || 0) || Number(b.reviewCount || b.customReviewCount || 0);
+        return reviewsB - reviewsA;
+      });
     } else if (tagFilter === "New" || tagFilter === "New Arrivals") {
       list.sort((a, b) => {
-        const isANew = a.id.startsWith("pr-");
-        const isBNew = b.id.startsWith("pr-");
-        if (isANew && !isBNew) return -1;
-        if (!isANew && isBNew) return 1;
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        if (timeB !== timeA) return timeB - timeA;
         return b.id.localeCompare(a.id);
       });
     }
 
     return list;
-  }, [products, searchParams, genderFilter, categoryFilter, categoriesFilter, sizeFilter, colorFilter, priceLimitFilter, tagFilter, parsedFilters, styleInput, parsePrice, state.buckets, state.productViews, state.productCartAdditions, state.productPurchases, state.productReviews]);
+  }, [products, searchParams, genderFilter, categoryFilter, categoriesFilter, sizeFilter, colorFilter, priceLimitFilter, tagFilter, brandFilter, productOrdersCount, parsedFilters, styleInput, parsePrice, state.buckets, state.productViews, state.productCartAdditions, state.productPurchases, state.productReviews]);
 
   const userWishlist = state.user ? (state.shopWishlist[state.user.id] || []) : [];
 
@@ -365,6 +422,9 @@ function CategoriesPage() {
   if (showCollectionsGrid) {
     pageTitle = "Collections Curation";
     pageEyebrow = "EDITORIAL LOOKBOOKS";
+  } else if (brandFilter) {
+    pageTitle = `${brandFilter} Atelier`;
+    pageEyebrow = "DESIGNER BRAND EDIT";
   } else if (tagFilter === "New" || tagFilter === "New Arrivals") {
     pageTitle = "New Arrivals";
     pageEyebrow = "LATEST ATELIER RELEASES";
@@ -388,6 +448,17 @@ function CategoriesPage() {
 
   const clearFilter = (filterType: string) => {
     let newQ = styleInput;
+    if (filterType === "brand") {
+      navigate({
+        to: "/categories",
+        search: (prev: any) => {
+          const next = { ...prev };
+          delete next.brand;
+          return next;
+        }
+      });
+      return;
+    }
     if (filterType === "gender") {
       navigate({
         to: "/categories",
@@ -500,6 +571,52 @@ function CategoriesPage() {
   if (colorFilter) activeChips.push({ label: `Color: ${colorFilter}`, type: "color" });
   if (priceLimitFilter !== null) activeChips.push({ label: `Price: Under ₹${priceLimitFilter.toLocaleString()}`, type: "priceLimit" });
   if (tagFilter) activeChips.push({ label: `Tag: ${tagFilter}`, type: "tag" });
+  if (brandFilter) activeChips.push({ label: `Brand: ${brandFilter}`, type: "brand" });
+
+  // Dedicated New Arrivals layout: active when on New Arrivals tag without a restrictive sub-filter
+  const isNewArrivalsView = (tagFilter === "New" || tagFilter === "New Arrivals") && genderFilter === "All" && categoryFilter === "All" && !brandFilter;
+
+  const newArrivalSections = useMemo(() => {
+    if (!isNewArrivalsView) {
+      return { newlyAdded: [], women: [], men: [], unisex: [], others: [] };
+    }
+
+    const sorted = [...filteredProducts];
+    const usedIds = new Set<string>();
+
+    // 1. Newly Added Releases: First 2 rows (top 8 newest catalog items)
+    const newlyAdded = sorted.slice(0, 8);
+    newlyAdded.forEach((p) => usedIds.add(p.id));
+
+    // 2. Women's Wear New Arrivals (deduplicated)
+    const women = sorted.filter(
+      (p) =>
+        !usedIds.has(p.id) &&
+        ((p.gender || "").toLowerCase() === "women" || (p.gender || "").toLowerCase() === "female")
+    );
+    women.forEach((p) => usedIds.add(p.id));
+
+    // 3. Men's Wear New Arrivals (deduplicated)
+    const men = sorted.filter(
+      (p) =>
+        !usedIds.has(p.id) &&
+        ((p.gender || "").toLowerCase() === "men" || (p.gender || "").toLowerCase() === "male")
+    );
+    men.forEach((p) => usedIds.add(p.id));
+
+    // 4. Unisex Wear New Arrivals (deduplicated)
+    const unisex = sorted.filter(
+      (p) =>
+        !usedIds.has(p.id) &&
+        ((p.gender || "").toLowerCase() === "unisex" || !p.gender || (p.gender || "").toLowerCase() === "all")
+    );
+    unisex.forEach((p) => usedIds.add(p.id));
+
+    // 5. More New Releases (remaining deduplicated)
+    const others = sorted.filter((p) => !usedIds.has(p.id));
+
+    return { newlyAdded, women, men, unisex, others };
+  }, [filteredProducts, isNewArrivalsView]);
 
   return (
     <div className="space-y-8 pb-16 public-layout">
@@ -632,309 +749,164 @@ function CategoriesPage() {
         </div>
       </section>
 
-      {/* Product Grid */}
-      <section className="px-4 sm:px-6 lg:px-16 py-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 sm:gap-x-4 gap-y-8 sm:gap-y-10 bg-transparent items-start">
-        {filteredProducts.length === 0 ? (
-          <div className="col-span-full py-24 text-center text-sm text-muted-foreground italic bg-white/5 border border-white/10 rounded-3xl p-6">
-            No items found matching the selected filters.
-          </div>
-        ) : (
-          filteredProducts.map((p) => {
-            return (
-              <ProductCard
-                key={p.id}
-                p={p}
-                toggleShopWishlist={toggleShopWishlist}
-                addToShopCart={addToShopCart}
-                wishlist={userWishlist}
-              />
-            );
-          })
-        )}
-      </section>
-    </div>
-  );
-}
-
-function CategoryProductCard({
-  p,
-  i,
-  state,
-  isWishlisted,
-  toggleShopWishlist,
-  quickAdd
-}: {
-  p: any;
-  i: number;
-  state: any;
-  isWishlisted: boolean;
-  toggleShopWishlist: any;
-  quickAdd: any;
-}) {
-  const { triggerPopup } = useShopNotification();
-  const gallery = (p.images && p.images.length > 0) ? p.images : [p.image];
-  const [activeImgIdx, setActiveImgIdx] = useState(0);
-  const [isTitleHovered, setIsTitleHovered] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
-
-  const ref = useRef<HTMLDivElement>(null);
-  const frame = useRef(0);
-
-  const handleMove = useCallback((e: React.MouseEvent) => {
-    const el = ref.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    const px = (e.clientX - r.left) / r.width;
-    const py = (e.clientY - r.top) / r.height;
-    cancelAnimationFrame(frame.current);
-    frame.current = requestAnimationFrame(() => {
-      el.style.setProperty("--mx", `${px * 100}%`);
-      el.style.setProperty("--my", `${py * 100}%`);
-      el.style.transform = `perspective(900px) rotateX(${(0.5 - py) * 6}deg) rotateY(${(px - 0.5) * 6}deg) translateY(-6px)`;
-    });
-  }, []);
-
-  const handleLeave = useCallback(() => {
-    cancelAnimationFrame(frame.current);
-    if (ref.current) {
-      ref.current.style.transform = "perspective(900px) rotateX(0) rotateY(0) translateY(0)";
-    }
-  }, []);
-
-  const handleWishlistClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!state.user) {
-      toast.error("Please login to manage your wishlist.");
-      return;
-    }
-    toggleShopWishlist(state.user.id, p.id);
-    triggerPopup(
-      !isWishlisted ? `${p.name} added to wishlist!` : `${p.name} removed from wishlist.`,
-      () => toggleShopWishlist(state.user.id, p.id),
-      !isWishlisted ? `${p.name} removed from wishlist.` : `${p.name} added to wishlist!`,
-      () => toggleShopWishlist(state.user.id, p.id),
-      !isWishlisted ? `${p.name} added to wishlist!` : `${p.name} removed from wishlist.`
-    );
-  };
-
-  const handleAddToCartClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (quickAdd) {
-      quickAdd.openQuickAdd(p);
-    }
-  };
-
-  // Calculate discounted price if applicable
-  const pct = p.discount || 0;
-  const hasDiscount = !!(pct || p.originalPrice);
-  let origPrice = p.price;
-  let finalPrice = p.price;
-
-  if (p.originalPrice && p.originalPrice !== p.price) {
-    origPrice = p.originalPrice;
-    finalPrice = p.price;
-  } else if (pct) {
-    try {
-      const numeric = Number(String(p.price).replace(/[^0-9]/g, ""));
-      if (!isNaN(numeric)) {
-        const discounted = Math.round(numeric * (1 - pct / 100));
-        finalPrice = `₹${discounted.toLocaleString()}`;
-        origPrice = p.price;
-      }
-    } catch { /* ignore */ }
-  }
-
-  const ensureRupees = (val: any) => {
-    if (val === undefined || val === null) return "";
-    const clean = String(val).trim();
-    return clean.startsWith("₹") ? clean : `₹${clean}`;
-  };
-
-  const displayFinalPrice = ensureRupees(finalPrice);
-  const displayOrigPrice = ensureRupees(origPrice);
-
-  // Calculate final discount percentage if we have both prices
-  let displayPct = pct;
-  if (hasDiscount && !displayPct) {
-    try {
-      const origNumeric = Number(String(origPrice).replace(/[^0-9]/g, ""));
-      const finalNumeric = Number(String(finalPrice).replace(/[^0-9]/g, ""));
-      if (origNumeric && finalNumeric && origNumeric > finalNumeric) {
-        displayPct = Math.round(((origNumeric - finalNumeric) / origNumeric) * 100);
-      }
-    } catch { /* ignore */ }
-  }
-
-  return (
-    <FadeUp key={p.id} delay={(i % 6) * 0.05}>
-      <div
-        ref={ref}
-        onMouseMove={(e) => {
-          setIsHovered(true);
-          handleMove(e);
-        }}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => {
-          setIsHovered(false);
-          handleLeave();
-        }}
-        className="group glass glass-reflect glass-edge relative overflow-hidden rounded-3xl transition-[transform,box-shadow] duration-500 ease-out will-change-transform hover:shadow-[var(--glass-shadow-hover)] flex flex-col justify-between h-full cursor-pointer"
-        style={{ transformStyle: "preserve-3d" }}
-      >
-        {/* image */}
-        <div className="relative aspect-[4/5] overflow-hidden bg-charcoal/5">
-          <Link to="/product/$productId" params={{ productId: p.id }} className="block w-full h-full">
-            <img
-              src={gallery[activeImgIdx]}
-              alt={p.name}
-              className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.07]"
-            />
-          </Link>
-          <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
-
-          {displayPct > 0 && (
-            <span className="glass-strong glass absolute left-3 top-3 rounded-full px-3 py-1 text-[10px] tracking-[0.18em] uppercase text-ink z-10">
-              {displayPct}% OFF
-            </span>
-          )}
-
-          {/* Carousel Toggles */}
-          {gallery.length > 1 && (
-            <>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setActiveImgIdx((prev) => (prev === 0 ? gallery.length - 1 : prev - 1));
-                }}
-                className="absolute left-3 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-accent text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-20 duration-200"
-              >
-                <ChevronLeft className="w-3.5 h-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setActiveImgIdx((prev) => (prev === gallery.length - 1 ? 0 : prev + 1));
-                }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-accent text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-20 duration-200"
-              >
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            </>
-          )}
-
-          <motion.button
-            type="button"
-            onClick={handleWishlistClick}
-            whileTap={{ scale: 0.8 }}
-            className={cn(
-              "glass glass-strong absolute right-2 top-2 z-[3] flex h-9 w-9 items-center justify-center rounded-full transition-shadow duration-300 sm:right-3 sm:top-3 sm:h-11 sm:w-11",
-              isWishlisted && "shadow-[0_0_20px_-2px_rgba(200,169,106,0.6)]"
-            )}
-          >
-            <motion.span
-              key={String(isWishlisted)}
-              initial={{ scale: 0.4 }}
-              animate={{ scale: 1 }}
-              transition={{ type: "spring", stiffness: 480, damping: 15 }}
-              className="flex"
-            >
-              <Heart
-                size={15}
-                strokeWidth={1.8}
-                className={cn(
-                  "transition-colors duration-300",
-                  isWishlisted ? "fill-gold text-gold" : "text-ink"
-                )}
-              />
-            </motion.span>
-          </motion.button>
-
-          {/* Add to Bag slides up - desktop only */}
-          <div className="absolute inset-x-3 bottom-3 translate-y-[120%] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:translate-y-0 group-focus-within:translate-y-0 z-10 hidden md:block">
-            <button
-              type="button"
-              onClick={handleAddToCartClick}
-              className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-full bg-gradient-to-br from-gold-soft via-gold to-gold-deep py-2.5 text-[11px] font-semibold tracking-[0.2em] uppercase text-obsidian shadow-[0_10px_28px_-8px_rgba(200,169,106,0.6)] transition-[box-shadow,filter] duration-300 hover:shadow-[0_14px_38px_-8px_rgba(200,169,106,0.8)] hover:brightness-105"
-            >
-              <ShoppingBag size={14} strokeWidth={2} />
-              Add to Bag
-            </button>
-          </div>
-        </div>
-
-        {/* details */}
-        <div className="relative z-[2] flex flex-col justify-between p-5 bg-white dark:bg-black/25 flex-1 space-y-4">
-          <div>
-            <div className="editorial-label text-muted-foreground text-[9px]">{p.house}</div>
-            <Link
-              to="/product/$productId"
-              params={{ productId: p.id }}
-              className="hover:text-accent transition-colors block mt-1"
-              onMouseEnter={() => setIsTitleHovered(true)}
-              onMouseLeave={() => setIsTitleHovered(false)}
-            >
-              <h3 className="truncate font-serif text-sm font-medium text-ink leading-tight">{p.name}</h3>
-            </Link>
-
-            <div className="flex gap-2 items-center mt-2">
-              <span className="text-base font-bold text-accent">{displayFinalPrice}</span>
-              {hasDiscount && (
-                <span className="text-xs line-through text-muted-foreground">{displayOrigPrice}</span>
-              )}
-            </div>
-
-            {/* Sizes Row */}
-            <div
-              className="transition-all duration-350 ease-in-out overflow-hidden"
-              style={{
-                maxHeight: isTitleHovered ? "24px" : "0px",
-                opacity: isTitleHovered ? 1 : 0,
-                marginTop: isTitleHovered ? "6px" : "0px",
-              }}
-            >
-              <div className="flex items-center gap-1.5 w-full">
-                <span className="text-[9px] uppercase tracking-widest text-muted-foreground shrink-0">Sizes:</span>
-                <div className="overflow-hidden w-full relative">
-                  <style>{`
-                    @keyframes marquee-pingpong {
-                      0%, 15% { transform: translateX(0%); }
-                      85%, 100% { transform: translateX(-45%); }
-                    }
-                  `}</style>
-                  <div
-                    className="flex gap-1.5"
-                    style={
-                      isTitleHovered && (p.sizes || ["S", "M", "L", "XL"]).length > 3
-                        ? { animation: 'marquee-pingpong 4s ease-in-out infinite alternate', animationDelay: '1s', width: 'max-content' }
-                        : { width: 'max-content' }
-                    }
-                  >
-                    {(p.sizes || ["S", "M", "L", "XL"]).map((sz: string, idx: number) => (
-                      <span key={sz + "-" + idx} className="text-[9px] font-bold bg-white/10 px-2 py-0.5 rounded border border-white/5 text-foreground whitespace-nowrap">
-                        {sz}
-                      </span>
-                    ))}
-                  </div>
+      {/* Product Grid / New Arrivals Multi-Row View */}
+      {isNewArrivalsView ? (
+        <div className="px-4 sm:px-6 lg:px-16 py-8 space-y-12 sm:space-y-14">
+          {/* 1. Newly Added Releases: First 2 Rows */}
+          {newArrivalSections.newlyAdded.length > 0 && (
+            <section className="space-y-4">
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-gold animate-pulse" />
+                  <h2 className="font-serif text-lg sm:text-2xl font-bold tracking-wide uppercase text-foreground">
+                    Newly Added Releases
+                  </h2>
                 </div>
+                <span className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest">
+                  {newArrivalSections.newlyAdded.length} {newArrivalSections.newlyAdded.length === 1 ? "Piece" : "Pieces"}
+                </span>
               </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-x-3 sm:gap-x-4 gap-y-8 sm:gap-y-10 items-start">
+                {newArrivalSections.newlyAdded.map((p) => (
+                  <ProductCard
+                    key={p.id}
+                    p={p}
+                    toggleShopWishlist={toggleShopWishlist}
+                    addToShopCart={addToShopCart}
+                    wishlist={userWishlist}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* 2. Women's Wear New Items */}
+          {newArrivalSections.women.length > 0 && (
+            <section className="space-y-4">
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <h2 className="font-serif text-lg sm:text-2xl font-bold tracking-wide uppercase text-foreground">
+                  Women's Wear New Arrivals
+                </h2>
+                <span className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest">
+                  {newArrivalSections.women.length} {newArrivalSections.women.length === 1 ? "Piece" : "Pieces"}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-x-3 sm:gap-x-4 gap-y-8 sm:gap-y-10 items-start">
+                {newArrivalSections.women.map((p) => (
+                  <ProductCard
+                    key={p.id}
+                    p={p}
+                    toggleShopWishlist={toggleShopWishlist}
+                    addToShopCart={addToShopCart}
+                    wishlist={userWishlist}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* 3. Men's Wear New Items */}
+          {newArrivalSections.men.length > 0 && (
+            <section className="space-y-4">
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <h2 className="font-serif text-lg sm:text-2xl font-bold tracking-wide uppercase text-foreground">
+                  Men's Wear New Arrivals
+                </h2>
+                <span className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest">
+                  {newArrivalSections.men.length} {newArrivalSections.men.length === 1 ? "Piece" : "Pieces"}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-x-3 sm:gap-x-4 gap-y-8 sm:gap-y-10 items-start">
+                {newArrivalSections.men.map((p) => (
+                  <ProductCard
+                    key={p.id}
+                    p={p}
+                    toggleShopWishlist={toggleShopWishlist}
+                    addToShopCart={addToShopCart}
+                    wishlist={userWishlist}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* 4. Unisex Wear New Items */}
+          {newArrivalSections.unisex.length > 0 && (
+            <section className="space-y-4">
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <h2 className="font-serif text-lg sm:text-2xl font-bold tracking-wide uppercase text-foreground">
+                  Unisex Wear New Arrivals
+                </h2>
+                <span className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest">
+                  {newArrivalSections.unisex.length} {newArrivalSections.unisex.length === 1 ? "Piece" : "Pieces"}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-x-3 sm:gap-x-4 gap-y-8 sm:gap-y-10 items-start">
+                {newArrivalSections.unisex.map((p) => (
+                  <ProductCard
+                    key={p.id}
+                    p={p}
+                    toggleShopWishlist={toggleShopWishlist}
+                    addToShopCart={addToShopCart}
+                    wishlist={userWishlist}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* 5. More New Releases */}
+          {newArrivalSections.others.length > 0 && (
+            <section className="space-y-4">
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <h2 className="font-serif text-lg sm:text-2xl font-bold tracking-wide uppercase text-foreground">
+                  More New Releases
+                </h2>
+                <span className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest">
+                  {newArrivalSections.others.length} {newArrivalSections.others.length === 1 ? "Piece" : "Pieces"}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-x-3 sm:gap-x-4 gap-y-8 sm:gap-y-10 items-start">
+                {newArrivalSections.others.map((p) => (
+                  <ProductCard
+                    key={p.id}
+                    p={p}
+                    toggleShopWishlist={toggleShopWishlist}
+                    addToShopCart={addToShopCart}
+                    wishlist={userWishlist}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {filteredProducts.length === 0 && (
+            <div className="py-24 text-center text-sm text-muted-foreground italic bg-white/5 border border-white/10 rounded-3xl p-6">
+              No new products found matching the selected criteria.
             </div>
-          </div>
-          {/* add to bag — mobile/tablet: always visible, no hover needed */}
-          <button
-            type="button"
-            onClick={handleAddToCartClick}
-            className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-full bg-gradient-to-br from-gold-soft via-gold to-gold-deep py-2.5 text-[11px] font-semibold tracking-[0.2em] uppercase text-obsidian shadow-[0_10px_28px_-8px_rgba(200,169,106,0.6)] transition-[box-shadow,filter] duration-300 hover:shadow-[0_14px_38px_-8px_rgba(200,169,106,0.8)] hover:brightness-105 md:hidden mt-2"
-          >
-            <ShoppingBag size={14} strokeWidth={2} />
-            Add to Bag
-          </button>
+          )}
         </div>
-      </div>
-    </FadeUp>
+      ) : (
+        <section className="px-4 sm:px-6 lg:px-16 py-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 sm:gap-x-4 gap-y-8 sm:gap-y-10 bg-transparent items-start">
+          {filteredProducts.length === 0 ? (
+            <div className="col-span-full py-24 text-center text-sm text-muted-foreground italic bg-white/5 border border-white/10 rounded-3xl p-6">
+              No items found matching the selected filters.
+            </div>
+          ) : (
+            filteredProducts.map((p) => {
+              return (
+                <ProductCard
+                  key={p.id}
+                  p={p}
+                  toggleShopWishlist={toggleShopWishlist}
+                  addToShopCart={addToShopCart}
+                  wishlist={userWishlist}
+                />
+              );
+            })
+          )}
+        </section>
+      )}
+    </div>
   );
 }
