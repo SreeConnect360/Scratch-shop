@@ -426,26 +426,7 @@ function ShopLayout() {
     return isNaN(ends) || ends <= Date.now();
   }, [layout?.announcement?.countdownActive, layout?.announcement?.countdownEndsAt]);
 
-  // Auto-sync expiration to Supabase layout if announcement is marked enabled but past deadline
-  useEffect(() => {
-    if (layout?.announcement?.enabled && isAnnouncementExpired) {
-      if (isPreview) {
-        updateHomepageLayoutDraft({
-          announcement: {
-            ...layout.announcement,
-            enabled: false
-          }
-        });
-      } else {
-        updateHomepageLayout({
-          announcement: {
-            ...layout.announcement,
-            enabled: false
-          }
-        });
-      }
-    }
-  }, [isAnnouncementExpired, layout?.announcement?.enabled, isPreview, updateHomepageLayout, updateHomepageLayoutDraft]);
+  const [announcementClientExpired, setAnnouncementClientExpired] = useState(false);
 
   return (
     <QuickAddContext.Provider value={{ openQuickAdd }}>
@@ -453,7 +434,7 @@ function ShopLayout() {
       <div className="shop-portal-layout min-h-screen bg-background text-foreground flex flex-col font-sans transition-colors duration-300">
         
         {/* 1. DYNAMIC ANNOUNCEMENT BAR */}
-        {isHomepage && layout?.announcement?.enabled && !isAnnouncementExpired && (
+        {isHomepage && layout?.announcement?.enabled && !isAnnouncementExpired && !announcementClientExpired && (
           <div
             style={{ backgroundColor: layout.announcement.backgroundColor }}
             className="w-full text-center py-2.5 text-[10px] font-semibold tracking-widest uppercase text-white animate-in slide-in-from-top-2 duration-300 sticky top-0 z-50"
@@ -465,21 +446,7 @@ function ShopLayout() {
               <LiveCountdown
                 endsAt={layout.announcement.countdownEndsAt}
                 onComplete={() => {
-                  if (isPreview) {
-                    updateHomepageLayoutDraft({
-                      announcement: {
-                        ...layout.announcement,
-                        enabled: false
-                      }
-                    });
-                  } else {
-                    updateHomepageLayout({
-                      announcement: {
-                        ...layout.announcement,
-                        enabled: false
-                      }
-                    });
-                  }
+                  setAnnouncementClientExpired(true);
                 }}
               />
             )}

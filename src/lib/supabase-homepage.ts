@@ -14,17 +14,28 @@ function getHeaders(prefer?: string) {
 }
 
 /**
- * Parses raw layout JSON safely.
+ * Parses raw layout JSON safely and ensures it has actual section content.
  */
 function parseLayoutJson(raw: any): any | null {
   if (!raw) return null;
-  if (typeof raw === "object") return raw;
-  try {
-    return JSON.parse(raw);
-  } catch (err) {
-    console.error("Failed to parse homepage layout JSON:", err);
+  let parsed: any = null;
+  if (typeof raw === "object") {
+    parsed = raw;
+  } else {
+    try {
+      parsed = JSON.parse(raw);
+    } catch (err) {
+      console.error("Failed to parse homepage layout JSON:", err);
+      return null;
+    }
+  }
+  if (!parsed || typeof parsed !== "object") return null;
+  const keys = Object.keys(parsed);
+  // An empty object {} or object without meaningful layout keys is invalid
+  if (keys.length < 2 && !parsed.sectionOrder && !parsed.hero) {
     return null;
   }
+  return parsed;
 }
 
 /**
@@ -94,8 +105,15 @@ export async function saveHomepageLayoutToSupabase(
   layout: any,
   isDraft: boolean = true
 ): Promise<{ ok: boolean; error?: string }> {
-  const targetId = isDraft ? "draft" : "published";
+  if (!layout) {
+    return { ok: false, error: "Empty layout payload provided" };
+  }
   const jsonStr = typeof layout === "string" ? layout : JSON.stringify(layout);
+  if (!jsonStr || jsonStr.trim() === "{}" || jsonStr.trim() === "null") {
+    return { ok: false, error: "Cannot save empty layout object" };
+  }
+
+  const targetId = isDraft ? "draft" : "published";
   const now = new Date().toISOString();
 
   const payload: Record<string, any> = {
@@ -136,7 +154,14 @@ export async function saveHomepageLayoutToSupabase(
 export async function publishHomepageLayoutToSupabase(
   layout: any
 ): Promise<{ ok: boolean; error?: string }> {
+  if (!layout) {
+    return { ok: false, error: "Empty layout payload provided" };
+  }
   const jsonStr = typeof layout === "string" ? layout : JSON.stringify(layout);
+  if (!jsonStr || jsonStr.trim() === "{}" || jsonStr.trim() === "null") {
+    return { ok: false, error: "Cannot publish empty layout object" };
+  }
+
   const now = new Date().toISOString();
   const version = Date.now();
 

@@ -1070,8 +1070,14 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       }
 
       // 6. Homepage Layout
-      let mappedPubLayout: any = supabaseLayouts?.published || null;
-      let mappedDraftLayout: any = supabaseLayouts?.draft || null;
+      const isValidLayoutObj = (l: any) => {
+        if (!l || typeof l !== "object") return false;
+        const keys = Object.keys(l);
+        return keys.length >= 2 && (Array.isArray(l.sectionOrder) || Boolean(l.hero));
+      };
+
+      let mappedPubLayout: any = isValidLayoutObj(supabaseLayouts?.published) ? supabaseLayouts.published : null;
+      let mappedDraftLayout: any = isValidLayoutObj(supabaseLayouts?.draft) ? supabaseLayouts.draft : null;
 
       if (!mappedPubLayout || !mappedDraftLayout) {
         try {
@@ -1082,16 +1088,26 @@ export function PortalProvider({ children }: { children: ReactNode }) {
               const pub = dbLayouts.find((l: any) => l.id === "published");
               const draft = dbLayouts.find((l: any) => l.id === "draft");
               if (!mappedPubLayout && pub && pub.layoutJson) {
-                try { mappedPubLayout = typeof pub.layoutJson === "string" ? JSON.parse(pub.layoutJson) : pub.layoutJson; } catch(e) {}
+                try {
+                  const parsed = typeof pub.layoutJson === "string" ? JSON.parse(pub.layoutJson) : pub.layoutJson;
+                  if (isValidLayoutObj(parsed)) mappedPubLayout = parsed;
+                } catch(e) {}
               }
               if (!mappedDraftLayout && draft && draft.layoutJson) {
-                try { mappedDraftLayout = typeof draft.layoutJson === "string" ? JSON.parse(draft.layoutJson) : draft.layoutJson; } catch(e) {}
+                try {
+                  const parsed = typeof draft.layoutJson === "string" ? JSON.parse(draft.layoutJson) : draft.layoutJson;
+                  if (isValidLayoutObj(parsed)) mappedDraftLayout = parsed;
+                } catch(e) {}
               }
             }
           }
         } catch {}
       }
 
+      // Cross-fallback if one is populated and the other is missing
+      if (!mappedPubLayout && mappedDraftLayout) {
+        mappedPubLayout = mappedDraftLayout;
+      }
       if (!mappedDraftLayout && mappedPubLayout) {
         mappedDraftLayout = mappedPubLayout;
       }
@@ -1264,8 +1280,8 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           wallets: { ...s.wallets, ...extraWallets },
           shopCart: nextShopCart,
           cart: nextShopCart,
-          homepageLayout: mappedPubLayout || s.homepageLayout || DEFAULT_HOMEPAGE_LAYOUT,
-          homepageLayoutDraft: mappedDraftLayout || mappedPubLayout || s.homepageLayoutDraft || DEFAULT_HOMEPAGE_LAYOUT,
+          homepageLayout: (isValidLayoutObj(mappedPubLayout) ? mappedPubLayout : null) || (isValidLayoutObj(s.homepageLayout) ? s.homepageLayout : null) || (isValidLayoutObj(mappedDraftLayout) ? mappedDraftLayout : null) || DEFAULT_HOMEPAGE_LAYOUT,
+          homepageLayoutDraft: (isValidLayoutObj(mappedDraftLayout) ? mappedDraftLayout : null) || (isValidLayoutObj(mappedPubLayout) ? mappedPubLayout : null) || (isValidLayoutObj(s.homepageLayoutDraft) ? s.homepageLayoutDraft : null) || DEFAULT_HOMEPAGE_LAYOUT,
           orders: mergedOrders,
           returns: mappedReturns,
           coupons: mappedCoupons.length > 0 ? mappedCoupons : s.coupons,
@@ -3133,10 +3149,14 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     updateHomepageLayout: (layoutPatch) => {
       let nextLayout: any;
       setState(s => {
+        const base = s.homepageLayout || s.homepageLayoutDraft || DEFAULT_HOMEPAGE_LAYOUT;
         nextLayout = {
-          ...s.homepageLayout,
+          ...DEFAULT_HOMEPAGE_LAYOUT,
+          ...base,
           ...layoutPatch,
-          announcement: layoutPatch.announcement ? { ...s.homepageLayout.announcement, ...layoutPatch.announcement } : s.homepageLayout.announcement
+          announcement: layoutPatch.announcement ? { ...(base.announcement || {}), ...layoutPatch.announcement } : base.announcement,
+          hero: layoutPatch.hero ? { ...(base.hero || {}), ...layoutPatch.hero } : base.hero,
+          sectionOrder: Array.isArray(layoutPatch.sectionOrder) ? layoutPatch.sectionOrder : (base.sectionOrder || DEFAULT_HOMEPAGE_LAYOUT.sectionOrder)
         };
         const next = { ...s, homepageLayout: nextLayout };
         save(next);
@@ -3144,23 +3164,29 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       });
       notifyBroadcastSync();
 
-      // 1. Direct Supabase Persistence
-      saveHomepageLayoutToSupabase(nextLayout, false).catch(err => console.error("Supabase published layout save error:", err));
+      if (nextLayout) {
+        // 1. Direct Supabase Persistence
+        saveHomepageLayoutToSupabase(nextLayout, false).catch(err => console.error("Supabase published layout save error:", err));
 
-      // 2. Render backend sync
-      fetch(`${BACKEND_URL}/api/homepage-layout/published`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ layoutJson: JSON.stringify(nextLayout) })
-      }).catch(err => console.error("Failed to sync published homepage layout:", err));
+        // 2. Render backend sync
+        fetch(`${BACKEND_URL}/api/homepage-layout/published`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ layoutJson: JSON.stringify(nextLayout) })
+        }).catch(err => console.error("Failed to sync published homepage layout:", err));
+      }
     },
     updateHomepageLayoutDraft: (layoutPatch) => {
       let nextLayout: any;
       setState(s => {
+        const base = s.homepageLayoutDraft || s.homepageLayout || DEFAULT_HOMEPAGE_LAYOUT;
         nextLayout = {
-          ...s.homepageLayoutDraft,
+          ...DEFAULT_HOMEPAGE_LAYOUT,
+          ...base,
           ...layoutPatch,
-          announcement: layoutPatch.announcement ? { ...s.homepageLayoutDraft.announcement, ...layoutPatch.announcement } : s.homepageLayoutDraft.announcement
+          announcement: layoutPatch.announcement ? { ...(base.announcement || {}), ...layoutPatch.announcement } : base.announcement,
+          hero: layoutPatch.hero ? { ...(base.hero || {}), ...layoutPatch.hero } : base.hero,
+          sectionOrder: Array.isArray(layoutPatch.sectionOrder) ? layoutPatch.sectionOrder : (base.sectionOrder || DEFAULT_HOMEPAGE_LAYOUT.sectionOrder)
         };
         const next = { ...s, homepageLayoutDraft: nextLayout };
         save(next);
@@ -3168,28 +3194,38 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       });
       notifyBroadcastSync();
 
-      // 1. Direct Supabase Persistence (Instant Multi-Device Truth)
-      saveHomepageLayoutToSupabase(nextLayout, true).catch(err => console.error("Supabase draft layout save error:", err));
+      if (nextLayout) {
+        // 1. Direct Supabase Persistence (Instant Multi-Device Truth)
+        saveHomepageLayoutToSupabase(nextLayout, true).catch(err => console.error("Supabase draft layout save error:", err));
 
-      // 2. Render backend sync
-      fetch(`${BACKEND_URL}/api/homepage-layout/draft`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ layoutJson: JSON.stringify(nextLayout) })
-      }).catch(err => console.error("Failed to sync draft homepage layout:", err));
+        // 2. Render backend sync
+        fetch(`${BACKEND_URL}/api/homepage-layout/draft`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ layoutJson: JSON.stringify(nextLayout) })
+        }).catch(err => console.error("Failed to sync draft homepage layout:", err));
+      }
     },
     publishHomepageLayout: async (layoutToPublish?: any) => {
       const targetLayout = layoutToPublish || state.homepageLayoutDraft || state.homepageLayout;
-      if (!targetLayout) {
+      if (!targetLayout || (typeof targetLayout === "object" && Object.keys(targetLayout).length < 2)) {
         toast.error("No layout configuration found to publish.");
         return false;
       }
 
+      const fullLayout = {
+        ...DEFAULT_HOMEPAGE_LAYOUT,
+        ...targetLayout,
+        sectionOrder: Array.isArray(targetLayout.sectionOrder) && targetLayout.sectionOrder.length > 0
+          ? targetLayout.sectionOrder
+          : DEFAULT_HOMEPAGE_LAYOUT.sectionOrder,
+      };
+
       // 1. Direct Supabase Persistence (Immediate multi-device publication)
-      const sbRes = await publishHomepageLayoutToSupabase(targetLayout);
+      const sbRes = await publishHomepageLayoutToSupabase(fullLayout);
       if (sbRes.ok) {
         setState(s => {
-          const next = { ...s, homepageLayout: targetLayout, homepageLayoutDraft: targetLayout };
+          const next = { ...s, homepageLayout: fullLayout, homepageLayoutDraft: fullLayout };
           save(next);
           return next;
         });
@@ -3201,7 +3237,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       }
 
       // 2. Secondary Render backend sync
-      const jsonStr = typeof targetLayout === "string" ? targetLayout : JSON.stringify(targetLayout);
+      const jsonStr = JSON.stringify(fullLayout);
       try {
         const res = await fetch(`${BACKEND_URL}/api/homepage-layout/publish`, {
           method: "POST",

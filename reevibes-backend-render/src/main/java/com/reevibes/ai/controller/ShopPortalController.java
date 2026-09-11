@@ -364,11 +364,14 @@ public class ShopPortalController {
             } catch (Exception sqlEx) {}
         }
 
-        if (layout == null) {
+        if (layout == null || layout.getLayoutJson() == null || "{}".equals(layout.getLayoutJson().trim())) {
             String altId = "draft".equalsIgnoreCase(id) ? "published" : "published".equalsIgnoreCase(id) ? "draft" : null;
             if (altId != null) {
                 try {
-                    layout = homepageLayoutRepository.findById(altId).orElse(null);
+                    HomepageLayout altLayout = homepageLayoutRepository.findById(altId).orElse(null);
+                    if (altLayout != null && altLayout.getLayoutJson() != null && !"{}".equals(altLayout.getLayoutJson().trim())) {
+                        layout = altLayout;
+                    }
                 } catch (Exception e) {}
             }
         }
@@ -403,10 +406,10 @@ public class ShopPortalController {
             jsonStr = extractLayoutJsonString(body);
         }
 
-        if (jsonStr.isEmpty() || "{}".equals(jsonStr.trim())) {
+        if (jsonStr.isEmpty() || "{}".equals(jsonStr.trim()) || "null".equals(jsonStr.trim())) {
             // Fetch current draft layout from DB
             HomepageLayout draftLayout = getHomepageLayoutById("draft").getBody();
-            if (draftLayout != null && draftLayout.getLayoutJson() != null && !draftLayout.getLayoutJson().isEmpty()) {
+            if (draftLayout != null && draftLayout.getLayoutJson() != null && !"{}".equals(draftLayout.getLayoutJson().trim())) {
                 jsonStr = draftLayout.getLayoutJson();
             }
         }
@@ -430,7 +433,8 @@ public class ShopPortalController {
     @PostMapping("/homepage-layout/revert")
     public ResponseEntity<Map<String, Object>> revertHomepageLayout() {
         HomepageLayout pubLayout = getHomepageLayoutById("published").getBody();
-        String jsonStr = (pubLayout != null && pubLayout.getLayoutJson() != null) ? pubLayout.getLayoutJson() : "{}";
+        String jsonStr = (pubLayout != null && pubLayout.getLayoutJson() != null && !"{}".equals(pubLayout.getLayoutJson().trim()))
+                ? pubLayout.getLayoutJson() : "{}";
         
         saveLayoutToDatabase("draft", jsonStr);
         syncService.bumpVersion();
@@ -462,6 +466,16 @@ public class ShopPortalController {
     }
 
     private HomepageLayout saveLayoutToDatabase(String targetId, String jsonStr) {
+        if (jsonStr == null || jsonStr.trim().isEmpty() || "{}".equals(jsonStr.trim()) || "null".equals(jsonStr.trim())) {
+            // Guard: never overwrite existing populated layout with blank json
+            try {
+                HomepageLayout existing = homepageLayoutRepository.findById(targetId).orElse(null);
+                if (existing != null && existing.getLayoutJson() != null && !"{}".equals(existing.getLayoutJson().trim())) {
+                    return existing;
+                }
+            } catch (Exception e) {}
+        }
+
         HomepageLayout layout = null;
         try {
             layout = homepageLayoutRepository.findById(targetId).orElse(null);

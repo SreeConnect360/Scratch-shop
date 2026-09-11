@@ -664,10 +664,25 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
   const [homepageSyncStatus, setHomepageSyncStatus] = useState<"saved" | "saving">("saved");
   const draftInitializedRef = useRef<boolean>(false);
   const [isPublishingLive, setIsPublishingLive] = useState<boolean>(false);
+  const draftSaveTimeoutRef = useRef<any>(null);
 
-  const updateDraft = (nextLayout: any) => {
+  const updateDraft = (nextLayout: any, immediateSync?: boolean) => {
     setDraftLayout(nextLayout);
-    setHomepageSyncStatus("saved");
+    setHomepageSyncStatus("saving");
+
+    if (draftSaveTimeoutRef.current) {
+      clearTimeout(draftSaveTimeoutRef.current);
+    }
+
+    if (immediateSync) {
+      updateHomepageLayoutDraft(nextLayout);
+      setHomepageSyncStatus("saved");
+    } else {
+      draftSaveTimeoutRef.current = setTimeout(() => {
+        updateHomepageLayoutDraft(nextLayout);
+        setHomepageSyncStatus("saved");
+      }, 600);
+    }
   };
 
   // Re-fetch latest layout directly from Supabase when entering homepage tab
@@ -3340,8 +3355,13 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                   if (!draftLayout) return;
                   setIsPublishingLive(true);
                   try {
+                    if (draftSaveTimeoutRef.current) {
+                      clearTimeout(draftSaveTimeoutRef.current);
+                    }
+                    updateHomepageLayoutDraft(draftLayout);
                     const ok = await publishHomepageLayout(draftLayout);
                     if (ok) {
+                      setHomepageSyncStatus("saved");
                       toast.success("Published live! Changes are now active on reevibes.com and synced across all devices and networks.");
                     }
                   } catch (err: any) {
