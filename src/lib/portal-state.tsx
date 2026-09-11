@@ -619,15 +619,12 @@ const DEFAULT: PortalState = {
 };
 
 function load(): PortalState {
-  if (typeof window === "undefined") return { ...DEFAULT, products: [] };
+  if (typeof window === "undefined") return { ...DEFAULT, products: PRODUCTS || [] };
   try {
     const raw = window.localStorage.getItem(KEY);
-    if (!raw) return { ...DEFAULT, products: [] };
+    if (!raw) return { ...DEFAULT, products: PRODUCTS || [] };
     const parsed = JSON.parse(raw);
-    let prods = Array.isArray(parsed.products) ? parsed.products : [];
-    if (prods.length > 0 && prods.some((p: any) => p.id === "pr1" || p.id === "prw9" || p.id === "prm1")) {
-      prods = prods.filter((p: any) => !p.id.startsWith("pr1") && !p.id.startsWith("pr2") && !p.id.startsWith("pr3") && !p.id.startsWith("pr4") && !p.id.startsWith("pr5") && !p.id.startsWith("pr6") && !p.id.startsWith("prm") && !p.id.startsWith("prw"));
-    }
+    let prods = Array.isArray(parsed.products) && parsed.products.length > 0 ? parsed.products : (PRODUCTS || []);
     const merged = { ...DEFAULT, ...parsed };
     return {
       ...merged,
@@ -642,7 +639,7 @@ function load(): PortalState {
       userRedeemedGiftCards: merged.userRedeemedGiftCards || {},
     };
   } catch {
-    return { ...DEFAULT, products: [] };
+    return { ...DEFAULT, products: PRODUCTS || [] };
   }
 }
 function save(s: PortalState) {
@@ -802,45 +799,82 @@ export function PortalProvider({ children }: { children: ReactNode }) {
   // Fetch dynamic database vendors, products, buckets, and customers from PostgreSQL backend
   const fetchBackendState = useCallback(async (force?: boolean) => {
     try {
-      // 0. Check Sync Version
-      const versionRes = await fetch(`${BACKEND_URL}/api/sync/version`);
-      if (versionRes.ok) {
-        const { version } = await versionRes.json();
-        if (version && version === localVersionRef.current && !force && localVersionRef.current !== 0) {
-          return;
+      // Safe fetch helper with 2500ms timeout for sleeping Render backend
+      const safeBackendFetch = async (path: string, options?: RequestInit, ms = 2500): Promise<Response | null> => {
+        try {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), ms);
+          const res = await fetch(`${BACKEND_URL}${path}`, {
+            ...options,
+            signal: controller.signal,
+          });
+          clearTimeout(timer);
+          return res;
+        } catch {
+          return null;
         }
-        localVersionRef.current = version;
-      }
-      // 1. Fetch Vendors
-      const vendorsRes = await fetch(`${BACKEND_URL}/api/vendors`);
-      let mappedVendors = DEFAULT_VENDORS;
-      if (vendorsRes.ok) {
-        const dbVendors = await vendorsRes.json();
-        if (dbVendors && dbVendors.length > 0) {
-          mappedVendors = dbVendors.map((v: any) => ({
-            id: v.id,
-            companyName: v.companyName || v.id,
-            contactPerson: v.contactPerson || "",
-            email: v.email || "",
-            phone: v.phone || "",
-            products: [],
-            revenue: v.revenue || 0
-          }));
-        }
-      }
+      };
 
-      // 2. Fetch Products from Supabase admin_product_catalog (Primary Multi-Device Truth)
-      let supabaseProducts: Product[] = [];
+      // 0. Fetch Supabase Edge Tables in parallel FIRST (<50ms multi-device truth)
+      const [
+        supabaseProductsRes,
+        supabaseBucketsRes,
+        supabaseLayoutsRes,
+        supabaseCouponsRes,
+        supabaseGiftCardsRes
+      ] = await Promise.allSettled([
+        fetchAdminCatalogFromSupabase(),
+        fetchBucketsFromSupabase(),
+        fetchAllHomepageLayoutsFromSupabase(),
+        fetchCouponsFromSupabase(),
+        fetchWalletGiftCardsFromSupabase()
+      ]);
+
+      const supabaseProducts: Product[] = supabaseProductsRes.status === "fulfilled" && Array.isArray(supabaseProductsRes.value) ? supabaseProductsRes.value : [];
+      const supabaseBuckets: Bucket[] = supabaseBucketsRes.status === "fulfilled" && Array.isArray(supabaseBucketsRes.value) ? supabaseBucketsRes.value : [];
+      const supabaseLayouts = supabaseLayoutsRes.status === "fulfilled" ? supabaseLayoutsRes.value : null;
+      const supabaseCoupons = supabaseCouponsRes.status === "fulfilled" && Array.isArray(supabaseCouponsRes.value) ? supabaseCouponsRes.value : [];
+      const supabaseGiftCards = supabaseGiftCardsRes.status === "fulfilled" && Array.isArray(supabaseGiftCardsRes.value) ? supabaseGiftCardsRes.value : [];
+
+      // 1. Check Sync Version with backend (non-blocking)
       try {
-        supabaseProducts = await fetchAdminCatalogFromSupabase();
-      } catch (e) {
-        console.warn("Error fetching admin catalog from Supabase:", e);
-      }
+        const versionRes = await safeBackendFetch("/api/sync/version", undefined, 2000);
+        if (versionRes && versionRes.ok) {
+          const { version } = await versionRes.json();
+          if (version && version === localVersionRef.current && !force && localVersionRef.current !== 0) {
+            if (supabaseProducts.length === 0 && supabaseBuckets.length === 0) {
+              return;
+            }
+          }
+          if (version) localVersionRef.current = version;
+        }
+      } catch {}
 
+      // 2. Fetch Vendors
+      let mappedVendors = DEFAULT_VENDORS;
+      try {
+        const vendorsRes = await safeBackendFetch("/api/vendors", undefined, 2500);
+        if (vendorsRes && vendorsRes.ok) {
+          const dbVendors = await vendorsRes.json();
+          if (dbVendors && dbVendors.length > 0) {
+            mappedVendors = dbVendors.map((v: any) => ({
+              id: v.id,
+              companyName: v.companyName || v.id,
+              contactPerson: v.contactPerson || "",
+              email: v.email || "",
+              phone: v.phone || "",
+              products: [],
+              revenue: v.revenue || 0
+            }));
+          }
+        }
+      } catch {}
+
+      // 3. Fetch Products from backend
       let backendProducts: any[] = [];
       try {
-        const res = await fetch(`${BACKEND_URL}/api/vendors/products`);
-        if (res.ok) {
+        const res = await safeBackendFetch("/api/vendors/products", undefined, 2500);
+        if (res && res.ok) {
           const dbProducts = await res.json();
           if (dbProducts && Array.isArray(dbProducts)) {
             backendProducts = dbProducts.map((p: any) => {
@@ -875,9 +909,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
             });
           }
         }
-      } catch (e) {
-        // Backend offline or spinning up, Supabase has the truth
-      }
+      } catch {}
 
       // Combine: PRODUCTS baseline first, backend items second, Supabase catalog takes highest authority
       const productMap = new Map<string, any>();
@@ -897,19 +929,11 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       });
       const mappedProducts = [...topSupabaseProducts, ...otherProducts];
 
-
-      // 3. Fetch Buckets (Primary Multi-Device Truth from Supabase + Backend Sync)
-      let supabaseBuckets: Bucket[] = [];
-      try {
-        supabaseBuckets = await fetchBucketsFromSupabase();
-      } catch (e) {
-        console.warn("Error fetching buckets from Supabase:", e);
-      }
-
+      // 4. Fetch Buckets (Supabase first + Backend Sync)
       let backendBuckets: Bucket[] = [];
       try {
-        const bucketsRes = await fetch(`${BACKEND_URL}/api/buckets`);
-        if (bucketsRes.ok) {
+        const bucketsRes = await safeBackendFetch("/api/buckets", undefined, 2500);
+        if (bucketsRes && bucketsRes.ok) {
           const dbBuckets = await bucketsRes.json();
           if (dbBuckets && Array.isArray(dbBuckets) && dbBuckets.length > 0) {
             backendBuckets = dbBuckets.map((b: any, idx: number) => ({
@@ -927,9 +951,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
             }));
           }
         }
-      } catch (e) {
-        // Backend offline or spinning up
-      }
+      } catch {}
 
       let mappedBuckets = DEFAULT_BUCKETS;
       if (supabaseBuckets.length > 0) {
@@ -938,69 +960,61 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         mappedBuckets = backendBuckets.sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
       }
 
-      // 4. Fetch Customers
-      const customersRes = await fetch(`${BACKEND_URL}/api/customers`);
+      // 5. Fetch Customers
       let mappedCustomers: PlatformUser[] = [];
       let extraAddresses: Record<string, string[]> = {};
       let extraWishlists: Record<string, string[]> = {};
       let dbCustomers: any[] = [];
-      if (customersRes.ok) {
-        dbCustomers = await customersRes.json();
-        if (dbCustomers && Array.isArray(dbCustomers)) {
-          mappedCustomers = dbCustomers
-            .filter((u: any) => u && u.email && !u.email.toLowerCase().endsWith("@reevibes.com"))
-            .map((u: any) => {
-              let parsedAddrs: string[] = [];
-              try { if (u.addresses) parsedAddrs = JSON.parse(u.addresses); } catch(e) {}
-              let parsedWish: string[] = [];
-              try { if (u.wishlist) parsedWish = JSON.parse(u.wishlist); } catch(e) {}
-              let parsedCart: CartItem[] = [];
-              try { if (u.cart) parsedCart = JSON.parse(u.cart); } catch(e) {}
-
-              extraAddresses[u.id] = parsedAddrs;
-              extraWishlists[u.id] = parsedWish;
-
-              return {
-                id: u.id,
-                firstName: u.firstName || "",
-                lastName: u.lastName || "",
-                email: u.email,
-                phone: u.phone || "",
-                country: u.country || "",
-                dob: u.dob || "",
-                gender: (u.gender as any) || "",
-                status: (u.status as any) || "Active",
-                roles: u.roles ? (typeof u.roles === "string" ? u.roles.split(",") : u.roles) as any[] : ["General"],
-                addresses: parsedAddrs,
-                wishlist: parsedWish,
-                cart: parsedCart,
-                lastLogin: u.lastLogin || undefined,
-                age: 25,
-                avatar: u.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent((u.firstName || "") + (u.lastName || ""))}`,
-                registeredAt: u.registeredAt || new Date().toISOString().slice(0, 10)
-              };
-            });
-        }
-      }
-
-      // 5. Fetch Homepage Layout
-      let mappedPubLayout: any = null;
-      let mappedDraftLayout: any = null;
-
-      // 5.1 Primary: Direct Supabase Fetch (Instant multi-device truth across any network)
       try {
-        const sbLayouts = await fetchAllHomepageLayoutsFromSupabase();
-        if (sbLayouts.published) mappedPubLayout = sbLayouts.published;
-        if (sbLayouts.draft) mappedDraftLayout = sbLayouts.draft;
-      } catch (sbErr) {
-        console.warn("Supabase homepage layout initial fetch warning:", sbErr);
-      }
+        const customersRes = await safeBackendFetch("/api/customers", undefined, 2500);
+        if (customersRes && customersRes.ok) {
+          dbCustomers = await customersRes.json();
+          if (dbCustomers && Array.isArray(dbCustomers)) {
+            mappedCustomers = dbCustomers
+              .filter((u: any) => u && u.email && !u.email.toLowerCase().endsWith("@reevibes.com"))
+              .map((u: any) => {
+                let parsedAddrs: string[] = [];
+                try { if (u.addresses) parsedAddrs = JSON.parse(u.addresses); } catch(e) {}
+                let parsedWish: string[] = [];
+                try { if (u.wishlist) parsedWish = JSON.parse(u.wishlist); } catch(e) {}
+                let parsedCart: CartItem[] = [];
+                try { if (u.cart) parsedCart = JSON.parse(u.cart); } catch(e) {}
 
-      // 5.2 Fallback / Secondary Sync with Render backend
+                extraAddresses[u.id] = parsedAddrs;
+                extraWishlists[u.id] = parsedWish;
+
+                return {
+                  id: u.id,
+                  firstName: u.firstName || "",
+                  lastName: u.lastName || "",
+                  email: u.email,
+                  phone: u.phone || "",
+                  country: u.country || "",
+                  dob: u.dob || "",
+                  gender: (u.gender as any) || "",
+                  status: (u.status as any) || "Active",
+                  roles: u.roles ? (typeof u.roles === "string" ? u.roles.split(",") : u.roles) as any[] : ["General"],
+                  addresses: parsedAddrs,
+                  wishlist: parsedWish,
+                  cart: parsedCart,
+                  lastLogin: u.lastLogin || undefined,
+                  age: 25,
+                  avatar: u.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent((u.firstName || "") + (u.lastName || ""))}`,
+                  registeredAt: u.registeredAt || new Date().toISOString().slice(0, 10)
+                };
+              });
+          }
+        }
+      } catch {}
+
+      // 6. Homepage Layout
+      let mappedPubLayout: any = supabaseLayouts?.published || null;
+      let mappedDraftLayout: any = supabaseLayouts?.draft || null;
+
       if (!mappedPubLayout || !mappedDraftLayout) {
-        const layoutsRes = await fetch(`${BACKEND_URL}/api/homepage-layout`).catch(() => null);
-        if (layoutsRes && layoutsRes.ok) {
-          try {
+        try {
+          const layoutsRes = await safeBackendFetch("/api/homepage-layout", undefined, 2000);
+          if (layoutsRes && layoutsRes.ok) {
             const dbLayouts = await layoutsRes.json();
             if (Array.isArray(dbLayouts)) {
               const pub = dbLayouts.find((l: any) => l.id === "published");
@@ -1012,99 +1026,76 @@ export function PortalProvider({ children }: { children: ReactNode }) {
                 try { mappedDraftLayout = typeof draft.layoutJson === "string" ? JSON.parse(draft.layoutJson) : draft.layoutJson; } catch(e) {}
               }
             }
-          } catch(e) {}
-        }
-      }
-
-      if (!mappedPubLayout) {
-        try {
-          const pubRes = await fetch(`${BACKEND_URL}/api/homepage-layout/published`).catch(() => null);
-          if (pubRes && pubRes.ok) {
-            const data = await pubRes.json();
-            if (data && data.layoutJson) {
-              mappedPubLayout = typeof data.layoutJson === "string" ? JSON.parse(data.layoutJson) : data.layoutJson;
-            }
           }
-        } catch(e) {}
-      }
-
-      if (!mappedDraftLayout) {
-        try {
-          const draftRes = await fetch(`${BACKEND_URL}/api/homepage-layout/draft`).catch(() => null);
-          if (draftRes && draftRes.ok) {
-            const data = await draftRes.json();
-            if (data && data.layoutJson) {
-              mappedDraftLayout = typeof data.layoutJson === "string" ? JSON.parse(data.layoutJson) : data.layoutJson;
-            }
-          }
-        } catch(e) {}
+        } catch {}
       }
 
       if (!mappedDraftLayout && mappedPubLayout) {
         mappedDraftLayout = mappedPubLayout;
       }
 
-      // 6. Fetch Orders
-      const ordersRes = await fetch(`${BACKEND_URL}/api/orders`);
+      // 7. Fetch Orders
       let mappedOrders: Record<string, any[]> = {};
-      if (ordersRes.ok) {
-        const dbOrders = await ordersRes.json();
-        dbOrders.forEach((o: any) => {
-          let items = [];
-          try { items = JSON.parse(o.itemsJson); } catch(e) {}
-          let refundDetails = undefined;
-          if (o.refundDetailsJson) {
-            try { refundDetails = JSON.parse(o.refundDetailsJson); } catch(e) {}
-          }
-          if (!mappedOrders[o.userId]) mappedOrders[o.userId] = [];
-          mappedOrders[o.userId].push({
-            id: o.id,
-            date: o.orderDate,
-            items,
-            total: Number(o.total),
-            status: o.status,
-            address: o.address,
-            paymentStatus: o.paymentStatus as any,
-            refundDetails,
-            razorpayPaymentId: o.razorpayPaymentId || undefined,
-            razorpayOrderId: o.razorpayOrderId || undefined,
-            razorpaySignature: o.razorpaySignature || undefined,
-            currency: o.currency || "INR",
-            paymentMethod: o.paymentMethod || "Razorpay Gateway",
-            transactionDate: o.transactionDate || undefined,
-            trackingNumber: o.trackingNumber || undefined,
-            courierPartner: o.courierPartner || undefined,
-            estimatedDeliveryDate: o.estimatedDeliveryDate || undefined,
-            scansJson: o.scansJson || undefined,
-            deliveryDate: o.deliveryDate || undefined,
-            shiprocketOrderId: o.shiprocketOrderId || undefined,
-            shiprocketShipmentId: o.shiprocketShipmentId || undefined
-          });
-        });
-      }
-
-      // 7. Fetch Returns
-      const returnsRes = await fetch(`${BACKEND_URL}/api/returns`);
-      let mappedReturns = [];
-      if (returnsRes.ok) {
-        const dbReturns = await returnsRes.json();
-        mappedReturns = dbReturns.map((r: any) => ({
-          ...r,
-          refundAmount: Number(r.refundAmount),
-          images: r.images ? r.images.split(",") : [],
-          videos: r.videos ? r.videos.split(",") : []
-        }));
-      }
-
-      // 8. Fetch Coupons from Supabase first (fallback to backend)
-      let mappedCoupons = [];
       try {
-        const sbCoupons = await fetchCouponsFromSupabase();
-        if (sbCoupons && sbCoupons.length > 0) {
-          mappedCoupons = sbCoupons;
-        } else {
-          const couponsRes = await fetch(`${BACKEND_URL}/api/coupons`);
-          if (couponsRes.ok) {
+        const ordersRes = await safeBackendFetch("/api/orders", undefined, 2500);
+        if (ordersRes && ordersRes.ok) {
+          const dbOrders = await ordersRes.json();
+          dbOrders.forEach((o: any) => {
+            let items = [];
+            try { items = JSON.parse(o.itemsJson); } catch(e) {}
+            let refundDetails = undefined;
+            if (o.refundDetailsJson) {
+              try { refundDetails = JSON.parse(o.refundDetailsJson); } catch(e) {}
+            }
+            if (!mappedOrders[o.userId]) mappedOrders[o.userId] = [];
+            mappedOrders[o.userId].push({
+              id: o.id,
+              date: o.orderDate,
+              items,
+              total: Number(o.total),
+              status: o.status,
+              address: o.address,
+              paymentStatus: o.paymentStatus as any,
+              refundDetails,
+              razorpayPaymentId: o.razorpayPaymentId || undefined,
+              razorpayOrderId: o.razorpayOrderId || undefined,
+              razorpaySignature: o.razorpaySignature || undefined,
+              currency: o.currency || "INR",
+              paymentMethod: o.paymentMethod || "Razorpay Gateway",
+              transactionDate: o.transactionDate || undefined,
+              trackingNumber: o.trackingNumber || undefined,
+              courierPartner: o.courierPartner || undefined,
+              estimatedDeliveryDate: o.estimatedDeliveryDate || undefined,
+              scansJson: o.scansJson || undefined,
+              deliveryDate: o.deliveryDate || undefined,
+              shiprocketOrderId: o.shiprocketOrderId || undefined,
+              shiprocketShipmentId: o.shiprocketShipmentId || undefined
+            });
+          });
+        }
+      } catch {}
+
+      // 8. Fetch Returns
+      let mappedReturns = [];
+      try {
+        const returnsRes = await safeBackendFetch("/api/returns", undefined, 2500);
+        if (returnsRes && returnsRes.ok) {
+          const dbReturns = await returnsRes.json();
+          mappedReturns = dbReturns.map((r: any) => ({
+            ...r,
+            refundAmount: Number(r.refundAmount),
+            images: r.images ? r.images.split(",") : [],
+            videos: r.videos ? r.videos.split(",") : []
+          }));
+        }
+      } catch {}
+
+      // 9. Coupons & Gift Cards from Supabase (fallback to backend if empty)
+      let mappedCoupons = supabaseCoupons;
+      if (mappedCoupons.length === 0) {
+        try {
+          const couponsRes = await safeBackendFetch("/api/coupons", undefined, 2000);
+          if (couponsRes && couponsRes.ok) {
             const dbCoupons = await couponsRes.json();
             mappedCoupons = dbCoupons.map((c: any) => ({
               ...c,
@@ -1114,41 +1105,33 @@ export function PortalProvider({ children }: { children: ReactNode }) {
               brand: c.brand || ""
             }));
           }
-        }
-      } catch (err) {
-        console.warn("Failed to fetch coupons from Supabase:", err);
+        } catch {}
       }
 
-      // 8b. Fetch Wallet Gift Cards from Supabase
-      let mappedGiftCards: WalletGiftCard[] = [];
-      try {
-        const sbGiftCards = await fetchWalletGiftCardsFromSupabase();
-        if (sbGiftCards && sbGiftCards.length > 0) {
-          mappedGiftCards = sbGiftCards as WalletGiftCard[];
-        }
-      } catch (err) {
-        console.warn("Failed to fetch wallet gift cards from Supabase:", err);
-      }
+      let mappedGiftCards: WalletGiftCard[] = supabaseGiftCards as WalletGiftCard[];
 
-      // 9. Fetch Reviews
-      const reviewsRes = await fetch(`${BACKEND_URL}/api/reviews`);
+      // 10. Fetch Reviews
       let mappedReviews: Record<string, any[]> = {};
-      if (reviewsRes.ok) {
-        const dbReviews = await reviewsRes.json();
-        dbReviews.forEach((r: any) => {
-          if (!mappedReviews[r.productId]) mappedReviews[r.productId] = [];
-          mappedReviews[r.productId].push({
-            id: r.id,
-            userName: r.userName,
-            rating: r.rating,
-            comment: r.comment,
-            date: r.reviewDate,
-            status: r.status,
-            images: r.images ? r.images.split(",") : [],
-            videos: r.videos ? r.videos.split(",") : []
+      try {
+        const reviewsRes = await safeBackendFetch("/api/reviews", undefined, 2500);
+        if (reviewsRes && reviewsRes.ok) {
+          const dbReviews = await reviewsRes.json();
+          dbReviews.forEach((r: any) => {
+            if (!mappedReviews[r.productId]) mappedReviews[r.productId] = [];
+            mappedReviews[r.productId].push({
+              id: r.id,
+              userName: r.userName,
+              rating: r.rating,
+              comment: r.comment,
+              date: r.reviewDate,
+              status: r.status,
+              images: r.images ? r.images.split(",") : [],
+              videos: r.videos ? r.videos.split(",") : []
+            });
           });
-        });
-      }
+        }
+      } catch {}
+
 
       setState(s => {
         const currentUser = s.user;

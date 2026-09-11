@@ -177,6 +177,49 @@ export async function fetchAdminCatalogFromSupabase(): Promise<Product[]> {
 }
 
 /**
+ * Directly fetches a single product from Supabase `admin_product_catalog` by id or sku.
+ */
+export async function fetchSingleProductFromSupabase(productId: string): Promise<Product | null> {
+  if (!productId) return null;
+  const cleanId = String(productId).trim();
+  try {
+    // Try exact id match first
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/admin_product_catalog?id=eq.${encodeURIComponent(cleanId)}&select=*`,
+      {
+        method: "GET",
+        headers: getHeaders(),
+      }
+    );
+    if (res.ok) {
+      const rows = await res.json();
+      if (Array.isArray(rows) && rows.length > 0) {
+        return mapSupabaseRowToProduct(rows[0]);
+      }
+    }
+
+    // Fallback: try match by id without "-catalog", or sku
+    const altRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/admin_product_catalog?or=(id.eq.${encodeURIComponent(cleanId + "-catalog")},sku.eq.${encodeURIComponent(cleanId)})&select=*`,
+      {
+        method: "GET",
+        headers: getHeaders(),
+      }
+    );
+    if (altRes.ok) {
+      const rows = await altRes.json();
+      if (Array.isArray(rows) && rows.length > 0) {
+        return mapSupabaseRowToProduct(rows[0]);
+      }
+    }
+    return null;
+  } catch (err) {
+    console.warn(`Error fetching single product ${productId} from Supabase:`, err);
+    return null;
+  }
+}
+
+/**
  * Upserts (inserts or updates) a complete product record in Supabase `admin_product_catalog`.
  */
 export async function upsertCatalogProductToSupabase(p: any): Promise<{ ok: boolean; product?: Product; error?: string }> {

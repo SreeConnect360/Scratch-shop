@@ -34,8 +34,9 @@ import {
   Tag
 } from "lucide-react";
 import { ProductCard } from "@/components/public/ProductCard";
-import { parseProductInfoMarkup, type ProductSection } from "@/lib/data";
+import { parseProductInfoMarkup, type ProductSection, PRODUCTS, type Product } from "@/lib/data";
 import { getEligibleCouponsForProduct } from "@/lib/supabase-coupons";
+import { fetchSingleProductFromSupabase } from "@/lib/supabase-catalog";
 
 export const Route = createFileRoute("/_shop/product/$productId")({
   component: ProductDetail,
@@ -140,7 +141,7 @@ function renderLine(line: string) {
 
 function ProductDetail() {
   const productId = Route.useParams().productId;
-  const { state, toggleShopWishlist, addToShopCart, removeFromShopCart, recordProductView } = usePortal();
+  const { state, isProductsLoading, reloadProducts, toggleShopWishlist, addToShopCart, removeFromShopCart, recordProductView } = usePortal();
   const { triggerPopup } = useShopNotification();
   const { theme } = useTheme();
   const navigate = useNavigate();
@@ -149,7 +150,7 @@ function ProductDetail() {
 
   // Product Lookup
   const products = state.products || [];
-  const product = useMemo(() => {
+  const contextProduct = useMemo(() => {
     return products.find(
       (p) =>
         p.id === productId ||
@@ -159,7 +160,50 @@ function ProductDetail() {
     );
   }, [products, productId]);
 
+  // Fast direct Supabase fetch fallback for direct link / new tab visits
+  const [directProduct, setDirectProduct] = useState<any | null>(null);
+  const [isDirectFetching, setIsDirectFetching] = useState<boolean>(!contextProduct);
+  const [directFetchAttempted, setDirectFetchAttempted] = useState<boolean>(false);
+
+  useEffect(() => {
+    let isCurrent = true;
+    if (!contextProduct && productId) {
+      setIsDirectFetching(true);
+      fetchSingleProductFromSupabase(productId)
+        .then((p) => {
+          if (isCurrent) {
+            if (p) {
+              setDirectProduct(p);
+            }
+            setIsDirectFetching(false);
+            setDirectFetchAttempted(true);
+          }
+        })
+        .catch(() => {
+          if (isCurrent) {
+            setIsDirectFetching(false);
+            setDirectFetchAttempted(true);
+          }
+        });
+    } else if (contextProduct) {
+      setIsDirectFetching(false);
+      setDirectFetchAttempted(true);
+    }
+    return () => {
+      isCurrent = false;
+    };
+  }, [productId, contextProduct]);
+
+  // Ensure full catalog is loaded for suggestions if state.products has few items
+  useEffect(() => {
+    if (!products || products.length < 4) {
+      reloadProducts(true);
+    }
+  }, [products?.length, reloadProducts]);
+
+  const product = contextProduct || directProduct;
   const isPublished = product && (!product.status || product.status === "PUBLISHED" || product.status === "published");
+  const isStillLoading = !product && (isProductsLoading || isDirectFetching || !directFetchAttempted);
 
   useEffect(() => {
     if (product) {
@@ -233,6 +277,28 @@ function ProductDetail() {
 
   const userId = state.user?.id;
   const isFavorite = userId ? (state.shopWishlist[userId] || []).includes(product?.id || "") : false;
+
+  if (isStillLoading) {
+    return (
+      <div className={cn("min-h-[85vh] flex flex-col items-center justify-center p-6 text-center space-y-6 transition-colors duration-300", isDark ? "bg-[#0A0A0A] text-white" : "bg-[#F9FAFB] text-slate-900")}>
+        <div className="relative flex items-center justify-center">
+          <div className="w-20 h-20 rounded-full border-2 border-[#D4AF37]/20 border-t-[#D4AF37] animate-spin" />
+          <Sparkles className="w-8 h-8 text-[#D4AF37] absolute animate-pulse" />
+        </div>
+        <div className="space-y-2 max-w-sm">
+          <span className="text-[10px] uppercase font-mono font-bold tracking-[0.3em] text-[#D4AF37]">
+            ReeVibes Atelier
+          </span>
+          <h2 className="font-serif text-2xl font-bold text-foreground">
+            Curating Statement Piece...
+          </h2>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Retrieving master craftsmanship details, atelier sizing, and inventory availability.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (!product || !isPublished) {
     return (
@@ -463,33 +529,44 @@ function ProductDetail() {
     }
   };
 
-  // Related products calculation
+  // Related products calculation with robust multi-layer fallback
   const relatedProducts = useMemo(() => {
-    if (!products || products.length === 0) return [];
+    const catalogSource = (products && products.length > 0) ? products : (PRODUCTS || []);
+    if (!catalogSource || catalogSource.length === 0) return [];
     
-    // 1. Same category, type, or gender matches
-    let matches = products.filter((p) =>
-      p.id !== product.id &&
+    // 1. Same category, type, gender, or house/brand matches
+    let matches = catalogSource.filter((p) =>
+      p.id !== product?.id &&
       (!p.status || p.status === "PUBLISHED" || p.status === "published") &&
       (
-        (p.category && product.category && p.category.toLowerCase() === product.category.toLowerCase()) ||
-        (p.type && product.type && p.type.toLowerCase() === product.type.toLowerCase()) ||
-        (p.gender && product.gender && p.gender.toLowerCase() === product.gender.toLowerCase())
+        (p.category && product?.category && p.category.toLowerCase() === product?.category.toLowerCase()) ||
+        (p.type && product?.type && p.type.toLowerCase() === product?.type.toLowerCase()) ||
+        (p.gender && product?.gender && p.gender.toLowerCase() === product?.gender.toLowerCase()) ||
+        (p.house && product?.house && p.house.toLowerCase() === product?.house.toLowerCase())
       )
     );
 
-    // 2. If fewer than 4 matches, fill with other published products
+    // 2. If fewer than 4 matches, fill with other published products from catalogSource
     if (matches.length < 4) {
-      const remaining = products.filter((p) =>
-        p.id !== product.id &&
+      const remaining = catalogSource.filter((p) =>
+        p.id !== product?.id &&
         (!p.status || p.status === "PUBLISHED" || p.status === "published") &&
         !matches.some((m) => m.id === p.id)
       );
       matches = [...matches, ...remaining];
     }
 
+    // 3. If still fewer than 4, fill from baseline PRODUCTS
+    if (matches.length < 4 && PRODUCTS && PRODUCTS.length > 0) {
+      const baseline = PRODUCTS.filter((p) =>
+        p.id !== product?.id &&
+        !matches.some((m) => m.id === p.id)
+      );
+      matches = [...matches, ...baseline];
+    }
+
     return matches.slice(0, 4);
-  }, [products, product?.id, product?.category, product?.type, product?.gender]);
+  }, [products, product?.id, product?.category, product?.type, product?.gender, product?.house]);
 
   return (
     <div className={cn("min-h-screen pb-28 pt-2 sm:pt-6 transition-colors duration-300", isDark ? "bg-[#0A0A0A] text-white" : "bg-[#F9FAFB] text-slate-900")}>
