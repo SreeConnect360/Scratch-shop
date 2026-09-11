@@ -413,166 +413,6 @@ function CategoriesPage() {
     return list;
   }, [products, searchParams, genderFilter, categoryFilter, categoriesFilter, sizeFilter, colorFilter, priceLimitFilter, tagFilter, brandFilter, productOrdersCount, parsedFilters, styleInput, parsePrice, state.buckets, state.productViews, state.productCartAdditions, state.productPurchases, state.productReviews]);
 
-  const userWishlist = state.user ? (state.shopWishlist[state.user.id] || []) : [];
-
-  const showCollectionsGrid = searchParams.view === "collections" && !searchParams.bucketId;
-
-  let pageTitle = "Fashion Curation";
-  let pageEyebrow = "Style Your Fashion";
-  if (showCollectionsGrid) {
-    pageTitle = "Collections Curation";
-    pageEyebrow = "EDITORIAL LOOKBOOKS";
-  } else if (brandFilter) {
-    pageTitle = `${brandFilter} Atelier`;
-    pageEyebrow = "DESIGNER BRAND EDIT";
-  } else if (tagFilter === "New" || tagFilter === "New Arrivals") {
-    pageTitle = "New Arrivals";
-    pageEyebrow = "LATEST ATELIER RELEASES";
-  } else if (tagFilter === "Trending") {
-    pageTitle = "Trending Curation";
-    pageEyebrow = "HIGH-FIDELITY STATEMENTS";
-  } else if (searchParams.bucketId) {
-    const bucket = state.buckets?.find(b => b.id === searchParams.bucketId);
-    pageTitle = bucket ? bucket.name : "Collection Curation";
-    pageEyebrow = "EDITORIAL EDIT SET";
-  }
-
-  const handleSearchChange = (val: string) => {
-    setStyleInput(val);
-    navigate({
-      to: "/categories",
-      search: (prev: any) => ({ ...prev, q: val || undefined }),
-      replace: true,
-    });
-  };
-
-  const clearFilter = (filterType: string) => {
-    let newQ = styleInput;
-    if (filterType === "brand") {
-      navigate({
-        to: "/categories",
-        search: (prev: any) => {
-          const next = { ...prev };
-          delete next.brand;
-          return next;
-        }
-      });
-      return;
-    }
-    if (filterType === "gender") {
-      navigate({
-        to: "/categories",
-        search: (prev: any) => {
-          const next = { ...prev };
-          delete next.gender;
-          return next;
-        }
-      });
-      return;
-    }
-    if (filterType === "tag") {
-      navigate({
-        to: "/categories",
-        search: (prev: any) => {
-          const next = { ...prev };
-          delete next.tag;
-          return next;
-        }
-      });
-      return;
-    }
-    
-    if (filterType === "category") {
-      navigate({
-        to: "/categories",
-        search: (prev: any) => {
-          const next = { ...prev };
-          delete next.category;
-          return next;
-        },
-        replace: true
-      });
-      newQ = newQ.replace(/\b(shirts?|t-shirts?|t shirts?|tshirts?|tops?|bottoms?|pants?|trousers?|accessories?|couture|gown|dress)es?\b/gi, "").trim();
-    } else if (filterType === "size") {
-      newQ = newQ.replace(/\b(xs|s|m|l|xl|xxl)\b/gi, "").trim();
-    } else if (filterType === "color") {
-      const colorsPattern = new RegExp(`\\b(black|white|red|blue|green|pink|yellow|orange|grey|gray|purple|gold|silver|brown|beige|navy|noir)\\b`, "gi");
-      newQ = newQ.replace(colorsPattern, "").trim();
-    } else if (filterType === "priceLimit") {
-      newQ = newQ.replace(/\b(?:under|below|less than|max|budget)\s*(?:rs\.?|inr|₹)?\s*\d+[\d,]*\b/gi, "").trim();
-      newQ = newQ.replace(/(?:rs\.?|inr|₹)\s*\d+[\d,]*\b/gi, "").trim();
-    }
-    
-    navigate({
-      to: "/categories",
-      search: (prev: any) => ({ ...prev, q: newQ || undefined }),
-      replace: true,
-    });
-  };
-
-  // Render collections grid
-  if (showCollectionsGrid) {
-    const unhiddenBuckets = (state.buckets || [])
-      .filter(b => !b.hidden)
-      .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
-    return (
-      <div className="space-y-8 pb-16 public-layout">
-        <header className="px-6 lg:px-16 pt-12 pb-12 border border-white/10 dark:border-white/10 bg-white/5 backdrop-blur-md rounded-3xl mx-4 lg:mx-8 relative overflow-hidden grain shadow-[0_4px_30px_rgba(0,0,0,0.1)]">
-          <div className="absolute inset-0 bg-gradient-to-br from-accent/10 via-transparent to-transparent opacity-60 pointer-events-none" />
-          <FadeUp><p className="editorial-eyebrow text-accent flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5 text-accent animate-pulse" /> {pageEyebrow}</p></FadeUp>
-          <FadeUp delay={0.1}><h1 className="mt-6 font-serif text-5xl lg:text-7xl text-foreground font-bold tracking-wide uppercase">{pageTitle}</h1></FadeUp>
-          <FadeUp delay={0.2}><p className="mt-4 max-w-xl text-muted-foreground text-sm">Explore our curated collections of luxury outfits and select sets.</p></FadeUp>
-        </header>
-
-        <section className="px-4 sm:px-6 lg:px-16 py-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 bg-transparent">
-          {unhiddenBuckets.length === 0 ? (
-            <div className="col-span-full py-24 text-center text-sm text-muted-foreground italic bg-white/5 border border-white/10 rounded-3xl p-6">
-              No collections are currently published by the admin.
-            </div>
-          ) : (
-            unhiddenBuckets.map((b, i) => {
-              const starProd = products.find((p) => p.id === b.starProductId) || products.find((p) => (b.productIds || []).includes(p.id));
-              const thumbnail = b.thumbnail || starProd?.image || "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=400&h=500&q=80";
-              return (
-                <FadeUp key={b.id} delay={i * 0.05}>
-                  <Link
-                    to="/categories"
-                    search={{ bucketId: b.id } as any}
-                    className="liquid-glass liquid-glass-card-hover relative flex flex-col group overflow-hidden bg-transparent border border-white/10 rounded-3xl"
-                  >
-                    <div className="aspect-[3/4] overflow-hidden bg-zinc-950 relative">
-                      <img src={thumbnail} className="absolute inset-0 w-full h-full object-cover opacity-70 transition-transform duration-500 group-hover:scale-105" alt="" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 to-transparent" />
-                      <div className="absolute inset-x-0 bottom-0 p-6 flex justify-between items-center z-10">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[9px] uppercase tracking-widest text-accent font-bold">Curation Collection</span>
-                          </div>
-                          <h4 className="font-serif text-xl mt-1 text-white font-bold">{b.name}</h4>
-                        </div>
-                        <ArrowRight className="w-5 h-5 text-white group-hover:text-accent transition-colors shrink-0" />
-                      </div>
-                    </div>
-                  </Link>
-                </FadeUp>
-              );
-            })
-          )}
-        </section>
-      </div>
-    );
-  }
-
-  // Active filter tags array
-  const activeChips = [];
-  if (genderFilter !== "All") activeChips.push({ label: `Gender: ${genderFilter}`, type: "gender" });
-  if (categoryFilter !== "All") activeChips.push({ label: `Category: ${categoryFilter}`, type: "category" });
-  if (sizeFilter) activeChips.push({ label: `Size: ${sizeFilter}`, type: "size" });
-  if (colorFilter) activeChips.push({ label: `Color: ${colorFilter}`, type: "color" });
-  if (priceLimitFilter !== null) activeChips.push({ label: `Price: Under ₹${priceLimitFilter.toLocaleString()}`, type: "priceLimit" });
-  if (tagFilter) activeChips.push({ label: `Tag: ${tagFilter}`, type: "tag" });
-  if (brandFilter) activeChips.push({ label: `Brand: ${brandFilter}`, type: "brand" });
-
   // Dedicated New Arrivals layout: active when on New Arrivals tag without a restrictive sub-filter
   const isNewArrivalsView = (tagFilter === "New" || tagFilter === "New Arrivals") && genderFilter === "All" && categoryFilter === "All" && !brandFilter;
 
@@ -618,37 +458,174 @@ function CategoriesPage() {
     return { newlyAdded, women, men, unisex, others };
   }, [filteredProducts, isNewArrivalsView]);
 
+  const showCollectionsGrid = searchParams.view === "collections" && !searchParams.bucketId;
+
+  const unhiddenBuckets = useMemo(() => {
+    if (!showCollectionsGrid) return [];
+    return (state.buckets || [])
+      .filter((b) => !b.hidden)
+      .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+  }, [showCollectionsGrid, state.buckets]);
+
+  const userWishlist = state.user ? (state.shopWishlist[state.user.id] || []) : [];
+
+  let pageTitle = "Fashion Curation";
+  let pageEyebrow = "Style Your Fashion";
+  if (showCollectionsGrid) {
+    pageTitle = "Collections Curation";
+    pageEyebrow = "EDITORIAL LOOKBOOKS";
+  } else if (brandFilter) {
+    pageTitle = `${brandFilter} Atelier`;
+    pageEyebrow = "DESIGNER BRAND EDIT";
+  } else if (tagFilter === "New" || tagFilter === "New Arrivals") {
+    pageTitle = "New Arrivals";
+    pageEyebrow = "LATEST ATELIER RELEASES";
+  } else if (tagFilter === "Trending") {
+    pageTitle = "Trending Curation";
+    pageEyebrow = "HIGH-FIDELITY STATEMENTS";
+  } else if (searchParams.bucketId) {
+    const bucket = state.buckets?.find((b) => b.id === searchParams.bucketId);
+    pageTitle = bucket ? bucket.name : "Collection Curation";
+    pageEyebrow = "EDITORIAL EDIT SET";
+  }
+
+  const handleSearchChange = (val: string) => {
+    setStyleInput(val);
+    navigate({
+      to: "/categories",
+      search: (prev: any) => ({ ...prev, q: val || undefined }),
+      replace: true,
+    });
+  };
+
+  const clearFilter = (filterType: string) => {
+    let newQ = styleInput;
+    if (filterType === "brand") {
+      navigate({
+        to: "/categories",
+        search: (prev: any) => {
+          const next = { ...prev };
+          delete next.brand;
+          return next;
+        },
+      });
+      return;
+    }
+    if (filterType === "gender") {
+      navigate({
+        to: "/categories",
+        search: (prev: any) => {
+          const next = { ...prev };
+          delete next.gender;
+          return next;
+        },
+      });
+      return;
+    }
+    if (filterType === "tag") {
+      navigate({
+        to: "/categories",
+        search: (prev: any) => {
+          const next = { ...prev };
+          delete next.tag;
+          return next;
+        },
+      });
+      return;
+    }
+    if (filterType === "bucketId") {
+      navigate({
+        to: "/categories",
+        search: (prev: any) => {
+          const next = { ...prev };
+          delete next.bucketId;
+          return next;
+        },
+      });
+      return;
+    }
+
+    if (filterType === "category") {
+      navigate({
+        to: "/categories",
+        search: (prev: any) => {
+          const next = { ...prev };
+          delete next.category;
+          return next;
+        },
+        replace: true,
+      });
+      newQ = newQ.replace(/\b(shirts?|t-shirts?|t shirts?|tshirts?|tops?|bottoms?|pants?|trousers?|accessories?|couture|gown|dress)es?\b/gi, "").trim();
+    } else if (filterType === "size") {
+      newQ = newQ.replace(/\b(xs|s|m|l|xl|xxl)\b/gi, "").trim();
+    } else if (filterType === "color") {
+      const colorsPattern = new RegExp(`\\b(black|white|red|blue|green|pink|yellow|orange|grey|gray|purple|gold|silver|brown|beige|navy|noir)\\b`, "gi");
+      newQ = newQ.replace(colorsPattern, "").trim();
+    } else if (filterType === "priceLimit") {
+      newQ = newQ.replace(/\b(?:under|below|less than|max|budget)\s*(?:rs\.?|inr|₹)?\s*\d+[\d,]*\b/gi, "").trim();
+      newQ = newQ.replace(/(?:rs\.?|inr|₹)\s*\d+[\d,]*\b/gi, "").trim();
+    }
+
+    navigate({
+      to: "/categories",
+      search: (prev: any) => ({ ...prev, q: newQ || undefined }),
+      replace: true,
+    });
+  };
+
+  // Active filter tags array
+  const activeChips: { label: string; type: string }[] = [];
+  if (genderFilter !== "All") activeChips.push({ label: `Gender: ${genderFilter}`, type: "gender" });
+  if (categoryFilter !== "All") activeChips.push({ label: `Category: ${categoryFilter}`, type: "category" });
+  if (sizeFilter) activeChips.push({ label: `Size: ${sizeFilter}`, type: "size" });
+  if (colorFilter) activeChips.push({ label: `Color: ${colorFilter}`, type: "color" });
+  if (priceLimitFilter !== null) activeChips.push({ label: `Price: Under ₹${priceLimitFilter.toLocaleString()}`, type: "priceLimit" });
+  if (tagFilter) activeChips.push({ label: `Tag: ${tagFilter}`, type: "tag" });
+  if (brandFilter) activeChips.push({ label: `Brand: ${brandFilter}`, type: "brand" });
+  if (searchParams.bucketId) {
+    const bucket = state.buckets?.find((b) => b.id === searchParams.bucketId);
+    activeChips.push({ label: `Collection: ${bucket ? bucket.name : "Custom Edit"}`, type: "bucketId" });
+  }
+
   return (
     <div className="space-y-8 pb-16 public-layout">
       <header className="px-6 lg:px-16 pt-12 pb-12 border border-white/10 dark:border-white/10 bg-white/5 backdrop-blur-md rounded-3xl mx-4 lg:mx-8 relative overflow-hidden grain shadow-[0_4px_30px_rgba(0,0,0,0.1)]">
         <div className="absolute inset-0 bg-gradient-to-br from-accent/10 via-transparent to-transparent opacity-60 pointer-events-none" />
         <FadeUp><p className="editorial-eyebrow text-accent flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5 text-accent animate-pulse" /> {pageEyebrow}</p></FadeUp>
         <FadeUp delay={0.1}><h1 className="mt-6 font-serif text-5xl lg:text-7xl text-foreground font-bold tracking-wide uppercase">{pageTitle}</h1></FadeUp>
-        <FadeUp delay={0.2}><p className="mt-4 max-w-xl text-muted-foreground text-sm">Discover and filter luxury curation using natural language commands or search keys.</p></FadeUp>
+        <FadeUp delay={0.2}>
+          <p className="mt-4 max-w-xl text-muted-foreground text-sm">
+            {showCollectionsGrid
+              ? "Explore our curated collections of luxury outfits and select sets."
+              : "Discover and filter luxury curation using natural language commands or search keys."}
+          </p>
+        </FadeUp>
         
         {/* Style Your Fashion Search Bar */}
-        <div className="relative w-full max-w-2xl mt-8">
-          <input
-            type="text"
-            placeholder="Style Your Fashion... (e.g. men's XL shirts under 20000)"
-            value={styleInput}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            className="w-full bg-white/10 border border-white/20 focus:border-accent pl-12 pr-6 py-4 rounded-full text-xs outline-none transition-all placeholder:text-muted-foreground/60 text-foreground shadow-lg"
-          />
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-accent" />
-          {styleInput && (
-            <button
-              onClick={() => handleSearchChange("")}
-              className="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-full bg-foreground/10 hover:bg-foreground/20 text-foreground transition-all cursor-pointer"
-            >
-              <X className="w-3 h-3" />
-            </button>
-          )}
-        </div>
+        {!showCollectionsGrid && (
+          <div className="relative w-full max-w-2xl mt-8">
+            <input
+              type="text"
+              placeholder="Style Your Fashion... (e.g. men's XL shirts under 20000)"
+              value={styleInput}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="w-full bg-white/10 border border-white/20 focus:border-accent pl-12 pr-6 py-4 rounded-full text-xs outline-none transition-all placeholder:text-muted-foreground/60 text-foreground shadow-lg"
+            />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-accent" />
+            {styleInput && (
+              <button
+                onClick={() => handleSearchChange("")}
+                className="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-full bg-foreground/10 hover:bg-foreground/20 text-foreground transition-all cursor-pointer"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+        )}
       </header>
 
       {/* Dynamic Filter Chips Section */}
-      {activeChips.length > 0 && (
+      {!showCollectionsGrid && activeChips.length > 0 && (
         <section className="px-6 lg:px-16 py-4 flex flex-wrap gap-2 items-center bg-transparent">
           <span className="text-[10px] uppercase tracking-wider text-muted-foreground mr-2 font-bold">Active Curation:</span>
           {activeChips.map((chip, idx) => (
@@ -676,81 +653,119 @@ function CategoriesPage() {
       )}
 
       {/* Category Tabs & Quick Filter Controls */}
-      <section className="px-4 sm:px-6 lg:px-16 pt-2 pb-2 space-y-4">
-        {/* Horizontal Category Navigation Bar */}
-        <div className="flex items-center justify-between gap-4 flex-wrap pb-3 border-b border-white/10">
-          <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar py-1 max-w-full">
-            {availableCategories.map((cat) => {
-              const isSelected = (cat === "All" && categoryFilter === "All") || (categoryFilter.toLowerCase() === cat.toLowerCase());
-              return (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => {
-                    navigate({
-                      to: "/categories",
-                      search: (prev: any) => ({
-                        ...prev,
-                        category: cat === "All" ? undefined : cat,
-                      }),
-                      replace: true,
-                    });
-                  }}
-                  className={cn(
-                    "px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs font-semibold tracking-wider transition-all duration-200 uppercase whitespace-nowrap cursor-pointer",
-                    isSelected
-                      ? "bg-accent text-obsidian shadow-[0_0_20px_-3px_rgba(200,169,106,0.6)] font-bold scale-[1.02]"
-                      : "bg-white/5 hover:bg-white/10 text-muted-foreground hover:text-foreground border border-white/10"
-                  )}
-                >
-                  {cat}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="flex items-center gap-3 shrink-0">
-            {/* Gender Filters */}
-            <div className="flex items-center gap-1 bg-white/5 border border-white/10 p-1 rounded-full text-[10px] uppercase font-bold tracking-wider">
-              {["All", "Women", "Men", "Unisex"].map((g) => {
-                const isSelected = genderFilter === g;
+      {!showCollectionsGrid && (
+        <section className="px-4 sm:px-6 lg:px-16 pt-2 pb-2 space-y-4">
+          {/* Horizontal Category Navigation Bar */}
+          <div className="flex items-center justify-between gap-4 flex-wrap pb-3 border-b border-white/10">
+            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar py-1 max-w-full">
+              {availableCategories.map((cat) => {
+                const isSelected = (cat === "All" && categoryFilter === "All") || (categoryFilter.toLowerCase() === cat.toLowerCase());
                 return (
                   <button
-                    key={g}
+                    key={cat}
                     type="button"
                     onClick={() => {
                       navigate({
                         to: "/categories",
                         search: (prev: any) => ({
                           ...prev,
-                          gender: g === "All" ? undefined : (g as any),
+                          category: cat === "All" ? undefined : cat,
                         }),
                         replace: true,
                       });
                     }}
                     className={cn(
-                      "px-2.5 py-1 rounded-full transition-colors cursor-pointer",
+                      "px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs font-semibold tracking-wider transition-all duration-200 uppercase whitespace-nowrap cursor-pointer",
                       isSelected
-                        ? "bg-accent text-obsidian shadow-sm font-bold"
-                        : "text-muted-foreground hover:text-foreground"
+                        ? "bg-accent text-obsidian shadow-[0_0_20px_-3px_rgba(200,169,106,0.6)] font-bold scale-[1.02]"
+                        : "bg-white/5 hover:bg-white/10 text-muted-foreground hover:text-foreground border border-white/10"
                     )}
                   >
-                    {g}
+                    {cat}
                   </button>
                 );
               })}
             </div>
 
-            {/* Counter */}
-            <span className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest hidden md:inline-block">
-              {filteredProducts.length} {filteredProducts.length === 1 ? "Piece" : "Pieces"}
-            </span>
-          </div>
-        </div>
-      </section>
+            <div className="flex items-center gap-3 shrink-0">
+              {/* Gender Filters */}
+              <div className="flex items-center gap-1 bg-white/5 border border-white/10 p-1 rounded-full text-[10px] uppercase font-bold tracking-wider">
+                {["All", "Women", "Men", "Unisex"].map((g) => {
+                  const isSelected = genderFilter === g;
+                  return (
+                    <button
+                      key={g}
+                      type="button"
+                      onClick={() => {
+                        navigate({
+                          to: "/categories",
+                          search: (prev: any) => ({
+                            ...prev,
+                            gender: g === "All" ? undefined : (g as any),
+                          }),
+                          replace: true,
+                        });
+                      }}
+                      className={cn(
+                        "px-2.5 py-1 rounded-full transition-colors cursor-pointer",
+                        isSelected
+                          ? "bg-accent text-obsidian shadow-sm font-bold"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      {g}
+                    </button>
+                  );
+                })}
+              </div>
 
-      {/* Product Grid / New Arrivals Multi-Row View */}
-      {isNewArrivalsView ? (
+              {/* Counter */}
+              <span className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest hidden md:inline-block">
+                {filteredProducts.length} {filteredProducts.length === 1 ? "Piece" : "Pieces"}
+              </span>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Main Content Area: Collections Grid OR New Arrivals Multi-Row View OR Standard Product Grid */}
+      {showCollectionsGrid ? (
+        <section className="px-4 sm:px-6 lg:px-16 py-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 bg-transparent">
+          {unhiddenBuckets.length === 0 ? (
+            <div className="col-span-full py-24 text-center text-sm text-muted-foreground italic bg-white/5 border border-white/10 rounded-3xl p-6">
+              No collections are currently published by the admin.
+            </div>
+          ) : (
+            unhiddenBuckets.map((b, i) => {
+              const starProd = products.find((p) => p.id === b.starProductId) || products.find((p) => (b.productIds || []).includes(p.id));
+              const thumbnail = b.thumbnail || starProd?.image || "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=400&h=500&q=80";
+              return (
+                <FadeUp key={b.id} delay={i * 0.05}>
+                  <Link
+                    to="/categories"
+                    search={{ bucketId: b.id } as any}
+                    className="liquid-glass liquid-glass-card-hover relative flex flex-col group overflow-hidden bg-transparent border border-white/10 rounded-3xl"
+                  >
+                    <div className="aspect-[3/4] overflow-hidden bg-zinc-950 relative">
+                      <img src={thumbnail} className="absolute inset-0 w-full h-full object-cover opacity-70 transition-transform duration-500 group-hover:scale-105" alt="" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 to-transparent" />
+                      <div className="absolute inset-x-0 bottom-0 p-6 flex justify-between items-center z-10">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[9px] uppercase tracking-widest text-accent font-bold">Curation Collection</span>
+                          </div>
+                          <h4 className="font-serif text-xl mt-1 text-white font-bold">{b.name}</h4>
+                        </div>
+                        <ArrowRight className="w-5 h-5 text-white group-hover:text-accent transition-colors shrink-0" />
+                      </div>
+                    </div>
+                  </Link>
+                </FadeUp>
+              );
+            })
+          )}
+        </section>
+      ) : isNewArrivalsView ? (
         <div className="px-4 sm:px-6 lg:px-16 py-8 space-y-12 sm:space-y-14">
           {/* 1. Newly Added Releases: First 2 Rows */}
           {newArrivalSections.newlyAdded.length > 0 && (
