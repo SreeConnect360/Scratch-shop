@@ -1,4 +1,4 @@
-import { Product } from "./portal-data";
+import { type Product } from "./data";
 
 export const SUPABASE_URL =
   import.meta.env.VITE_SUPABASE_URL ||

@@ -132,6 +132,7 @@ export type ProductReview = {
   images?: string[];
   videos?: string[];
   date: string;
+  status?: "Approved" | "Hidden";
 };
 
 
@@ -734,8 +735,8 @@ type Ctx = {
   updateShopCartQty: (productId: string, selectedSize: string, qty: number) => void;
   updateShopCartSizeAndQty: (productId: string, oldSize: string, newSize: string, qty: number) => void;
   restoreToShopCart: (item: CartItem) => void;
-  reloadProducts: () => Promise<void>;
-  reloadBuckets: () => Promise<void>;
+  reloadProducts: (force?: boolean) => Promise<void>;
+  reloadBuckets: (force?: boolean) => Promise<void>;
 };
 
 const PortalContext = createContext<Ctx | null>(null);
