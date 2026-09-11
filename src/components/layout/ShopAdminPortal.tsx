@@ -13,6 +13,7 @@ import {
 import * as XLSX from "xlsx";
 import { AdminCard, AdminButton, StatusChip } from "./AdminCommon";
 import { PRODUCTS } from "@/lib/data";
+import { sortCustomerAccountsById } from "@/lib/supabase-customers";
 import { toast } from "sonner";
 const formatOrderDateTime = (dateStr: string) => {
   const dateObj = new Date(dateStr);
@@ -76,7 +77,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
       return true;
     });
   }, [returnsList, returnsFilter]);
-  const customersList = state.users || [];
+  const customersList = useMemo(() => sortCustomerAccountsById(state.users || []), [state.users]);
   const couponsList = state.coupons || [];
 
   // Derive distinct Product Types and Brands from published product catalog for smart suggestions
@@ -1579,7 +1580,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                     <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">DOB:</span><span className="col-span-2">{selectedCustomerDetails.dob || "—"}</span></div>
                     <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">Country:</span><span className="col-span-2">{selectedCustomerDetails.country || "—"}</span></div>
                     <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">Status:</span><span className="col-span-2"><StatusChip status={selectedCustomerDetails.status} tone={selectedCustomerDetails.status === "Active" ? "success" : "danger"} /></span></div>
-                    <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">Wallet:</span><span className="col-span-2 font-semibold text-accent">₹{(state.wallets[selectedCustomerDetails.id] ?? 0).toLocaleString()}</span></div>
+                    <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">Wallet:</span><span className="col-span-2 font-semibold text-accent">₹{(state.wallets[selectedCustomerDetails.id] ?? selectedCustomerDetails.walletBalance ?? 0).toLocaleString()}</span></div>
                   </div>
                 </div>
 
@@ -1603,7 +1604,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
                               try {
                                 const parsed = JSON.parse(trimmed);
-                                 name = parsed.full_name || parsed.name || parsed.fullName || `${selectedCustomerDetails.firstName} ${selectedCustomerDetails.lastName}`.trim();
+                                name = parsed.full_name || parsed.name || parsed.fullName || `${selectedCustomerDetails.firstName} ${selectedCustomerDetails.lastName}`.trim();
                                 phone = parsed.phone || parsed.phoneNumber || selectedCustomerDetails.phone || "No phone provided";
                                 const street = parsed.street_address || parsed.street || parsed.address || "";
                                 const city = parsed.city || "";
@@ -1651,7 +1652,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
               <div className="space-y-4 animate-in fade-in duration-200">
                 <h4 className="font-bold text-accent uppercase tracking-wider text-[10px] pb-2 border-b border-white/10">Active Wishlist Items</h4>
                 {(() => {
-                  const rawWish = state.wishlist[selectedCustomerDetails.id] || state.shopWishlist[selectedCustomerDetails.id] || selectedCustomerDetails.wishlist || [];
+                  const rawWish = state.shopWishlist[selectedCustomerDetails.id] || state.wishlist[selectedCustomerDetails.id] || selectedCustomerDetails.wishlist || [];
                   const wishListIds: string[] = typeof rawWish === "string" ? (() => { try { return JSON.parse(rawWish); } catch(e) { return []; } })() : (Array.isArray(rawWish) ? rawWish : []);
                   if (wishListIds.length === 0) {
                     return <p className="text-xs text-muted-foreground italic">No items saved in wishlist.</p>;
@@ -1664,7 +1665,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                         return (
                           <div key={productId} className="flex items-center justify-between border-b border-white/5 pb-2 text-xs">
                             <div className="flex items-center gap-3">
-                              <img src={p?.image || "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=80&h=80&fit=crop"} alt={p?.name} className="w-10 h-10 object-cover bg-white/5 rounded" />
+                              <img src={p?.image || (p?.images && p.images[0]) || "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=80&h=80&fit=crop"} alt={p?.name} className="w-10 h-10 object-cover bg-white/5 rounded" />
                               <div>
                                 <div className="font-semibold text-white">{p?.name || `Product #${productId}`}</div>
                                 <div className="text-[10px] text-muted-foreground">{p?.house || "Maison Curation"}</div>
@@ -1706,7 +1707,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                         return (
                           <div key={i} className="flex items-center justify-between border-b border-white/5 pb-2 text-xs">
                             <div className="flex items-center gap-3">
-                              <img src={item.image || "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=80&h=80&fit=crop"} alt={item.name} className="w-10 h-10 object-cover bg-white/5 rounded" />
+                              <img src={item.image || "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=800"} alt={item.name} className="w-10 h-10 object-cover bg-white/5 rounded" />
                               <div>
                                 <div className="font-semibold text-white">{item.name}</div>
                                 <div className="text-[10px] text-muted-foreground">
@@ -1718,9 +1719,11 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                               <span className="text-muted-foreground">Qty: {item.qty || 1}</span>
                               <span className="font-serif text-muted-foreground">{item.price}</span>
                               <span className="font-serif font-bold text-accent">₹{totalAmount.toLocaleString()}</span>
-                              <Link to="/product/$productId" params={{ productId: item.productId }} className="text-[10px] uppercase font-bold text-accent border border-accent/30 hover:border-accent px-3 py-1 rounded-full">
-                                View Product
-                              </Link>
+                              {item.productId ? (
+                                <Link to="/product/$productId" params={{ productId: item.productId }} className="text-[10px] uppercase font-bold text-accent border border-accent/30 hover:border-accent px-3 py-1 rounded-full">
+                                  View Product
+                                </Link>
+                              ) : null}
                             </div>
                           </div>
                         );
@@ -1749,7 +1752,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                               <span className="text-[10px] text-muted-foreground ml-3">{formatOrderDateTime(ord.date)}</span>
                             </div>
                             <div className="flex gap-2">
-                              <StatusChip status={ord.status} tone={ord.status === "Delivered" ? "success" : ord.status === "Processing" ? "warn" : "accent"} />
+                              <StatusChip status={ord.status} tone={ord.status === "Delivered" ? "success" : ord.status === "Processing" ? "warn" : ord.status === "Cancelled" ? "danger" : "accent"} />
                               <StatusChip status={ord.paymentStatus} tone={ord.paymentStatus === "Paid" ? "success" : "warn"} />
                             </div>
                           </div>
@@ -1759,7 +1762,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                               return (
                                 <div key={idx} className="flex justify-between items-center">
                                   <div className="flex items-center gap-2">
-                                    <img src={item.image} alt={item.name} className="w-8 h-8 object-cover rounded bg-white/5" />
+                                    <img src={item.image || "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=800"} alt={item.name} className="w-8 h-8 object-cover rounded bg-white/5" />
                                     <div>
                                       <div className="font-medium text-white">{item.name}</div>
                                       <div className="text-[10px] text-muted-foreground">Size: {item.selectedSize || "—"} · Qty: {item.qty}</div>
@@ -1767,9 +1770,11 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                   </div>
                                   <div className="flex items-center gap-4">
                                     <span className="font-serif font-bold text-accent">₹{(priceVal * item.qty).toLocaleString()}</span>
-                                    <Link to="/product/$productId" params={{ productId: item.productId }} className="text-[9px] uppercase font-bold text-accent/80 hover:text-accent">
-                                      View
-                                    </Link>
+                                    {item.productId ? (
+                                      <Link to="/product/$productId" params={{ productId: item.productId }} className="text-[9px] uppercase font-bold text-accent/80 hover:text-accent">
+                                        View
+                                      </Link>
+                                    ) : null}
                                   </div>
                                 </div>
                               );
@@ -1791,13 +1796,16 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={async () => {
                     const amtStr = prompt(`Enter wallet credit amount (₹) to add for ${selectedCustomerDetails.firstName || "Customer"}:`);
                     if (amtStr) {
                       const num = Number(amtStr.replace(/[^0-9.]/g, ""));
                       if (!isNaN(num) && num > 0) {
-                        addWalletCredit(selectedCustomerDetails.id, num);
-                        toast.success(`₹${num.toLocaleString()} credited to ${selectedCustomerDetails.firstName}'s wallet!`);
+                        await addWalletCredit(selectedCustomerDetails.id, num);
+                        const prevBal = state.wallets[selectedCustomerDetails.id] ?? selectedCustomerDetails.walletBalance ?? 0;
+                        const nextBal = prevBal + num;
+                        setSelectedCustomerDetails((prev: any) => ({ ...prev, walletBalance: nextBal }));
+                        toast.success(`₹${num.toLocaleString()} credited to ${selectedCustomerDetails.firstName || "Customer"}'s wallet!`);
                       } else {
                         toast.error("Invalid amount entered.");
                       }
@@ -1814,7 +1822,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                     onClick={() => {
                       suspendCustomer(selectedCustomerDetails.id);
                       setSelectedCustomerDetails((prev: any) => ({ ...prev, status: "Suspended" }));
-                      toast.warning(`Account of ${selectedCustomerDetails.firstName} suspended.`);
+                      toast.warning(`Account of ${selectedCustomerDetails.firstName} suspended. Active sessions logged out.`);
                     }}
                     className="editorial-label bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/30 px-3 py-1.5 rounded-full text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
                   >
@@ -6718,12 +6726,25 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
               <h3 className="font-serif text-xl">Customer Directories</h3>
               <p className="text-xs text-muted-foreground mt-0.5">Manage registered platform members, profile dossiers, and shipping destinations</p>
             </div>
-            <button
-              onClick={handleExportCustomersExcel}
-              className="editorial-label bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-full transition-all shadow-md inline-flex items-center gap-2 text-xs font-bold cursor-pointer"
-            >
-              <FileSpreadsheet className="w-4 h-4" /> Export to Excel
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={async () => {
+                  toast.info("Refreshing customers from Supabase...");
+                  await fetchBackendState(true);
+                  toast.success("Customers directory up to date!");
+                }}
+                className="editorial-label bg-white/10 hover:bg-white/20 text-white px-3.5 py-2 rounded-full transition-all inline-flex items-center gap-2 text-xs font-bold cursor-pointer"
+                title="Sync latest from Supabase"
+              >
+                <RefreshCw className="w-3.5 h-3.5" /> Refresh Live
+              </button>
+              <button
+                onClick={handleExportCustomersExcel}
+                className="editorial-label bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-full transition-all shadow-md inline-flex items-center gap-2 text-xs font-bold cursor-pointer"
+              >
+                <FileSpreadsheet className="w-4 h-4" /> Export to Excel
+              </button>
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
@@ -6748,7 +6769,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                   </tr>
                 ) : (
                   customersList.map(c => {
-                    const bal = state.wallets[c.id] ?? 0;
+                    const bal = state.wallets[c.id] ?? c.walletBalance ?? 0;
                     const orderCount = state.orders[c.id]?.length ?? (c as any).orders?.length ?? 0;
                     const cartCount = (c.cart || []).length;
                     const wishCount = (state.shopWishlist[c.id] || (c as any).wishlist || []).length;

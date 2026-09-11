@@ -68,7 +68,15 @@ import {
   syncUserWishlistToSupabase,
   syncUserCartToSupabase,
   syncUserAddressesToSupabase,
-  syncOrderToSupabase
+  syncOrderToSupabase,
+  sortCustomerAccountsById,
+  fetchAllShopOrdersFromSupabase,
+  fetchUserOrdersFromSupabase,
+  fetchUserCartFromSupabase,
+  fetchUserWishlistFromSupabase,
+  creditCustomerWalletInSupabase,
+  updateCustomerStatusInSupabase,
+  checkCustomerSuspendedInSupabase
 } from "./supabase-customers";
 export type { CustomerAccount };
 export {
@@ -81,7 +89,15 @@ export {
   syncUserWishlistToSupabase,
   syncUserCartToSupabase,
   syncUserAddressesToSupabase,
-  syncOrderToSupabase
+  syncOrderToSupabase,
+  sortCustomerAccountsById,
+  fetchAllShopOrdersFromSupabase,
+  fetchUserOrdersFromSupabase,
+  fetchUserCartFromSupabase,
+  fetchUserWishlistFromSupabase,
+  creditCustomerWalletInSupabase,
+  updateCustomerStatusInSupabase,
+  checkCustomerSuspendedInSupabase
 };
 
 const KEY = "reevibes:portal:v3";
@@ -565,7 +581,7 @@ const DEFAULT: PortalState = {
   userNotifications: {},
   drafts: [],
   submitted: [],
-  users: PLATFORM_USERS,
+  users: [],
   applications: CONTESTANT_APPLICATIONS,
   reports: ABUSE_REPORTS,
   contests: DEFAULT_CONTESTS,
@@ -577,62 +593,18 @@ const DEFAULT: PortalState = {
   castingWorkflow: {},
   judgeRatings: {},
   rateScores: {},
-  addresses: {
-    "USR-1000": ["123, Luxury Lane, Indiranagar, Bangalore - 560038", "Flat 402, Royal Residency, Juhu, Mumbai - 400049"]
-  },
-  majorAddresses: {
-    "USR-1000": "123, Luxury Lane, Indiranagar, Bangalore - 560038"
-  },
-  wishlist: {
-    "USR-1000": ["pr1", "pr3"]
-  },
-  shopWishlist: {
-    "USR-1000": ["pr1", "pr2"]
-  },
-  orders: {
-    "USR-1000": [
-      {
-        id: "ORD-9481",
-        date: "2026-06-15T14:30:00Z",
-        items: [{ productId: "pr2", name: "Cashmere Cape", house: "Atelier Reine", price: "₹1,50,000", image: "https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=1200&h=1600&q=80", qty: 1, selectedSize: "M" }],
-        total: 150000,
-        status: "Shipped",
-        address: "123, Luxury Lane, Indiranagar, Bangalore - 560038",
-        paymentStatus: "Paid"
-      },
-      {
-        id: "ORD-9500",
-        date: "2026-07-09T18:45:00Z",
-        items: [{ productId: "pr1", name: "Silk Slip — Noir", house: "Maison Lumière", price: "₹85,000", image: "https://images.unsplash.com/photo-1485518882345-15568b007407?auto=format&fit=crop&w=1200&h=1600&q=80", qty: 1, selectedSize: "S" }],
-        total: 85000,
-        status: "Processing",
-        address: "123, Luxury Lane, Indiranagar, Bangalore - 560038",
-        paymentStatus: "Paid"
-      }
-    ]
-  },
+  addresses: {},
+  majorAddresses: {},
+  wishlist: {},
+  shopWishlist: {},
+  orders: {},
   coupons: [
     { code: "FESTIVE20", discount: 20, type: "percentage", expiryDate: "2026-12-31", usageLimit: 100, userEligibility: "All", active: true },
     { code: "REEVIBES10", discount: 10, type: "percentage", expiryDate: "2026-12-31", usageLimit: 200, userEligibility: "All", active: true }
   ],
   products: [],
-  returns: [
-    {
-      id: "RET-101",
-      orderId: "ORD-9481",
-      productId: "pr2",
-      productName: "Cashmere Cape",
-      customerId: "USR-1000",
-      customerName: "Léa Dubois",
-      reason: "Size Issue",
-      comment: "The cape size is too large around the shoulders.",
-      images: ["https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=400&h=300&q=80"],
-      videos: [],
-      status: "Pending",
-      refundAmount: 150000
-    }
-  ],
-  wallets: DEFAULT_WALLETS,
+  returns: [],
+  wallets: {},
   userRedeemedGiftCards: {},
   walletGiftCards: DEFAULT_WALLET_GIFT_CARDS,
   vendors: DEFAULT_VENDORS,
@@ -653,12 +625,39 @@ function load(): PortalState {
     const parsed = JSON.parse(raw);
     let prods = Array.isArray(parsed.products) && parsed.products.length > 0 ? parsed.products : (PRODUCTS || []);
     const merged = { ...DEFAULT, ...parsed };
+
+    // Filter out mock USR-1000 and legacy test mock objects
+    const cleanedOrders = { ...(merged.orders || {}) };
+    delete cleanedOrders["USR-1000"];
+    delete cleanedOrders["usr-1000"];
+
+    const cleanedWallets = { ...(merged.wallets || {}) };
+    delete cleanedWallets["USR-1000"];
+    delete cleanedWallets["usr-1000"];
+
+    const cleanedAddresses = { ...(merged.addresses || {}) };
+    delete cleanedAddresses["USR-1000"];
+    delete cleanedAddresses["usr-1000"];
+
+    const cleanedWishlist = { ...(merged.wishlist || {}) };
+    delete cleanedWishlist["USR-1000"];
+    delete cleanedWishlist["usr-1000"];
+
+    const cleanedShopWishlist = { ...(merged.shopWishlist || {}) };
+    delete cleanedShopWishlist["USR-1000"];
+    delete cleanedShopWishlist["usr-1000"];
+
     return {
       ...merged,
       products: prods,
       notifications: Array.isArray(merged.notifications) ? merged.notifications : DEFAULT.notifications,
-      returns: Array.isArray(merged.returns) ? merged.returns : DEFAULT.returns,
-      users: Array.isArray(merged.users) ? merged.users.filter((u: any) => u && u.email && !u.email.toLowerCase().endsWith("@reevibes.com")) : [],
+      returns: Array.isArray(merged.returns) ? merged.returns.filter((r: any) => r && r.customerId !== "USR-1000") : [],
+      users: Array.isArray(merged.users) ? merged.users.filter((u: any) => u && u.id !== "USR-1000" && u.email && !u.email.toLowerCase().endsWith("@reevibes.com")) : [],
+      orders: cleanedOrders,
+      wallets: cleanedWallets,
+      addresses: cleanedAddresses,
+      wishlist: cleanedWishlist,
+      shopWishlist: cleanedShopWishlist,
       contests: Array.isArray(merged.contests) ? merged.contests : DEFAULT.contests,
       applications: Array.isArray(merged.applications) ? merged.applications : DEFAULT.applications,
       homepageLayout: merged.homepageLayout || DEFAULT.homepageLayout,
@@ -852,14 +851,16 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         supabaseLayoutsRes,
         supabaseCouponsRes,
         supabaseGiftCardsRes,
-        supabaseCustomersRes
+        supabaseCustomersRes,
+        supabaseOrdersRes
       ] = await Promise.allSettled([
         fetchAdminCatalogFromSupabase(),
         fetchBucketsFromSupabase(),
         fetchAllHomepageLayoutsFromSupabase(),
         fetchCouponsFromSupabase(),
         fetchWalletGiftCardsFromSupabase(),
-        fetchCustomerAccountsFromSupabase()
+        fetchCustomerAccountsFromSupabase(),
+        fetchAllShopOrdersFromSupabase()
       ]);
 
       const supabaseProducts: Product[] = supabaseProductsRes.status === "fulfilled" && Array.isArray(supabaseProductsRes.value) ? supabaseProductsRes.value : [];
@@ -868,6 +869,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       const supabaseCoupons = supabaseCouponsRes.status === "fulfilled" && Array.isArray(supabaseCouponsRes.value) ? supabaseCouponsRes.value : [];
       const supabaseGiftCards = supabaseGiftCardsRes.status === "fulfilled" && Array.isArray(supabaseGiftCardsRes.value) ? supabaseGiftCardsRes.value : [];
       const supabaseCustomers: CustomerAccount[] = supabaseCustomersRes.status === "fulfilled" && Array.isArray(supabaseCustomersRes.value) ? supabaseCustomersRes.value : [];
+      const supabaseOrdersList: any[] = supabaseOrdersRes.status === "fulfilled" && Array.isArray(supabaseOrdersRes.value) ? supabaseOrdersRes.value : [];
 
       // 1. Check Sync Version with backend (non-blocking)
       try {
@@ -1000,7 +1002,8 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       let extraWallets: Record<string, number> = {};
 
       if (supabaseCustomers.length > 0) {
-        mappedCustomers = supabaseCustomers.map(c => {
+        const sortedCustomers = sortCustomerAccountsById(supabaseCustomers);
+        mappedCustomers = sortedCustomers.map(c => {
           extraAddresses[c.id] = c.addresses || [];
           extraWishlists[c.id] = c.wishlist || [];
           extraWallets[c.id] = c.walletBalance ?? 0;
@@ -1021,6 +1024,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
             cart: c.cart || [],
             lastLogin: c.lastLogin,
             age: c.age || 25,
+            walletBalance: c.walletBalance ?? 0,
             avatar: c.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent((c.firstName || "") + (c.lastName || ""))}`,
             registeredAt: c.createdAt ? c.createdAt.slice(0, 10) : new Date().toISOString().slice(0, 10),
           };
@@ -1032,7 +1036,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
             const dbCustomers = await customersRes.json();
             if (dbCustomers && Array.isArray(dbCustomers)) {
               mappedCustomers = dbCustomers
-                .filter((u: any) => u && u.email && !u.email.toLowerCase().endsWith("@reevibes.com"))
+                .filter((u: any) => u && u.id !== "USR-1000" && u.email && !u.email.toLowerCase().endsWith("@reevibes.com"))
                 .map((u: any) => {
                   let parsedAddrs: string[] = [];
                   try { if (u.addresses) parsedAddrs = JSON.parse(u.addresses); } catch(e) {}
@@ -1043,6 +1047,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 
                   extraAddresses[u.id] = parsedAddrs;
                   extraWishlists[u.id] = parsedWish;
+                  extraWallets[u.id] = Number(u.walletBalance) || 0;
 
                   return {
                     id: u.id,
@@ -1059,11 +1064,13 @@ export function PortalProvider({ children }: { children: ReactNode }) {
                     wishlist: parsedWish,
                     cart: parsedCart,
                     lastLogin: u.lastLogin || undefined,
-                    age: 25,
+                    age: u.age || 25,
+                    walletBalance: Number(u.walletBalance) || 0,
                     avatar: u.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent((u.firstName || "") + (u.lastName || ""))}`,
                     registeredAt: u.registeredAt || new Date().toISOString().slice(0, 10)
                   };
                 });
+              mappedCustomers = sortCustomerAccountsById(mappedCustomers);
             }
           }
         } catch {}
@@ -1112,13 +1119,55 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         mappedDraftLayout = mappedPubLayout;
       }
 
-      // 7. Fetch Orders
+      // 7. Fetch Orders (Supabase first-class, then backend fallback)
       let mappedOrders: Record<string, any[]> = {};
+      if (supabaseOrdersList.length > 0) {
+        supabaseOrdersList.forEach((o: any) => {
+          if (o.user_id === "USR-1000") return;
+          let items = [];
+          try {
+            items = typeof o.items_json === "string" ? JSON.parse(o.items_json) : (o.items_json || []);
+          } catch(e) {}
+          let refundDetails = undefined;
+          if (o.refund_details_json) {
+            try {
+              refundDetails = typeof o.refund_details_json === "string" ? JSON.parse(o.refund_details_json) : o.refund_details_json;
+            } catch(e) {}
+          }
+          const uId = o.user_id || "guest";
+          if (!mappedOrders[uId]) mappedOrders[uId] = [];
+          mappedOrders[uId].push({
+            id: o.id,
+            date: o.order_date,
+            items,
+            total: Number(o.total) || 0,
+            status: o.status || "Processing",
+            address: typeof o.address === "object" ? JSON.stringify(o.address) : (o.address || ""),
+            paymentStatus: o.payment_status || "Paid",
+            refundDetails,
+            razorpayPaymentId: o.razorpay_payment_id || undefined,
+            razorpayOrderId: o.razorpay_order_id || undefined,
+            razorpaySignature: o.razorpay_signature || undefined,
+            currency: o.currency || "INR",
+            paymentMethod: o.payment_method || "Razorpay Gateway",
+            transactionDate: o.transaction_date || undefined,
+            trackingNumber: o.tracking_number || undefined,
+            courierPartner: o.courier_partner || undefined,
+            estimatedDeliveryDate: o.estimated_delivery_date || undefined,
+            scansJson: o.scans_json || undefined,
+            deliveryDate: o.delivery_date || undefined,
+            shiprocketOrderId: o.shiprocket_order_id || undefined,
+            shiprocketShipmentId: o.shiprocket_shipment_id || undefined
+          });
+        });
+      }
+
       try {
         const ordersRes = await safeBackendFetch("/api/orders", undefined, 2500);
         if (ordersRes && ordersRes.ok) {
           const dbOrders = await ordersRes.json();
           dbOrders.forEach((o: any) => {
+            if (o.userId === "USR-1000") return;
             let items = [];
             try { items = JSON.parse(o.itemsJson); } catch(e) {}
             let refundDetails = undefined;
@@ -1126,29 +1175,32 @@ export function PortalProvider({ children }: { children: ReactNode }) {
               try { refundDetails = JSON.parse(o.refundDetailsJson); } catch(e) {}
             }
             if (!mappedOrders[o.userId]) mappedOrders[o.userId] = [];
-            mappedOrders[o.userId].push({
-              id: o.id,
-              date: o.orderDate,
-              items,
-              total: Number(o.total),
-              status: o.status,
-              address: o.address,
-              paymentStatus: o.paymentStatus as any,
-              refundDetails,
-              razorpayPaymentId: o.razorpayPaymentId || undefined,
-              razorpayOrderId: o.razorpayOrderId || undefined,
-              razorpaySignature: o.razorpaySignature || undefined,
-              currency: o.currency || "INR",
-              paymentMethod: o.paymentMethod || "Razorpay Gateway",
-              transactionDate: o.transactionDate || undefined,
-              trackingNumber: o.trackingNumber || undefined,
-              courierPartner: o.courierPartner || undefined,
-              estimatedDeliveryDate: o.estimatedDeliveryDate || undefined,
-              scansJson: o.scansJson || undefined,
-              deliveryDate: o.deliveryDate || undefined,
-              shiprocketOrderId: o.shiprocketOrderId || undefined,
-              shiprocketShipmentId: o.shiprocketShipmentId || undefined
-            });
+            const exists = mappedOrders[o.userId].some(existing => String(existing.id) === String(o.id));
+            if (!exists) {
+              mappedOrders[o.userId].push({
+                id: o.id,
+                date: o.orderDate,
+                items,
+                total: Number(o.total),
+                status: o.status,
+                address: o.address,
+                paymentStatus: o.paymentStatus as any,
+                refundDetails,
+                razorpayPaymentId: o.razorpayPaymentId || undefined,
+                razorpayOrderId: o.razorpayOrderId || undefined,
+                razorpaySignature: o.razorpaySignature || undefined,
+                currency: o.currency || "INR",
+                paymentMethod: o.paymentMethod || "Razorpay Gateway",
+                transactionDate: o.transactionDate || undefined,
+                trackingNumber: o.trackingNumber || undefined,
+                courierPartner: o.courierPartner || undefined,
+                estimatedDeliveryDate: o.estimatedDeliveryDate || undefined,
+                scansJson: o.scansJson || undefined,
+                deliveryDate: o.deliveryDate || undefined,
+                shiprocketOrderId: o.shiprocketOrderId || undefined,
+                shiprocketShipmentId: o.shiprocketShipmentId || undefined
+              });
+            }
           });
         }
       } catch {}
@@ -1159,12 +1211,14 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         const returnsRes = await safeBackendFetch("/api/returns", undefined, 2500);
         if (returnsRes && returnsRes.ok) {
           const dbReturns = await returnsRes.json();
-          mappedReturns = dbReturns.map((r: any) => ({
-            ...r,
-            refundAmount: Number(r.refundAmount),
-            images: r.images ? r.images.split(",") : [],
-            videos: r.videos ? r.videos.split(",") : []
-          }));
+          mappedReturns = dbReturns
+            .filter((r: any) => r && r.customerId !== "USR-1000")
+            .map((r: any) => ({
+              ...r,
+              refundAmount: Number(r.refundAmount),
+              images: r.images ? r.images.split(",") : [],
+              videos: r.videos ? r.videos.split(",") : []
+            }));
         }
       } catch {}
 
@@ -1222,21 +1276,26 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         if (currentUser) {
           const match = mappedCustomers.find((u: any) => u.id === currentUser.id || u.email?.toLowerCase() === currentUser.email?.toLowerCase());
           if (match) {
-            nextUser = {
-              ...currentUser,
-              id: match.id,
-              firstName: match.firstName || currentUser.firstName,
-              lastName: match.lastName || currentUser.lastName,
-              email: match.email || currentUser.email,
-              phone: match.phone || currentUser.phone,
-              country: match.country || currentUser.country,
-              dob: match.dob || currentUser.dob,
-              gender: match.gender || currentUser.gender,
-              roles: match.roles || currentUser.roles,
-              walletBalance: Number(match.walletBalance) || 0,
-            };
-            if (!isCartMutationRecent && match.cart && Array.isArray(match.cart)) {
-              nextShopCart = match.cart;
+            if (match.status?.toLowerCase() === "suspended") {
+              toast.error("This account has been suspended. For any queries, please email us at concierge@reevibes.com");
+              nextUser = null;
+            } else {
+              nextUser = {
+                ...currentUser,
+                id: match.id,
+                firstName: match.firstName || currentUser.firstName,
+                lastName: match.lastName || currentUser.lastName,
+                email: match.email || currentUser.email,
+                phone: match.phone || currentUser.phone,
+                country: match.country || currentUser.country,
+                dob: match.dob || currentUser.dob,
+                gender: match.gender || currentUser.gender,
+                roles: match.roles || currentUser.roles,
+                walletBalance: Number(match.walletBalance) || 0,
+              };
+              if (!isCartMutationRecent && match.cart && Array.isArray(match.cart)) {
+                nextShopCart = match.cart;
+              }
             }
           }
         }
@@ -1244,7 +1303,11 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 
         // Merge DB orders with local unsynced orders
         const mergedOrders: Record<string, any[]> = { ...mappedOrders };
+        delete mergedOrders["USR-1000"];
+        delete mergedOrders["usr-1000"];
+
         Object.keys(s.orders || {}).forEach(uId => {
+          if (uId === "USR-1000" || uId === "usr-1000") return;
           const localUserOrders = s.orders[uId] || [];
           const dbUserOrders = mergedOrders[uId] || [];
           const dbOrderIds = new Set(dbUserOrders.map(o => String(o.id)));
@@ -1254,18 +1317,20 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           }
         });
 
-        // Merge DB customers with local registered users
-        const dbCustIds = new Set(mappedCustomers.map(u => String(u.id)));
-        const unsyncedCusts = (s.users || []).filter(u => !dbCustIds.has(String(u.id)));
-        const mergedCustomers = [...mappedCustomers, ...unsyncedCusts];
+        // Strictly use Supabase customers in layout order, purge old mock users
+        const mergedCustomers = mappedCustomers.length > 0
+          ? mappedCustomers
+          : (s.users || []).filter(u => u && u.id !== "USR-1000" && !u.email?.toLowerCase().endsWith("@reevibes.com"));
 
         const nextAddresses = isAddressMutationRecent && currentUser
           ? { ...extraAddresses, [currentUser.id]: s.addresses[currentUser.id] || [] }
           : { ...s.addresses, ...extraAddresses };
+        delete nextAddresses["USR-1000"];
 
         const nextWishlist = isWishlistMutationRecent && currentUser
           ? { ...extraWishlists, [currentUser.id]: s.shopWishlist[currentUser.id] || [] }
           : { ...s.shopWishlist, ...extraWishlists };
+        delete nextWishlist["USR-1000"];
 
         return {
           ...s,
@@ -1331,6 +1396,18 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       bc.onmessage = (msg) => {
         if (msg.data === "sync") {
           fetchBackendState(true);
+        } else if (msg.data && typeof msg.data === "object") {
+          if (msg.data.type === "ACCOUNT_SUSPENDED") {
+            setState(s => {
+              if (s.user && (s.user.id === msg.data.userId || s.user.email?.toLowerCase() === msg.data.email?.toLowerCase())) {
+                toast.error("This account has been suspended. For any queries, please email us at concierge@reevibes.com");
+                const next = { ...s, user: null };
+                save(next);
+                return next;
+              }
+              return s;
+            });
+          }
         }
       };
     } catch(e) {}
@@ -1365,6 +1442,10 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     signIn: (email, name) => {
       const match = state.users.find(u => u.email.toLowerCase() === email.toLowerCase()) as any;
       if (match) {
+        if (match.status?.toLowerCase() === "suspended") {
+          toast.error("This account has been suspended. For any queries, please email us at concierge@reevibes.com");
+          return false;
+        }
         const lastLoginTime = new Date().toLocaleString();
         setState(s => {
           const next = {
@@ -1401,30 +1482,37 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       }
       return false;
     },
-    signUp: (u) => setState(s => {
-      const nextId = u.id || `usr-${Date.now()}`;
-      const next = { ...s, user: { id: nextId, roles: ["General"], ...u } as PortalUser };
-      save(next);
-      upsertCustomerAccountInSupabase({
-        id: nextId,
-        email: u.email,
-        firstName: u.firstName || "",
-        lastName: u.lastName || "",
-        phone: u.phone || "",
-        country: u.country || "India",
-        dob: u.dob || "",
-        gender: u.gender || "",
-        status: "Active",
-        roles: ["General"],
-        cart: [],
-        wishlist: [],
-        addresses: [],
-        orders: [],
-        walletBalance: 0,
-        lastLogin: new Date().toISOString()
-      }).catch(e => console.error("Failed to sync signUp to Supabase:", e));
-      return next;
-    }),
+    signUp: (u) => {
+      const existing = state.users.find(x => x.email.toLowerCase() === u.email.toLowerCase());
+      if (existing && existing.status?.toLowerCase() === "suspended") {
+        toast.error("This account has been suspended. For any queries, please email us at concierge@reevibes.com");
+        return;
+      }
+      setState(s => {
+        const nextId = u.id || `usr-${Date.now()}`;
+        const next = { ...s, user: { id: nextId, roles: ["General"], ...u } as PortalUser };
+        save(next);
+        upsertCustomerAccountInSupabase({
+          id: nextId,
+          email: u.email,
+          firstName: u.firstName || "",
+          lastName: u.lastName || "",
+          phone: u.phone || "",
+          country: u.country || "India",
+          dob: u.dob || "",
+          gender: u.gender || "",
+          status: "Active",
+          roles: ["General"],
+          cart: [],
+          wishlist: [],
+          addresses: [],
+          orders: [],
+          walletBalance: 0,
+          lastLogin: new Date().toISOString()
+        }).catch(e => console.error("Failed to sync signUp to Supabase:", e));
+        return next;
+      });
+    },
     signOut: () => setState(s => {
       const next = { ...s, user: null };
       save(next);
@@ -1539,6 +1627,15 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 
     /* ───── public → admin sync ───── */
     registerUser: (u) => {
+      const existing = state.users.find(x => x.email.toLowerCase() === u.email.toLowerCase());
+      if (existing && existing.status?.toLowerCase() === "suspended") {
+        toast.error("This account has been suspended. For any queries, please email us at concierge@reevibes.com");
+        throw new Error("This account has been suspended. For any queries, please email us at concierge@reevibes.com");
+      }
+      if (existing) {
+        return existing;
+      }
+
       const id = `USR-${String(2000 + Date.now()).slice(-6)}`;
       const year = u.dob ? Number(u.dob.slice(0, 4)) : 1998;
       const newUser: PlatformUser = {
@@ -2761,50 +2858,89 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       }).catch(err => console.error("Failed to sync return details patch:", err));
     },
     suspendCustomer: (id) => {
-      setState(s => ({
-        ...s,
-        users: s.users.map(u => u.id === id ? { ...u, status: "Suspended" as const } : u)
-      }));
+      const targetUser = state.users.find(u => u.id === id);
+      const isCurrent = state.user && (state.user.id === id || (targetUser && state.user.email?.toLowerCase() === targetUser.email?.toLowerCase()));
 
-      patchCustomerAccountInSupabase(id, { status: "Suspended" }).catch(err => console.error("Failed to sync customer suspension to Supabase:", err));
+      setState(s => {
+        const next = {
+          ...s,
+          user: isCurrent ? null : s.user,
+          users: s.users.map(u => u.id === id ? { ...u, status: "Suspended" as const } : u)
+        };
+        save(next);
+        return next;
+      });
+
+      updateCustomerStatusInSupabase(id, "Suspended").catch(err => console.error("Failed to sync customer suspension to Supabase:", err));
       fetch(`${BACKEND_URL}/api/customers/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "Suspended" })
       }).catch(err => console.error("Failed to sync customer suspension to backend:", err));
+
+      try {
+        const bc = new BroadcastChannel("reevibes_channel");
+        bc.postMessage({ type: "ACCOUNT_SUSPENDED", userId: id, email: targetUser?.email });
+        bc.close();
+      } catch(e) {}
+      notifyBroadcastSync();
     },
     reactivateCustomer: (id) => {
-      setState(s => ({
-        ...s,
-        users: s.users.map(u => u.id === id ? { ...u, status: "Active" as const } : u)
-      }));
+      setState(s => {
+        const next = {
+          ...s,
+          users: s.users.map(u => u.id === id ? { ...u, status: "Active" as const } : u)
+        };
+        save(next);
+        return next;
+      });
 
-      patchCustomerAccountInSupabase(id, { status: "Active" }).catch(err => console.error("Failed to sync customer reactivation to Supabase:", err));
+      updateCustomerStatusInSupabase(id, "Active").catch(err => console.error("Failed to sync customer reactivation to Supabase:", err));
       fetch(`${BACKEND_URL}/api/customers/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "Active" })
       }).catch(err => console.error("Failed to sync customer reactivation to backend:", err));
+      notifyBroadcastSync();
     },
     addWalletCredit: async (userId, amount) => {
-      const bal = state.wallets[userId] ?? 0;
-      const nextBal = bal + amount;
-      await patchCustomerAccountInSupabase(userId, { walletBalance: nextBal }).catch(err => console.error("Failed to sync wallet credit to Supabase:", err));
+      const numAmount = Number(amount);
+      if (isNaN(numAmount) || numAmount <= 0) return;
+
+      const currentAccount = state.users.find(u => u.id === userId);
+      const currentBal = currentAccount?.walletBalance ?? state.wallets[userId] ?? 0;
+      const nextBal = currentBal + numAmount;
+
+      // Update Supabase customer_accounts
+      await creditCustomerWalletInSupabase(userId, numAmount).catch(err => console.error("Failed to sync wallet credit to Supabase:", err));
       fetch(`${BACKEND_URL}/api/customers/${userId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ walletBalance: nextBal })
       }).catch(() => null);
+
+      const notifItem: Notif = {
+        id: `n-${Date.now()}`,
+        icon: "wallet",
+        title: "Wallet Credited",
+        body: `₹${numAmount.toLocaleString()} credited to your ReeVibes wallet`,
+        time: "Just now",
+        unread: true,
+        createdAt: Date.now()
+      };
+
       setState(s => {
+        const existingUserNotifs = s.userNotifications[userId] || [];
         const next = {
           ...s,
           user: s.user && s.user.id === userId ? { ...s.user, walletBalance: nextBal } : s.user,
           users: (s.users || []).map(u => u.id === userId ? { ...u, walletBalance: nextBal } : u),
           wallets: { ...s.wallets, [userId]: nextBal },
-          notifications: [
-            { id: `n-${Date.now()}`, icon: "wallet", title: "Wallet Credit Added", body: `₹${amount.toLocaleString()} has been added to your wallet.`, time: "now", unread: true },
-            ...s.notifications
-          ]
+          notifications: [notifItem, ...s.notifications],
+          userNotifications: {
+            ...s.userNotifications,
+            [userId]: [notifItem, ...existingUserNotifs]
+          }
         };
         save(next);
         return next;

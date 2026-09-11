@@ -44,6 +44,12 @@ public class AuthController {
         }
         email = email.trim().toLowerCase();
 
+        // Check if account is suspended
+        Optional<com.reevibes.ai.model.PlatformUser> suspendedCheckPu = platformUserRepository.findByEmailIgnoreCase(email);
+        if (suspendedCheckPu.isPresent() && "Suspended".equalsIgnoreCase(suspendedCheckPu.get().getStatus())) {
+            return ResponseEntity.status(403).body(Map.of("message", "This account has been suspended. For any queries, please email us at concierge@reevibes.com"));
+        }
+
         // For forgot password, verify user exists
         if ("FORGOT_PASSWORD".equalsIgnoreCase(type)) {
             if (!userRepository.existsByEmail(email)) {
@@ -144,6 +150,12 @@ public class AuthController {
         }
         email = email.trim().toLowerCase();
 
+        // Check if account is suspended
+        Optional<com.reevibes.ai.model.PlatformUser> suspendedCheckPu = platformUserRepository.findByEmailIgnoreCase(email);
+        if (suspendedCheckPu.isPresent() && "Suspended".equalsIgnoreCase(suspendedCheckPu.get().getStatus())) {
+            return ResponseEntity.status(403).body(Map.of("message", "This account has been suspended. For any queries, please email us at concierge@reevibes.com"));
+        }
+
         if (userRepository.existsByEmail(email)) {
             return ResponseEntity.status(400).body(Map.of("message", "Email is already registered"));
         }
@@ -222,6 +234,12 @@ public class AuthController {
         }
         email = email.trim().toLowerCase();
 
+        // Check if account is suspended
+        Optional<com.reevibes.ai.model.PlatformUser> suspendedCheckPu = platformUserRepository.findByEmailIgnoreCase(email);
+        if (suspendedCheckPu.isPresent() && "Suspended".equalsIgnoreCase(suspendedCheckPu.get().getStatus())) {
+            return ResponseEntity.status(403).body(Map.of("message", "This account has been suspended. For any queries, please email us at concierge@reevibes.com"));
+        }
+
         if ("rockeysrinivas@gmail.com".equals(email) && "Rockey@123".equals(password)) {
             Optional<User> userOpt = userRepository.findByEmail(email);
             User user;
@@ -273,6 +291,12 @@ public class AuthController {
         }
         email = email.trim().toLowerCase();
 
+        // Check if account is suspended
+        Optional<com.reevibes.ai.model.PlatformUser> suspendedCheckPu = platformUserRepository.findByEmailIgnoreCase(email);
+        if (suspendedCheckPu.isPresent() && "Suspended".equalsIgnoreCase(suspendedCheckPu.get().getStatus())) {
+            return ResponseEntity.status(403).body(Map.of("message", "This account has been suspended. For any queries, please email us at concierge@reevibes.com"));
+        }
+
         if (!userRepository.existsByEmail(email)) {
             return ResponseEntity.status(404).body(Map.of("message", "Email address is not registered"));
         }
@@ -311,6 +335,12 @@ public class AuthController {
             return ResponseEntity.badRequest().body(Map.of("message", "All fields are required"));
         }
         email = email.trim().toLowerCase();
+
+        // Check if account is suspended
+        Optional<com.reevibes.ai.model.PlatformUser> suspendedResetPu = platformUserRepository.findByEmailIgnoreCase(email);
+        if (suspendedResetPu.isPresent() && "Suspended".equalsIgnoreCase(suspendedResetPu.get().getStatus())) {
+            return ResponseEntity.status(403).body(Map.of("message", "This account has been suspended. For any queries, please email us at concierge@reevibes.com"));
+        }
 
         if (!password.equals(confirmPassword)) {
             return ResponseEntity.badRequest().body(Map.of("message", "Passwords do not match"));

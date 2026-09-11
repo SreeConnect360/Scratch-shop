@@ -8,6 +8,8 @@ import { useGoogleLogin } from "@react-oauth/google";
 import { toast } from "sonner";
 import { BACKEND_URL } from "@/lib/config";
 
+import { checkCustomerSuspendedInSupabase } from "@/lib/supabase-customers";
+
 export const Route = createFileRoute("/_shop/login")({
   head: () => ({ meta: [{ title: "Shop Sign In — ReeVibes" }] }),
   component: ShopLoginPage,
@@ -27,10 +29,27 @@ function ShopLoginPage() {
   const [googleEmailInput, setGoogleEmailInput] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  const handleModalGoogleAuth = (customEmail?: string) => {
+  const checkSuspended = async (checkEmail: string) => {
+    const cleanEmail = checkEmail.trim().toLowerCase();
+    const existing = state.users.find(u => u.email?.toLowerCase() === cleanEmail);
+    if (existing && existing.status?.toLowerCase() === "suspended") {
+      return true;
+    }
+    return await checkCustomerSuspendedInSupabase(cleanEmail);
+  };
+
+  const handleModalGoogleAuth = async (customEmail?: string) => {
     const targetEmail = (customEmail || googleEmailInput || email || "rockeysrinivas891@gmail.com").trim().toLowerCase();
     if (!targetEmail || !targetEmail.includes("@")) {
       toast.error("Please enter a valid Google email address.");
+      return;
+    }
+
+    const isSuspended = await checkSuspended(targetEmail);
+    if (isSuspended) {
+      const msg = "This account has been suspended. For any queries, please email us at concierge@reevibes.com";
+      setError(msg);
+      toast.error(msg);
       return;
     }
 
@@ -42,7 +61,8 @@ function ShopLoginPage() {
     const nameFormatted = firstName.charAt(0).toUpperCase() + firstName.slice(1);
 
     if (existing) {
-      signIn(targetEmail);
+      const ok = signIn(targetEmail);
+      if (!ok) return;
     } else {
       registerUser({
         firstName: nameFormatted,
@@ -53,7 +73,8 @@ function ShopLoginPage() {
         gender: "",
         country: "",
       });
-      signIn(targetEmail);
+      const ok = signIn(targetEmail);
+      if (!ok) return;
     }
 
     setShowGoogleModal(false);
@@ -67,6 +88,14 @@ function ShopLoginPage() {
     setError(null);
     if (!email || !password) {
       setError("Please fill in all fields.");
+      return;
+    }
+
+    const isSuspended = await checkSuspended(email);
+    if (isSuspended) {
+      const msg = "This account has been suspended. For any queries, please email us at concierge@reevibes.com";
+      setError(msg);
+      toast.error(msg);
       return;
     }
     
@@ -114,6 +143,14 @@ function ShopLoginPage() {
         const firstName = profile.given_name || profile.name?.split(" ")[0] || "User";
         const lastName = profile.family_name || profile.name?.split(" ").slice(1).join(" ") || "";
 
+        const isSuspended = await checkSuspended(googleEmail);
+        if (isSuspended) {
+          const msg = "This account has been suspended. For any queries, please email us at concierge@reevibes.com";
+          setError(msg);
+          toast.error(msg);
+          return;
+        }
+
         const existing = state.users.find(
           (u) => u.email.toLowerCase() === googleEmail.toLowerCase()
         );
@@ -135,9 +172,14 @@ function ShopLoginPage() {
 
         toast.success(`Welcome, ${firstName}! Signed in with Google.`);
         navigate({ to: "/" });
-      } catch (err) {
+      } catch (err: any) {
         console.error("Google Sign-In error:", err);
-        setShowGoogleModal(true);
+        if (err?.message?.includes("suspended")) {
+          setError(err.message);
+          toast.error(err.message);
+        } else {
+          setShowGoogleModal(true);
+        }
       }
     },
     onError: (err) => {

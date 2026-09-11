@@ -156,7 +156,8 @@ export async function fetchCustomerAccountsFromSupabase(): Promise<CustomerAccou
 
     const data = await res.json();
     if (Array.isArray(data)) {
-      return data.map(mapSupabaseRowToCustomerAccount);
+      const mapped = data.map(mapSupabaseRowToCustomerAccount);
+      return sortCustomerAccountsById(mapped);
     }
     return [];
   } catch (err) {
@@ -454,3 +455,137 @@ export async function syncOrderToSupabase(order: any, userId: string, allUserOrd
   }
 }
 
+/**
+ * Sorts customer accounts numerically by user ID (USR-1, USR-2, ..., USR-10).
+ */
+export function sortCustomerAccountsById<T extends { id: string }>(accounts: T[]): T[] {
+  return [...accounts].sort((a, b) => {
+    const numA = parseInt((a.id || "").replace(/\D/g, ""), 10);
+    const numB = parseInt((b.id || "").replace(/\D/g, ""), 10);
+    if (!isNaN(numA) && !isNaN(numB) && numA !== numB) {
+      return numA - numB;
+    }
+    return (a.id || "").localeCompare(b.id || "");
+  });
+}
+
+/**
+ * Fetches all orders from Supabase shop_orders table.
+ */
+export async function fetchAllShopOrdersFromSupabase(): Promise<any[]> {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/shop_orders?select=*&order=order_date.desc`, {
+      headers: getHeaders(),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch (err) {
+    console.error("fetchAllShopOrdersFromSupabase error:", err);
+    return [];
+  }
+}
+
+/**
+ * Fetches orders for a specific user ID from Supabase shop_orders table.
+ */
+export async function fetchUserOrdersFromSupabase(userId: string): Promise<any[]> {
+  if (!userId) return [];
+  try {
+    const cleanId = encodeURIComponent(userId.trim());
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/shop_orders?user_id=eq.${cleanId}&select=*&order=order_date.desc`, {
+      headers: getHeaders(),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch (err) {
+    console.error("fetchUserOrdersFromSupabase error:", err);
+    return [];
+  }
+}
+
+/**
+ * Fetches cart items for a specific user ID from Supabase user_cart_items table.
+ */
+export async function fetchUserCartFromSupabase(userId: string): Promise<any[]> {
+  if (!userId) return [];
+  try {
+    const cleanId = encodeURIComponent(userId.trim());
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/user_cart_items?user_id=eq.${cleanId}&select=*`, {
+      headers: getHeaders(),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch (err) {
+    console.error("fetchUserCartFromSupabase error:", err);
+    return [];
+  }
+}
+
+/**
+ * Fetches wishlist product IDs for a specific user ID from Supabase user_wishlists table.
+ */
+export async function fetchUserWishlistFromSupabase(userId: string): Promise<string[]> {
+  if (!userId) return [];
+  try {
+    const cleanId = encodeURIComponent(userId.trim());
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/user_wishlists?user_id=eq.${cleanId}&select=product_id`, {
+      headers: getHeaders(),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (Array.isArray(data)) {
+      return data.map((r: any) => r.product_id).filter(Boolean);
+    }
+    return [];
+  } catch (err) {
+    console.error("fetchUserWishlistFromSupabase error:", err);
+    return [];
+  }
+}
+
+/**
+ * Credits wallet balance for a user in Supabase customer_accounts table.
+ */
+export async function creditCustomerWalletInSupabase(userId: string, addedAmount: number): Promise<number | null> {
+  if (!userId || addedAmount <= 0) return null;
+  try {
+    // 1. Fetch current account to get fresh balance
+    const current = await fetchCustomerAccountById(userId);
+    const prevBal = current ? (current.walletBalance || 0) : 0;
+    const nextBal = prevBal + addedAmount;
+
+    // 2. Patch customer_accounts
+    const success = await patchCustomerAccountInSupabase(userId, { walletBalance: nextBal });
+    if (success) {
+      return nextBal;
+    }
+    return null;
+  } catch (err) {
+    console.error("creditCustomerWalletInSupabase error:", err);
+    return null;
+  }
+}
+
+/**
+ * Updates customer status ("Active" | "Suspended") in Supabase customer_accounts table.
+ */
+export async function updateCustomerStatusInSupabase(userId: string, status: "Active" | "Suspended"): Promise<boolean> {
+  if (!userId) return false;
+  return patchCustomerAccountInSupabase(userId, { status });
+}
+
+/**
+ * Checks if a customer account with the given email is suspended in Supabase.
+ */
+export async function checkCustomerSuspendedInSupabase(email: string): Promise<boolean> {
+  if (!email) return false;
+  try {
+    const account = await fetchCustomerAccountByEmail(email);
+    return account?.status?.toLowerCase() === "suspended";
+  } catch {
+    return false;
+  }
+}
