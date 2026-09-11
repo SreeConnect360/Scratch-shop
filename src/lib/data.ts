@@ -306,6 +306,13 @@ export type PlatformUser = {
   roles: Role[];
   status: "Active" | "Invited" | "Suspended";
   emailVerified?: boolean;
+  cart?: any[];
+  wishlist?: any[];
+  orders?: any[];
+  addresses?: any[];
+  walletBalance?: number;
+  lastLogin?: string;
+  name?: string;
 };
 
 const FIRST = ["Anaïs","Sofia","Amara","Yuna","Camila","Zara","Isabela","Naomi","Aaliyah","Lucia","Mei","Olivia","Inés","Chiamaka","Lara","Valentina","Élise","Kenji","Adaeze","Marco","Léa","Hiro","Ada","Carlos","Sara"];

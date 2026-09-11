@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useContext, useMemo, memo } from "react";
+import { useState, useRef, useCallback, useContext, useMemo, memo, useEffect } from "react";
 import { Link } from "@tanstack/react-router";
 import { Heart, ShoppingBag, ChevronLeft, ChevronRight, Star, Ticket, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";

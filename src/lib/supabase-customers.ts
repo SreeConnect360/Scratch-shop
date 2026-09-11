@@ -93,7 +93,7 @@ export function mapSupabaseRowToCustomerAccount(row: any): CustomerAccount {
     reviews: Array.isArray(parsedReviews) ? parsedReviews : [],
     ratings: Array.isArray(parsedRatings) ? parsedRatings : [],
     status: (row.status as any) || "Active",
-    roles: row.roles ? (typeof row.roles === "string" ? row.roles.split(",").map(r => r.trim()) : row.roles) : ["General"],
+    roles: row.roles ? (typeof row.roles === "string" ? row.roles.split(",").map((r: string) => r.trim()) : row.roles) : ["General"],
     lastLogin: row.last_login ? new Date(row.last_login).toLocaleString() : undefined,
     createdAt: row.created_at || new Date().toISOString(),
     updatedAt: row.updated_at || new Date().toISOString(),
