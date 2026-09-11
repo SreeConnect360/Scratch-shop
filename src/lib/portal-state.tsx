@@ -16,6 +16,14 @@ import {
   upsertCatalogProductToSupabase,
   deleteCatalogProductFromSupabase,
 } from "./supabase-catalog";
+import {
+  type Bucket,
+  fetchBucketsFromSupabase,
+  upsertBucketToSupabase,
+  deleteBucketFromSupabase,
+  reorderBucketsInSupabase,
+} from "./supabase-buckets";
+export type { Bucket };
 
 const KEY = "reevibes:portal:v3";
 
@@ -124,16 +132,8 @@ export type ProductReview = {
   images?: string[];
   videos?: string[];
   date: string;
-  status: "Approved" | "Hidden";
 };
 
-export type Bucket = {
-  id: string;
-  name: string;
-  productIds: string[];
-  starProductId?: string;
-  hidden?: boolean;
-};
 
 export type ShopCoupon = {
   code: string;
@@ -249,8 +249,8 @@ const DEFAULT_REVIEWS: Record<string, ProductReview[]> = {
 };
 
 const DEFAULT_BUCKETS: Bucket[] = [
-  { id: "bkt1", name: "Summer Essentials", productIds: ["pr1", "pr3"], starProductId: "pr1" },
-  { id: "bkt2", name: "Luxury Black Curation", productIds: ["pr2", "pr5"], starProductId: "pr2" }
+  { id: "bkt1", name: "Summer Essentials", productIds: ["pr1", "pr3"], starProductId: "pr1", thumbnail: "", displayOrder: 0, hidden: false },
+  { id: "bkt2", name: "Luxury Black Curation", productIds: ["pr2", "pr5"], starProductId: "pr2", thumbnail: "", displayOrder: 1, hidden: false }
 ];
 
 const DEFAULT_VENDORS: Vendor[] = [
@@ -718,7 +718,7 @@ type Ctx = {
   updateHomepageLayoutDraft: (layout: Partial<PortalState["homepageLayoutDraft"]>) => void;
   publishHomepageLayout: (layoutToPublish?: Partial<PortalState["homepageLayoutDraft"]>) => Promise<void>;
   revertHomepageLayout: () => Promise<void>;
-  createBucket: (name: string, productIds: string[], starProductId?: string) => void;
+  createBucket: (name: string, productIds: string[], starProductId?: string, thumbnail?: string) => void;
   updateBucket: (id: string, patch: Partial<Bucket>) => void;
   deleteBucket: (id: string) => void;
   reorderBuckets: (buckets: Bucket[]) => void;
@@ -735,6 +735,7 @@ type Ctx = {
   updateShopCartSizeAndQty: (productId: string, oldSize: string, newSize: string, qty: number) => void;
   restoreToShopCart: (item: CartItem) => void;
   reloadProducts: () => Promise<void>;
+  reloadBuckets: () => Promise<void>;
 };
 
 const PortalContext = createContext<Ctx | null>(null);
@@ -856,20 +857,44 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       const mappedProducts = [...topSupabaseProducts, ...otherProducts];
 
 
-      // 3. Fetch Buckets
-      const bucketsRes = await fetch(`${BACKEND_URL}/api/buckets`);
-      let mappedBuckets = DEFAULT_BUCKETS;
-      if (bucketsRes.ok) {
-        const dbBuckets = await bucketsRes.json();
-        if (dbBuckets && dbBuckets.length > 0) {
-          mappedBuckets = dbBuckets.map((b: any) => ({
-            id: b.id,
-            name: b.name,
-            productIds: b.productIds ? b.productIds.split(",") : [],
-            starProductId: b.starProductId || undefined,
-            hidden: b.hidden ?? false
-          }));
+      // 3. Fetch Buckets (Primary Multi-Device Truth from Supabase + Backend Sync)
+      let supabaseBuckets: Bucket[] = [];
+      try {
+        supabaseBuckets = await fetchBucketsFromSupabase();
+      } catch (e) {
+        console.warn("Error fetching buckets from Supabase:", e);
+      }
+
+      let backendBuckets: Bucket[] = [];
+      try {
+        const bucketsRes = await fetch(`${BACKEND_URL}/api/buckets`);
+        if (bucketsRes.ok) {
+          const dbBuckets = await bucketsRes.json();
+          if (dbBuckets && Array.isArray(dbBuckets) && dbBuckets.length > 0) {
+            backendBuckets = dbBuckets.map((b: any, idx: number) => ({
+              id: String(b.id),
+              name: b.name || "Curated Collection",
+              productIds: b.productIds
+                ? (typeof b.productIds === "string"
+                    ? b.productIds.split(",").map((s: string) => s.trim()).filter(Boolean)
+                    : b.productIds)
+                : [],
+              starProductId: b.starProductId || undefined,
+              thumbnail: b.thumbnail || undefined,
+              displayOrder: b.displayOrder !== undefined && b.displayOrder !== null ? Number(b.displayOrder) : idx,
+              hidden: b.hidden ?? false,
+            }));
+          }
         }
+      } catch (e) {
+        // Backend offline or spinning up
+      }
+
+      let mappedBuckets = DEFAULT_BUCKETS;
+      if (supabaseBuckets.length > 0) {
+        mappedBuckets = supabaseBuckets.sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+      } else if (backendBuckets.length > 0) {
+        mappedBuckets = backendBuckets.sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
       }
 
       // 4. Fetch Customers
@@ -1176,6 +1201,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     state,
     isProductsLoading,
     reloadProducts: fetchBackendState,
+    reloadBuckets: fetchBackendState,
 
     signIn: (email, name) => {
       const match = state.users.find(u => u.email.toLowerCase() === email.toLowerCase()) as any;
@@ -2680,11 +2706,33 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         toast.error("Network error reverting layout.");
       }
     },
-    createBucket: (name, productIds, starProductId) => {
+    createBucket: (name, productIds, starProductId, thumbnail) => {
       const id = `bkt-${Date.now()}`;
-      const newBucket: Bucket = { id, name, productIds, starProductId, hidden: false };
+      const currentBuckets = state.buckets || [];
+      const displayOrder = currentBuckets.length;
+      const newBucket: Bucket = {
+        id,
+        name,
+        productIds,
+        starProductId: starProductId || undefined,
+        thumbnail: thumbnail || "",
+        displayOrder,
+        hidden: false
+      };
       setState(s => ({ ...s, buckets: [...(s.buckets || []), newBucket] }));
+      notifyBroadcastSync();
 
+      // 1. Direct Supabase Persistence (Instant Multi-Device Truth)
+      upsertBucketToSupabase(newBucket).then(res => {
+        if (res.ok) {
+          toast.success(`Bucket "${name}" saved to Supabase!`);
+          notifyBroadcastSync();
+        } else {
+          console.error("Supabase bucket create error:", res.error);
+        }
+      }).catch(err => console.error("Supabase bucket insert failure:", err));
+
+      // 2. Sync with Render Backend
       fetch(`${BACKEND_URL}/api/buckets`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -2693,29 +2741,48 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           name,
           productIds: productIds.join(","),
           starProductId,
+          thumbnail: thumbnail || "",
+          displayOrder,
           hidden: false
         })
       }).then(res => {
         if (res.ok) {
-          toast.success(`Bucket "${name}" created & saved to production!`);
           notifyBroadcastSync();
-          fetchBackendState(true);
-        } else {
-          toast.error("Failed to create bucket on production database.");
         }
       }).catch(err => console.error("Failed to sync new bucket to backend:", err));
     },
     updateBucket: (id, patch) => {
+      let updatedBucket: Bucket | null = null;
       setState(s => {
-        const next = (s.buckets || []).map(b => b.id === id ? { ...b, ...patch } : b);
+        const next = (s.buckets || []).map(b => {
+          if (b.id === id) {
+            updatedBucket = { ...b, ...patch };
+            return updatedBucket;
+          }
+          return b;
+        });
         return { ...s, buckets: next };
       });
       notifyBroadcastSync();
 
+      // 1. Direct Supabase Persistence
+      if (updatedBucket) {
+        upsertBucketToSupabase(updatedBucket).then(res => {
+          if (res.ok) {
+            notifyBroadcastSync();
+          } else {
+            console.error("Supabase bucket update error:", res.error);
+          }
+        }).catch(err => console.error("Supabase bucket update failure:", err));
+      }
+
+      // 2. Sync with Render Backend
       const bodyPatch: any = {};
       if (patch.name !== undefined) bodyPatch.name = patch.name;
       if (patch.productIds !== undefined) bodyPatch.productIds = patch.productIds.join(",");
       if (patch.starProductId !== undefined) bodyPatch.starProductId = patch.starProductId;
+      if (patch.thumbnail !== undefined) bodyPatch.thumbnail = patch.thumbnail;
+      if (patch.displayOrder !== undefined) bodyPatch.displayOrder = patch.displayOrder;
       if (patch.hidden !== undefined) bodyPatch.hidden = patch.hidden;
 
       fetch(`${BACKEND_URL}/api/buckets/${id}`, {
@@ -2724,11 +2791,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify(bodyPatch)
       }).then(res => {
         if (res.ok) {
-          toast.success("Bucket updated in production database!");
           notifyBroadcastSync();
-          fetchBackendState(true);
-        } else {
-          toast.error("Failed to update bucket in production backend.");
         }
       }).catch(err => console.error("Failed to sync bucket update to backend:", err));
     },
@@ -2739,37 +2802,69 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       }));
       notifyBroadcastSync();
 
+      // 1. Direct Supabase Deletion
+      deleteBucketFromSupabase(id).then(res => {
+        if (res.ok) {
+          toast.success("Bucket removed from Supabase database!");
+          notifyBroadcastSync();
+        } else {
+          console.error("Supabase bucket delete error:", res.error);
+        }
+      }).catch(err => console.error("Supabase bucket delete failure:", err));
+
+      // 2. Sync with Render Backend
       fetch(`${BACKEND_URL}/api/buckets/${id}`, {
         method: "DELETE"
       }).then(res => {
         if (res.ok) {
-          toast.success("Bucket deleted from production database!");
           notifyBroadcastSync();
-          fetchBackendState(true);
-        } else {
-          toast.error("Failed to delete bucket from production backend.");
         }
       }).catch(err => console.error("Failed to sync bucket deletion to backend:", err));
     },
     reorderBuckets: (buckets) => {
-      setState(s => ({ ...s, buckets }));
+      const orderedBuckets = buckets.map((b, idx) => ({ ...b, displayOrder: idx }));
+      setState(s => ({ ...s, buckets: orderedBuckets }));
       notifyBroadcastSync();
-      Promise.all(buckets.map(b =>
-        fetch(`${BACKEND_URL}/api/buckets/${b.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: b.name,
-            productIds: (b.productIds || []).join(","),
-            starProductId: b.starProductId,
-            hidden: b.hidden ?? false
+
+      // 1. Direct Supabase Reorder (Updates display_order for all buckets)
+      reorderBucketsInSupabase(orderedBuckets).then(res => {
+        if (res.ok) {
+          toast.success("Bucket order saved to Supabase!");
+          notifyBroadcastSync();
+        } else {
+          console.error("Supabase bucket reorder error:", res.error);
+        }
+      }).catch(err => console.error("Supabase bucket reorder failure:", err));
+
+      // 2. Sync with Render Backend
+      fetch(`${BACKEND_URL}/api/buckets/reorder`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(orderedBuckets.map(b => ({
+          id: b.id,
+          displayOrder: b.displayOrder
+        })))
+      }).then(res => {
+        if (res.ok) {
+          notifyBroadcastSync();
+        }
+      }).catch(() => {
+        // Fallback to per-bucket PUT if batch reorder is pending deploy
+        Promise.all(orderedBuckets.map(b =>
+          fetch(`${BACKEND_URL}/api/buckets/${b.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: b.name,
+              productIds: (b.productIds || []).join(","),
+              starProductId: b.starProductId,
+              thumbnail: b.thumbnail || "",
+              displayOrder: b.displayOrder,
+              hidden: b.hidden ?? false
+            })
           })
-        })
-      )).then(() => {
-        notifyBroadcastSync();
-        fetchBackendState(true);
-      })
-      .catch(err => console.error("Failed to sync bucket reorder to backend:", err));
+        )).catch(err => console.error("Failed to sync bucket reorder to backend:", err));
+      });
     },
     createVendor: (v) => setState(s => {
       const newVendor: Vendor = {

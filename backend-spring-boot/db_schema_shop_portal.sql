@@ -22,7 +22,11 @@ CREATE TABLE IF NOT EXISTS product_buckets (
     name VARCHAR(100) NOT NULL,
     product_ids TEXT NOT NULL,
     star_product_id VARCHAR(50),
-    hidden BOOLEAN DEFAULT FALSE NOT NULL
+    thumbnail TEXT DEFAULT '',
+    display_order INT DEFAULT 0,
+    hidden BOOLEAN DEFAULT FALSE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS homepage_layout (

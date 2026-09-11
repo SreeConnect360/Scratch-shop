@@ -637,10 +637,11 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
   // Bucket Dashboard States
   const [editingBucket, setEditingBucket] = useState<any | null>(null);
   const [isAddingBucket, setIsAddingBucket] = useState(false);
-  const [bucketForm, setBucketForm] = useState<{ name: string; productIds: string[]; starProductId?: string }>({
+  const [bucketForm, setBucketForm] = useState<{ name: string; productIds: string[]; starProductId?: string; thumbnail?: string }>({
     name: "",
     productIds: [],
-    starProductId: ""
+    starProductId: "",
+    thumbnail: ""
   });
   const [bucketProductSearch, setBucketProductSearch] = useState("");
   const [rearrangeMode, setRearrangeMode] = useState(false);
@@ -663,6 +664,14 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
     reordered.splice(targetIndex, 0, removed);
     reorderBuckets(reordered);
     setDraggedIdx(null);
+  };
+
+  const handleMoveBucket = (fromIdx: number, toIdx: number) => {
+    const list = [...(state.buckets || [])];
+    if (toIdx < 0 || toIdx >= list.length) return;
+    const [moved] = list.splice(fromIdx, 1);
+    list.splice(toIdx, 0, moved);
+    reorderBuckets(list);
   };
 
   useEffect(() => {
@@ -2792,7 +2801,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
               <button
                 onClick={() => {
                   setEditingBucket(null);
-                  setBucketForm({ name: "", productIds: [], starProductId: "" });
+                  setBucketForm({ name: "", productIds: [], starProductId: "", thumbnail: "" });
                   setBucketProductSearch("");
                   setIsAddingBucket(!isAddingBucket);
                 }}
@@ -2810,17 +2819,24 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                 onSubmit={(e) => {
                   e.preventDefault();
                   if (!bucketForm.name.trim()) return;
+                  const starProd = productsList.find((p: any) => p.id === bucketForm.starProductId);
+                  const effectiveThumb = bucketForm.thumbnail || starProd?.image || "";
                   if (editingBucket) {
-                    updateBucket(editingBucket.id, bucketForm);
+                    updateBucket(editingBucket.id, {
+                      name: bucketForm.name,
+                      productIds: bucketForm.productIds,
+                      starProductId: bucketForm.starProductId,
+                      thumbnail: effectiveThumb,
+                    });
                     setEditingBucket(null);
                     setIsAddingBucket(false);
-                    triggerModal("success", "Bucket Updated", "The curation bucket has been updated successfully.", () => {});
+                    triggerModal("success", "Bucket Updated", "The curation bucket has been updated and saved to Supabase.", () => {});
                   } else {
-                    createBucket(bucketForm.name, bucketForm.productIds, bucketForm.starProductId);
+                    createBucket(bucketForm.name, bucketForm.productIds, bucketForm.starProductId, effectiveThumb);
                     setIsAddingBucket(false);
-                    triggerModal("success", "Bucket Created", "New curation bucket successfully generated.", () => {});
+                    triggerModal("success", "Bucket Created", "New curation bucket successfully generated in Supabase.", () => {});
                   }
-                  setBucketForm({ name: "", productIds: [], starProductId: "" });
+                  setBucketForm({ name: "", productIds: [], starProductId: "", thumbnail: "" });
                   setBucketProductSearch("");
                 }}
                 className="space-y-4"
@@ -3006,28 +3022,55 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                 </div>
 
                 {bucketForm.productIds.length > 0 && (
-                  <div className="space-y-2">
-                    <label className="text-xs text-muted-foreground font-semibold">Select Star Product (Use as Thumbnail)</label>
-                    <select
-                      className="w-full bg-surface border border-border-subtle p-2 text-sm outline-none text-foreground"
-                      value={bucketForm.starProductId || ""}
-                      onChange={(e) => setBucketForm({ ...bucketForm, starProductId: e.target.value })}
-                    >
-                      <option value="">-- Choose Star Product --</option>
-                      {productsList
-                        .filter((p: any) => bucketForm.productIds.includes(p.id))
-                        .map((p: any) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name} (Thumbnail)
-                          </option>
-                        ))}
-                    </select>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-xs text-muted-foreground font-semibold">Select Star Product (Use as Thumbnail)</label>
+                      <select
+                        className="w-full bg-surface border border-border-subtle p-2 text-sm outline-none text-foreground"
+                        value={bucketForm.starProductId || ""}
+                        onChange={(e) => {
+                          const starId = e.target.value;
+                          const starProd = productsList.find((p: any) => p.id === starId);
+                          setBucketForm({
+                            ...bucketForm,
+                            starProductId: starId,
+                            thumbnail: bucketForm.thumbnail || (starProd?.image || "")
+                          });
+                        }}
+                      >
+                        <option value="">-- Choose Star Product --</option>
+                        {productsList
+                          .filter((p: any) => bucketForm.productIds.includes(p.id))
+                          .map((p: any) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name} (Thumbnail)
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs text-muted-foreground font-semibold">Custom Thumbnail Image URL (Optional)</label>
+                      <input
+                        type="url"
+                        className="w-full bg-surface border border-border-subtle p-2 text-sm outline-none text-foreground"
+                        placeholder="https://... (Leave blank to use star product image)"
+                        value={bucketForm.thumbnail || ""}
+                        onChange={(e) => setBucketForm({ ...bucketForm, thumbnail: e.target.value })}
+                      />
+                      {bucketForm.thumbnail && (
+                        <div className="flex items-center gap-3 pt-1">
+                          <img src={bucketForm.thumbnail} alt="Preview" className="w-12 h-16 object-cover rounded border border-white/10" />
+                          <span className="text-xs text-muted-foreground">Thumbnail preview</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
 
                 <div className="flex justify-end gap-3 pt-4 border-t border-border-subtle">
                   <AdminButton type="button" variant="outline" onClick={() => setIsAddingBucket(false)}>Cancel</AdminButton>
-                  <button type="submit" className="editorial-label bg-accent text-white px-6 py-2.5 hover:bg-accent/90">
+                  <button type="submit" className="editorial-label bg-accent text-white px-6 py-2.5 hover:bg-accent/90 cursor-pointer">
                     {editingBucket ? "Save Changes" : "Create Bucket"}
                   </button>
                 </div>
@@ -3038,7 +3081,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
           <div className={`${rearrangeMode ? "flex flex-col gap-3" : "grid sm:grid-cols-2 lg:grid-cols-3 gap-6"}`}>
             {(state.buckets || []).map((b, idx) => {
               const starProd = productsList.find((p) => p.id === b.starProductId) || productsList.find((p) => b.productIds.includes(p.id));
-              const thumbnail = starProd?.image || "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=400&h=500&q=80";
+              const thumbnail = b.thumbnail || starProd?.image || "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=400&h=500&q=80";
 
               if (rearrangeMode) {
                 return (
@@ -3048,7 +3091,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                     onDragStart={(e) => handleDragStart(e, idx)}
                     onDragOver={(e) => handleDragOver(e, idx)}
                     onDrop={(e) => handleDrop(e, idx)}
-                    className="liquid-glass border-2 border-dashed border-amber-500/40 bg-amber-500/5 p-4 flex items-center justify-between cursor-move hover:bg-amber-500/10 transition-all select-none animate-in fade-in duration-200"
+                    className="liquid-glass border-2 border-dashed border-amber-500/40 bg-amber-500/5 p-4 flex items-center justify-between cursor-move hover:bg-amber-500/10 transition-all select-none animate-in fade-in duration-200 rounded-xl"
                   >
                     <div className="flex items-center gap-4">
                       <div className="text-amber-500 font-bold font-mono text-sm px-2">☰</div>
@@ -3061,6 +3104,32 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          disabled={idx === 0}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleMoveBucket(idx, idx - 1);
+                          }}
+                          className="px-2.5 py-1 bg-surface border border-border-subtle hover:border-amber-500 rounded text-xs text-foreground disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                          title="Move Up"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          disabled={idx === (state.buckets || []).length - 1}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleMoveBucket(idx, idx + 1);
+                          }}
+                          className="px-2.5 py-1 bg-surface border border-border-subtle hover:border-amber-500 rounded text-xs text-foreground disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                          title="Move Down"
+                        >
+                          ↓
+                        </button>
+                      </div>
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${b.hidden ? "bg-rose-500/20 text-rose-400" : "bg-emerald-500/20 text-emerald-400"}`}>
                         {b.hidden ? "Hidden" : "Visible"}
                       </span>
@@ -3073,8 +3142,8 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                 <div key={b.id} className="liquid-glass liquid-glass-card-hover relative flex flex-col group overflow-hidden bg-transparent border border-white/10 rounded-3xl">
                   <div className="aspect-[3/4] overflow-hidden bg-zinc-950 relative">
                     <img src={thumbnail} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                    <span className="absolute top-3 left-3 bg-accent/95 text-white text-[9px] uppercase tracking-widest px-2.5 py-0.5 font-bold">
-                      {b.productIds.length} Products
+                    <span className="absolute top-3 left-3 bg-accent/95 text-white text-[9px] uppercase tracking-widest px-2.5 py-0.5 font-bold rounded-full">
+                      #{idx + 1} · {b.productIds.length} Products
                     </span>
                     {b.starProductId && (
                       <span className="absolute top-3 right-3 bg-amber-500 text-black text-[9px] uppercase tracking-widest px-2.5 py-0.5 font-bold flex items-center gap-1 rounded-full">
@@ -3089,7 +3158,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                   </div>
                   <div className="p-4 flex-1 flex flex-col justify-between space-y-4">
                     <div>
-                      <div className="editorial-label text-muted-foreground text-[10px]">Curation Bucket</div>
+                      <div className="editorial-label text-muted-foreground text-[10px]">Position #{idx + 1} · Curation Bucket</div>
                       <h4 className="font-serif text-lg mt-1 text-foreground">{b.name}</h4>
                       <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
                         Contains: {b.productIds.map(pid => productsList.find(p => p.id === pid)?.name || pid).join(", ") || "No products linked"}
@@ -3102,7 +3171,8 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                           setBucketForm({
                             name: b.name,
                             productIds: b.productIds,
-                            starProductId: b.starProductId || ""
+                            starProductId: b.starProductId || "",
+                            thumbnail: b.thumbnail || ""
                           });
                           setBucketProductSearch("");
                           setIsAddingBucket(true);

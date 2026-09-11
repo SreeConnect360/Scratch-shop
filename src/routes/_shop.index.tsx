@@ -1115,7 +1115,7 @@ function ShopHome() {
           if (!bucket) return null;
           
           const starProd = products.find((p) => p.id === bucket.starProductId) || products.find((p) => (bucket.productIds || []).includes(p.id));
-          const thumbnail = starProd?.image || "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=400&h=500&q=80";
+          const thumbnail = bucket.thumbnail || starProd?.image || "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=400&h=500&q=80";
           const bucketProducts = products.filter(p => (bucket.productIds || []).includes(p.id));
 
           return (
@@ -1168,7 +1168,7 @@ function ShopHome() {
                   <ProductCarouselWrapper itemsCount={sectionBuckets.length}>
                     {sectionBuckets.map((bkt: any) => {
                       const starProd = products.find((p) => p.id === bkt.starProductId) || products.find((p) => bkt.productIds?.includes(p.id));
-                      const thumbnail = starProd?.image || "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=400&h=500&q=80";
+                      const thumbnail = bkt.thumbnail || starProd?.image || "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=400&h=500&q=80";
                       return (
                         <div key={bkt.id} className="w-full md:w-[280px] md:shrink-0 md:snap-start">
                           <Link

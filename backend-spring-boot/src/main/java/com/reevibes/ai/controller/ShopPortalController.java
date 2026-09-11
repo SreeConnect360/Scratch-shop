@@ -88,7 +88,7 @@ public class ShopPortalController {
     // --- BUCKETS ---
     @GetMapping("/buckets")
     public ResponseEntity<List<ProductBucket>> getBuckets() {
-        return ResponseEntity.ok(bucketRepository.findAll());
+        return ResponseEntity.ok(bucketRepository.findAllByOrderByDisplayOrderAsc());
     }
 
     @PostMapping("/buckets")
@@ -96,6 +96,9 @@ public class ShopPortalController {
     public ResponseEntity<ProductBucket> createBucket(@RequestBody ProductBucket bucket) {
         if (bucket.getId() == null || bucket.getId().isEmpty()) {
             bucket.setId("bkt-" + System.currentTimeMillis());
+        }
+        if (bucket.getDisplayOrder() == null) {
+            bucket.setDisplayOrder((int) bucketRepository.count());
         }
         ProductBucket saved = bucketRepository.save(bucket);
         syncService.bumpVersion();
@@ -118,11 +121,35 @@ public class ShopPortalController {
             }
         }
         if (body.containsKey("starProductId")) bucket.setStarProductId((String) body.get("starProductId"));
+        if (body.containsKey("thumbnail")) bucket.setThumbnail((String) body.get("thumbnail"));
+        if (body.containsKey("displayOrder") && body.get("displayOrder") != null) {
+            bucket.setDisplayOrder(((Number) body.get("displayOrder")).intValue());
+        }
         if (body.containsKey("hidden")) bucket.setHidden((Boolean) body.get("hidden"));
 
         ProductBucket saved = bucketRepository.save(bucket);
         syncService.bumpVersion();
         return ResponseEntity.ok(saved);
+    }
+
+    @PostMapping("/buckets/reorder")
+    @Transactional
+    public ResponseEntity<?> reorderBuckets(@RequestBody List<Map<String, Object>> reorderList) {
+        for (int i = 0; i < reorderList.size(); i++) {
+            Map<String, Object> item = reorderList.get(i);
+            String id = (String) item.get("id");
+            if (id != null) {
+                Integer order = item.containsKey("displayOrder") && item.get("displayOrder") != null
+                        ? ((Number) item.get("displayOrder")).intValue()
+                        : i;
+                bucketRepository.findById(id).ifPresent(b -> {
+                    b.setDisplayOrder(order);
+                    bucketRepository.save(b);
+                });
+            }
+        }
+        syncService.bumpVersion();
+        return ResponseEntity.ok(Map.of("message", "Buckets reordered successfully", "version", syncService.getVersion()));
     }
 
     @DeleteMapping("/buckets/{id}")

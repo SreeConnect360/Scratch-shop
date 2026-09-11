@@ -441,7 +441,9 @@ function CategoriesPage() {
 
   // Render collections grid
   if (showCollectionsGrid) {
-    const unhiddenBuckets = (state.buckets || []).filter(b => !b.hidden);
+    const unhiddenBuckets = (state.buckets || [])
+      .filter(b => !b.hidden)
+      .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
     return (
       <div className="space-y-8 pb-16 public-layout">
         <header className="px-6 lg:px-16 pt-12 pb-12 border border-white/10 dark:border-white/10 bg-white/5 backdrop-blur-md rounded-3xl mx-4 lg:mx-8 relative overflow-hidden grain shadow-[0_4px_30px_rgba(0,0,0,0.1)]">
@@ -458,8 +460,8 @@ function CategoriesPage() {
             </div>
           ) : (
             unhiddenBuckets.map((b, i) => {
-              const starProd = products.find((p) => p.id === b.starProductId) || products.find((p) => b.productIds.includes(p.id));
-              const thumbnail = starProd?.image || "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=400&h=500&q=80";
+              const starProd = products.find((p) => p.id === b.starProductId) || products.find((p) => (b.productIds || []).includes(p.id));
+              const thumbnail = b.thumbnail || starProd?.image || "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=400&h=500&q=80";
               return (
                 <FadeUp key={b.id} delay={i * 0.05}>
                   <Link
@@ -472,7 +474,12 @@ function CategoriesPage() {
                       <div className="absolute inset-0 bg-gradient-to-t from-black/90 to-transparent" />
                       <div className="absolute inset-x-0 bottom-0 p-6 flex justify-between items-center z-10">
                         <div>
-                          <span className="text-[9px] uppercase tracking-widest text-accent font-bold">Curation Collection</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[9px] uppercase tracking-widest text-accent font-bold">Curation Collection</span>
+                            <span className="text-[9px] text-white/70 bg-white/10 px-2 py-0.5 rounded-full font-mono">
+                              {b.productIds?.length || 0} Products
+                            </span>
+                          </div>
                           <h4 className="font-serif text-xl mt-1 text-white font-bold">{b.name}</h4>
                         </div>
                         <ArrowRight className="w-5 h-5 text-white group-hover:text-accent transition-colors shrink-0" />
