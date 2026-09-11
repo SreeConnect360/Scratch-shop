@@ -302,3 +302,155 @@ export async function deleteCustomerAccountFromSupabase(id: string): Promise<boo
     return false;
   }
 }
+
+/**
+ * Synchronizes user wishlist to both customer_accounts table and user_wishlists table.
+ */
+export async function syncUserWishlistToSupabase(userId: string, wishlist: string[]): Promise<void> {
+  if (!userId) return;
+  try {
+    // 1. Update customer_accounts
+    await patchCustomerAccountInSupabase(userId, { wishlist });
+
+    // 2. Sync user_wishlists table
+    const cleanId = encodeURIComponent(userId.trim());
+    await fetch(`${SUPABASE_URL}/rest/v1/user_wishlists?user_id=eq.${cleanId}`, {
+      method: "DELETE",
+      headers: getHeaders("return=minimal"),
+    }).catch(() => null);
+
+    if (wishlist && wishlist.length > 0) {
+      const rows = wishlist.map(productId => ({
+        id: `${userId}_${productId}`,
+        user_id: userId,
+        product_id: productId,
+        created_at: new Date().toISOString(),
+      }));
+      await fetch(`${SUPABASE_URL}/rest/v1/user_wishlists`, {
+        method: "POST",
+        headers: getHeaders("resolution=merge-duplicates,return=minimal"),
+        body: JSON.stringify(rows),
+      }).catch(err => console.error("Failed to insert into user_wishlists:", err));
+    }
+  } catch (err) {
+    console.error("syncUserWishlistToSupabase error:", err);
+  }
+}
+
+/**
+ * Synchronizes user cart to both customer_accounts table and user_cart_items table.
+ */
+export async function syncUserCartToSupabase(userId: string, cart: any[]): Promise<void> {
+  if (!userId) return;
+  try {
+    // 1. Update customer_accounts
+    await patchCustomerAccountInSupabase(userId, { cart });
+
+    // 2. Sync user_cart_items table
+    const cleanId = encodeURIComponent(userId.trim());
+    await fetch(`${SUPABASE_URL}/rest/v1/user_cart_items?user_id=eq.${cleanId}`, {
+      method: "DELETE",
+      headers: getHeaders("return=minimal"),
+    }).catch(() => null);
+
+    if (cart && cart.length > 0) {
+      const rows = cart.map((item, idx) => ({
+        id: `${userId}_${item.productId || idx}_${item.selectedSize || "M"}`,
+        user_id: userId,
+        product_id: item.productId || "",
+        selected_size: item.selectedSize || "M",
+        qty: item.qty || 1,
+        name: item.name || "",
+        price: typeof item.price === "string" ? item.price : String(item.price || ""),
+        image: item.image || "",
+        house: item.house || "",
+        updated_at: new Date().toISOString(),
+      }));
+      await fetch(`${SUPABASE_URL}/rest/v1/user_cart_items`, {
+        method: "POST",
+        headers: getHeaders("resolution=merge-duplicates,return=minimal"),
+        body: JSON.stringify(rows),
+      }).catch(err => console.error("Failed to insert into user_cart_items:", err));
+    }
+  } catch (err) {
+    console.error("syncUserCartToSupabase error:", err);
+  }
+}
+
+/**
+ * Synchronizes user addresses to both customer_accounts table and user_addresses table.
+ */
+export async function syncUserAddressesToSupabase(userId: string, addresses: any[]): Promise<void> {
+  if (!userId) return;
+  try {
+    // 1. Update customer_accounts
+    await patchCustomerAccountInSupabase(userId, { addresses });
+
+    // 2. Sync user_addresses table
+    const cleanId = encodeURIComponent(userId.trim());
+    await fetch(`${SUPABASE_URL}/rest/v1/user_addresses?user_id=eq.${cleanId}`, {
+      method: "DELETE",
+      headers: getHeaders("return=minimal"),
+    }).catch(() => null);
+
+    if (addresses && addresses.length > 0) {
+      const rows = addresses.map((addr, idx) => ({
+        id: `${userId}_addr_${idx}`,
+        user_id: userId,
+        address_data: typeof addr === "object" ? addr : { raw: addr },
+        is_default: idx === 0,
+        updated_at: new Date().toISOString(),
+      }));
+      await fetch(`${SUPABASE_URL}/rest/v1/user_addresses`, {
+        method: "POST",
+        headers: getHeaders("resolution=merge-duplicates,return=minimal"),
+        body: JSON.stringify(rows),
+      }).catch(err => console.error("Failed to insert into user_addresses:", err));
+    }
+  } catch (err) {
+    console.error("syncUserAddressesToSupabase error:", err);
+  }
+}
+
+/**
+ * Synchronizes a new or updated order to both shop_orders table and customer_accounts table.
+ */
+export async function syncOrderToSupabase(order: any, userId: string, allUserOrders?: any[]): Promise<void> {
+  if (!order || !userId) return;
+  try {
+    // 1. Upsert into shop_orders table
+    const orderRow = {
+      id: order.id,
+      user_id: userId,
+      order_date: order.date ? new Date(order.date).toISOString() : new Date().toISOString(),
+      items_json: JSON.stringify(order.items || []),
+      total: Number(order.total) || 0,
+      status: order.status || "Processing",
+      address: typeof order.address === "object" ? JSON.stringify(order.address) : (order.address || ""),
+      payment_status: order.paymentStatus || "Paid",
+      razorpay_payment_id: order.razorpayPaymentId || null,
+      razorpay_order_id: order.razorpayOrderId || null,
+      razorpay_signature: order.razorpaySignature || null,
+      currency: order.currency || "INR",
+      payment_method: order.paymentMethod || "Razorpay Gateway",
+      transaction_date: order.transactionDate ? new Date(order.transactionDate).toISOString() : new Date().toISOString(),
+      tracking_number: order.trackingNumber || null,
+      courier_partner: order.courierPartner || null,
+      estimated_delivery_date: order.estimatedDeliveryDate || null,
+    };
+
+    await fetch(`${SUPABASE_URL}/rest/v1/shop_orders`, {
+      method: "POST",
+      headers: getHeaders("resolution=merge-duplicates,return=minimal"),
+      body: JSON.stringify(orderRow),
+    }).catch(err => console.error("Failed to upsert shop_orders in Supabase:", err));
+
+    // 2. If allUserOrders provided, update customer_accounts.orders
+    if (allUserOrders) {
+      await patchCustomerAccountInSupabase(userId, { orders: allUserOrders });
+    }
+  } catch (err) {
+    console.error("syncOrderToSupabase error:", err);
+  }
+}
+

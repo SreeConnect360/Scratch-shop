@@ -210,3 +210,34 @@ BEGIN
     CREATE POLICY "Allow public delete on homepage_layout" ON homepage_layout FOR DELETE USING (true);
   END IF;
 END $$;
+
+-- Individual user tables for wishlist, cart, and addresses
+CREATE TABLE IF NOT EXISTS user_wishlists (
+    id VARCHAR(100) PRIMARY KEY,
+    user_id VARCHAR(50) NOT NULL,
+    product_id VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS user_cart_items (
+    id VARCHAR(150) PRIMARY KEY,
+    user_id VARCHAR(50) NOT NULL,
+    product_id VARCHAR(50) NOT NULL,
+    selected_size VARCHAR(20) DEFAULT 'M',
+    qty INT DEFAULT 1,
+    name VARCHAR(255),
+    price VARCHAR(50),
+    image TEXT,
+    house VARCHAR(100),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS user_addresses (
+    id VARCHAR(100) PRIMARY KEY,
+    user_id VARCHAR(50) NOT NULL,
+    address_data JSONB NOT NULL,
+    is_default BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+

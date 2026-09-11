@@ -64,7 +64,11 @@ import {
   fetchCustomerAccountById,
   upsertCustomerAccountInSupabase,
   patchCustomerAccountInSupabase,
-  deleteCustomerAccountFromSupabase
+  deleteCustomerAccountFromSupabase,
+  syncUserWishlistToSupabase,
+  syncUserCartToSupabase,
+  syncUserAddressesToSupabase,
+  syncOrderToSupabase
 } from "./supabase-customers";
 export type { CustomerAccount };
 export {
@@ -73,7 +77,11 @@ export {
   fetchCustomerAccountById,
   upsertCustomerAccountInSupabase,
   patchCustomerAccountInSupabase,
-  deleteCustomerAccountFromSupabase
+  deleteCustomerAccountFromSupabase,
+  syncUserWishlistToSupabase,
+  syncUserCartToSupabase,
+  syncUserAddressesToSupabase,
+  syncOrderToSupabase
 };
 
 const KEY = "reevibes:portal:v3";
@@ -802,6 +810,9 @@ export function PortalProvider({ children }: { children: ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
   const [isProductsLoading, setIsProductsLoading] = useState(true);
   const localVersionRef = useRef<number>(0);
+  const lastCartMutationRef = useRef<number>(0);
+  const lastWishlistMutationRef = useRef<number>(0);
+  const lastAddressMutationRef = useRef<number>(0);
 
   const notifyBroadcastSync = useCallback(() => {
     if (typeof window !== "undefined") {
@@ -1188,6 +1199,10 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         const currentUser = s.user;
         let nextUser = s.user;
         let nextShopCart = s.shopCart;
+        const isCartMutationRecent = (Date.now() - lastCartMutationRef.current) < 15000;
+        const isWishlistMutationRecent = (Date.now() - lastWishlistMutationRef.current) < 15000;
+        const isAddressMutationRecent = (Date.now() - lastAddressMutationRef.current) < 15000;
+
         if (currentUser) {
           const match = mappedCustomers.find((u: any) => u.id === currentUser.id || u.email?.toLowerCase() === currentUser.email?.toLowerCase());
           if (match) {
@@ -1204,7 +1219,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
               roles: match.roles || currentUser.roles,
               walletBalance: Number(match.walletBalance) || 0,
             };
-            if (match.cart && Array.isArray(match.cart)) {
+            if (!isCartMutationRecent && match.cart && Array.isArray(match.cart)) {
               nextShopCart = match.cart;
             }
           }
@@ -1228,6 +1243,14 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         const unsyncedCusts = (s.users || []).filter(u => !dbCustIds.has(String(u.id)));
         const mergedCustomers = [...mappedCustomers, ...unsyncedCusts];
 
+        const nextAddresses = isAddressMutationRecent && currentUser
+          ? { ...extraAddresses, [currentUser.id]: s.addresses[currentUser.id] || [] }
+          : { ...s.addresses, ...extraAddresses };
+
+        const nextWishlist = isWishlistMutationRecent && currentUser
+          ? { ...extraWishlists, [currentUser.id]: s.shopWishlist[currentUser.id] || [] }
+          : { ...s.shopWishlist, ...extraWishlists };
+
         return {
           ...s,
           user: nextUser,
@@ -1235,10 +1258,12 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           products: mergedProducts,
           buckets: mappedBuckets,
           users: mergedCustomers,
-          addresses: { ...s.addresses, ...extraAddresses },
-          shopWishlist: { ...s.shopWishlist, ...extraWishlists },
+          addresses: nextAddresses,
+          shopWishlist: nextWishlist,
+          wishlist: nextWishlist,
           wallets: { ...s.wallets, ...extraWallets },
           shopCart: nextShopCart,
+          cart: nextShopCart,
           homepageLayout: mappedPubLayout || s.homepageLayout || DEFAULT_HOMEPAGE_LAYOUT,
           homepageLayoutDraft: mappedDraftLayout || mappedPubLayout || s.homepageLayoutDraft || DEFAULT_HOMEPAGE_LAYOUT,
           orders: mergedOrders,
@@ -1303,11 +1328,11 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     };
   }, [fetchBackendState]);
 
-  // Poll backend sync version every 3 seconds for real-time synchronization
+  // Poll backend sync version every 15 seconds for non-blocking multi-device sync
   useEffect(() => {
     const interval = setInterval(() => {
       fetchBackendState();
-    }, 3000);
+    }, 15000);
     return () => clearInterval(interval);
   }, [fetchBackendState]);
 
@@ -1413,16 +1438,68 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       const list = (s.comments[contestantId] ?? SEED_COMMENTS).map(c => c.id === commentId ? { ...c, likes: c.likes + 1 } : c);
       return { ...s, comments: { ...s.comments, [contestantId]: list } };
     }),
-    addToCart: (item) => setState(s => {
-      const existing = s.cart.find(c => c.productId === item.productId);
-      const qty = item.qty ?? 1;
-      const cart = existing
-        ? s.cart.map(c => c.productId === item.productId ? { ...c, qty: c.qty + qty } : c)
-        : [...s.cart, { ...item, qty }];
-      return { ...s, cart };
-    }),
-    removeFromCart: (id) => setState(s => ({ ...s, cart: s.cart.filter(c => c.productId !== id) })),
-    clearCart: () => setState(s => ({ ...s, cart: [] })),
+    addToCart: (item) => {
+      lastCartMutationRef.current = Date.now();
+      let nextCart: CartItem[] = [];
+      setState(s => {
+        const currentList = s.shopCart || s.cart || [];
+        const existing = currentList.find(c => c.productId === item.productId && (!item.selectedSize || c.selectedSize === item.selectedSize));
+        const qty = item.qty ?? 1;
+        if (existing) {
+          nextCart = currentList.map(c => (c.productId === item.productId && (!item.selectedSize || c.selectedSize === item.selectedSize)) ? { ...c, qty: c.qty + qty } : c);
+        } else {
+          nextCart = [...currentList, { ...item, qty }];
+        }
+        const next = { ...s, cart: nextCart, shopCart: nextCart };
+        save(next);
+        return next;
+      });
+      notifyBroadcastSync();
+      if (state.user) {
+        syncUserCartToSupabase(state.user.id, nextCart).catch(err => console.error("Failed to sync cart to Supabase:", err));
+        fetch(`${BACKEND_URL}/api/customers/${state.user.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cart: JSON.stringify(nextCart) })
+        }).catch(() => null);
+      }
+    },
+    removeFromCart: (id) => {
+      lastCartMutationRef.current = Date.now();
+      let nextCart: CartItem[] = [];
+      setState(s => {
+        nextCart = (s.shopCart || s.cart || []).filter(c => c.productId !== id);
+        const next = { ...s, cart: nextCart, shopCart: nextCart };
+        save(next);
+        return next;
+      });
+      notifyBroadcastSync();
+      if (state.user) {
+        syncUserCartToSupabase(state.user.id, nextCart).catch(err => console.error("Failed to sync cart removal to Supabase:", err));
+        fetch(`${BACKEND_URL}/api/customers/${state.user.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cart: JSON.stringify(nextCart) })
+        }).catch(() => null);
+      }
+    },
+    clearCart: () => {
+      lastCartMutationRef.current = Date.now();
+      setState(s => {
+        const next = { ...s, cart: [], shopCart: [] };
+        save(next);
+        return next;
+      });
+      notifyBroadcastSync();
+      if (state.user) {
+        syncUserCartToSupabase(state.user.id, []).catch(err => console.error("Failed to clear cart in Supabase:", err));
+        fetch(`${BACKEND_URL}/api/customers/${state.user.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cart: "[]" })
+        }).catch(() => null);
+      }
+    },
     saveDraft: (d) => setState(s => {
       const exists = s.drafts.some(x => x.id === d.id);
       return { ...s, drafts: exists ? s.drafts.map(x => x.id === d.id ? d : x) : [...s.drafts, d] };
@@ -1698,81 +1775,121 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       return { ...s, rateScores: { ...s.rateScores, [userId]: { ...userMap, [contestantId]: score } } };
     }),
 
-    addAddress: (userId, address) => setState(s => {
-      const list = s.addresses[userId] ?? [];
-      const nextMajorAddresses = { ...s.majorAddresses };
-      if (list.length === 0) {
-        nextMajorAddresses[userId] = address;
-      }
-      const nextList = [...list, address];
-      patchCustomerAccountInSupabase(userId, { addresses: nextList }).catch(err => console.error("Failed to sync addAddress to Supabase:", err));
+    addAddress: (userId, address) => {
+      lastAddressMutationRef.current = Date.now();
+      let nextList: any[] = [];
+      setState(s => {
+        const list = s.addresses[userId] ?? [];
+        const nextMajorAddresses = { ...s.majorAddresses };
+        if (list.length === 0) {
+          nextMajorAddresses[userId] = address;
+        }
+        nextList = [...list, address];
+        const next = {
+          ...s,
+          addresses: { ...s.addresses, [userId]: nextList },
+          majorAddresses: nextMajorAddresses
+        };
+        save(next);
+        return next;
+      });
+      notifyBroadcastSync();
+      syncUserAddressesToSupabase(userId, nextList).catch(err => console.error("Failed to sync addAddress to Supabase:", err));
       fetch(`${BACKEND_URL}/api/customers/${userId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ addresses: JSON.stringify(nextList) })
       }).catch(err => console.error("Failed to sync addAddress:", err));
-      return {
-        ...s,
-        addresses: { ...s.addresses, [userId]: nextList },
-        majorAddresses: nextMajorAddresses
-      };
-    }),
-    removeAddress: (userId, index) => setState(s => {
-      const list = s.addresses[userId] ?? [];
-      const addrToRemove = list[index];
-      const nextList = list.filter((_, i) => i !== index);
-      const major = s.majorAddresses?.[userId];
-      const nextMajorAddresses = { ...s.majorAddresses };
-      if (major === addrToRemove) {
-        if (nextList.length > 0) {
-          nextMajorAddresses[userId] = nextList[0];
-        } else {
-          delete nextMajorAddresses[userId];
+    },
+    removeAddress: (userId, index) => {
+      lastAddressMutationRef.current = Date.now();
+      let nextList: any[] = [];
+      setState(s => {
+        const list = s.addresses[userId] ?? [];
+        const addrToRemove = list[index];
+        nextList = list.filter((_, i) => i !== index);
+        const major = s.majorAddresses?.[userId];
+        const nextMajorAddresses = { ...s.majorAddresses };
+        if (major === addrToRemove) {
+          if (nextList.length > 0) {
+            nextMajorAddresses[userId] = nextList[0];
+          } else {
+            delete nextMajorAddresses[userId];
+          }
         }
-      }
-      patchCustomerAccountInSupabase(userId, { addresses: nextList }).catch(err => console.error("Failed to sync removeAddress to Supabase:", err));
+        const next = {
+          ...s,
+          addresses: { ...s.addresses, [userId]: nextList },
+          majorAddresses: nextMajorAddresses
+        };
+        save(next);
+        return next;
+      });
+      notifyBroadcastSync();
+      syncUserAddressesToSupabase(userId, nextList).catch(err => console.error("Failed to sync removeAddress to Supabase:", err));
       fetch(`${BACKEND_URL}/api/customers/${userId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ addresses: JSON.stringify(nextList) })
       }).catch(err => console.error("Failed to sync removeAddress:", err));
-      return {
-        ...s,
-        addresses: { ...s.addresses, [userId]: nextList },
-        majorAddresses: nextMajorAddresses
-      };
-    }),
-    updateAddress: (userId, index, address) => setState(s => {
-      const list = s.addresses[userId] ?? [];
-      const oldAddr = list[index];
-      const nextList = list.map((a, i) => i === index ? address : a);
-      const major = s.majorAddresses?.[userId];
-      const nextMajorAddresses = { ...s.majorAddresses };
-      if (major === oldAddr) {
-        nextMajorAddresses[userId] = address;
-      }
-      patchCustomerAccountInSupabase(userId, { addresses: nextList }).catch(err => console.error("Failed to sync updateAddress to Supabase:", err));
+    },
+    updateAddress: (userId, index, address) => {
+      lastAddressMutationRef.current = Date.now();
+      let nextList: any[] = [];
+      setState(s => {
+        const list = s.addresses[userId] ?? [];
+        const oldAddr = list[index];
+        nextList = list.map((a, i) => i === index ? address : a);
+        const major = s.majorAddresses?.[userId];
+        const nextMajorAddresses = { ...s.majorAddresses };
+        if (major === oldAddr) {
+          nextMajorAddresses[userId] = address;
+        }
+        const next = {
+          ...s,
+          addresses: { ...s.addresses, [userId]: nextList },
+          majorAddresses: nextMajorAddresses
+        };
+        save(next);
+        return next;
+      });
+      notifyBroadcastSync();
+      syncUserAddressesToSupabase(userId, nextList).catch(err => console.error("Failed to sync updateAddress to Supabase:", err));
       fetch(`${BACKEND_URL}/api/customers/${userId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ addresses: JSON.stringify(nextList) })
       }).catch(err => console.error("Failed to sync updateAddress:", err));
-      return {
-        ...s,
-        addresses: { ...s.addresses, [userId]: nextList },
-        majorAddresses: nextMajorAddresses
-      };
-    }),
+    },
     setMajorAddress: (userId, address) => setState(s => {
       const next = { ...s.majorAddresses, [userId]: address };
-      return { ...s, majorAddresses: next };
+      save(next);
+      return next;
     }),
-    toggleWishlist: (userId, productId) => setState(s => {
-      const list = s.wishlist[userId] ?? [];
-      const next = list.includes(productId) ? list.filter(id => id !== productId) : [productId, ...list];
-      return { ...s, wishlist: { ...s.wishlist, [userId]: next } };
-    }),
+    toggleWishlist: (userId, productId) => {
+      lastWishlistMutationRef.current = Date.now();
+      let nextWish: string[] = [];
+      setState(s => {
+        const list = s.shopWishlist[userId] ?? s.wishlist[userId] ?? [];
+        nextWish = list.includes(productId) ? list.filter(id => id !== productId) : [productId, ...list];
+        const next = {
+          ...s,
+          wishlist: { ...s.wishlist, [userId]: nextWish },
+          shopWishlist: { ...s.shopWishlist, [userId]: nextWish }
+        };
+        save(next);
+        return next;
+      });
+      notifyBroadcastSync();
+      syncUserWishlistToSupabase(userId, nextWish).catch(err => console.error("Failed to sync toggleWishlist to Supabase:", err));
+      fetch(`${BACKEND_URL}/api/customers/${userId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ wishlist: JSON.stringify(nextWish) })
+      }).catch(err => console.error("Failed to sync toggleWishlist:", err));
+    },
     createOrder: (userId, order) => {
+      lastCartMutationRef.current = Date.now();
       const orderId = `ORD-${Math.floor(1000 + Math.random() * 9000)}`;
       const walletUsed = order.walletAmountUsed || 0;
       const razorpayPaid = order.razorpayAmountPaid !== undefined ? order.razorpayAmountPaid : (order.total - walletUsed);
@@ -1899,7 +2016,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           [userId]: [newNotif, ...existingUserNotifs]
         };
 
-        return {
+        const next = {
           ...s,
           user: s.user && s.user.id === userId && walletUsed > 0 ? { ...s.user, walletBalance: nextBal } : s.user,
           users: (s.users || []).map(u => u.id === userId && walletUsed > 0 ? { ...u, walletBalance: nextBal } : u),
@@ -1912,10 +2029,17 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           notifications: [newNotif, ...s.notifications],
           userNotifications: nextUserNotifs
         };
+        save(next);
+        return next;
       });
+
       const finalBal = Math.max(0, (state.wallets[userId] ?? 0) - walletUsed);
+      const nextUserOrders = [newOrder, ...(state.orders[userId] || [])];
+      notifyBroadcastSync();
+      syncOrderToSupabase(newOrder, userId, nextUserOrders).catch(err => console.error("Failed to sync order to Supabase:", err));
+      syncUserCartToSupabase(userId, []).catch(err => console.error("Failed to clear Supabase cart on order:", err));
       patchCustomerAccountInSupabase(userId, {
-        orders: [newOrder, ...(state.orders[userId] || [])],
+        orders: nextUserOrders,
         cart: [],
         walletBalance: finalBal
       }).catch(err => console.error("Failed to sync new order to Supabase customer_accounts:", err));
@@ -3292,74 +3416,105 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     deleteVendor: (id) => setState(s => ({ ...s, vendors: s.vendors.filter(v => v.id !== id) })),
 
     // Isolated shop cart & wishlist implementations
-    addToShopCart: (item) => setState(s => {
-      if (!s.user) {
+    addToShopCart: (item) => {
+      if (!state.user) {
         toast.error("Please sign in to add items to your cart.");
-        return s;
+        return;
       }
-      const cartList = s.shopCart || [];
-      const existing = cartList.find(c => c.productId === item.productId && c.selectedSize === item.selectedSize);
-      const qty = item.qty ?? 1;
-      let shopCart;
-      if (existing) {
-        const filtered = cartList.filter(c => !(c.productId === item.productId && c.selectedSize === item.selectedSize));
-        shopCart = [{ ...existing, qty: existing.qty + qty }, ...filtered];
-      } else {
-        shopCart = [{ ...item, qty }, ...cartList];
-      }
-      if (s.user) {
-        patchCustomerAccountInSupabase(s.user.id, { cart: shopCart }).catch(err => console.error("Failed to sync cart to Supabase:", err));
-        fetch(`${BACKEND_URL}/api/customers/${s.user.id}`, {
+      lastCartMutationRef.current = Date.now();
+      let nextShopCart: CartItem[] = [];
+      setState(s => {
+        const cartList = s.shopCart || [];
+        const existing = cartList.find(c => c.productId === item.productId && c.selectedSize === item.selectedSize);
+        const qty = item.qty ?? 1;
+        if (existing) {
+          const filtered = cartList.filter(c => !(c.productId === item.productId && c.selectedSize === item.selectedSize));
+          nextShopCart = [{ ...existing, qty: existing.qty + qty }, ...filtered];
+        } else {
+          nextShopCart = [{ ...item, qty }, ...cartList];
+        }
+        const currentAdditions = s.productCartAdditions[item.productId] ?? 0;
+        const next = {
+          ...s,
+          shopCart: nextShopCart,
+          cart: nextShopCart,
+          productCartAdditions: { ...s.productCartAdditions, [item.productId]: currentAdditions + qty }
+        };
+        save(next);
+        return next;
+      });
+      notifyBroadcastSync();
+      if (state.user) {
+        syncUserCartToSupabase(state.user.id, nextShopCart).catch(err => console.error("Failed to sync cart to Supabase:", err));
+        fetch(`${BACKEND_URL}/api/customers/${state.user.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ cart: JSON.stringify(shopCart) })
+          body: JSON.stringify({ cart: JSON.stringify(nextShopCart) })
         }).catch(err => console.error("Failed to sync addToShopCart:", err));
       }
-      const currentAdditions = s.productCartAdditions[item.productId] ?? 0;
-      return {
-        ...s,
-        shopCart,
-        productCartAdditions: { ...s.productCartAdditions, [item.productId]: currentAdditions + qty }
-      };
-    }),
-    removeFromShopCart: (id, size) => setState(s => {
-      const shopCart = (s.shopCart || []).filter(c => size ? !(c.productId === id && c.selectedSize === size) : c.productId !== id);
-      if (s.user) {
-        patchCustomerAccountInSupabase(s.user.id, { cart: shopCart }).catch(err => console.error("Failed to sync cart removal to Supabase:", err));
-        fetch(`${BACKEND_URL}/api/customers/${s.user.id}`, {
+    },
+    removeFromShopCart: (id, size) => {
+      lastCartMutationRef.current = Date.now();
+      let nextShopCart: CartItem[] = [];
+      setState(s => {
+        nextShopCart = (s.shopCart || []).filter(c => size ? !(c.productId === id && c.selectedSize === size) : c.productId !== id);
+        const next = { ...s, shopCart: nextShopCart, cart: nextShopCart };
+        save(next);
+        return next;
+      });
+      notifyBroadcastSync();
+      if (state.user) {
+        syncUserCartToSupabase(state.user.id, nextShopCart).catch(err => console.error("Failed to sync cart removal to Supabase:", err));
+        fetch(`${BACKEND_URL}/api/customers/${state.user.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ cart: JSON.stringify(shopCart) })
+          body: JSON.stringify({ cart: JSON.stringify(nextShopCart) })
         }).catch(err => console.error("Failed to sync removeFromShopCart:", err));
       }
-      return { ...s, shopCart };
-    }),
-    clearShopCart: () => setState(s => {
-      if (s.user) {
-        patchCustomerAccountInSupabase(s.user.id, { cart: [] }).catch(err => console.error("Failed to clear cart in Supabase:", err));
-        fetch(`${BACKEND_URL}/api/customers/${s.user.id}`, {
+    },
+    clearShopCart: () => {
+      lastCartMutationRef.current = Date.now();
+      setState(s => {
+        const next = { ...s, shopCart: [], cart: [] };
+        save(next);
+        return next;
+      });
+      notifyBroadcastSync();
+      if (state.user) {
+        syncUserCartToSupabase(state.user.id, []).catch(err => console.error("Failed to clear cart in Supabase:", err));
+        fetch(`${BACKEND_URL}/api/customers/${state.user.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ cart: "[]" })
         }).catch(err => console.error("Failed to sync clearShopCart:", err));
       }
-      return { ...s, shopCart: [] };
-    }),
-    toggleShopWishlist: (userId, productId) => setState(s => {
-      if (!s.user) {
+    },
+    toggleShopWishlist: (userId, productId) => {
+      if (!state.user) {
         toast.error("Please sign in to manage your wishlist.");
-        return s;
+        return;
       }
-      const list = s.shopWishlist[userId] ?? [];
-      const next = list.includes(productId) ? list.filter(id => id !== productId) : [productId, ...list];
-      patchCustomerAccountInSupabase(userId, { wishlist: next }).catch(err => console.error("Failed to sync wishlist to Supabase:", err));
+      lastWishlistMutationRef.current = Date.now();
+      let nextWish: string[] = [];
+      setState(s => {
+        const list = s.shopWishlist[userId] ?? s.wishlist[userId] ?? [];
+        nextWish = list.includes(productId) ? list.filter(id => id !== productId) : [productId, ...list];
+        const next = {
+          ...s,
+          shopWishlist: { ...s.shopWishlist, [userId]: nextWish },
+          wishlist: { ...s.wishlist, [userId]: nextWish }
+        };
+        save(next);
+        return next;
+      });
+      notifyBroadcastSync();
+      syncUserWishlistToSupabase(userId, nextWish).catch(err => console.error("Failed to sync toggleShopWishlist to Supabase:", err));
       fetch(`${BACKEND_URL}/api/customers/${userId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ wishlist: JSON.stringify(next) })
+        body: JSON.stringify({ wishlist: JSON.stringify(nextWish) })
       }).catch(err => console.error("Failed to sync toggleShopWishlist:", err));
-      return { ...s, shopWishlist: { ...s.shopWishlist, [userId]: next } };
-    }),
+    },
     recordProductView: (productId) => setState(s => {
       const currentViews = s.productViews[productId] ?? 0;
       return {
@@ -3367,49 +3522,70 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         productViews: { ...s.productViews, [productId]: currentViews + 1 }
       };
     }),
-    updateShopCartQty: (productId, selectedSize, qty) => setState(s => {
-      const shopCart = (s.shopCart || []).map(c =>
-        (c.productId === productId && c.selectedSize === selectedSize) ? { ...c, qty } : c
-      );
-      if (s.user) {
-        patchCustomerAccountInSupabase(s.user.id, { cart: shopCart }).catch(err => console.error("Failed to sync cart qty to Supabase:", err));
-        fetch(`${BACKEND_URL}/api/customers/${s.user.id}`, {
+    updateShopCartQty: (productId, selectedSize, qty) => {
+      lastCartMutationRef.current = Date.now();
+      let nextShopCart: CartItem[] = [];
+      setState(s => {
+        nextShopCart = (s.shopCart || []).map(c =>
+          (c.productId === productId && c.selectedSize === selectedSize) ? { ...c, qty } : c
+        );
+        const next = { ...s, shopCart: nextShopCart, cart: nextShopCart };
+        save(next);
+        return next;
+      });
+      notifyBroadcastSync();
+      if (state.user) {
+        syncUserCartToSupabase(state.user.id, nextShopCart).catch(err => console.error("Failed to sync cart qty to Supabase:", err));
+        fetch(`${BACKEND_URL}/api/customers/${state.user.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ cart: JSON.stringify(shopCart) })
+          body: JSON.stringify({ cart: JSON.stringify(nextShopCart) })
         }).catch(err => console.error("Failed to sync updateShopCartQty:", err));
       }
-      return { ...s, shopCart };
-    }),
-    updateShopCartSizeAndQty: (productId, oldSize, newSize, qty) => setState(s => {
-      const shopCart = (s.shopCart || []).map(c =>
-        (c.productId === productId && (c.selectedSize || "M") === oldSize)
-          ? { ...c, selectedSize: newSize, qty }
-          : c
-      );
-      if (s.user) {
-        patchCustomerAccountInSupabase(s.user.id, { cart: shopCart }).catch(err => console.error("Failed to sync cart size & qty to Supabase:", err));
-        fetch(`${BACKEND_URL}/api/customers/${s.user.id}`, {
+    },
+    updateShopCartSizeAndQty: (productId, oldSize, newSize, qty) => {
+      lastCartMutationRef.current = Date.now();
+      let nextShopCart: CartItem[] = [];
+      setState(s => {
+        nextShopCart = (s.shopCart || []).map(c =>
+          (c.productId === productId && (c.selectedSize || "M") === oldSize)
+            ? { ...c, selectedSize: newSize, qty }
+            : c
+        );
+        const next = { ...s, shopCart: nextShopCart, cart: nextShopCart };
+        save(next);
+        return next;
+      });
+      notifyBroadcastSync();
+      if (state.user) {
+        syncUserCartToSupabase(state.user.id, nextShopCart).catch(err => console.error("Failed to sync cart size & qty to Supabase:", err));
+        fetch(`${BACKEND_URL}/api/customers/${state.user.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ cart: JSON.stringify(shopCart) })
+          body: JSON.stringify({ cart: JSON.stringify(nextShopCart) })
         }).catch(err => console.error("Failed to sync updateShopCartSizeAndQty:", err));
       }
-      return { ...s, shopCart };
-    }),
-    restoreToShopCart: (item) => setState(s => {
-      const filtered = (s.shopCart || []).filter(c => !(c.productId === item.productId && c.selectedSize === item.selectedSize));
-      const shopCart = [item, ...filtered];
-      if (s.user) {
-        patchCustomerAccountInSupabase(s.user.id, { cart: shopCart }).catch(err => console.error("Failed to sync restore to cart to Supabase:", err));
-        fetch(`${BACKEND_URL}/api/customers/${s.user.id}`, {
+    },
+    restoreToShopCart: (item) => {
+      lastCartMutationRef.current = Date.now();
+      let nextShopCart: CartItem[] = [];
+      setState(s => {
+        const filtered = (s.shopCart || []).filter(c => !(c.productId === item.productId && c.selectedSize === item.selectedSize));
+        nextShopCart = [item, ...filtered];
+        const next = { ...s, shopCart: nextShopCart, cart: nextShopCart };
+        save(next);
+        return next;
+      });
+      notifyBroadcastSync();
+      if (state.user) {
+        syncUserCartToSupabase(state.user.id, nextShopCart).catch(err => console.error("Failed to sync restore to cart to Supabase:", err));
+        fetch(`${BACKEND_URL}/api/customers/${state.user.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ cart: JSON.stringify(shopCart) })
+          body: JSON.stringify({ cart: JSON.stringify(nextShopCart) })
         }).catch(err => console.error("Failed to sync restoreToShopCart:", err));
       }
-      return { ...s, shopCart };
-    })
+    }
   }), [state, isProductsLoading]);
 
   return <PortalContext.Provider value={api}>{children}</PortalContext.Provider>;

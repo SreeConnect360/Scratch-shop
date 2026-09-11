@@ -424,8 +424,8 @@ function CategoriesPage() {
     const sorted = [...filteredProducts];
     const usedIds = new Set<string>();
 
-    // 1. Newly Added Releases: First 2 rows (top 8 newest catalog items)
-    const newlyAdded = sorted.slice(0, 8);
+    // 1. Newly Added Releases: First 2 rows (top 10 newest catalog items for 5 items/row layout)
+    const newlyAdded = sorted.slice(0, 10);
     newlyAdded.forEach((p) => usedIds.add(p.id));
 
     // 2. Women's Wear New Arrivals (deduplicated)
@@ -781,7 +781,7 @@ function CategoriesPage() {
                   {newArrivalSections.newlyAdded.length} {newArrivalSections.newlyAdded.length === 1 ? "Piece" : "Pieces"}
                 </span>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-x-3 sm:gap-x-4 gap-y-8 sm:gap-y-10 items-start">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 sm:gap-x-4 gap-y-8 sm:gap-y-10 items-start">
                 {newArrivalSections.newlyAdded.map((p) => (
                   <ProductCard
                     key={p.id}
@@ -806,7 +806,7 @@ function CategoriesPage() {
                   {newArrivalSections.women.length} {newArrivalSections.women.length === 1 ? "Piece" : "Pieces"}
                 </span>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-x-3 sm:gap-x-4 gap-y-8 sm:gap-y-10 items-start">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 sm:gap-x-4 gap-y-8 sm:gap-y-10 items-start">
                 {newArrivalSections.women.map((p) => (
                   <ProductCard
                     key={p.id}
@@ -831,7 +831,7 @@ function CategoriesPage() {
                   {newArrivalSections.men.length} {newArrivalSections.men.length === 1 ? "Piece" : "Pieces"}
                 </span>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-x-3 sm:gap-x-4 gap-y-8 sm:gap-y-10 items-start">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 sm:gap-x-4 gap-y-8 sm:gap-y-10 items-start">
                 {newArrivalSections.men.map((p) => (
                   <ProductCard
                     key={p.id}
@@ -856,7 +856,7 @@ function CategoriesPage() {
                   {newArrivalSections.unisex.length} {newArrivalSections.unisex.length === 1 ? "Piece" : "Pieces"}
                 </span>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-x-3 sm:gap-x-4 gap-y-8 sm:gap-y-10 items-start">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 sm:gap-x-4 gap-y-8 sm:gap-y-10 items-start">
                 {newArrivalSections.unisex.map((p) => (
                   <ProductCard
                     key={p.id}
@@ -881,7 +881,7 @@ function CategoriesPage() {
                   {newArrivalSections.others.length} {newArrivalSections.others.length === 1 ? "Piece" : "Pieces"}
                 </span>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-x-3 sm:gap-x-4 gap-y-8 sm:gap-y-10 items-start">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 sm:gap-x-4 gap-y-8 sm:gap-y-10 items-start">
                 {newArrivalSections.others.map((p) => (
                   <ProductCard
                     key={p.id}
