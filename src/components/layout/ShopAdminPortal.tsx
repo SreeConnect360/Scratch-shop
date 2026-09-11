@@ -6147,7 +6147,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                           selectedProductIds.forEach(id => {
                             const p = productsList.find(x => String(x.id) === id);
                             if (p) {
-                              updateProduct(id, { ...p, status: "PUBLISHED" });
+                              updateProduct(id, { ...p, status: "PUBLISHED", visibility: "VISIBLE" });
                             }
                           });
                           setSelectedProductIds([]);
@@ -6267,9 +6267,12 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                 type="button"
                                 onClick={() => {
                                   const isPublished = p.status === "PUBLISHED";
+                                  const nextStatus = isPublished ? "UNPUBLISHED" : "PUBLISHED";
+                                  const nextVisibility = isPublished ? "HIDDEN" : "VISIBLE";
                                   updateProduct(p.id, {
-                                    status: isPublished ? "UNPUBLISHED" : "PUBLISHED",
-                                    visibility: isPublished ? "HIDDEN" : "VISIBLE"
+                                    ...p,
+                                    status: nextStatus,
+                                    visibility: nextVisibility
                                   });
                                   toast.success(isPublished ? "Product hidden" : "Product published live");
                                 }}

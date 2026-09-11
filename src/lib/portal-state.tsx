@@ -13,6 +13,7 @@ import {
 } from "./data";
 import {
   fetchAdminCatalogFromSupabase,
+  patchCatalogProductInSupabase,
   upsertCatalogProductToSupabase,
   deleteCatalogProductFromSupabase,
 } from "./supabase-catalog";
@@ -2620,32 +2621,40 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       });
     },
     updateProduct: (id, patch) => {
-      let fullPayload: any = { ...patch, id };
+      const existing = (state.products || []).find(p => p.id === id);
+      const fullPayload: any = { ...(existing || {}), ...patch, id };
+
+      // Instant optimistic update
       setState(s => {
-        const existing = (s.products || []).find(p => p.id === id);
-        if (existing) {
-          fullPayload = { ...existing, ...patch, id };
-        }
         const next = {
           ...s,
-          products: (s.products || []).map(p => p.id === id ? fullPayload : p)
+          products: (s.products || []).map(p => p.id === id ? { ...(p || {}), ...patch, id } : p)
         };
         save(next);
         return next;
       });
-      notifyBroadcastSync();
 
-      // 1. Direct Supabase Persistence to admin_product_catalog
-      upsertCatalogProductToSupabase(fullPayload).then((res) => {
-        if (res.ok) {
-          toast.success("Product updated in Supabase catalog!");
-          fetchBackendState(true);
-          notifyBroadcastSync();
-        } else {
-          console.error("Supabase catalog update error:", res.error);
-        }
-      }).catch(err => console.error("Supabase update failure:", err));
-      
+      const isPartial = Object.keys(patch).length <= 3 && (patch.status !== undefined || patch.visibility !== undefined);
+
+      if (isPartial) {
+        // Selective PATCH to Supabase - updates ONLY status/visibility without touching any other fields
+        patchCatalogProductInSupabase(id, patch).then((res) => {
+          if (!res.ok) {
+            console.error("Supabase catalog patch error:", res.error);
+          }
+        }).catch(err => console.error("Supabase patch failure:", err));
+      } else {
+        // Full product upsert to Supabase
+        upsertCatalogProductToSupabase(fullPayload).then((res) => {
+          if (res.ok) {
+            toast.success("Product updated in Supabase catalog!");
+          } else {
+            console.error("Supabase catalog update error:", res.error);
+          }
+        }).catch(err => console.error("Supabase update failure:", err));
+      }
+
+      // Backend sync
       const payloadToSend = { ...fullPayload };
       if (payloadToSend.price !== undefined && payloadToSend.price !== null) {
         payloadToSend.price = payloadToSend.price.toString().replace(/[^0-9.]/g, "");
@@ -2657,14 +2666,6 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payloadToSend)
-      }).then(async res => {
-        if (res.ok) {
-          fetchBackendState(true);
-          notifyBroadcastSync();
-        } else {
-          const errText = await res.text().catch(() => "");
-          console.warn("Backend update sync response:", res.status, errText);
-        }
       }).catch(err => console.warn("Backend update sync warning:", err));
     },
     deleteProduct: (id) => {

@@ -1825,9 +1825,21 @@ public class ShopPortalController {
                 catalogItem = new AdminProductCatalog();
                 catalogItem.setId(id);
             }
-            catalogItem.setRawJson(jsonStr);
+            if (catalogItem.getRawJson() != null && !catalogItem.getRawJson().isEmpty()) {
+                try {
+                    Map<String, Object> existingRaw = mapper.readValue(catalogItem.getRawJson(), Map.class);
+                    existingRaw.putAll(body);
+                    catalogItem.setRawJson(mapper.writeValueAsString(existingRaw));
+                } catch (Exception e) {
+                    catalogItem.setRawJson(jsonStr);
+                }
+            } else {
+                catalogItem.setRawJson(jsonStr);
+            }
 
-            if (body.containsKey("name")) catalogItem.setName(safeParseString(body.get("name")));
+            if (body.containsKey("name") && body.get("name") != null && !String.valueOf(body.get("name")).trim().isEmpty()) {
+                catalogItem.setName(safeParseString(body.get("name")));
+            }
             if (body.containsKey("house")) catalogItem.setHouse(safeParseString(body.get("house")));
             if (body.containsKey("brand")) catalogItem.setBrand(safeParseString(body.get("brand")));
             if (catalogItem.getBrand() == null && catalogItem.getHouse() != null) catalogItem.setBrand(catalogItem.getHouse());
@@ -2038,6 +2050,15 @@ public class ShopPortalController {
                 existingMap.putAll(body);
                 body = existingMap;
             } catch (Exception e) {}
+        } else {
+            try {
+                AdminProductCatalog existingCat = adminProductCatalogRepository.findById(id).orElse(null);
+                if (existingCat != null && existingCat.getRawJson() != null && !existingCat.getRawJson().isEmpty()) {
+                    Map<String, Object> existingMap = mapper.readValue(existingCat.getRawJson(), Map.class);
+                    existingMap.putAll(body);
+                    body = existingMap;
+                }
+            } catch (Exception ignored) {}
         }
         String jsonStr = "";
         try { jsonStr = mapper.writeValueAsString(body); } catch(Exception e){}
@@ -2046,7 +2067,9 @@ public class ShopPortalController {
             product.setFullJson(jsonStr);
         } catch (Exception e) {}
 
-        if (body.containsKey("name")) product.setName(safeParseString(body.get("name")));
+        if (body.containsKey("name") && body.get("name") != null && !String.valueOf(body.get("name")).trim().isEmpty()) {
+            product.setName(safeParseString(body.get("name")));
+        }
         if (body.containsKey("house")) product.setHouse(safeParseString(body.get("house")));
         if (body.containsKey("price")) product.setPrice(safeParseString(body.get("price")));
         if (body.containsKey("image")) product.setImage(safeParseString(body.get("image")));

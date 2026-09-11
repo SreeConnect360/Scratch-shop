@@ -220,11 +220,122 @@ export async function fetchSingleProductFromSupabase(productId: string): Promise
 }
 
 /**
+ * Selectively patches specific fields of a product in Supabase `admin_product_catalog`
+ * without touching or overwriting other columns.
+ */
+export async function patchCatalogProductInSupabase(
+  id: string,
+  patch: Record<string, any>
+): Promise<{ ok: boolean; product?: Product; error?: string }> {
+  if (!id) return { ok: false, error: "Missing product ID" };
+  try {
+    const fieldsToUpdate: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (patch.status !== undefined) fieldsToUpdate.status = String(patch.status).toUpperCase();
+    if (patch.visibility !== undefined) fieldsToUpdate.visibility = String(patch.visibility).toUpperCase();
+    if (patch.name !== undefined && String(patch.name).trim()) fieldsToUpdate.name = String(patch.name).trim();
+    if (patch.house !== undefined) fieldsToUpdate.house = String(patch.house);
+    if (patch.brand !== undefined) fieldsToUpdate.brand = String(patch.brand);
+    if (patch.category !== undefined) fieldsToUpdate.category = String(patch.category);
+    if (patch.gender !== undefined) fieldsToUpdate.gender = String(patch.gender);
+    if (patch.tag !== undefined) fieldsToUpdate.tag = String(patch.tag);
+    if (patch.sku !== undefined) fieldsToUpdate.sku = String(patch.sku);
+    if (patch.description !== undefined) fieldsToUpdate.description = String(patch.description);
+    if (patch.details !== undefined) fieldsToUpdate.details = String(patch.details);
+    if (patch.material !== undefined) fieldsToUpdate.material = String(patch.material);
+    if (patch.fabric !== undefined) fieldsToUpdate.fabric = String(patch.fabric);
+    if (patch.color !== undefined) fieldsToUpdate.color = String(patch.color);
+    if (patch.collections !== undefined) fieldsToUpdate.collections = String(patch.collections);
+    if (patch.type !== undefined) fieldsToUpdate.type = String(patch.type);
+    if (patch.productInfo !== undefined) fieldsToUpdate.product_info = String(patch.productInfo);
+    if (patch.overviewTitle !== undefined) fieldsToUpdate.overview_title = String(patch.overviewTitle);
+
+    if (patch.price !== undefined) {
+      const disc = parseFloat(String(patch.price).replace(/[^0-9.]/g, "")) || 0;
+      fieldsToUpdate.price = String(disc);
+    }
+    if (patch.originalPrice !== undefined) {
+      const orig = parseFloat(String(patch.originalPrice).replace(/[^0-9.]/g, "")) || 0;
+      fieldsToUpdate.original_price = String(orig);
+    }
+    if (patch.discount !== undefined) {
+      fieldsToUpdate.discount = Number(patch.discount);
+    }
+
+    if (patch.image !== undefined) fieldsToUpdate.image = String(patch.image);
+    if (patch.images !== undefined) {
+      fieldsToUpdate.images_json = JSON.stringify(Array.isArray(patch.images) ? patch.images : []);
+      if (!fieldsToUpdate.image && Array.isArray(patch.images) && patch.images[0]) {
+        fieldsToUpdate.image = patch.images[0];
+      }
+    }
+    if (patch.videos !== undefined) {
+      fieldsToUpdate.videos_json = JSON.stringify(Array.isArray(patch.videos) ? patch.videos : []);
+    }
+    if (patch.sizes !== undefined) {
+      fieldsToUpdate.sizes_json = JSON.stringify(Array.isArray(patch.sizes) ? patch.sizes : []);
+    }
+    if (patch.tags !== undefined) {
+      fieldsToUpdate.tags_json = JSON.stringify(Array.isArray(patch.tags) ? patch.tags : []);
+    }
+    if (patch.stockPerSize !== undefined) {
+      fieldsToUpdate.stock_per_size_json = JSON.stringify(patch.stockPerSize || {});
+    }
+    if (patch.stockQuantity !== undefined) {
+      fieldsToUpdate.stock_quantity = Number(patch.stockQuantity);
+      fieldsToUpdate.in_stock = Number(patch.stockQuantity) > 0;
+    }
+    if (patch.inStock !== undefined) fieldsToUpdate.in_stock = Boolean(patch.inStock);
+
+    if (patch.isFeatured !== undefined) fieldsToUpdate.is_featured = Boolean(patch.isFeatured);
+    if (patch.isNew !== undefined) fieldsToUpdate.is_new = Boolean(patch.isNew);
+    if (patch.isNewArrival !== undefined) fieldsToUpdate.is_new_arrival = Boolean(patch.isNewArrival);
+    if (patch.isTrending !== undefined) fieldsToUpdate.is_trending = Boolean(patch.isTrending);
+    if (patch.isBestSeller !== undefined) fieldsToUpdate.is_best_seller = Boolean(patch.isBestSeller);
+    if (patch.isRecommended !== undefined) fieldsToUpdate.is_recommended = Boolean(patch.isRecommended);
+
+    if (patch.seoTitle !== undefined) fieldsToUpdate.seo_title = String(patch.seoTitle);
+    if (patch.seoDescription !== undefined) fieldsToUpdate.seo_description = String(patch.seoDescription);
+    if (patch.seoKeywords !== undefined) fieldsToUpdate.seo_keywords = String(patch.seoKeywords);
+
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/admin_product_catalog?id=eq.${encodeURIComponent(id)}`,
+      {
+        method: "PATCH",
+        headers: getHeaders("return=representation"),
+        body: JSON.stringify(fieldsToUpdate),
+      }
+    );
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error(`Failed to patch Supabase product ${id}:`, res.status, errText);
+      return { ok: false, error: errText };
+    }
+
+    const rows = await res.json();
+    const updated = rows && rows[0] ? mapSupabaseRowToProduct(rows[0]) : undefined;
+    return { ok: true, product: updated };
+  } catch (err: any) {
+    console.error(`Network error patching product ${id} in Supabase:`, err);
+    return { ok: false, error: err?.message || String(err) };
+  }
+}
+
+/**
  * Upserts (inserts or updates) a complete product record in Supabase `admin_product_catalog`.
  */
 export async function upsertCatalogProductToSupabase(p: any): Promise<{ ok: boolean; product?: Product; error?: string }> {
   try {
     const id = String(p.id || `pr-${Date.now()}`);
+
+    // Safeguard: if this is a partial update without a name, route to PATCH so we never wipe existing data
+    if (!p.name && (p.status !== undefined || p.visibility !== undefined)) {
+      return patchCatalogProductInSupabase(id, p);
+    }
+
     const actual = parseFloat(String(p.originalPrice || p.price || "").replace(/[^0-9.]/g, "")) || 0;
     const disc = parseFloat(String(p.price || "").replace(/[^0-9.]/g, "")) || 0;
     const discountPct =
