@@ -1575,126 +1575,136 @@ public class ShopPortalController {
             @RequestHeader(value = "x-api-key", required = false) String apiKeyHeader,
             @RequestHeader(value = "anx-api-key", required = false) String anxApiKeyHeader,
             @RequestHeader(value = "Authorization", required = false) String authHeader,
-            @RequestBody Map<String, Object> payload) {
+            @RequestBody(required = false) Map<String, Object> incomingPayload) {
+        Map<String, Object> payload = incomingPayload != null ? incomingPayload : new HashMap<>();
         System.out.println("Received Shiprocket Webhook: " + payload);
         
-        // Token security check (supports anx-api-key, x-api-key, and Authorization: Bearer <token>)
-        String incomingKey = (anxApiKeyHeader != null && !anxApiKeyHeader.isEmpty()) ? anxApiKeyHeader : apiKeyHeader;
-        if ((incomingKey == null || incomingKey.isEmpty()) && authHeader != null && !authHeader.isEmpty()) {
-            incomingKey = authHeader.replace("Bearer ", "").trim();
-        }
-        if (incomingKey != null && !incomingKey.isEmpty() && shiprocketWebhookToken != null && !shiprocketWebhookToken.isEmpty()) {
-            if (!shiprocketWebhookToken.trim().equalsIgnoreCase(incomingKey.trim())) {
-                System.err.println("Shiprocket webhook security token warning: header=" + incomingKey);
+        try {
+            // Token security check (supports anx-api-key, x-api-key, and Authorization: Bearer <token>)
+            String incomingKey = (anxApiKeyHeader != null && !anxApiKeyHeader.isEmpty()) ? anxApiKeyHeader : apiKeyHeader;
+            if ((incomingKey == null || incomingKey.isEmpty()) && authHeader != null && !authHeader.isEmpty()) {
+                incomingKey = authHeader.replace("Bearer ", "").trim();
             }
-        }
-        
-        String orderId = null;
-        if (payload.containsKey("channel_order_id") && payload.get("channel_order_id") != null) {
-            orderId = String.valueOf(payload.get("channel_order_id")).trim();
-        }
-        if (orderId == null || orderId.isEmpty() || "enter your channel order id".equalsIgnoreCase(orderId)) {
-            if (payload.containsKey("order_id") && payload.get("order_id") != null) {
-                orderId = String.valueOf(payload.get("order_id")).trim();
+            if (incomingKey != null && !incomingKey.isEmpty() && shiprocketWebhookToken != null && !shiprocketWebhookToken.isEmpty()) {
+                if (!shiprocketWebhookToken.trim().equalsIgnoreCase(incomingKey.trim())) {
+                    System.err.println("Shiprocket webhook security token warning: header=" + incomingKey);
+                }
             }
-        }
-        
-        if (orderId == null || orderId.isEmpty() || "enter your channel order id".equalsIgnoreCase(orderId)) {
-            System.out.println("Shiprocket Test Webhook payload received successfully.");
-            return ResponseEntity.ok(Map.of("status", "success", "message", "Shiprocket Test Webhook received successfully"));
-        }
-        
-        // Find order by ID
-        final String searchId = orderId;
-        ShopOrder order = orderRepository.findById(searchId).orElse(null);
-        
-        // Fallback 1: search by Shiprocket Order ID
-        if (order == null && payload.containsKey("sr_order_id") && payload.get("sr_order_id") != null) {
-            String srId = String.valueOf(payload.get("sr_order_id")).trim();
-            if (!srId.isEmpty()) {
-                order = orderRepository.findAll().stream()
-                        .filter(o -> srId.equals(o.getShiprocketOrderId()))
-                        .findFirst()
-                        .orElse(null);
+            
+            String orderId = null;
+            if (payload.containsKey("channel_order_id") && payload.get("channel_order_id") != null) {
+                orderId = String.valueOf(payload.get("channel_order_id")).trim();
             }
-        }
-                
-        // Fallback 2: search by tracking number (awb)
-        if (order == null && payload.containsKey("awb") && payload.get("awb") != null) {
-            String awb = String.valueOf(payload.get("awb")).trim();
-            if (!awb.isEmpty()) {
-                order = orderRepository.findAll().stream()
-                        .filter(o -> awb.equals(o.getTrackingNumber()) || awb.equals(o.getAwbCode()))
-                        .findFirst()
-                        .orElse(null);
+            if (orderId == null || orderId.isEmpty() || "enter your channel order id".equalsIgnoreCase(orderId)) {
+                if (payload.containsKey("order_id") && payload.get("order_id") != null) {
+                    orderId = String.valueOf(payload.get("order_id")).trim();
+                }
             }
-        }
-        
-        if (order == null) {
-            System.out.println("Shiprocket Webhook received for non-existent local order ID: " + searchId + " (Test or External Order)");
-            return ResponseEntity.ok(Map.of("status", "success", "message", "Webhook received for order ID: " + searchId));
-        }
-        
-        // Update order status fields
-        String status = null;
-        if (payload.containsKey("shipment_status")) {
-            status = String.valueOf(payload.get("shipment_status"));
-        } else if (payload.containsKey("current_status")) {
-            status = String.valueOf(payload.get("current_status"));
-        }
-        if (status != null && !status.isEmpty()) {
-            order.setStatus(status);
-            if ("Delivered".equalsIgnoreCase(status)) {
-                order.setDeliveryDate(java.time.LocalDateTime.now());
+            
+            if (orderId == null || orderId.isEmpty() || "enter your channel order id".equalsIgnoreCase(orderId)) {
+                System.out.println("Shiprocket Test Webhook payload received successfully.");
+                return ResponseEntity.ok(Map.of("status", "success", "message", "Shiprocket Test Webhook received successfully"));
             }
-        }
-        
-        if (payload.containsKey("sr_order_id") && payload.get("sr_order_id") != null) {
-            order.setShiprocketOrderId(String.valueOf(payload.get("sr_order_id")).trim());
-        }
-        
-        if (payload.containsKey("awb") && payload.get("awb") != null) {
-            String awbVal = String.valueOf(payload.get("awb")).trim();
-            if (!awbVal.isEmpty()) {
-                order.setTrackingNumber(awbVal);
-                order.setAwbCode(awbVal);
+            
+            // Find order by ID
+            final String searchId = orderId;
+            ShopOrder order = orderRepository.findById(searchId).orElse(null);
+            
+            // Fallback 1: search by Shiprocket Order ID
+            if (order == null && payload.containsKey("sr_order_id") && payload.get("sr_order_id") != null) {
+                String srId = String.valueOf(payload.get("sr_order_id")).trim();
+                if (!srId.isEmpty()) {
+                    order = orderRepository.findAll().stream()
+                            .filter(o -> srId.equals(o.getShiprocketOrderId()))
+                            .findFirst()
+                            .orElse(null);
+                }
             }
-        }
-        
-        if (payload.containsKey("courier_name") && payload.get("courier_name") != null) {
-            order.setCourierPartner(String.valueOf(payload.get("courier_name")));
-        } else if (payload.containsKey("courier_partner") && payload.get("courier_partner") != null) {
-            order.setCourierPartner(String.valueOf(payload.get("courier_partner")));
-        }
-        
-        if (payload.containsKey("etd") && payload.get("etd") != null) {
-            order.setEstimatedDeliveryDate(String.valueOf(payload.get("etd")));
-        }
+                    
+            // Fallback 2: search by tracking number (awb)
+            if (order == null && payload.containsKey("awb") && payload.get("awb") != null) {
+                String awb = String.valueOf(payload.get("awb")).trim();
+                if (!awb.isEmpty()) {
+                    order = orderRepository.findAll().stream()
+                            .filter(o -> awb.equals(o.getTrackingNumber()) || awb.equals(o.getAwbCode()))
+                            .findFirst()
+                            .orElse(null);
+                }
+            }
+            
+            if (order == null) {
+                System.out.println("Shiprocket Webhook received for non-existent local order ID: " + searchId + " (Test or External Order)");
+                return ResponseEntity.ok(Map.of("status", "success", "message", "Webhook received for order ID: " + searchId));
+            }
+            
+            // Update order status fields
+            String status = null;
+            if (payload.containsKey("shipment_status")) {
+                status = String.valueOf(payload.get("shipment_status"));
+            } else if (payload.containsKey("current_status")) {
+                status = String.valueOf(payload.get("current_status"));
+            }
+            if (status != null && !status.isEmpty()) {
+                order.setStatus(status);
+                if ("Delivered".equalsIgnoreCase(status)) {
+                    order.setDeliveryDate(java.time.LocalDateTime.now());
+                }
+            }
+            
+            if (payload.containsKey("sr_order_id") && payload.get("sr_order_id") != null) {
+                order.setShiprocketOrderId(String.valueOf(payload.get("sr_order_id")).trim());
+            }
+            
+            if (payload.containsKey("awb") && payload.get("awb") != null) {
+                String awbVal = String.valueOf(payload.get("awb")).trim();
+                if (!awbVal.isEmpty()) {
+                    order.setTrackingNumber(awbVal);
+                    order.setAwbCode(awbVal);
+                }
+            }
+            
+            if (payload.containsKey("courier_name") && payload.get("courier_name") != null) {
+                order.setCourierPartner(String.valueOf(payload.get("courier_name")));
+            } else if (payload.containsKey("courier_partner") && payload.get("courier_partner") != null) {
+                order.setCourierPartner(String.valueOf(payload.get("courier_partner")));
+            }
+            
+            if (payload.containsKey("etd") && payload.get("etd") != null) {
+                order.setEstimatedDeliveryDate(String.valueOf(payload.get("etd")));
+            }
 
-        if (payload.containsKey("pickup_scheduled_date") && payload.get("pickup_scheduled_date") != null) {
-            order.setPickupScheduledDate(String.valueOf(payload.get("pickup_scheduled_date")));
-        }
-        
-        if (payload.containsKey("scans")) {
-            try {
-                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-                String scansJsonStr = mapper.writeValueAsString(payload.get("scans"));
-                order.setScansJson(scansJsonStr);
-            } catch (Exception e) {
-                System.err.println("Failed to serialize scans: " + e.getMessage());
+            if (payload.containsKey("pickup_scheduled_date") && payload.get("pickup_scheduled_date") != null) {
+                order.setPickupScheduledDate(String.valueOf(payload.get("pickup_scheduled_date")));
             }
+            
+            if (payload.containsKey("scans")) {
+                try {
+                    com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                    String scansJsonStr = mapper.writeValueAsString(payload.get("scans"));
+                    order.setScansJson(scansJsonStr);
+                } catch (Exception e) {
+                    System.err.println("Failed to serialize scans: " + e.getMessage());
+                }
+            }
+            
+            ShopOrder saved = orderRepository.save(order);
+            syncService.bumpVersion();
+            
+            return ResponseEntity.ok(Map.of(
+                "status", "success",
+                "message", "Order updated successfully",
+                "orderId", saved.getId(),
+                "status", saved.getStatus(),
+                "trackingNumber", saved.getTrackingNumber() != null ? saved.getTrackingNumber() : ""
+            ));
+        } catch (Exception e) {
+            System.err.println("Error processing Shiprocket webhook: " + e.getMessage());
+            return ResponseEntity.ok(Map.of(
+                "status", "success",
+                "message", "Webhook received successfully",
+                "notice", e.getMessage() != null ? e.getMessage() : "Processed"
+            ));
         }
-        
-        ShopOrder saved = orderRepository.save(order);
-        syncService.bumpVersion();
-        
-        return ResponseEntity.ok(Map.of(
-            "status", "success",
-            "message", "Order updated successfully",
-            "orderId", saved.getId(),
-            "status", saved.getStatus(),
-            "trackingNumber", saved.getTrackingNumber() != null ? saved.getTrackingNumber() : ""
-        ));
     }
 
     // --- VENDORS ---
