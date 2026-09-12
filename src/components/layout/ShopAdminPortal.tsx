@@ -2083,7 +2083,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                               }
                             } else {
                               toast.success("Order accepted & status updated to Accepted!");
-                              setSelectedOrderDetails(prev => prev ? { ...prev, status: "Accepted" } : null);
+                              setSelectedOrderDetails((prev: any) => prev ? { ...prev, status: "Accepted" } : null);
                             }
                           }}
                           className="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] uppercase font-bold px-4 py-2 rounded-lg cursor-pointer flex items-center gap-1.5"

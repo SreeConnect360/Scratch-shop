@@ -12,7 +12,7 @@ export const Route = createFileRoute("/FashionBattle/live-contest/$countryId/$st
 });
 
 function StageView() {
-  const { countryId, stage } = useParams({ from: "/live-contest/$countryId/$stage" });
+  const { countryId, stage } = Route.useParams();
   const { state } = useAppStore();
   const stageKey = stage.toLowerCase();
   const inStage = Object.entries(state.positions)

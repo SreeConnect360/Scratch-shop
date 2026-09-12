@@ -1443,6 +1443,7 @@ function ProductDetail() {
                 </div>
                 <Link
                   to="/orders"
+                  search={{ tab: "history" }}
                   className="px-5 py-2 rounded-full border border-accent/40 bg-accent/10 text-accent font-extrabold text-xs uppercase tracking-wider hover:bg-accent hover:text-white transition-all shrink-0 cursor-pointer shadow-sm"
                 >
                   My Orders

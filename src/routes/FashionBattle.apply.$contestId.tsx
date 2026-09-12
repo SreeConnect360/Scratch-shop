@@ -23,7 +23,7 @@ const STEPS = [
 const SOCIAL_PLATFORMS = ["Instagram", "Facebook", "Twitter/X", "Pinterest", "Portfolio", "Other"];
 
 function ScopedApply() {
-  const { contestId } = useParams({ from: "/apply/$contestId" });
+  const { contestId } = Route.useParams();
   const { state, submitApplication } = useAppStore();
   const contest = state.contests.find(c => c.id === contestId);
   const navigate = useNavigate();

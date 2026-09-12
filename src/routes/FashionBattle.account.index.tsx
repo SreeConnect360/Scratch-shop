@@ -385,7 +385,7 @@ function Dashboard() {
             <div className="text-center py-12">
               <Heart className="w-8 h-8 mx-auto text-muted-foreground/40 mb-3" />
               <p className="text-sm text-muted-foreground italic">Your wishlist is empty.</p>
-              <Link to="/shop/categories" className="mt-4 inline-block bg-foreground text-background px-6 py-2.5 text-xs uppercase tracking-widest font-semibold hover:bg-accent transition-colors">
+              <Link to="/categories" className="mt-4 inline-block bg-foreground text-background px-6 py-2.5 text-xs uppercase tracking-widest font-semibold hover:bg-accent transition-colors">
                 Browse Collection
               </Link>
             </div>
@@ -439,7 +439,7 @@ function Dashboard() {
             <div className="text-center py-12">
               <ShoppingBag className="w-8 h-8 mx-auto text-muted-foreground/40 mb-3" />
               <p className="text-sm text-muted-foreground italic">Your cart is empty.</p>
-              <Link to="/shop/categories" className="mt-4 inline-block bg-foreground text-background px-6 py-2.5 text-xs uppercase tracking-widest font-semibold hover:bg-accent transition-colors">
+              <Link to="/categories" className="mt-4 inline-block bg-foreground text-background px-6 py-2.5 text-xs uppercase tracking-widest font-semibold hover:bg-accent transition-colors">
                 Go Shopping
               </Link>
             </div>

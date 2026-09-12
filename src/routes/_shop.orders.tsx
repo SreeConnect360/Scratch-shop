@@ -5,12 +5,12 @@ import { z } from "zod";
 import { 
   X, Check, AlertTriangle, Star, ListOrdered, 
   RotateCcw, ArrowLeft, Search, FileText, Copy, ExternalLink, Package, Truck, Clock, ShieldCheck,
-  MapPin, Download, Calendar, ChevronRight
+  MapPin, Download, Calendar, ChevronRight, Sparkles
 } from "lucide-react";
 import { toast } from "sonner";
 
 const ordersSearchSchema = z.object({
-  tab: z.enum(["history", "returns"]).catch("history"),
+  tab: z.enum(["history", "returns"]).optional().catch("history"),
 });
 
 export const Route = createFileRoute("/_shop/orders")({
@@ -285,7 +285,7 @@ function ShopOrdersPage() {
                             onClick={(e) => {
                               e.stopPropagation();
                               setReviewFormItem({
-                                productId: firstItem?.productId || firstItem?.id || "vnd-1",
+                                productId: firstItem?.productId || (firstItem as any)?.id || "vnd-1",
                                 orderId: order.id,
                                 productName: firstItem?.name || "Apparel",
                                 productImage: firstItem?.image || ""
@@ -641,7 +641,7 @@ function ShopOrdersPage() {
                         <div className="min-w-0 space-y-1">
                           <Link
                             to="/product/$productId"
-                            params={{ productId: item.productId || item.id || "vnd-1" }}
+                            params={{ productId: item.productId || (item as any)?.id || "vnd-1" }}
                             className="font-serif font-bold text-sm sm:text-base text-foreground hover:text-accent truncate block"
                           >
                             {item.name}
@@ -693,7 +693,7 @@ function ShopOrdersPage() {
                           type="button"
                           onClick={() => {
                             setReviewFormItem({
-                              productId: item.productId || item.id,
+                              productId: item.productId || (item as any)?.id || "vnd-1",
                               orderId: selectedOrderDetails.id,
                               productName: item.name,
                               productImage: item.image

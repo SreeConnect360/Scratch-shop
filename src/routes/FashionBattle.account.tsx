@@ -92,7 +92,7 @@ function AccountShell() {
               {path === "/account" && <span className="w-2 h-2 bg-accent rotate-45" />}
             </Link>
              <Link
-              to="/shop/categories"
+              to="/categories"
               className={`flex items-center justify-between text-xs uppercase tracking-widest font-semibold transition-colors text-foreground/80 hover:text-accent`}
             >
               <span>Categories</span>

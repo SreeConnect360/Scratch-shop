@@ -8,7 +8,7 @@ export const Route = createFileRoute("/FashionBattle/contestant/$contestantId")(
 });
 
 function ContestantById() {
-  const { contestantId } = useParams({ from: "/contestant/$contestantId" });
+  const { contestantId } = Route.useParams();
   const c = CONTESTANTS.find(x => x.id === contestantId);
   if (!c) {
     return (

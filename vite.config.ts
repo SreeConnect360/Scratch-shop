@@ -33,7 +33,7 @@ export default defineConfig({
     // We add hooks to copy the missing ES6 module files of tslib because Nitro's builder
     // omits them when compiling the function node_modules, triggering ERR_MODULE_NOT_FOUND.
     hooks: {
-      compiled(nitro) {
+      compiled(nitro: any) {
         const destDir = path.join(
           nitro.options.output.serverDir,
           "node_modules",
@@ -52,5 +52,5 @@ export default defineConfig({
         }
       }
     }
-  },
+  } as any,
 });

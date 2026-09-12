@@ -10,7 +10,7 @@ export const Route = createFileRoute("/FashionBattle/photography/$photoId")({
 });
 
 function PhotoDetail() {
-  const { photoId } = useParams({ from: "/photography/$photoId" });
+  const { photoId } = Route.useParams();
   const { state } = useAppStore();
   const isBest = state.bestPhotos.includes(photoId);
   const src = decodeURIComponent(photoId);

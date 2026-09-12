@@ -1127,8 +1127,8 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         return keys.length >= 2 && (Array.isArray(l.sectionOrder) || Boolean(l.hero));
       };
 
-      let mappedPubLayout: any = isValidLayoutObj(supabaseLayouts?.published) ? supabaseLayouts.published : null;
-      let mappedDraftLayout: any = isValidLayoutObj(supabaseLayouts?.draft) ? supabaseLayouts.draft : null;
+      let mappedPubLayout: any = (supabaseLayouts && isValidLayoutObj(supabaseLayouts.published)) ? supabaseLayouts.published : null;
+      let mappedDraftLayout: any = (supabaseLayouts && isValidLayoutObj(supabaseLayouts.draft)) ? supabaseLayouts.draft : null;
 
       if (!mappedPubLayout || !mappedDraftLayout) {
         try {
@@ -2055,7 +2055,10 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       }).catch(err => console.error("Failed to sync updateAddress:", err));
     },
     setMajorAddress: (userId, address) => setState(s => {
-      const next = { ...s.majorAddresses, [userId]: address };
+      const next: PortalState = {
+        ...s,
+        majorAddresses: { ...s.majorAddresses, [userId]: address }
+      };
       save(next);
       return next;
     }),
@@ -3298,7 +3301,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         if (targetCoupon.expiryDate && targetCoupon.expiryDate !== "unlimited" && targetCoupon.expiryDate < today) {
           return { success: false, message: "Coupon code has expired." };
         }
-        if (targetCoupon.usageLimit && targetCoupon.usageLimit > 0 && targetCoupon.usedCount >= targetCoupon.usageLimit) {
+        if (targetCoupon.usageLimit && targetCoupon.usageLimit > 0 && (targetCoupon.usedCount ?? 0) >= targetCoupon.usageLimit) {
           return { success: false, message: "Coupon usage limit has been reached." };
         }
         const userRedeemedList = state.userRedeemedGiftCards?.[userId] || [];
