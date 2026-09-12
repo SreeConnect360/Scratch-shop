@@ -1575,8 +1575,15 @@ public class ShopPortalController {
             @RequestHeader(value = "x-api-key", required = false) String apiKeyHeader,
             @RequestHeader(value = "anx-api-key", required = false) String anxApiKeyHeader,
             @RequestHeader(value = "Authorization", required = false) String authHeader,
-            @RequestBody(required = false) Map<String, Object> incomingPayload) {
-        Map<String, Object> payload = incomingPayload != null ? incomingPayload : new HashMap<>();
+            @RequestBody(required = false) String rawBody) {
+        Map<String, Object> payload = new HashMap<>();
+        if (rawBody != null && !rawBody.trim().isEmpty()) {
+            try {
+                payload = objectMapper.readValue(rawBody, Map.class);
+            } catch (Exception e) {
+                System.out.println("Could not parse webhook body as JSON: " + rawBody);
+            }
+        }
         System.out.println("Received Shiprocket Webhook: " + payload);
         
         try {
