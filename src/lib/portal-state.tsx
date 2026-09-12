@@ -44,6 +44,7 @@ import {
   type SupabaseWalletGiftCard,
   fetchCouponsFromSupabase,
   upsertCouponToSupabase,
+  updateCouponInSupabase,
   deleteCouponFromSupabase,
   fetchWalletGiftCardsFromSupabase,
   upsertWalletGiftCardToSupabase,
@@ -797,6 +798,7 @@ type Ctx = {
   assignReturnPickup: (returnId: string) => Promise<any>;
   processSplitRefund: (returnId: string) => Promise<any>;
   addCoupon: (coupon: { code: string; discount: number; type?: "fixed" | "percentage" | "wallet"; expiryDate?: string; usageLimit?: number; userEligibility?: string; productType?: string; brand?: string }) => void;
+  updateCoupon: (originalCode: string, coupon: { code: string; discount: number; type?: "fixed" | "percentage" | "wallet"; expiryDate?: string; usageLimit?: number; userEligibility?: string; productType?: string; brand?: string; active?: boolean }) => void;
   removeCoupon: (code: string) => void;
   toggleCouponActive: (code: string) => void;
   addWalletGiftCard: (giftCard: Omit<WalletGiftCard, "id" | "usedCount" | "createdAt" | "status"> & { status?: WalletGiftCard["status"] }) => void;
@@ -2699,6 +2701,63 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newCoupon)
       }).catch(err => console.error("Failed to sync new coupon to backend:", err));
+    },
+    updateCoupon: (originalCode, coupon) => {
+      const origUpper = originalCode.trim().toUpperCase();
+      const newUpper = coupon.code.trim().toUpperCase();
+
+      let updatedCoupon: ShopCoupon | null = null;
+      setState(s => {
+        const existing = (s.coupons || []).find(c => c.code === origUpper);
+        updatedCoupon = {
+          code: newUpper,
+          discount: Number(coupon.discount) || 0,
+          type: coupon.type || existing?.type || "percentage",
+          expiryDate: coupon.expiryDate || existing?.expiryDate || "unlimited",
+          usageLimit: coupon.usageLimit !== undefined ? coupon.usageLimit : (existing?.usageLimit ?? 100),
+          userEligibility: coupon.userEligibility || existing?.userEligibility || "All",
+          active: coupon.active !== undefined ? coupon.active : (existing?.active ?? true),
+          usedCount: existing?.usedCount || 0,
+          productType: (coupon.productType !== undefined ? coupon.productType : (existing?.productType || "")).trim(),
+          brand: (coupon.brand !== undefined ? coupon.brand : (existing?.brand || "")).trim(),
+          createdAt: existing?.createdAt || new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+
+        const filtered = (s.coupons || []).filter(c => c.code !== origUpper && c.code !== newUpper);
+        const next = { ...s, coupons: [updatedCoupon, ...filtered] };
+        save(next);
+        return next;
+      });
+      notifyBroadcastSync();
+
+      if (updatedCoupon) {
+        // 1. Direct Supabase Persistence
+        updateCouponInSupabase(origUpper, updatedCoupon).then(res => {
+          if (res.ok) {
+            toast.success(`Coupon ${newUpper} updated in Supabase!`);
+            notifyBroadcastSync();
+          } else {
+            console.error("Supabase coupon update error:", res.error);
+          }
+        }).catch(err => console.error("Supabase coupon update exception:", err));
+
+        // 2. Secondary Backend Sync
+        if (origUpper !== newUpper) {
+          fetch(`${BACKEND_URL}/api/coupons/${origUpper}`, { method: "DELETE" }).catch(() => null);
+        }
+        fetch(`${BACKEND_URL}/api/coupons/${newUpper}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updatedCoupon)
+        }).catch(() => {
+          fetch(`${BACKEND_URL}/api/coupons`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(updatedCoupon)
+          }).catch(err => console.error("Failed to sync updated coupon to backend:", err));
+        });
+      }
     },
     removeCoupon: (code) => {
       const upperCode = code.trim().toUpperCase();

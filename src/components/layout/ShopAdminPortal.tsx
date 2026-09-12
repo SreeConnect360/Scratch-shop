@@ -33,7 +33,7 @@ const formatOrderDateTime = (dateStr: string) => {
 
 export function ShopAdminPortal({ tab }: { tab: string }) {
   const [statusFilter, setStatusFilter] = useState<string>("All");
-  const { state, fetchBackendState, createProduct, updateProduct, deleteProduct, updateOrderStatus, acceptOrder, declineOrder, fetchCourierQuotes, assignAWB, schedulePickup, cancelOrder, fetchOrderLabel, fetchOrderInvoice, fetchOrderManifest, syncShiprocketTracking, assignReturnPickup, processSplitRefund, approveReturn, rejectReturn, updateReturnDetails, suspendCustomer, reactivateCustomer, addCoupon, removeCoupon, toggleCouponActive, moderateReview, deleteReview, addWalletCredit, updateHomepageLayoutDraft, publishHomepageLayout, revertHomepageLayout, createBucket, updateBucket, deleteBucket, reorderBuckets, toggleShopWishlist, addWalletGiftCard, updateWalletGiftCard, toggleWalletGiftCardStatus, deleteWalletGiftCard } = usePortal();
+  const { state, fetchBackendState, createProduct, updateProduct, deleteProduct, updateOrderStatus, acceptOrder, declineOrder, fetchCourierQuotes, assignAWB, schedulePickup, cancelOrder, fetchOrderLabel, fetchOrderInvoice, fetchOrderManifest, syncShiprocketTracking, assignReturnPickup, processSplitRefund, approveReturn, rejectReturn, updateReturnDetails, suspendCustomer, reactivateCustomer, addCoupon, updateCoupon, removeCoupon, toggleCouponActive, moderateReview, deleteReview, addWalletCredit, updateHomepageLayoutDraft, publishHomepageLayout, revertHomepageLayout, createBucket, updateBucket, deleteBucket, reorderBuckets, toggleShopWishlist, addWalletGiftCard, updateWalletGiftCard, toggleWalletGiftCardStatus, deleteWalletGiftCard } = usePortal();
 
   // Dynamic products list from state
   const productsList = state.products || [];
@@ -458,6 +458,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
     brand: ""
   });
   const [isAddingCoupon, setIsAddingCoupon] = useState(false);
+  const [editingCoupon, setEditingCoupon] = useState<any | null>(null);
 
   // Coupons & Wallet Gift Cards Sub-tab
   const [couponsSubTab, setCouponsSubTab] = useState<"store-coupons" | "wallet-gift-cards">("store-coupons");
@@ -920,18 +921,44 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
     e.preventDefault();
     const finalExpiryDate = couponForm.expiryType === "unlimited" ? "unlimited" : couponForm.expiryDate;
     const finalUsageLimit = couponForm.userLimitType === "unlimited" ? -1 : couponForm.usageLimit;
-    
-    addCoupon({
-      code: couponForm.code,
-      discount: couponForm.discount,
-      type: couponForm.type as "fixed" | "percentage" | "wallet",
-      expiryDate: finalExpiryDate,
-      usageLimit: finalUsageLimit,
-      userEligibility: couponForm.userEligibility,
-      productType: couponForm.productType.trim(),
-      brand: couponForm.brand.trim()
-    });
-    setIsAddingCoupon(false);
+    const codeFormatted = couponForm.code.trim().toUpperCase();
+
+    if (!codeFormatted) {
+      toast.error("Please enter a valid coupon code.");
+      return;
+    }
+
+    if (editingCoupon) {
+      updateCoupon(editingCoupon.code, {
+        code: codeFormatted,
+        discount: couponForm.discount,
+        type: couponForm.type as "fixed" | "percentage" | "wallet",
+        expiryDate: finalExpiryDate,
+        usageLimit: finalUsageLimit,
+        userEligibility: couponForm.userEligibility,
+        productType: couponForm.productType.trim(),
+        brand: couponForm.brand.trim(),
+        active: editingCoupon.active !== undefined ? editingCoupon.active : true
+      });
+      setIsAddingCoupon(false);
+      setEditingCoupon(null);
+      toast.success(`Coupon ${codeFormatted} updated in Supabase and across portal!`);
+      triggerModal("success", "Coupon Updated", `Coupon ${codeFormatted} has been successfully updated in Supabase, backend, and all portals.`, () => {});
+    } else {
+      addCoupon({
+        code: codeFormatted,
+        discount: couponForm.discount,
+        type: couponForm.type as "fixed" | "percentage" | "wallet",
+        expiryDate: finalExpiryDate,
+        usageLimit: finalUsageLimit,
+        userEligibility: couponForm.userEligibility,
+        productType: couponForm.productType.trim(),
+        brand: couponForm.brand.trim()
+      });
+      setIsAddingCoupon(false);
+      triggerModal("success", "Coupon Created", "New coupon successfully saved to Supabase and live across all devices.", () => {});
+    }
+
     setCouponForm({
       code: "",
       discount: 10,
@@ -944,7 +971,6 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
       productType: "",
       brand: ""
     });
-    triggerModal("success", "Coupon Created", "New coupon successfully saved to Supabase and live across all devices.", () => {});
   };
 
   const handleGiftCardSubmit = (e: React.FormEvent) => {
@@ -7032,7 +7058,27 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
               <div className="flex justify-between items-center">
                 <h3 className="font-serif text-xl font-bold">Active Store Coupons</h3>
                 <button
-                  onClick={() => setIsAddingCoupon(!isAddingCoupon)}
+                  onClick={() => {
+                    if (isAddingCoupon) {
+                      setIsAddingCoupon(false);
+                      setEditingCoupon(null);
+                    } else {
+                      setEditingCoupon(null);
+                      setCouponForm({
+                        code: "",
+                        discount: 10,
+                        type: "percentage",
+                        expiryType: "limited",
+                        expiryDate: "2026-12-31",
+                        userLimitType: "limited",
+                        usageLimit: 100,
+                        userEligibility: "All",
+                        productType: "",
+                        brand: ""
+                      });
+                      setIsAddingCoupon(true);
+                    }
+                  }}
                   className="editorial-label bg-accent text-white px-5 py-2.5 hover:bg-accent/90 flex items-center gap-2 rounded-full cursor-pointer shadow-md"
                 >
                   <Plus className="w-4 h-4" /> Add Coupon
@@ -7043,10 +7089,29 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                 <AdminCard className="space-y-6 animate-in slide-in-from-top-4 duration-200">
                   <div className="flex justify-between items-center border-b border-white/10 pb-3">
                     <div>
-                      <h4 className="font-serif text-lg font-bold">Create Store Coupon Code</h4>
-                      <p className="text-xs text-muted-foreground">Target specific Product Types, Brands, or create Storewide offers</p>
+                      <h4 className="font-serif text-lg font-bold flex items-center gap-2">
+                        {editingCoupon ? (
+                          <>
+                            <span>Edit Store Coupon:</span>
+                            <span className="font-mono text-accent">{editingCoupon.code}</span>
+                          </>
+                        ) : (
+                          "Create Store Coupon Code"
+                        )}
+                      </h4>
+                      <p className="text-xs text-muted-foreground">
+                        {editingCoupon
+                          ? "Modify discount values, targeting criteria, user limits, or expiry settings"
+                          : "Target specific Product Types, Brands, or create Storewide offers"}
+                      </p>
                     </div>
-                    <button onClick={() => setIsAddingCoupon(false)} className="text-muted-foreground hover:text-foreground cursor-pointer">
+                    <button
+                      onClick={() => {
+                        setIsAddingCoupon(false);
+                        setEditingCoupon(null);
+                      }}
+                      className="text-muted-foreground hover:text-foreground cursor-pointer"
+                    >
                       <X className="w-5 h-5" />
                     </button>
                   </div>
@@ -7139,9 +7204,19 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                     )}
 
                     <div className="md:col-span-3 flex justify-end gap-3 pt-4 border-t border-border-subtle">
-                      <AdminButton type="button" variant="outline" onClick={() => setIsAddingCoupon(false)}>Cancel</AdminButton>
-                      <button type="submit" className="editorial-label bg-accent text-white px-6 py-2.5 hover:bg-accent/90 rounded-full cursor-pointer shadow-md">
-                        Add Coupon (Save to Supabase)
+                      <AdminButton
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setIsAddingCoupon(false);
+                          setEditingCoupon(null);
+                        }}
+                      >
+                        Cancel
+                      </AdminButton>
+                      <button type="submit" className="editorial-label bg-accent text-white px-6 py-2.5 hover:bg-accent/90 rounded-full cursor-pointer shadow-md flex items-center gap-1.5">
+                        <Check className="w-4 h-4" />
+                        {editingCoupon ? "Save Changes (Sync to Supabase & Backend)" : "Add Coupon (Save to Supabase)"}
                       </button>
                     </div>
                   </form>
@@ -7239,12 +7314,37 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             <div className="text-[10px] text-emerald-400 font-medium">Credited to wallet upon delivery</div>
                           )}
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingCoupon(c);
+                              setCouponForm({
+                                code: c.code,
+                                discount: c.discount,
+                                type: c.type,
+                                expiryType: c.expiryDate === "unlimited" || !c.expiryDate ? "unlimited" : "limited",
+                                expiryDate: c.expiryDate && c.expiryDate !== "unlimited" ? c.expiryDate : "2026-12-31",
+                                userLimitType: c.usageLimit === -1 || !c.usageLimit ? "unlimited" : "limited",
+                                usageLimit: c.usageLimit && c.usageLimit > 0 ? c.usageLimit : 100,
+                                userEligibility: c.userEligibility || "All",
+                                productType: c.productType || "",
+                                brand: c.brand || ""
+                              });
+                              setIsAddingCoupon(true);
+                              window.scrollTo({ top: 0, behavior: "smooth" });
+                            }}
+                            className="text-xs text-accent hover:text-accent/80 uppercase font-semibold cursor-pointer flex items-center gap-1 bg-accent/10 px-2.5 py-1 rounded-md border border-accent/30 hover:bg-accent/20 transition-colors"
+                            title="Edit coupon"
+                          >
+                            <Edit2 className="w-3 h-3" />
+                            <span>Edit</span>
+                          </button>
                           <button
                             type="button"
                             onClick={() => toggleCouponActive(c.code)}
-                            className={`text-xs uppercase font-semibold cursor-pointer transition-colors ${
-                              c.active ? "text-amber-400 hover:text-amber-300" : "text-emerald-400 hover:text-emerald-300"
+                            className={`text-xs uppercase font-semibold cursor-pointer transition-colors px-2 py-1 rounded-md border ${
+                              c.active ? "text-amber-400 border-amber-500/30 hover:bg-amber-500/10" : "text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
                             }`}
                             title={c.active ? "Pause coupon" : "Activate coupon"}
                           >
@@ -7253,7 +7353,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                           <button
                             type="button"
                             onClick={() => removeCoupon(c.code)}
-                            className="text-xs text-rose-400 hover:text-rose-500 uppercase font-semibold cursor-pointer"
+                            className="text-xs text-rose-400 hover:text-rose-300 border border-rose-500/30 hover:bg-rose-500/10 uppercase font-semibold cursor-pointer px-2 py-1 rounded-md transition-colors"
                           >
                             Delete
                           </button>

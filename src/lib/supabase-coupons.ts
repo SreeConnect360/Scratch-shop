@@ -224,6 +224,32 @@ export async function deleteCouponFromSupabase(
   }
 }
 
+/**
+ * Updates an existing store coupon in Supabase.
+ * If the coupon code has been renamed, safely deletes the old record and inserts the updated one.
+ */
+export async function updateCouponInSupabase(
+  originalCode: string,
+  updatedCoupon: SupabaseShopCoupon
+): Promise<{ ok: boolean; coupon?: SupabaseShopCoupon; error?: any }> {
+  try {
+    const origUpper = originalCode.trim().toUpperCase();
+    const newUpper = updatedCoupon.code.trim().toUpperCase();
+
+    if (origUpper !== newUpper) {
+      await deleteCouponFromSupabase(origUpper);
+    }
+
+    return await upsertCouponToSupabase({
+      ...updatedCoupon,
+      code: newUpper,
+    });
+  } catch (err) {
+    console.error("Exception updating coupon in Supabase:", err);
+    return { ok: false, error: err };
+  }
+}
+
 // ────────────────── WALLET GIFT CARDS REST API ──────────────────
 
 /**

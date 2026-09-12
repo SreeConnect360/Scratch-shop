@@ -523,6 +523,26 @@ public class ShopPortalController {
         return ResponseEntity.ok(saved);
     }
 
+    @PutMapping("/coupons/{code}")
+    @Transactional
+    public ResponseEntity<ShopCoupon> updateCoupon(@PathVariable String code, @RequestBody ShopCoupon coupon) {
+        String upperCode = code.trim().toUpperCase();
+        String targetCode = (coupon.getCode() != null && !coupon.getCode().trim().isEmpty())
+                ? coupon.getCode().trim().toUpperCase()
+                : upperCode;
+
+        if (!upperCode.equalsIgnoreCase(targetCode)) {
+            couponRepository.deleteById(upperCode);
+        }
+
+        coupon.setCode(targetCode);
+        if (coupon.getUsedCount() == null) coupon.setUsedCount(0);
+        if (coupon.getActive() == null) coupon.setActive(true);
+        ShopCoupon saved = couponRepository.save(coupon);
+        syncService.bumpVersion();
+        return ResponseEntity.ok(saved);
+    }
+
     @DeleteMapping("/coupons/{code}")
     @Transactional
     public ResponseEntity<?> deleteCoupon(@PathVariable String code) {
