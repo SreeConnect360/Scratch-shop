@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "shiprocket": {
+      "command": "node",
+      "args": [
+        "-r",
+        "tsconfig-paths/register",
+        "./tools/shiprocket-mcp/dist/main.js"
+      ],
+      "env": {
+        "SELLER_EMAIL": "sreesri1004@gmail.com",
+        "SELLER_PASSWORD": "iHT@&zlNP#3VvqSnn^Pr0KwU$7^BPjt@"
+      }
+    }
+  }
+}
