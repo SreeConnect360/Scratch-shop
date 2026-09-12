@@ -74,6 +74,43 @@ public class ShiprocketService {
     }
 
     /**
+     * Discovers registered pickup location nickname in Shiprocket (defaults to "warehouse").
+     */
+    public String getPrimaryPickupLocation() {
+        String token = getAuthToken();
+        if (token != null) {
+            try {
+                String url = "https://apiv2.shiprocket.in/v1/external/settings/company/pickup";
+                HttpHeaders headers = new HttpHeaders();
+                headers.set("Authorization", "Bearer " + token);
+                HttpEntity<Void> entity = new HttpEntity<>(headers);
+                ResponseEntity<Map> response = restTemplate.exchange(url, org.springframework.http.HttpMethod.GET, entity, Map.class);
+                if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                    Map body = response.getBody();
+                    if (body.containsKey("data") && body.get("data") instanceof Map) {
+                        Map data = (Map) body.get("data");
+                        if (data.containsKey("shipping_address") && data.get("shipping_address") instanceof List) {
+                            List addresses = (List) data.get("shipping_address");
+                            for (Object addrObj : addresses) {
+                                if (addrObj instanceof Map) {
+                                    Map addrMap = (Map) addrObj;
+                                    Object loc = addrMap.get("pickup_location");
+                                    if (loc != null && !String.valueOf(loc).trim().isEmpty()) {
+                                        return String.valueOf(loc).trim();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("Failed to fetch pickup location from Shiprocket: " + e.getMessage());
+            }
+        }
+        return "warehouse";
+    }
+
+    /**
      * Creates an adhoc order in Shiprocket for a placed order.
      */
     public Map<String, String> createShiprocketOrder(ShopOrder order) {
@@ -200,11 +237,16 @@ public class ShiprocketService {
                 orderItems.add(orderItem);
             }
 
+            // Primary warehouse nickname in Shiprocket (Kakinada 533001)
+            String pickupLocation = (order.getPickupLocation() != null && !order.getPickupLocation().trim().isEmpty() && !"Primary".equalsIgnoreCase(order.getPickupLocation()))
+                    ? order.getPickupLocation().trim()
+                    : getPrimaryPickupLocation();
+
             // Build payload
             Map<String, Object> payload = new HashMap<>();
             payload.put("order_id", order.getId());
             payload.put("order_date", new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm").format(new java.util.Date()));
-            payload.put("pickup_location", order.getPickupLocation() != null ? order.getPickupLocation() : "Primary");
+            payload.put("pickup_location", pickupLocation);
             payload.put("billing_customer_name", billingName);
             payload.put("billing_last_name", billingLastName);
             payload.put("billing_address", street);
@@ -245,6 +287,7 @@ public class ShiprocketService {
                     if (body.containsKey("shipment_id")) {
                         res.put("shipment_id", String.valueOf(body.get("shipment_id")));
                     }
+                    res.put("pickup_location", pickupLocation);
                     return res;
                 }
             } else {

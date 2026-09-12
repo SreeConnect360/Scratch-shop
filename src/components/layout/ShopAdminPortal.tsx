@@ -37,9 +37,49 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
 
   // Dynamic products list from state
   const productsList = state.products || [];
-  const ordersList = Object.entries(state.orders).flatMap(([userId, list]) =>
-    list.map(o => ({ ...o, userId, customerName: state.users.find(u => u.id === userId)?.firstName + " " + (state.users.find(u => u.id === userId)?.lastName || "") }))
-  );
+  const ordersList = useMemo(() => {
+    const orderMap = new Map<string, any>();
+    Object.entries(state.orders || {}).forEach(([userId, list]) => {
+      if (!Array.isArray(list)) return;
+      list.forEach(o => {
+        if (!o || !o.id) return;
+        const oId = String(o.id).trim();
+        const userObj = state.users?.find(u => u.id === userId);
+        const customerName = userObj ? `${userObj.firstName || ""} ${userObj.lastName || ""}`.trim() : (o.customerName || "Customer");
+        
+        let items: any[] = [];
+        if (Array.isArray(o.items) && o.items.length > 0) {
+          items = o.items;
+        } else if (o.itemsJson) {
+          try {
+            const parsed = typeof o.itemsJson === "string" ? JSON.parse(o.itemsJson) : o.itemsJson;
+            if (Array.isArray(parsed)) items = parsed;
+          } catch {}
+        }
+        
+        const itemMap = new Map<string, any>();
+        items.forEach((item: any) => {
+          if (!item) return;
+          const key = `${item.productId || item.id || item.name}-${item.selectedSize || "M"}`;
+          if (itemMap.has(key)) {
+            const existing = itemMap.get(key);
+            itemMap.set(key, { ...existing, qty: (existing.qty || 1) + (item.qty || 1) });
+          } else {
+            itemMap.set(key, { ...item, qty: item.qty || 1 });
+          }
+        });
+        const dedupedItems = Array.from(itemMap.values());
+
+        if (!orderMap.has(oId)) {
+          orderMap.set(oId, { ...o, userId, customerName: customerName || "Customer", items: dedupedItems });
+        } else {
+          const existing = orderMap.get(oId);
+          orderMap.set(oId, { ...existing, ...o, userId, customerName: customerName || existing.customerName, items: dedupedItems.length > 0 ? dedupedItems : existing.items });
+        }
+      });
+    });
+    return Array.from(orderMap.values());
+  }, [state.orders, state.users]);
   const filteredOrders = useMemo(() => {
     let list = [...ordersList];
 
@@ -576,6 +616,10 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
   const handlePrintInvoice = (order: any) => {
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
+    const orderItems: any[] = Array.isArray(order.items) && order.items.length > 0
+      ? order.items
+      : (order.itemsJson ? (() => { try { const p = JSON.parse(order.itemsJson); return Array.isArray(p) ? p : []; } catch { return []; } })() : []);
+
     printWindow.document.write(`
       <html>
         <head>
@@ -596,10 +640,10 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
             <div>Invoice for Order #${order.id}</div>
           </div>
           <div class="details">
-            <p><strong>Customer Name:</strong> ${order.customerName}</p>
-            <p><strong>Address:</strong> ${order.address}</p>
-            <p><strong>Date:</strong> ${new Date(order.date).toLocaleString()}</p>
-            <p><strong>Payment Status:</strong> ${order.paymentStatus || 'Paid'}</p>
+            <p><strong>Customer Name:</strong> ${order.customerName || "Customer"}</p>
+            <p><strong>Address:</strong> ${order.address || "Warehouse Pickup"}</p>
+            <p><strong>Date:</strong> ${new Date(order.date).toLocaleDateString()}</p>
+            <p><strong>Payment Method:</strong> ${order.paymentMethod || "Online"}</p>
           </div>
           <table>
             <thead>
@@ -611,17 +655,17 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
               </tr>
             </thead>
             <tbody>
-              \${order.items.map((item) => \`
+              \${(orderItems || []).map((item) => \`
                 <tr>
-                  <td>\${item.name}</td>
+                  <td>\${item.name || 'Fashion Piece'}</td>
                   <td>\${item.selectedSize || 'M'}</td>
-                  <td>\${item.qty}</td>
-                  <td>\${item.price}</td>
+                  <td>\${item.qty || 1}</td>
+                  <td>\${item.price || 0}</td>
                 </tr>
               \`).join("")}
             </tbody>
           </table>
-          <div class="total">Total: ₹\${order.total.toLocaleString()}</div>
+          <div class="total">Total: ₹\${(order.total || 0).toLocaleString()}</div>
           <script>window.print(); window.close();</script>
         </body>
       </html>
@@ -2005,7 +2049,11 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                       const updated = await syncShiprocketTracking(selectedOrderDetails.userId, selectedOrderDetails.id);
                       if (updated) {
                         toast.success("Shiprocket live tracking updated!");
-                        setSelectedOrderDetails(updated);
+                        setSelectedOrderDetails((prev: any) => ({
+                          ...prev,
+                          ...updated,
+                          items: (Array.isArray(updated?.items) && updated.items.length > 0) ? updated.items : prev?.items
+                        }));
                       } else {
                         toast.info("Tracking status up to date.");
                       }
@@ -2100,7 +2148,11 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             setQuotesLoading(false);
                             if (res && (res.order || res.id)) {
                               const updated = res.order || res;
-                              setSelectedOrderDetails(updated);
+                              setSelectedOrderDetails((prev: any) => ({
+                                ...prev,
+                                ...updated,
+                                items: (Array.isArray(updated?.items) && updated.items.length > 0) ? updated.items : prev?.items
+                              }));
                               if (res.quotes && res.quotes.data && res.quotes.data.available_courier_companies) {
                                 setCourierQuotes(res.quotes.data.available_courier_companies);
                                 toast.success("Order accepted & live Shiprocket delivery partners retrieved!");
@@ -2194,7 +2246,11 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                           const res = await assignAWB(selectedOrderDetails.userId, selectedOrderDetails.id, courierId, q.courier_name);
                                           if (res && !res.error) {
                                             toast.success(`AWB Assigned! Shipment routed via ${q.courier_name}. AWB: ${res.trackingNumber}`);
-                                            setSelectedOrderDetails(res);
+                                            setSelectedOrderDetails((prev: any) => ({
+                                              ...prev,
+                                              ...res,
+                                              items: (Array.isArray(res?.items) && res.items.length > 0) ? res.items : prev?.items
+                                            }));
                                             setCourierQuotes(null);
                                           } else {
                                             toast.error(res?.message || "Failed to assign AWB.");
@@ -2239,7 +2295,11 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             const updated = await schedulePickup(selectedOrderDetails.userId, selectedOrderDetails.id, pickupDate);
                             if (updated) {
                               toast.success("Courier pickup scheduled successfully!");
-                              setSelectedOrderDetails(updated);
+                              setSelectedOrderDetails((prev: any) => ({
+                                ...prev,
+                                ...updated,
+                                items: (Array.isArray(updated?.items) && updated.items.length > 0) ? updated.items : prev?.items
+                              }));
                             } else {
                               toast.error("Failed to schedule pickup.");
                             }
@@ -2418,7 +2478,11 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                           const updated = await syncShiprocketTracking(selectedOrderDetails.userId, selectedOrderDetails.id);
                           if (updated) {
                             toast.success("Shipment tracking synced with Shiprocket!");
-                            setSelectedOrderDetails(updated);
+                            setSelectedOrderDetails((prev: any) => ({
+                              ...prev,
+                              ...updated,
+                              items: (Array.isArray(updated?.items) && updated.items.length > 0) ? updated.items : prev?.items
+                            }));
                           } else {
                             toast.info("Shipment tracking is up to date.");
                           }
@@ -2490,21 +2554,39 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                 <div className="space-y-2 pt-2">
                   <h4 className="font-bold text-accent uppercase tracking-wider text-[10px]">Items of the Delivery</h4>
                   <div className="space-y-2 border border-white/10 rounded-2xl p-3 bg-white/5 max-h-40 overflow-y-auto">
-                    {selectedOrderDetails.items.map((item: any, idx: number) => (
-                      <div key={idx} className="flex justify-between items-center gap-3 py-1 first:pt-0 border-t border-white/5 first:border-0">
-                        <div className="flex items-center gap-2">
-                          <img src={item.image} className="w-8 h-10 object-cover rounded-md border border-white/5" />
-                          <div>
-                            <div className="font-semibold text-white">{item.name}</div>
-                            <div className="text-[10px] text-muted-foreground">{item.house} · Size: {item.selectedSize || "M"}</div>
+                    {(() => {
+                      let items: any[] = [];
+                      if (Array.isArray(selectedOrderDetails.items) && selectedOrderDetails.items.length > 0) {
+                        items = selectedOrderDetails.items;
+                      } else if (selectedOrderDetails.itemsJson) {
+                        try {
+                          const parsed = typeof selectedOrderDetails.itemsJson === 'string' ? JSON.parse(selectedOrderDetails.itemsJson) : selectedOrderDetails.itemsJson;
+                          if (Array.isArray(parsed)) items = parsed;
+                        } catch {}
+                      }
+                      if (!items || items.length === 0) {
+                        return <div className="text-[10px] text-muted-foreground italic">No item details available for this order.</div>;
+                      }
+                      return items.map((item: any, idx: number) => (
+                        <div key={idx} className="flex justify-between items-center gap-3 py-1 first:pt-0 border-t border-white/5 first:border-0">
+                          <div className="flex items-center gap-2">
+                            {item.image ? (
+                              <img src={item.image} alt={item.name} className="w-8 h-10 object-cover rounded-md border border-white/5" />
+                            ) : (
+                              <div className="w-8 h-10 rounded-md bg-white/5 border border-white/5 flex items-center justify-center text-[9px] text-muted-foreground">Ree</div>
+                            )}
+                            <div>
+                              <div className="font-semibold text-white">{item.name || "Product Item"}</div>
+                              <div className="text-[10px] text-muted-foreground">{item.house || "ReeVibes"} · Size: {item.selectedSize || "M"}</div>
+                            </div>
+                          </div>
+                          <div className="text-right font-mono">
+                            <div>{item.price ? (typeof item.price === 'number' ? `₹${item.price.toLocaleString()}` : item.price) : "—"}</div>
+                            <div className="text-[10px] text-muted-foreground">Qty: {item.qty || 1}</div>
                           </div>
                         </div>
-                        <div className="text-right font-mono">
-                          <div>{item.price}</div>
-                          <div className="text-[10px] text-muted-foreground">Qty: {item.qty}</div>
-                        </div>
-                      </div>
-                    ))}
+                      ));
+                    })()}
                   </div>
                 </div>
               </div>
@@ -6571,7 +6653,13 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             </button>
                           </td>
                           <td className="py-4 text-xs">
-                            {o.items.map(item => `${item.name} (${item.selectedSize || "M"}) x${item.qty}`).join(", ")}
+                            {(() => {
+                              const items = Array.isArray(o.items) && o.items.length > 0
+                                ? o.items
+                                : (o.itemsJson ? (() => { try { const p = JSON.parse(o.itemsJson); return Array.isArray(p) ? p : []; } catch { return []; } })() : []);
+                              if (!items || items.length === 0) return <span className="text-muted-foreground italic">No items listed</span>;
+                              return items.map((item: any) => `${item.name || 'Item'} (${item.selectedSize || "M"}) x${item.qty || 1}`).join(", ");
+                            })()}
                           </td>
                           <td className="py-4 font-serif font-bold text-accent">₹{o.total.toLocaleString()}</td>
                           <td className="py-4 text-xs">

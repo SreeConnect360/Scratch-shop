@@ -841,6 +841,7 @@ public class ShopPortalController {
             if (srDetails != null) {
                 if (srDetails.containsKey("order_id")) order.setShiprocketOrderId(srDetails.get("order_id"));
                 if (srDetails.containsKey("shipment_id")) order.setShiprocketShipmentId(srDetails.get("shipment_id"));
+                if (srDetails.containsKey("pickup_location")) order.setPickupLocation(srDetails.get("pickup_location"));
             }
         } catch (Exception e) {
             System.err.println("Failed to create Shiprocket shipment on order creation: " + e.getMessage());
@@ -950,6 +951,7 @@ public class ShopPortalController {
                 if (srDetails != null) {
                     if (srDetails.containsKey("order_id")) order.setShiprocketOrderId(srDetails.get("order_id"));
                     if (srDetails.containsKey("shipment_id")) order.setShiprocketShipmentId(srDetails.get("shipment_id"));
+                    if (srDetails.containsKey("pickup_location")) order.setPickupLocation(srDetails.get("pickup_location"));
                 }
             }
         } catch (Exception e) {
@@ -1023,6 +1025,7 @@ public class ShopPortalController {
             if (srDetails != null) {
                 if (srDetails.containsKey("order_id")) order.setShiprocketOrderId(srDetails.get("order_id"));
                 if (srDetails.containsKey("shipment_id")) order.setShiprocketShipmentId(srDetails.get("shipment_id"));
+                if (srDetails.containsKey("pickup_location")) order.setPickupLocation(srDetails.get("pickup_location"));
             }
         }
 
@@ -1110,6 +1113,7 @@ public class ShopPortalController {
             if (srDetails != null) {
                 if (srDetails.containsKey("order_id")) order.setShiprocketOrderId(srDetails.get("order_id"));
                 if (srDetails.containsKey("shipment_id")) order.setShiprocketShipmentId(srDetails.get("shipment_id"));
+                if (srDetails.containsKey("pickup_location")) order.setPickupLocation(srDetails.get("pickup_location"));
                 shipmentId = order.getShiprocketShipmentId();
             }
         }
@@ -1145,6 +1149,7 @@ public class ShopPortalController {
             if (srDetails != null) {
                 if (srDetails.containsKey("order_id")) order.setShiprocketOrderId(srDetails.get("order_id"));
                 if (srDetails.containsKey("shipment_id")) order.setShiprocketShipmentId(srDetails.get("shipment_id"));
+                if (srDetails.containsKey("pickup_location")) order.setPickupLocation(srDetails.get("pickup_location"));
                 srOrderId = order.getShiprocketOrderId();
             }
         }

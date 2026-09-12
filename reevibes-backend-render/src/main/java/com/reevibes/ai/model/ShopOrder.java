@@ -101,7 +101,7 @@ public class ShopOrder {
     private String awbCode;
 
     @Column(name = "pickup_location", length = 100)
-    private String pickupLocation = "Primary";
+    private String pickupLocation = "warehouse";
 
     @Column(name = "status_history_json", columnDefinition = "TEXT")
     private String statusHistoryJson;

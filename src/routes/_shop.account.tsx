@@ -429,11 +429,27 @@ function ShopDashboard() {
     .map(id => allProducts.find(p => String(p.id) === String(id)))
     .filter((p): p is typeof allProducts[number] => Boolean(p));
 
-  // Orders List (Latest first)
+  // Orders List (Latest first, deduplicated with parsed items)
   const userOrders = useMemo(() => {
     if (!user) return [];
     const list = state.orders?.[user.id] || [];
-    return [...list].sort((a, b) => {
+    const seen = new Set<string>();
+    const deduped: any[] = [];
+    for (const ord of list) {
+      if (!ord || !ord.id) continue;
+      const key = String(ord.id).trim();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      let items = Array.isArray(ord.items) && ord.items.length > 0 ? ord.items : [];
+      if (items.length === 0 && ord.itemsJson) {
+        try {
+          const parsed = typeof ord.itemsJson === 'string' ? JSON.parse(ord.itemsJson) : ord.itemsJson;
+          if (Array.isArray(parsed)) items = parsed;
+        } catch {}
+      }
+      deduped.push({ ...ord, items });
+    }
+    return deduped.sort((a, b) => {
       const timeA = new Date(a.date).getTime();
       const timeB = new Date(b.date).getTime();
       if (isNaN(timeA)) return 1;
@@ -1974,7 +1990,7 @@ function ShopDashboard() {
                   </div>
                   <div>
                     <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold block">Tracking ID</span>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-2">
                       <span className="font-mono text-accent font-bold">{selectedOrderDetails.trackingNumber || `TRK-${selectedOrderDetails.id.replace("ORD-", "")}`}</span>
                       <button
                         type="button"
@@ -1986,6 +2002,16 @@ function ShopDashboard() {
                       >
                         Copy
                       </button>
+                      {selectedOrderDetails.trackingNumber && (
+                        <a
+                          href={`https://shiprocket.co/tracking/${encodeURIComponent(selectedOrderDetails.trackingNumber)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[9px] text-accent hover:underline font-bold"
+                        >
+                          Track ↗
+                        </a>
+                      )}
                     </div>
                   </div>
                   <div className="col-span-2 sm:col-span-1">
@@ -1998,28 +2024,40 @@ function ShopDashboard() {
               {/* Items List */}
               <div className="space-y-3">
                 <h4 className="text-xs uppercase font-bold tracking-wider text-accent border-b border-black/10 dark:border-white/10 pb-2">Purchased Curation Items</h4>
-                {(selectedOrderDetails.items || []).map((item: any, idx: number) => (
-                  <div key={idx} className="flex items-center justify-between p-3.5 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 gap-4">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <img src={item.image} alt={item.name} className="w-14 h-16 object-cover rounded-xl border border-black/10 dark:border-white/10 shrink-0" />
-                      <div className="min-w-0">
-                        <Link
-                          to="/product/$productId"
-                          params={{ productId: item.productId }}
-                          className="font-serif font-bold text-sm text-foreground hover:text-accent truncate block"
-                        >
-                          {item.name}
-                        </Link>
-                        <div className="text-[11px] text-muted-foreground font-mono mt-0.5">
-                          Size: <strong className="text-foreground">{item.selectedSize || "M"}</strong> • Qty: <strong className="text-foreground">{item.qty || 1}</strong>
+                {(() => {
+                  let items = Array.isArray(selectedOrderDetails.items) && selectedOrderDetails.items.length > 0
+                    ? selectedOrderDetails.items
+                    : (selectedOrderDetails.itemsJson ? (() => { try { const p = JSON.parse(selectedOrderDetails.itemsJson); return Array.isArray(p) ? p : []; } catch { return []; } })() : []);
+                  if (!items || items.length === 0) {
+                    return <div className="text-xs text-muted-foreground italic p-3">No items listed.</div>;
+                  }
+                  return items.map((item: any, idx: number) => (
+                    <div key={idx} className="flex items-center justify-between p-3.5 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 gap-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        {item.image ? (
+                          <img src={item.image} alt={item.name} className="w-14 h-16 object-cover rounded-xl border border-black/10 dark:border-white/10 shrink-0" />
+                        ) : (
+                          <div className="w-14 h-16 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 flex items-center justify-center text-xs text-muted-foreground shrink-0">Ree</div>
+                        )}
+                        <div className="min-w-0">
+                          <Link
+                            to="/product/$productId"
+                            params={{ productId: item.productId || item.id || "vnd-1" }}
+                            className="font-serif font-bold text-sm text-foreground hover:text-accent truncate block"
+                          >
+                            {item.name || "Purchased Piece"}
+                          </Link>
+                          <div className="text-[11px] text-muted-foreground font-mono mt-0.5">
+                            Size: <strong className="text-foreground">{item.selectedSize || "M"}</strong> • Qty: <strong className="text-foreground">{item.qty || 1}</strong>
+                          </div>
                         </div>
                       </div>
+                      <div className="text-right shrink-0">
+                        <div className="font-mono font-bold text-sm text-foreground">₹{((Number(item.price) || 0) * (item.qty || 1)).toLocaleString()}</div>
+                      </div>
                     </div>
-                    <div className="text-right shrink-0">
-                      <div className="font-mono font-bold text-sm text-foreground">₹{((item.price || 0) * (item.qty || 1)).toLocaleString()}</div>
-                    </div>
-                  </div>
-                ))}
+                  ));
+                })()}
               </div>
 
               {/* Shipping Address & Payment Breakdown Grid */}

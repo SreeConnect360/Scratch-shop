@@ -332,6 +332,8 @@ export type PortalState = {
     pickupScheduledDate?: string;
     pickupLocation?: string;
     statusHistoryJson?: string;
+    itemsJson?: string;
+    customerName?: string;
   }>>;
   coupons: ShopCoupon[];
   walletGiftCards: WalletGiftCard[];
@@ -847,6 +849,17 @@ type Ctx = {
   reloadHomepageLayout: (force?: boolean) => Promise<void>;
   fetchBackendState: (force?: boolean) => Promise<void>;
 };
+
+function ensureOrderItems(updated: any, existingItems?: any[]): any[] {
+  if (Array.isArray(updated?.items) && updated.items.length > 0) return updated.items;
+  if (updated?.itemsJson) {
+    try {
+      const parsed = typeof updated.itemsJson === 'string' ? JSON.parse(updated.itemsJson) : updated.itemsJson;
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    } catch {}
+  }
+  return Array.isArray(existingItems) ? existingItems : [];
+}
 
 const PortalContext = createContext<Ctx | null>(null);
 
@@ -1397,6 +1410,22 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           if (unsyncedOrders.length > 0) {
             mergedOrders[uId] = [...dbUserOrders, ...unsyncedOrders];
           }
+        });
+
+        // Deduplicate orders per user and ensure items is always a valid Array
+        Object.keys(mergedOrders).forEach(uId => {
+          const rawList = mergedOrders[uId] || [];
+          const seenIds = new Set<string>();
+          const deduped: any[] = [];
+          for (const ord of rawList) {
+            if (!ord || !ord.id) continue;
+            const ordKey = String(ord.id).trim();
+            if (seenIds.has(ordKey)) continue;
+            seenIds.add(ordKey);
+            const items = ensureOrderItems(ord, ord.items);
+            deduped.push({ ...ord, items });
+          }
+          mergedOrders[uId] = deduped;
         });
 
         // Strictly use Supabase customers in layout order, purge old mock users
@@ -2349,7 +2378,13 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           const updatedOrder = data.order || data;
           setState(s => {
             const list = s.orders[userId] ?? [];
-            const next = list.map(o => o.id === orderId ? updatedOrder : o);
+            const next = list.map(o => {
+              if (o.id === orderId) {
+                const items = ensureOrderItems(updatedOrder, o.items);
+                return { ...o, ...updatedOrder, items, status: updatedOrder.status || "Accepted" };
+              }
+              return o;
+            });
             const newNotif: Notif = {
               id: `n-${Date.now()}`,
               icon: "approved",
@@ -2408,7 +2443,22 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 
           setState(s => {
             const list = s.orders[userId] ?? [];
-            const next = list.map(o => o.id === orderId ? { ...o, ...updatedOrder, trackingNumber: updatedOrder.trackingNumber, awbCode: updatedOrder.awbCode || updatedOrder.trackingNumber, courierPartner: courierName, estimatedDeliveryDate: updatedOrder.estimatedDeliveryDate, status: "Ready to Ship" } : o);
+            const next = list.map(o => {
+              if (o.id === orderId) {
+                const items = ensureOrderItems(updatedOrder, o.items);
+                return {
+                  ...o,
+                  ...updatedOrder,
+                  items,
+                  trackingNumber: updatedOrder.trackingNumber,
+                  awbCode: updatedOrder.awbCode || updatedOrder.trackingNumber,
+                  courierPartner: courierName,
+                  estimatedDeliveryDate: updatedOrder.estimatedDeliveryDate,
+                  status: "Ready to Ship"
+                };
+              }
+              return o;
+            });
             const newNotif: Notif = {
               id: `n-${Date.now()}`,
               icon: "order",
@@ -2450,7 +2500,19 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 
           setState(s => {
             const list = s.orders[userId] ?? [];
-            const next = list.map(o => o.id === orderId ? { ...o, ...updatedOrder, pickupScheduledDate: pickupDate, status: updatedOrder.status || "Pickup Scheduled" } : o);
+            const next = list.map(o => {
+              if (o.id === orderId) {
+                const items = ensureOrderItems(updatedOrder, o.items);
+                return {
+                  ...o,
+                  ...updatedOrder,
+                  items,
+                  pickupScheduledDate: pickupDate,
+                  status: updatedOrder.status || "Pickup Scheduled"
+                };
+              }
+              return o;
+            });
             return {
               ...s,
               orders: { ...s.orders, [userId]: next }
@@ -2478,7 +2540,13 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           const updatedOrder = await res.json();
           setState(s => {
             const list = s.orders[userId] ?? [];
-            const next = list.map(o => o.id === orderId ? updatedOrder : o);
+            const next = list.map(o => {
+              if (o.id === orderId) {
+                const items = ensureOrderItems(updatedOrder, o.items);
+                return { ...o, ...updatedOrder, items, status: "Cancelled" };
+              }
+              return o;
+            });
             return {
               ...s,
               orders: { ...s.orders, [userId]: next }
@@ -2605,7 +2673,13 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 
           setState(s => {
             const list = s.orders[userId] || [];
-            const next = list.map(o => o.id === orderId ? { ...o, ...updatedOrder } : o);
+            const next = list.map(o => {
+              if (o.id === orderId) {
+                const items = ensureOrderItems(updatedOrder, o.items);
+                return { ...o, ...updatedOrder, items };
+              }
+              return o;
+            });
             return {
               ...s,
               orders: { ...s.orders, [userId]: next }
