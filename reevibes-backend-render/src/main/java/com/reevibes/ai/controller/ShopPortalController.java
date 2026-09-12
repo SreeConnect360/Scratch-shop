@@ -1561,7 +1561,7 @@ public class ShopPortalController {
 
 
     // --- SHIPROCKET WEBHOOKS & TRACKER ---
-    @GetMapping({"/shiprocket/webhook", "/webhooks/shipping", "/api/fulfillment-updates", "/api/delivery-events/callback", "/api/package-tracking/callback"})
+    @GetMapping({"/fulfillment-updates", "/shiprocket/webhook", "/webhooks/shipping", "/api/fulfillment-updates", "/delivery-events/callback", "/api/delivery-events/callback", "/api/package-tracking/callback"})
     public ResponseEntity<?> getShiprocketWebhookStatus() {
         return ResponseEntity.ok(Map.of(
             "status", "Active",
@@ -1569,7 +1569,7 @@ public class ShopPortalController {
         ));
     }
 
-    @PostMapping({"/shiprocket/webhook", "/webhooks/shipping", "/api/fulfillment-updates", "/api/delivery-events/callback", "/api/package-tracking/callback"})
+    @PostMapping({"/fulfillment-updates", "/shiprocket/webhook", "/webhooks/shipping", "/api/fulfillment-updates", "/delivery-events/callback", "/api/delivery-events/callback", "/api/package-tracking/callback"})
     @Transactional
     public ResponseEntity<?> handleShiprocketWebhook(
             @RequestHeader(value = "x-api-key", required = false) String apiKeyHeader,
