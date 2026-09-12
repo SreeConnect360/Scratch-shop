@@ -1574,11 +1574,15 @@ public class ShopPortalController {
     public ResponseEntity<?> handleShiprocketWebhook(
             @RequestHeader(value = "x-api-key", required = false) String apiKeyHeader,
             @RequestHeader(value = "anx-api-key", required = false) String anxApiKeyHeader,
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
             @RequestBody Map<String, Object> payload) {
         System.out.println("Received Shiprocket Webhook: " + payload);
         
-        // Token security check (supports both anx-api-key and x-api-key)
+        // Token security check (supports anx-api-key, x-api-key, and Authorization: Bearer <token>)
         String incomingKey = (anxApiKeyHeader != null && !anxApiKeyHeader.isEmpty()) ? anxApiKeyHeader : apiKeyHeader;
+        if ((incomingKey == null || incomingKey.isEmpty()) && authHeader != null && !authHeader.isEmpty()) {
+            incomingKey = authHeader.replace("Bearer ", "").trim();
+        }
         if (incomingKey != null && !incomingKey.isEmpty() && shiprocketWebhookToken != null && !shiprocketWebhookToken.isEmpty()) {
             if (!shiprocketWebhookToken.trim().equalsIgnoreCase(incomingKey.trim())) {
                 System.err.println("Shiprocket webhook security token warning: header=" + incomingKey);
