@@ -324,6 +324,13 @@ export type PortalState = {
     walletAmountUsed?: number;
     razorpayAmountPaid?: number;
     transactionDate?: string;
+    awbCode?: string;
+    labelUrl?: string;
+    invoiceUrl?: string;
+    manifestUrl?: string;
+    pickupScheduledDate?: string;
+    pickupLocation?: string;
+    statusHistoryJson?: string;
   }>>;
   coupons: ShopCoupon[];
   walletGiftCards: WalletGiftCard[];
@@ -1188,13 +1195,22 @@ export function PortalProvider({ children }: { children: ReactNode }) {
             currency: o.currency || "INR",
             paymentMethod: o.payment_method || "Razorpay Gateway",
             transactionDate: o.transaction_date || undefined,
-            trackingNumber: o.tracking_number || undefined,
+            trackingNumber: o.tracking_number || o.awb_code || undefined,
+            awbCode: o.awb_code || o.tracking_number || undefined,
             courierPartner: o.courier_partner || undefined,
             estimatedDeliveryDate: o.estimated_delivery_date || undefined,
-            scansJson: o.scans_json || undefined,
+            scansJson: typeof o.scans_json === "object" ? JSON.stringify(o.scans_json) : (o.scans_json || undefined),
             deliveryDate: o.delivery_date || undefined,
             shiprocketOrderId: o.shiprocket_order_id || undefined,
-            shiprocketShipmentId: o.shiprocket_shipment_id || undefined
+            shiprocketShipmentId: o.shiprocket_shipment_id || undefined,
+            labelUrl: o.label_url || undefined,
+            invoiceUrl: o.invoice_url || undefined,
+            manifestUrl: o.manifest_url || undefined,
+            pickupScheduledDate: o.pickup_scheduled_date || undefined,
+            pickupLocation: o.pickup_location || undefined,
+            statusHistoryJson: typeof o.status_history_json === "object" ? JSON.stringify(o.status_history_json) : (o.status_history_json || undefined),
+            walletAmountUsed: o.wallet_amount_used ? Number(o.wallet_amount_used) : undefined,
+            razorpayAmountPaid: o.razorpay_amount_paid ? Number(o.razorpay_amount_paid) : undefined
           });
         });
       }
@@ -1229,13 +1245,22 @@ export function PortalProvider({ children }: { children: ReactNode }) {
                 currency: o.currency || "INR",
                 paymentMethod: o.paymentMethod || "Razorpay Gateway",
                 transactionDate: o.transactionDate || undefined,
-                trackingNumber: o.trackingNumber || undefined,
+                trackingNumber: o.trackingNumber || o.awbCode || undefined,
+                awbCode: o.awbCode || o.trackingNumber || undefined,
                 courierPartner: o.courierPartner || undefined,
                 estimatedDeliveryDate: o.estimatedDeliveryDate || undefined,
-                scansJson: o.scansJson || undefined,
+                scansJson: typeof o.scansJson === "object" ? JSON.stringify(o.scansJson) : (o.scansJson || undefined),
                 deliveryDate: o.deliveryDate || undefined,
                 shiprocketOrderId: o.shiprocketOrderId || undefined,
-                shiprocketShipmentId: o.shiprocketShipmentId || undefined
+                shiprocketShipmentId: o.shiprocketShipmentId || undefined,
+                labelUrl: o.labelUrl || undefined,
+                invoiceUrl: o.invoiceUrl || undefined,
+                manifestUrl: o.manifestUrl || undefined,
+                pickupScheduledDate: o.pickupScheduledDate || undefined,
+                pickupLocation: o.pickupLocation || undefined,
+                statusHistoryJson: typeof o.statusHistoryJson === "object" ? JSON.stringify(o.statusHistoryJson) : (o.statusHistoryJson || undefined),
+                walletAmountUsed: o.walletAmountUsed ? Number(o.walletAmountUsed) : undefined,
+                razorpayAmountPaid: o.razorpayAmountPaid ? Number(o.razorpayAmountPaid) : undefined
               });
             }
           });
@@ -2371,12 +2396,14 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           updateOrderInSupabase(orderId, {
             status: "Ready to Ship",
             trackingNumber: updatedOrder.trackingNumber,
-            courierPartner: courierName
+            awbCode: updatedOrder.awbCode || updatedOrder.trackingNumber,
+            courierPartner: courierName,
+            estimatedDeliveryDate: updatedOrder.estimatedDeliveryDate
           }).catch(() => null);
 
           setState(s => {
             const list = s.orders[userId] ?? [];
-            const next = list.map(o => o.id === orderId ? updatedOrder : o);
+            const next = list.map(o => o.id === orderId ? { ...o, ...updatedOrder, trackingNumber: updatedOrder.trackingNumber, awbCode: updatedOrder.awbCode || updatedOrder.trackingNumber, courierPartner: courierName, estimatedDeliveryDate: updatedOrder.estimatedDeliveryDate, status: "Ready to Ship" } : o);
             const newNotif: Notif = {
               id: `n-${Date.now()}`,
               icon: "order",
@@ -2418,7 +2445,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 
           setState(s => {
             const list = s.orders[userId] ?? [];
-            const next = list.map(o => o.id === orderId ? updatedOrder : o);
+            const next = list.map(o => o.id === orderId ? { ...o, ...updatedOrder, pickupScheduledDate: pickupDate, status: updatedOrder.status || "Pickup Scheduled" } : o);
             return {
               ...s,
               orders: { ...s.orders, [userId]: next }
@@ -2561,9 +2588,19 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         });
         if (res.ok) {
           const updatedOrder = await res.json();
+          updateOrderInSupabase(orderId, {
+            status: updatedOrder.status,
+            trackingNumber: updatedOrder.trackingNumber,
+            awbCode: updatedOrder.awbCode || updatedOrder.trackingNumber,
+            courierPartner: updatedOrder.courierPartner,
+            estimatedDeliveryDate: updatedOrder.estimatedDeliveryDate,
+            scansJson: updatedOrder.scansJson,
+            deliveryDate: updatedOrder.deliveryDate
+          }).catch(() => null);
+
           setState(s => {
             const list = s.orders[userId] || [];
-            const next = list.map(o => o.id === orderId ? updatedOrder : o);
+            const next = list.map(o => o.id === orderId ? { ...o, ...updatedOrder } : o);
             return {
               ...s,
               orders: { ...s.orders, [userId]: next }

@@ -1038,6 +1038,7 @@ public class ShopPortalController {
         }
 
         order.setTrackingNumber(awbCode);
+        order.setAwbCode(awbCode);
         order.setCourierPartner(officialCourierName);
         if (etd != null && !etd.isEmpty()) order.setEstimatedDeliveryDate(etd);
         
@@ -1066,6 +1067,7 @@ public class ShopPortalController {
             }
         }
 
+        order.setPickupScheduledDate(pickupDate);
         recordStatusChange(order, order.getStatus(), "Admin", "Pickup requested for date: " + pickupDate);
         ShopOrder saved = orderRepository.save(order);
         syncService.bumpVersion();
@@ -1701,7 +1703,7 @@ public class ShopPortalController {
                 "status", "success",
                 "message", "Order updated successfully",
                 "orderId", saved.getId(),
-                "status", saved.getStatus(),
+                "orderStatus", saved.getStatus() != null ? saved.getStatus() : "",
                 "trackingNumber", saved.getTrackingNumber() != null ? saved.getTrackingNumber() : ""
             ));
         } catch (Exception e) {

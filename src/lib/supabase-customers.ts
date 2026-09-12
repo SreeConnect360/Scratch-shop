@@ -444,9 +444,12 @@ export async function syncOrderToSupabase(order: any, userId: string, allUserOrd
       invoice_url: order.invoiceUrl || null,
       manifest_url: order.manifestUrl || null,
       pickup_scheduled_date: order.pickupScheduledDate || null,
-      awb_code: order.trackingNumber || order.awbCode || null,
+      awb_code: order.awbCode || order.trackingNumber || null,
       scans_json: typeof order.scansJson === "object" ? JSON.stringify(order.scansJson) : (order.scansJson || null),
       status_history_json: typeof order.statusHistoryJson === "object" ? JSON.stringify(order.statusHistoryJson) : (order.statusHistoryJson || null),
+      wallet_amount_used: order.walletAmountUsed ?? null,
+      razorpay_amount_paid: order.razorpayAmountPaid ?? null,
+      pickup_location: order.pickupLocation || "Primary",
     };
 
     await fetch(`${SUPABASE_URL}/rest/v1/shop_orders`, {
@@ -474,8 +477,22 @@ export async function updateOrderInSupabase(orderId: string, patch: Record<strin
     if (patch.status !== undefined) dbPatch.status = patch.status;
     if (patch.paymentStatus !== undefined) dbPatch.payment_status = patch.paymentStatus;
     if (patch.payment_status !== undefined) dbPatch.payment_status = patch.payment_status;
-    if (patch.trackingNumber !== undefined) dbPatch.tracking_number = patch.trackingNumber;
-    if (patch.tracking_number !== undefined) dbPatch.tracking_number = patch.tracking_number;
+    if (patch.trackingNumber !== undefined) {
+      dbPatch.tracking_number = patch.trackingNumber;
+      dbPatch.awb_code = patch.trackingNumber;
+    }
+    if (patch.tracking_number !== undefined) {
+      dbPatch.tracking_number = patch.tracking_number;
+      dbPatch.awb_code = patch.tracking_number;
+    }
+    if (patch.awbCode !== undefined) {
+      dbPatch.awb_code = patch.awbCode;
+      if (!dbPatch.tracking_number) dbPatch.tracking_number = patch.awbCode;
+    }
+    if (patch.awb_code !== undefined) {
+      dbPatch.awb_code = patch.awb_code;
+      if (!dbPatch.tracking_number) dbPatch.tracking_number = patch.awb_code;
+    }
     if (patch.courierPartner !== undefined) dbPatch.courier_partner = patch.courierPartner;
     if (patch.courier_partner !== undefined) dbPatch.courier_partner = patch.courier_partner;
     if (patch.estimatedDeliveryDate !== undefined) dbPatch.estimated_delivery_date = patch.estimatedDeliveryDate;
@@ -485,7 +502,9 @@ export async function updateOrderInSupabase(orderId: string, patch: Record<strin
     if (patch.invoiceUrl !== undefined) dbPatch.invoice_url = patch.invoiceUrl;
     if (patch.manifestUrl !== undefined) dbPatch.manifest_url = patch.manifestUrl;
     if (patch.pickupScheduledDate !== undefined) dbPatch.pickup_scheduled_date = patch.pickupScheduledDate;
-    if (patch.awbCode !== undefined) dbPatch.awb_code = patch.awbCode;
+    if (patch.pickupLocation !== undefined) dbPatch.pickup_location = patch.pickupLocation;
+    if (patch.walletAmountUsed !== undefined) dbPatch.wallet_amount_used = patch.walletAmountUsed;
+    if (patch.razorpayAmountPaid !== undefined) dbPatch.razorpay_amount_paid = patch.razorpayAmountPaid;
     if (patch.scansJson !== undefined) dbPatch.scans_json = typeof patch.scansJson === "object" ? JSON.stringify(patch.scansJson) : patch.scansJson;
     if (patch.statusHistoryJson !== undefined) dbPatch.status_history_json = typeof patch.statusHistoryJson === "object" ? JSON.stringify(patch.statusHistoryJson) : patch.statusHistoryJson;
 

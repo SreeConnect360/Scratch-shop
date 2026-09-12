@@ -4,7 +4,8 @@ import { useState, useMemo } from "react";
 import { z } from "zod";
 import { 
   X, Check, AlertTriangle, Star, ListOrdered, 
-  RotateCcw, ArrowLeft, Search, FileText, Copy, ExternalLink, Package, Truck, Clock, ShieldCheck
+  RotateCcw, ArrowLeft, Search, FileText, Copy, ExternalLink, Package, Truck, Clock, ShieldCheck,
+  MapPin, Download, Calendar, ChevronRight
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -17,6 +18,31 @@ export const Route = createFileRoute("/_shop/orders")({
   head: () => ({ meta: [{ title: "My Maison Orders Tracker — ReeVibes" }] }),
   component: ShopOrdersPage,
 });
+
+export interface ScanActivity {
+  date: string;
+  activity: string;
+  location: string;
+  status?: string;
+}
+
+export function parseScans(scansJson: any): ScanActivity[] {
+  if (!scansJson) return [];
+  try {
+    const raw = typeof scansJson === "string" ? JSON.parse(scansJson) : scansJson;
+    if (Array.isArray(raw)) {
+      return raw.map((item: any) => ({
+        date: item.date || item["Date"] || item.timestamp || "",
+        activity: item.activity || item["Activity"] || item.status_description || item.status || "Package in Transit",
+        location: item.location || item["Location"] || item.city || "Transit Hub",
+        status: item.status || item["Status"] || ""
+      }));
+    }
+  } catch (e) {
+    console.error("Failed to parse scansJson", e);
+  }
+  return [];
+}
 
 const getStatusBadge = (status: string) => {
   const s = status || "Processing";
@@ -207,10 +233,33 @@ function ShopOrdersPage() {
                             <span>•</span>
                             <span>Est. Delivery: <strong className="text-foreground">{order.estimatedDeliveryDate || "3-5 Business Days"}</strong></span>
                           </div>
+
+                          {(order.trackingNumber || order.awbCode) && (
+                            <div className="flex flex-wrap items-center gap-2 pt-1.5">
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-accent/10 border border-accent/25 text-accent text-[11px] font-semibold">
+                                <Truck className="w-3.5 h-3.5 text-accent shrink-0" />
+                                <span>{order.courierPartner || "Express Partner"}: <strong className="font-mono">{order.trackingNumber || order.awbCode}</strong></span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const trk = order.trackingNumber || order.awbCode || "";
+                                  navigator.clipboard.writeText(trk);
+                                  toast.success("AWB Tracking code copied to clipboard!");
+                                }}
+                                className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-accent font-medium transition-colors cursor-pointer px-2 py-0.5 rounded-md hover:bg-black/5 dark:hover:bg-white/5 border border-transparent hover:border-accent/20"
+                                title="Copy AWB code"
+                              >
+                                <Copy className="w-3 h-3" />
+                                <span>Copy AWB</span>
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
 
-                      {/* Right: Status Badge & Order Total */}
+                      {/* Right: Status Badge & Order Total & Actions */}
                       <div className="flex sm:flex-col justify-between sm:justify-center items-end gap-2 shrink-0 border-t sm:border-t-0 border-black/5 dark:border-white/5 pt-2 sm:pt-0">
                         <span className={`px-3 py-1 rounded-full border text-[10px] font-bold uppercase tracking-wider ${getStatusBadge(order.status)}`}>
                           {order.status || "Processing"}
@@ -219,22 +268,35 @@ function ShopOrdersPage() {
                           <span className="text-[10px] uppercase tracking-wider text-muted-foreground block font-semibold">Total Amount</span>
                           <span className="font-mono text-sm sm:text-base font-bold text-accent">₹{order.total.toLocaleString()}</span>
                         </div>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setReviewFormItem({
-                              productId: firstItem?.productId || firstItem?.id || "vnd-1",
-                              orderId: order.id,
-                              productName: firstItem?.name || "Apparel",
-                              productImage: firstItem?.image || ""
-                            });
-                          }}
-                          className="text-[10px] uppercase font-bold px-3 py-1 rounded-full border border-accent/40 bg-accent/10 text-accent hover:bg-accent hover:text-white cursor-pointer transition-colors flex items-center gap-1 shadow-sm mt-1"
-                        >
-                          <Star className="w-3 h-3 fill-current" />
-                          <span>Rate & Review</span>
-                        </button>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedOrderDetails(order);
+                            }}
+                            className="text-[10px] uppercase font-bold px-3 py-1 rounded-full border border-black/10 dark:border-white/10 hover:border-accent hover:text-accent cursor-pointer transition-colors flex items-center gap-1 shadow-sm bg-white/50 dark:bg-zinc-900/50"
+                          >
+                            <Package className="w-3 h-3 text-accent" />
+                            <span>Track & Details</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setReviewFormItem({
+                                productId: firstItem?.productId || firstItem?.id || "vnd-1",
+                                orderId: order.id,
+                                productName: firstItem?.name || "Apparel",
+                                productImage: firstItem?.image || ""
+                              });
+                            }}
+                            className="text-[10px] uppercase font-bold px-3 py-1 rounded-full border border-accent/40 bg-accent/10 text-accent hover:bg-accent hover:text-white cursor-pointer transition-colors flex items-center gap-1 shadow-sm"
+                          >
+                            <Star className="w-3 h-3 fill-current" />
+                            <span>Review</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -343,26 +405,36 @@ function ShopOrdersPage() {
             {/* Transit Timeline Progress Bar */}
             <div className="bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-2xl p-5 space-y-4">
               <div className="flex justify-between items-center text-xs font-bold uppercase tracking-wider">
-                <span>Shipment Delivery Status</span>
-                <span className={`px-3 py-1 rounded-full border text-[10px] ${getStatusBadge(selectedOrderDetails.status)}`}>
+                <span className="flex items-center gap-1.5">
+                  <Truck className="w-4 h-4 text-accent" />
+                  <span>Shipment Delivery Lifecycle</span>
+                </span>
+                <span className={`px-3 py-1 rounded-full border text-[10px] font-bold ${getStatusBadge(selectedOrderDetails.status)}`}>
                   {selectedOrderDetails.status || "Processing"}
                 </span>
               </div>
 
               {(() => {
-                const steps = ["Order Confirmed", "Delivery Assigned", "Out for Delivery", "Delivered Successfully"];
+                const steps = [
+                  { label: "Order Confirmed", desc: "Verified in system" },
+                  { label: "Ready for Dispatch", desc: "AWB generated" },
+                  { label: "In Transit", desc: "With carrier partner" },
+                  { label: "Out for Delivery", desc: "Arriving with agent" },
+                  { label: "Delivered", desc: "Successfully completed" }
+                ];
                 const status = (selectedOrderDetails.status || "").toLowerCase();
                 let activeIdx = 0;
-                if (selectedOrderDetails.courierPartner || selectedOrderDetails.trackingNumber || status.includes("ready") || status.includes("scheduled") || status.includes("shipped")) activeIdx = 1;
-                if (status.includes("transit") || status.includes("out") || status.includes("delivery")) activeIdx = 2;
-                if (status.includes("delivered") || status.includes("completed")) activeIdx = 3;
+                if (selectedOrderDetails.courierPartner || selectedOrderDetails.trackingNumber || selectedOrderDetails.awbCode || status.includes("ready") || status.includes("scheduled") || status.includes("accepted")) activeIdx = 1;
+                if (status.includes("shipped") || status.includes("transit") || status.includes("in-transit") || status.includes("dispatched")) activeIdx = 2;
+                if (status.includes("out") || status.includes("delivery") || status.includes("tomorrow") || status.includes("today")) activeIdx = 3;
+                if (status.includes("delivered") || status.includes("completed")) activeIdx = 4;
 
                 return (
                   <div className="py-2">
                     <div className="relative flex items-center justify-between w-full mt-2">
                       <div className="absolute left-0 right-0 top-2.5 h-1 bg-black/10 dark:bg-white/10 -z-10 rounded-full" />
                       <div
-                        className="absolute left-0 top-2.5 h-1 bg-accent transition-all duration-500 -z-10 rounded-full"
+                        className="absolute left-0 top-2.5 h-1 bg-accent transition-all duration-500 -z-10 rounded-full shadow-[0_0_12px_rgba(212,175,55,0.6)]"
                         style={{ width: `${(activeIdx / (steps.length - 1)) * 100}%` }}
                       />
                       {steps.map((st, sIdx) => {
@@ -371,20 +443,20 @@ function ShopOrdersPage() {
                         return (
                           <div key={sIdx} className="flex flex-col items-center">
                             <div
-                              className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                              className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
                                 isCompleted
-                                  ? "bg-accent border-accent text-white shadow-[0_0_10px_rgba(212,175,55,0.6)]"
-                                  : "bg-white dark:bg-zinc-950 border-black/20 dark:border-white/20"
+                                  ? "bg-accent border-accent text-white shadow-[0_0_12px_rgba(212,175,55,0.7)]"
+                                  : "bg-white dark:bg-zinc-950 border-black/20 dark:border-white/20 text-muted-foreground"
                               }`}
                             >
-                              {isCompleted && <Check className="w-3 h-3 stroke-[3]" />}
+                              {isCompleted ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : <span className="text-[10px] font-mono">{sIdx + 1}</span>}
                             </div>
                             <span
-                              className={`text-[9px] uppercase tracking-wider mt-2 font-bold text-center leading-tight transition-colors ${
+                              className={`text-[9px] uppercase tracking-wider mt-2 font-bold text-center leading-tight max-w-[70px] transition-colors ${
                                 isActive ? "text-accent" : isCompleted ? "text-foreground" : "text-muted-foreground"
                               }`}
                             >
-                              {st}
+                              {st.label}
                             </span>
                           </div>
                         );
@@ -394,59 +466,229 @@ function ShopOrdersPage() {
                 );
               })()}
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-3 border-t border-black/10 dark:border-white/10 text-xs">
+              {/* Logistics Details Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-black/10 dark:border-white/10 text-xs">
                 <div>
                   <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold block">Courier Partner</span>
-                  <span className="font-medium text-foreground">{selectedOrderDetails.courierPartner || "Delhivery Express"}</span>
+                  <span className="font-semibold text-foreground flex items-center gap-1 mt-0.5">
+                    <Truck className="w-3 h-3 text-accent shrink-0" />
+                    <span className="truncate">{selectedOrderDetails.courierPartner || "Shiprocket Express"}</span>
+                  </span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold block">Tracking ID</span>
-                  <div className="flex items-center gap-1">
-                    <span className="font-mono text-accent font-bold">{selectedOrderDetails.trackingNumber || `TRK-${selectedOrderDetails.id.replace("ORD-", "")}`}</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(selectedOrderDetails.trackingNumber || `TRK-${selectedOrderDetails.id.replace("ORD-", "")}`);
-                        toast.success("Tracking ID copied!");
-                      }}
-                      className="text-[9px] text-muted-foreground hover:text-accent underline cursor-pointer"
-                    >
-                      Copy
-                    </button>
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold block">AWB Tracking Code</span>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="font-mono text-accent font-bold text-xs truncate">
+                      {selectedOrderDetails.trackingNumber || selectedOrderDetails.awbCode || `Pending Assignment`}
+                    </span>
+                    {(selectedOrderDetails.trackingNumber || selectedOrderDetails.awbCode) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const trk = selectedOrderDetails.trackingNumber || selectedOrderDetails.awbCode;
+                          navigator.clipboard.writeText(trk);
+                          toast.success("AWB Tracking ID copied!");
+                        }}
+                        className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 text-muted-foreground hover:text-accent transition-colors"
+                        title="Copy AWB"
+                      >
+                        <Copy className="w-3 h-3" />
+                      </button>
+                    )}
                   </div>
                 </div>
-                <div className="col-span-2 sm:col-span-1">
-                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold block">Estimated Delivery</span>
-                  <span className="font-medium text-foreground">{selectedOrderDetails.estimatedDeliveryDate || "3-5 Business Days"}</span>
+                <div>
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold block">Pickup Schedule</span>
+                  <span className="font-medium text-foreground mt-0.5 block">
+                    {selectedOrderDetails.pickupScheduledDate || "Warehouse Processing"}
+                  </span>
                 </div>
+                <div>
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold block">Estimated Delivery</span>
+                  <span className="font-medium text-foreground mt-0.5 block">
+                    {selectedOrderDetails.estimatedDeliveryDate || "3-5 Business Days"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Action Buttons: Live Track, Invoice, Label */}
+              <div className="flex flex-wrap gap-2 pt-2 border-t border-black/5 dark:border-white/5">
+                {(selectedOrderDetails.trackingNumber || selectedOrderDetails.awbCode) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const trk = selectedOrderDetails.trackingNumber || selectedOrderDetails.awbCode;
+                      window.open(`https://shiprocket.co/tracking/${encodeURIComponent(trk)}`, "_blank");
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-accent text-white text-[10px] uppercase font-bold tracking-wider hover:bg-accent/90 transition-colors shadow-sm cursor-pointer"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Live Carrier Tracking</span>
+                  </button>
+                )}
+
+                {selectedOrderDetails.invoiceUrl ? (
+                  <button
+                    type="button"
+                    onClick={() => window.open(selectedOrderDetails.invoiceUrl, "_blank")}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-black/15 dark:border-white/15 bg-white/50 dark:bg-zinc-900/50 hover:border-accent text-[10px] uppercase font-bold tracking-wider hover:text-accent transition-colors cursor-pointer"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-emerald-500" />
+                    <span>Download Tax Invoice (PDF)</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => window.open(`/api/orders/${selectedOrderDetails.id}/print-invoice`, "_blank")}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-black/15 dark:border-white/15 bg-white/50 dark:bg-zinc-900/50 hover:border-accent text-[10px] uppercase font-bold tracking-wider hover:text-accent transition-colors cursor-pointer"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-emerald-500" />
+                    <span>Print Invoice</span>
+                  </button>
+                )}
+
+                {selectedOrderDetails.labelUrl && (
+                  <button
+                    type="button"
+                    onClick={() => window.open(selectedOrderDetails.labelUrl, "_blank")}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-black/15 dark:border-white/15 bg-white/50 dark:bg-zinc-900/50 hover:border-accent text-[10px] uppercase font-bold tracking-wider hover:text-accent transition-colors cursor-pointer"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-sky-500" />
+                    <span>Shipping Docket (PDF)</span>
+                  </button>
+                )}
               </div>
             </div>
 
-            {/* Items List */}
+            {/* Real-time Live Package Journey & Scan History */}
+            <div className="border border-black/10 dark:border-white/10 rounded-2xl p-4 bg-black/5 dark:bg-white/5 space-y-3">
+              <div className="flex justify-between items-center border-b border-black/10 dark:border-white/10 pb-2">
+                <h4 className="font-bold text-accent uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5" />
+                  <span>Live Package Journey & Scan Activity</span>
+                </h4>
+                <span className="text-[9px] font-mono text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full font-bold">
+                  Active Sync
+                </span>
+              </div>
+
+              {(() => {
+                const scans = parseScans(selectedOrderDetails.scansJson);
+                if (scans.length > 0) {
+                  return (
+                    <div className="space-y-3 max-h-52 overflow-y-auto pl-2 border-l-2 border-accent/40 my-2">
+                      {scans.map((scan, sIdx) => (
+                        <div key={sIdx} className="relative pl-4 space-y-0.5">
+                          <div className="absolute left-[-9px] top-1.5 w-3 h-3 rounded-full bg-accent border-2 border-white dark:border-zinc-950 shadow-[0_0_8px_rgba(212,175,55,0.8)]" />
+                          <div className="font-bold text-xs text-foreground flex items-center justify-between">
+                            <span>{scan.activity}</span>
+                            {scan.status && (
+                              <span className="text-[9px] font-mono uppercase bg-black/5 dark:bg-white/10 px-1.5 py-0.2 rounded text-muted-foreground">
+                                {scan.status}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground flex items-center gap-2">
+                            <span>{scan.date}</span>
+                            <span>•</span>
+                            <span className="font-semibold text-accent/90">{scan.location}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                }
+
+                // If no scans yet, show reassuring milestone status
+                const isDispatched = !!(selectedOrderDetails.trackingNumber || selectedOrderDetails.awbCode);
+                return (
+                  <div className="p-3 rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5 text-xs text-muted-foreground space-y-1">
+                    <div className="font-semibold text-foreground flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-accent" />
+                      <span>{isDispatched ? "Shipment Registered with Courier Partner" : "Order Placed & In Queue"}</span>
+                    </div>
+                    <p className="text-[11px] leading-relaxed">
+                      {isDispatched
+                        ? `Airway Bill (AWB) has been generated via ${selectedOrderDetails.courierPartner || "Shiprocket Express"}. Real-time physical scan events will display here as your parcel passes through regional sorting and fulfillment hubs.`
+                        : "Your order is confirmed and currently being prepared by the atelier. Airway Bill assignment and live transit scans will activate upon courier handover."}
+                    </p>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Items List (Individual Product Section) */}
             <div className="space-y-3">
-              <h4 className="text-xs uppercase font-bold tracking-wider text-accent border-b border-black/10 dark:border-white/10 pb-2">Purchased Curation Items</h4>
+              <div className="flex justify-between items-center border-b border-black/10 dark:border-white/10 pb-2">
+                <h4 className="text-xs uppercase font-bold tracking-wider text-accent">
+                  Purchased Curation Items ({(selectedOrderDetails.items || []).length})
+                </h4>
+                <span className="text-[10px] text-muted-foreground">
+                  Individual Product Tracking & Actions
+                </span>
+              </div>
+
               {(selectedOrderDetails.items || []).map((item: any, idx: number) => {
                 const returnEligibility = isReturnEligible(selectedOrderDetails);
+                const orderStatus = (selectedOrderDetails.status || "").toLowerCase();
+                const trk = selectedOrderDetails.trackingNumber || selectedOrderDetails.awbCode;
+
                 return (
-                  <div key={idx} className="flex items-center justify-between p-3.5 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 gap-4">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <img src={item.image} alt={item.name} className="w-14 h-16 object-cover rounded-xl border border-black/10 dark:border-white/10 shrink-0" />
-                      <div className="min-w-0">
-                        <Link
-                          to="/product/$productId"
-                          params={{ productId: item.productId }}
-                          className="font-serif font-bold text-sm text-foreground hover:text-accent truncate block"
-                        >
-                          {item.name}
-                        </Link>
-                        <div className="text-[11px] text-muted-foreground font-mono mt-0.5">
-                          Size: <strong className="text-foreground">{item.selectedSize || "M"}</strong> • Qty: <strong className="text-foreground">{item.qty || 1}</strong>
+                  <div key={idx} className="p-4 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 space-y-3">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3.5 min-w-0">
+                        <img src={item.image} alt={item.name} className="w-16 h-18 object-cover rounded-xl border border-black/10 dark:border-white/10 shrink-0" />
+                        <div className="min-w-0 space-y-1">
+                          <Link
+                            to="/product/$productId"
+                            params={{ productId: item.productId || item.id || "vnd-1" }}
+                            className="font-serif font-bold text-sm sm:text-base text-foreground hover:text-accent truncate block"
+                          >
+                            {item.name}
+                          </Link>
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                            <span>Size: <strong className="text-foreground font-mono">{item.selectedSize || "M"}</strong></span>
+                            <span>•</span>
+                            <span>Qty: <strong className="text-foreground font-mono">{item.qty || 1}</strong></span>
+                            <span>•</span>
+                            <span className="font-mono font-bold text-foreground">₹{((item.price || 0) * (item.qty || 1)).toLocaleString()}</span>
+                          </div>
                         </div>
                       </div>
+
+                      <div className="text-right shrink-0">
+                        <span className="font-mono text-xs text-muted-foreground block font-semibold">Unit Price</span>
+                        <span className="font-mono font-bold text-sm text-accent">₹{(item.price || 0).toLocaleString()}</span>
+                      </div>
                     </div>
-                    <div className="text-right shrink-0">
-                      <div className="font-mono font-bold text-sm text-foreground">₹{((item.price || 0) * (item.qty || 1)).toLocaleString()}</div>
-                      <div className="flex gap-1.5 mt-1.5 justify-end">
+
+                    {/* Product-Specific Fulfillment Tracking Badge & Actions */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-black/5 dark:border-white/5 text-xs">
+                      <div className="flex items-center gap-1.5">
+                        {orderStatus.includes("delivered") ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">
+                            <Check className="w-3 h-3 stroke-[3]" />
+                            <span>Delivered to Recipient</span>
+                          </span>
+                        ) : orderStatus.includes("out") ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-[10px] font-bold">
+                            <Truck className="w-3 h-3" />
+                            <span>Out for Delivery Today</span>
+                          </span>
+                        ) : trk ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-accent/15 border border-accent/30 text-accent text-[10px] font-bold">
+                            <Truck className="w-3 h-3" />
+                            <span>In Transit via {selectedOrderDetails.courierPartner || "Express"} ({trk})</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/15 text-muted-foreground text-[10px] font-bold">
+                            <Clock className="w-3 h-3" />
+                            <span>Atelier Packaging & Quality Check</span>
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2">
                         <button
                           type="button"
                           onClick={() => {
@@ -458,11 +700,12 @@ function ShopOrdersPage() {
                             });
                             setSelectedOrderDetails(null);
                           }}
-                          className="text-[9px] uppercase font-bold px-2.5 py-1 rounded-full border border-accent/40 bg-accent/10 text-accent hover:bg-accent hover:text-white cursor-pointer transition-colors flex items-center gap-1"
+                          className="text-[9px] uppercase font-bold px-3 py-1 rounded-full border border-accent/40 bg-accent/10 text-accent hover:bg-accent hover:text-white cursor-pointer transition-colors flex items-center gap-1"
                         >
                           <Star className="w-2.5 h-2.5 fill-current" />
-                          <span>Rate & Review</span>
+                          <span>Rate Product</span>
                         </button>
+
                         {returnEligibility.eligible ? (
                           <button
                             onClick={() => {
@@ -476,14 +719,14 @@ function ShopOrdersPage() {
                               });
                               setSelectedOrderDetails(null);
                             }}
-                            className="text-[9px] uppercase font-bold px-2 py-0.5 rounded-full border border-rose-500/30 text-rose-500 hover:bg-rose-500 hover:text-white cursor-pointer"
+                            className="text-[9px] uppercase font-bold px-2.5 py-1 rounded-full border border-rose-500/30 text-rose-500 hover:bg-rose-500 hover:text-white cursor-pointer transition-colors"
                           >
-                            Return Order
+                            Return Item
                           </button>
                         ) : (
                           <span
                             title={returnEligibility.reason}
-                            className="text-[9px] uppercase font-bold px-2 py-0.5 rounded-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-muted-foreground opacity-60 cursor-not-allowed"
+                            className="text-[9px] uppercase font-bold px-2.5 py-1 rounded-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-muted-foreground opacity-60 cursor-not-allowed"
                           >
                             Return Closed
                           </span>
@@ -520,6 +763,18 @@ function ShopOrdersPage() {
                   <span>Subtotal:</span>
                   <span className="font-mono text-foreground">₹{(selectedOrderDetails.subtotal || selectedOrderDetails.total).toLocaleString()}</span>
                 </div>
+                {selectedOrderDetails.walletAmountUsed && (
+                  <div className="flex justify-between text-purple-400 text-xs font-medium">
+                    <span>Wallet Credits Used:</span>
+                    <span className="font-mono">-₹{Number(selectedOrderDetails.walletAmountUsed).toLocaleString()}</span>
+                  </div>
+                )}
+                {selectedOrderDetails.razorpayAmountPaid && (
+                  <div className="flex justify-between text-sky-400 text-xs font-medium">
+                    <span>Paid via Razorpay:</span>
+                    <span className="font-mono">₹{Number(selectedOrderDetails.razorpayAmountPaid).toLocaleString()}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-foreground font-bold text-sm pt-1 border-t border-black/10 dark:border-white/10">
                   <span>Total Paid:</span>
                   <span className="font-mono text-accent">₹{selectedOrderDetails.total.toLocaleString()}</span>

@@ -26,10 +26,10 @@ public class ShiprocketService {
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @Value("${shiprocket.email:sreesri1004@gmail.com}")
+    @Value("${shiprocket.email:sreesrinivas000@gmail.com}")
     private String email;
 
-    @Value("${shiprocket.password:iHT@&zlNP#3VvqSnn^Pr0KwU$7^BPjt@}")
+    @Value("${shiprocket.password:8u*BYqkes55bg0c&MO7VTNaHBxzYqVA7}")
     private String password;
 
     private String cachedToken = null;

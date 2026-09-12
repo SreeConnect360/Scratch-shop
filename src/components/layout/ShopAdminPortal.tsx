@@ -1784,7 +1784,16 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                           </div>
                           <div className="text-[10px] text-muted-foreground bg-white/5 p-2 rounded">
                             <div><span className="font-semibold text-white">Shipping Address:</span> {ord.address}</div>
-                            <div className="mt-1"><span className="font-semibold text-white">Tracking Details:</span> TRK-{ord.id.replace("ORD-", "")} (Delhivery Express)</div>
+                            <div className="mt-1">
+                              <span className="font-semibold text-white">Tracking Details:</span>{" "}
+                              {ord.trackingNumber || ord.awbCode ? (
+                                <span className="text-accent font-mono font-bold">
+                                  {ord.trackingNumber || ord.awbCode} ({ord.courierPartner || "Shiprocket Partner"})
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground italic">Pending courier allocation</span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -2377,22 +2386,32 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                   <div className="flex justify-between items-center pt-2">
                     <div className="flex gap-2">
                       <button
-                        onClick={() => {
-                          toast.success("Shipment tracking status refreshed from Shiprocket.");
+                        type="button"
+                        onClick={async () => {
+                          toast.info("Syncing live tracking from Shiprocket API...");
+                          const updated = await syncShiprocketTracking(selectedOrderDetails.userId, selectedOrderDetails.id);
+                          if (updated) {
+                            toast.success("Shipment tracking synced with Shiprocket!");
+                            setSelectedOrderDetails(updated);
+                          } else {
+                            toast.info("Shipment tracking is up to date.");
+                          }
                         }}
-                        className="bg-white/5 hover:bg-white/10 border border-white/15 px-3 py-1.5 rounded-lg text-[10px] uppercase font-bold transition-all text-white"
+                        className="bg-white/5 hover:bg-white/10 border border-white/15 px-3 py-1.5 rounded-lg text-[10px] uppercase font-bold transition-all text-white cursor-pointer"
                       >
                         Refresh Shipment
                       </button>
                       <button
+                        type="button"
                         onClick={() => {
-                          if (selectedOrderDetails.trackingNumber) {
-                            alert(`Opening Live Tracking Link for AWB: ${selectedOrderDetails.trackingNumber}`);
+                          const trk = selectedOrderDetails.trackingNumber || selectedOrderDetails.awbCode;
+                          if (trk) {
+                            window.open(`https://shiprocket.co/tracking/${encodeURIComponent(trk)}`, "_blank");
                           } else {
                             toast.error("AWB Number not assigned yet.");
                           }
                         }}
-                        className="bg-white/5 hover:bg-white/10 border border-white/15 px-3 py-1.5 rounded-lg text-[10px] uppercase font-bold transition-all text-white"
+                        className="bg-white/5 hover:bg-white/10 border border-white/15 px-3 py-1.5 rounded-lg text-[10px] uppercase font-bold transition-all text-white cursor-pointer"
                       >
                         Open Tracking
                       </button>
@@ -2404,6 +2423,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                         updateOrderStatus(selectedOrderDetails.userId, selectedOrderDetails.id, editStatus, {
                           paymentStatus: editPaymentStatus,
                           trackingNumber: editTrackingNum || null,
+                          awbCode: editTrackingNum || null,
                           courierPartner: editCourier || null,
                           estimatedDeliveryDate: editEstDelivery || null
                         });
