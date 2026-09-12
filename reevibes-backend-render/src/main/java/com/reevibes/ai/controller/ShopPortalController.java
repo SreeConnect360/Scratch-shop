@@ -1142,6 +1142,42 @@ public class ShopPortalController {
         return ResponseEntity.ok(Map.of("invoiceUrl", fallbackUrl));
     }
 
+    @GetMapping("/orders/{id}/manifest")
+    @Transactional
+    public ResponseEntity<Map<String, String>> getOrderManifest(@PathVariable String id) {
+        ShopOrder order = orderRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found: " + id));
+        
+        if (order.getManifestUrl() != null && !order.getManifestUrl().isEmpty()) {
+            return ResponseEntity.ok(Map.of("manifestUrl", order.getManifestUrl()));
+        }
+
+        String shipmentId = order.getShiprocketShipmentId();
+        if (shipmentId != null && !shipmentId.isEmpty()) {
+            String url = shiprocketService.generateManifest(shipmentId);
+            if (url != null && !url.isEmpty() && url.startsWith("http")) {
+                order.setManifestUrl(url);
+                orderRepository.save(order);
+                return ResponseEntity.ok(Map.of("manifestUrl", url));
+            }
+        }
+
+        String srOrderId = order.getShiprocketOrderId();
+        if (srOrderId != null && !srOrderId.isEmpty()) {
+            String url = shiprocketService.printManifest(srOrderId);
+            if (url != null && !url.isEmpty() && url.startsWith("http")) {
+                order.setManifestUrl(url);
+                orderRepository.save(order);
+                return ResponseEntity.ok(Map.of("manifestUrl", url));
+            }
+        }
+
+        String fallbackUrl = "/api/orders/" + id + "/print-manifest";
+        order.setManifestUrl(fallbackUrl);
+        orderRepository.save(order);
+        return ResponseEntity.ok(Map.of("manifestUrl", fallbackUrl));
+    }
+
     @PostMapping("/orders/{id}/track-shiprocket")
     @Transactional
     public ResponseEntity<ShopOrder> trackOrderShiprocket(@PathVariable String id) {
@@ -1231,6 +1267,31 @@ public class ShopPortalController {
             + "<tbody><tr><td>Fashion Curation Item (" + order.getId() + ")</td><td>1</td><td class='right'>₹" + order.getTotal() + "</td><td class='right'>₹" + order.getTotal() + "</td></tr></tbody>"
             + "<tfoot><tr><th colspan='3' class='right'>Grand Total:</th><th class='right'>₹" + order.getTotal() + "</th></tr></tfoot></table>"
             + "<p style='margin-top:30px;font-size:12px;color:#666;'>This is a computer generated tax invoice for Shiprocket fulfillment.</p>"
+            + "<script>window.onload = function() { window.print(); };</script>"
+            + "</body></html>";
+        return ResponseEntity.ok(html);
+    }
+
+    @GetMapping(value = "/orders/{id}/print-manifest", produces = MediaType.TEXT_HTML_VALUE)
+    public ResponseEntity<String> printOrderManifestHtml(@PathVariable String id) {
+        ShopOrder order = orderRepository.findById(id).orElse(null);
+        if (order == null) return ResponseEntity.notFound().build();
+
+        String html = "<html><head><title>Shiprocket Pickup Manifest - " + order.getId() + "</title>"
+            + "<style>body{font-family:Arial,sans-serif;padding:30px;max-width:700px;margin:auto;border:1px solid #333;}"
+            + ".header{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:15px;}"
+            + ".title{font-size:20px;font-weight:bold;}"
+            + "table{width:100%;border-collapse:collapse;margin:15px 0;}"
+            + "th,td{border:1px solid #666;padding:8px;font-size:12px;text-align:left;}"
+            + "th{background:#eee;}"
+            + ".sig{display:flex;justify-content:space-between;margin-top:40px;padding-top:20px;border-top:1px dashed #666;}"
+            + "</style></head><body>"
+            + "<div class='header'><div class='title'>SHIPROCKET COURIER PICKUP MANIFEST</div><div>Order: " + order.getId() + "</div></div>"
+            + "<div><strong>Manifest No:</strong> MNF-" + order.getId() + " | <strong>Courier:</strong> " + (order.getCourierPartner() != null ? order.getCourierPartner() : "Shiprocket Partner") + "</div>"
+            + "<div><strong>Pickup Date:</strong> " + (order.getPickupScheduledDate() != null ? order.getPickupScheduledDate() : new java.text.SimpleDateFormat("yyyy-MM-dd").format(new java.util.Date())) + "</div>"
+            + "<table><thead><tr><th>#</th><th>AWB Number</th><th>Order ID</th><th>Customer Name</th><th>Destination</th><th>Pieces</th></tr></thead>"
+            + "<tbody><tr><td>1</td><td>" + (order.getTrackingNumber() != null ? order.getTrackingNumber() : "AWB-SR-" + order.getId()) + "</td><td>" + order.getId() + "</td><td>" + (order.getUserId() != null ? order.getUserId() : "Customer") + "</td><td>" + (order.getAddress() != null ? order.getAddress() : "India") + "</td><td>1</td></tr></tbody></table>"
+            + "<div class='sig'><div><strong>Courier Executive Signature:</strong><br><br>_____________________</div><div><strong>Store Dispatcher Signature:</strong><br><br>_____________________</div></div>"
             + "<script>window.onload = function() { window.print(); };</script>"
             + "</body></html>";
         return ResponseEntity.ok(html);

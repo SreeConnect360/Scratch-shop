@@ -91,6 +91,15 @@ public class ShopOrder {
     @Column(name = "invoice_url", columnDefinition = "TEXT")
     private String invoiceUrl;
 
+    @Column(name = "manifest_url", columnDefinition = "TEXT")
+    private String manifestUrl;
+
+    @Column(name = "pickup_scheduled_date", columnDefinition = "TEXT")
+    private String pickupScheduledDate;
+
+    @Column(name = "awb_code", length = 100)
+    private String awbCode;
+
     @Column(name = "pickup_location", length = 100)
     private String pickupLocation = "Primary";
 
@@ -174,6 +183,15 @@ public class ShopOrder {
 
     public String getInvoiceUrl() { return invoiceUrl; }
     public void setInvoiceUrl(String invoiceUrl) { this.invoiceUrl = invoiceUrl; }
+
+    public String getManifestUrl() { return manifestUrl; }
+    public void setManifestUrl(String manifestUrl) { this.manifestUrl = manifestUrl; }
+
+    public String getPickupScheduledDate() { return pickupScheduledDate; }
+    public void setPickupScheduledDate(String pickupScheduledDate) { this.pickupScheduledDate = pickupScheduledDate; }
+
+    public String getAwbCode() { return awbCode; }
+    public void setAwbCode(String awbCode) { this.awbCode = awbCode; }
 
     public String getPickupLocation() { return pickupLocation; }
     public void setPickupLocation(String pickupLocation) { this.pickupLocation = pickupLocation; }

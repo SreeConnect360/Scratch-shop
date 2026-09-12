@@ -424,7 +424,7 @@ export async function syncOrderToSupabase(order: any, userId: string, allUserOrd
       id: order.id,
       user_id: userId,
       order_date: order.date ? new Date(order.date).toISOString() : new Date().toISOString(),
-      items_json: JSON.stringify(order.items || []),
+      items_json: typeof order.items === "string" ? order.items : JSON.stringify(order.items || []),
       total: Number(order.total) || 0,
       status: order.status || "Processing",
       address: typeof order.address === "object" ? JSON.stringify(order.address) : (order.address || ""),
@@ -438,6 +438,15 @@ export async function syncOrderToSupabase(order: any, userId: string, allUserOrd
       tracking_number: order.trackingNumber || null,
       courier_partner: order.courierPartner || null,
       estimated_delivery_date: order.estimatedDeliveryDate || null,
+      shiprocket_order_id: order.shiprocketOrderId || null,
+      shiprocket_shipment_id: order.shiprocketShipmentId || null,
+      label_url: order.labelUrl || null,
+      invoice_url: order.invoiceUrl || null,
+      manifest_url: order.manifestUrl || null,
+      pickup_scheduled_date: order.pickupScheduledDate || null,
+      awb_code: order.trackingNumber || order.awbCode || null,
+      scans_json: typeof order.scansJson === "object" ? JSON.stringify(order.scansJson) : (order.scansJson || null),
+      status_history_json: typeof order.statusHistoryJson === "object" ? JSON.stringify(order.statusHistoryJson) : (order.statusHistoryJson || null),
     };
 
     await fetch(`${SUPABASE_URL}/rest/v1/shop_orders`, {
@@ -452,6 +461,43 @@ export async function syncOrderToSupabase(order: any, userId: string, allUserOrd
     }
   } catch (err) {
     console.error("syncOrderToSupabase error:", err);
+  }
+}
+
+/**
+ * Patches an order directly in Supabase shop_orders table.
+ */
+export async function updateOrderInSupabase(orderId: string, patch: Record<string, any>): Promise<boolean> {
+  if (!orderId || !patch) return false;
+  try {
+    const dbPatch: Record<string, any> = {};
+    if (patch.status !== undefined) dbPatch.status = patch.status;
+    if (patch.paymentStatus !== undefined) dbPatch.payment_status = patch.paymentStatus;
+    if (patch.payment_status !== undefined) dbPatch.payment_status = patch.payment_status;
+    if (patch.trackingNumber !== undefined) dbPatch.tracking_number = patch.trackingNumber;
+    if (patch.tracking_number !== undefined) dbPatch.tracking_number = patch.tracking_number;
+    if (patch.courierPartner !== undefined) dbPatch.courier_partner = patch.courierPartner;
+    if (patch.courier_partner !== undefined) dbPatch.courier_partner = patch.courier_partner;
+    if (patch.estimatedDeliveryDate !== undefined) dbPatch.estimated_delivery_date = patch.estimatedDeliveryDate;
+    if (patch.shiprocketOrderId !== undefined) dbPatch.shiprocket_order_id = patch.shiprocketOrderId;
+    if (patch.shiprocketShipmentId !== undefined) dbPatch.shiprocket_shipment_id = patch.shiprocketShipmentId;
+    if (patch.labelUrl !== undefined) dbPatch.label_url = patch.labelUrl;
+    if (patch.invoiceUrl !== undefined) dbPatch.invoice_url = patch.invoiceUrl;
+    if (patch.manifestUrl !== undefined) dbPatch.manifest_url = patch.manifestUrl;
+    if (patch.pickupScheduledDate !== undefined) dbPatch.pickup_scheduled_date = patch.pickupScheduledDate;
+    if (patch.awbCode !== undefined) dbPatch.awb_code = patch.awbCode;
+    if (patch.scansJson !== undefined) dbPatch.scans_json = typeof patch.scansJson === "object" ? JSON.stringify(patch.scansJson) : patch.scansJson;
+    if (patch.statusHistoryJson !== undefined) dbPatch.status_history_json = typeof patch.statusHistoryJson === "object" ? JSON.stringify(patch.statusHistoryJson) : patch.statusHistoryJson;
+
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/shop_orders?id=eq.${encodeURIComponent(orderId)}`, {
+      method: "PATCH",
+      headers: getHeaders("return=minimal"),
+      body: JSON.stringify(dbPatch),
+    });
+    return res.ok;
+  } catch (err) {
+    console.error("updateOrderInSupabase error:", err);
+    return false;
   }
 }
 

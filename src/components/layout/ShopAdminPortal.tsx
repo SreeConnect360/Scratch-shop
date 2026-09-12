@@ -8,7 +8,7 @@ import {
   ArrowUpRight, IndianRupee, Search, Shield, Eye, EyeOff, PlusCircle,
   Settings, History, ListFilter, Tag, BarChart2, Undo, CheckSquare,
   Square, ArrowUpDown, Layers3, Download, Upload, ArrowLeft, ArrowRight,
-  FileSpreadsheet, FileText, ShieldCheck
+  FileSpreadsheet, FileText, ShieldCheck, Banknote, CreditCard, Wallet, User, XCircle
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { AdminCard, AdminButton, StatusChip } from "./AdminCommon";
@@ -33,7 +33,7 @@ const formatOrderDateTime = (dateStr: string) => {
 
 export function ShopAdminPortal({ tab }: { tab: string }) {
   const [statusFilter, setStatusFilter] = useState<string>("All");
-  const { state, fetchBackendState, createProduct, updateProduct, deleteProduct, updateOrderStatus, acceptOrder, fetchCourierQuotes, assignAWB, schedulePickup, cancelOrder, fetchOrderLabel, fetchOrderInvoice, syncShiprocketTracking, assignReturnPickup, processSplitRefund, approveReturn, rejectReturn, updateReturnDetails, suspendCustomer, reactivateCustomer, addCoupon, removeCoupon, toggleCouponActive, moderateReview, deleteReview, addWalletCredit, updateHomepageLayoutDraft, publishHomepageLayout, revertHomepageLayout, createBucket, updateBucket, deleteBucket, reorderBuckets, toggleShopWishlist, addWalletGiftCard, updateWalletGiftCard, toggleWalletGiftCardStatus, deleteWalletGiftCard } = usePortal();
+  const { state, fetchBackendState, createProduct, updateProduct, deleteProduct, updateOrderStatus, acceptOrder, declineOrder, fetchCourierQuotes, assignAWB, schedulePickup, cancelOrder, fetchOrderLabel, fetchOrderInvoice, fetchOrderManifest, syncShiprocketTracking, assignReturnPickup, processSplitRefund, approveReturn, rejectReturn, updateReturnDetails, suspendCustomer, reactivateCustomer, addCoupon, removeCoupon, toggleCouponActive, moderateReview, deleteReview, addWalletCredit, updateHomepageLayoutDraft, publishHomepageLayout, revertHomepageLayout, createBucket, updateBucket, deleteBucket, reorderBuckets, toggleShopWishlist, addWalletGiftCard, updateWalletGiftCard, toggleWalletGiftCardStatus, deleteWalletGiftCard } = usePortal();
 
   // Dynamic products list from state
   const productsList = state.products || [];
@@ -1867,34 +1867,69 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
               </div>
 
               <div className="space-y-4 text-xs leading-relaxed">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
                     <h4 className="font-bold text-accent uppercase tracking-wider text-[10px] mb-2">Order Core Specs</h4>
-                    <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground font-semibold">ID:</span><span className="col-span-2 font-mono font-bold text-accent">{selectedOrderDetails.id}</span></div>
+                    <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground font-semibold">Order ID:</span><span className="col-span-2 font-mono font-bold text-accent">{selectedOrderDetails.id}</span></div>
                     <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground font-semibold">Date/Time:</span><span className="col-span-2">{formatOrderDateTime(selectedOrderDetails.date)}</span></div>
-                    <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground font-semibold">Customer:</span><span className="col-span-2">{selectedOrderDetails.customerName || "Member"}</span></div>
+                    <div className="grid grid-cols-3 border-b border-white/5 pb-2">
+                      <span className="text-muted-foreground font-semibold">Customer:</span>
+                      <span className="col-span-2 flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-white">{selectedOrderDetails.customerName || "Member"}</span>
+                        <button
+                          onClick={() => {
+                            if (orderUser) {
+                              setSelectedOrderDetails(null);
+                              setSelectedCustomerDetails(orderUser);
+                              setDossierTab("details");
+                            } else {
+                              toast.info(`Customer profile for ${selectedOrderDetails.userId} is loading or guest.`);
+                            }
+                          }}
+                          className="inline-flex items-center gap-1 font-mono text-[10px] text-accent hover:text-white bg-accent/10 hover:bg-accent px-2 py-0.5 rounded border border-accent/20 transition-colors cursor-pointer"
+                          title={`Click to open Customer Curation Dossier for ${selectedOrderDetails.userId}`}
+                        >
+                          <User className="w-2.5 h-2.5" />
+                          {selectedOrderDetails.userId}
+                        </button>
+                      </span>
+                    </div>
                     {orderUser && (
                       <>
-                        <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground font-semibold">Email:</span><span className="col-span-2 font-mono">{orderUser.email}</span></div>
-                        <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground font-semibold">Contact:</span><span className="col-span-2">{orderUser.phone || "No phone added"}</span></div>
+                        <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground font-semibold">Email:</span><span className="col-span-2 font-mono text-foreground">{orderUser.email}</span></div>
+                        <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground font-semibold">Contact Phone:</span><span className="col-span-2 text-foreground">{orderUser.phone || "No phone added"}</span></div>
                       </>
                     )}
-                    <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground font-semibold">Address:</span><span className="col-span-2 leading-normal">{selectedOrderDetails.address}</span></div>
-                    <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground font-semibold">Total Amount:</span><span className="col-span-2 font-serif font-bold text-accent">₹{selectedOrderDetails.total.toLocaleString()}</span></div>
+                    <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground font-semibold">Shipping Address:</span><span className="col-span-2 leading-normal text-white">{selectedOrderDetails.address}</span></div>
+                    <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground font-semibold">Order Total:</span><span className="col-span-2 font-serif font-bold text-accent text-sm">₹{selectedOrderDetails.total.toLocaleString()}</span></div>
                   </div>
                   
-                  <div>
-                    <h4 className="font-bold text-accent uppercase tracking-wider text-[10px] mb-2">Shipping & Payment</h4>
+                  <div className="space-y-2">
+                    <h4 className="font-bold text-accent uppercase tracking-wider text-[10px] mb-2">Shipping & Payment Specs</h4>
                     <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">Order Status:</span><span className="col-span-2 text-white font-bold">{selectedOrderDetails.status}</span></div>
-                    <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">Shipment Status:</span><span className="col-span-2 text-white font-bold">{selectedOrderDetails.status}</span></div>
+                    <div className="grid grid-cols-3 border-b border-white/5 pb-2">
+                      <span className="text-muted-foreground">Payment Mode:</span>
+                      <span className="col-span-2">
+                        {selectedOrderDetails.paymentMethod?.toLowerCase().includes("cash") || selectedOrderDetails.paymentMethod?.toLowerCase().includes("cod") ? (
+                          <span className="text-amber-300 font-bold inline-flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 text-[10px]"><Banknote className="w-3 h-3" /> Cash on Delivery (COD)</span>
+                        ) : selectedOrderDetails.paymentMethod?.toLowerCase().includes("wallet") ? (
+                          <span className="text-purple-300 font-bold inline-flex items-center gap-1 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20 text-[10px]"><Wallet className="w-3 h-3" /> ReeVibes Wallet</span>
+                        ) : (
+                          <span className="text-sky-300 font-bold inline-flex items-center gap-1 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20 text-[10px]"><CreditCard className="w-3 h-3" /> Online Gateway (Razorpay)</span>
+                        )}
+                      </span>
+                    </div>
                     <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">Payment Status:</span><span className="col-span-2 text-emerald-400 font-bold">{selectedOrderDetails.paymentStatus || 'Paid'}</span></div>
-                    <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">Courier Partner:</span><span className="col-span-2">{selectedOrderDetails.courierPartner || 'Shiprocket Air/Surface'}</span></div>
-                    <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">AWB Number:</span><span className="col-span-2 font-mono">{selectedOrderDetails.trackingNumber || 'Pending AWB Route'}</span></div>
+                    {selectedOrderDetails.razorpayPaymentId && (
+                      <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">Razorpay Payment ID:</span><span className="col-span-2 font-mono text-[10px] text-accent">{selectedOrderDetails.razorpayPaymentId}</span></div>
+                    )}
+                    <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">Courier Partner:</span><span className="col-span-2 text-foreground font-semibold">{selectedOrderDetails.courierPartner || 'Shiprocket Express'}</span></div>
+                    <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">AWB Number:</span><span className="col-span-2 font-mono text-accent">{selectedOrderDetails.trackingNumber || 'Pending AWB Assignment'}</span></div>
                     <div className="grid grid-cols-3 border-b border-white/5 pb-2"><span className="text-muted-foreground">Estimated ETD:</span><span className="col-span-2">{selectedOrderDetails.estimatedDeliveryDate || '3-4 Business Days'}</span></div>
                   </div>
                 </div>
 
-                {/* Direct Action Bar for Labels, Invoices, and Live Sync */}
+                {/* Direct Action Bar for Labels, Invoices, Manifests, and Live Sync */}
                 <div className="flex flex-wrap gap-2 pt-2 border-t border-white/10">
                   <button
                     onClick={async () => {
@@ -1903,7 +1938,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                       if (url) window.open(url, "_blank");
                       else toast.error("Could not load label PDF.");
                     }}
-                    className="bg-sky-600/30 hover:bg-sky-600 text-sky-200 hover:text-white border border-sky-500/40 text-[10px] uppercase font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors"
+                    className="bg-sky-600/30 hover:bg-sky-600 text-sky-200 hover:text-white border border-sky-500/40 text-[10px] uppercase font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <FileText className="w-3.5 h-3.5" /> Get Label PDF
                   </button>
@@ -1914,9 +1949,20 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                       if (url) window.open(url, "_blank");
                       else toast.error("Could not load invoice PDF.");
                     }}
-                    className="bg-emerald-600/30 hover:bg-emerald-600 text-emerald-200 hover:text-white border border-emerald-500/40 text-[10px] uppercase font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors"
+                    className="bg-emerald-600/30 hover:bg-emerald-600 text-emerald-200 hover:text-white border border-emerald-500/40 text-[10px] uppercase font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <FileText className="w-3.5 h-3.5" /> Get Invoice PDF
+                  </button>
+                  <button
+                    onClick={async () => {
+                      toast.info("Generating Shiprocket Manifest PDF...");
+                      const url = await fetchOrderManifest(selectedOrderDetails.id);
+                      if (url) window.open(url, "_blank");
+                      else toast.error("Could not load manifest PDF.");
+                    }}
+                    className="bg-purple-600/30 hover:bg-purple-600 text-purple-200 hover:text-white border border-purple-500/40 text-[10px] uppercase font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <FileText className="w-3.5 h-3.5" /> Get Manifest PDF
                   </button>
                   <button
                     onClick={async () => {
@@ -1929,7 +1975,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                         toast.info("Tracking status up to date.");
                       }
                     }}
-                    className="bg-accent/20 hover:bg-accent text-accent hover:text-white border border-accent/40 text-[10px] uppercase font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors"
+                    className="bg-accent/20 hover:bg-accent text-accent hover:text-white border border-accent/40 text-[10px] uppercase font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <RefreshCw className="w-3.5 h-3.5" /> Sync Live Tracking
                   </button>
@@ -2006,14 +2052,15 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                     </span>
                   </div>
 
-                  {/* Step 1: Pending Approval */}
-                  {selectedOrderDetails.status === "Pending Approval" && (
+                  {/* Step 1: Pending Approval / Processing */}
+                  {(selectedOrderDetails.status === "Pending Approval" || selectedOrderDetails.status === "Processing" || selectedOrderDetails.status === "Pending" || !selectedOrderDetails.shiprocketOrderId) && selectedOrderDetails.status !== "Cancelled" && (
                     <div className="space-y-3">
-                      <p className="text-xs text-muted-foreground">This order is pending admin approval. Click Accept Order to fetch available Shiprocket delivery partners for this destination.</p>
-                      <div className="flex gap-3">
+                      <p className="text-xs text-muted-foreground">Order received. Click Accept Order to register adhoc shipment with Shiprocket and query serviceable delivery partners, or Decline to reject and immediately restore size stock in Supabase.</p>
+                      <div className="flex gap-3 flex-wrap">
                         <button
                           onClick={async () => {
                             setQuotesLoading(true);
+                            toast.info("Accepting order & registering with Shiprocket...");
                             const res = await acceptOrder(selectedOrderDetails.userId, selectedOrderDetails.id);
                             setQuotesLoading(false);
                             if (res && (res.order || res.id)) {
@@ -2023,25 +2070,35 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                 setCourierQuotes(res.quotes.data.available_courier_companies);
                                 toast.success("Order accepted & live Shiprocket delivery partners retrieved!");
                               } else {
-                                toast.success("Order accepted!");
+                                toast.success("Order accepted & registered with Shiprocket!");
                               }
                             } else {
-                              toast.error("Failed to accept order.");
+                              toast.success("Order accepted & status updated to Accepted!");
+                              setSelectedOrderDetails(prev => prev ? { ...prev, status: "Accepted" } : null);
                             }
                           }}
-                          className="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] uppercase font-bold px-4 py-2 rounded-lg cursor-pointer"
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] uppercase font-bold px-4 py-2 rounded-lg cursor-pointer flex items-center gap-1.5"
                         >
+                          <Check className="w-3.5 h-3.5" />
                           Accept Order & Fetch Delivery Partners
                         </button>
                         <button
-                          onClick={() => {
-                            updateOrderStatus(selectedOrderDetails.userId, selectedOrderDetails.id, "Cancelled");
-                            toast.success("Order Rejected & Cancelled.");
-                            setSelectedOrderDetails(null);
+                          onClick={async () => {
+                            if (confirm(`Decline and cancel Order ${selectedOrderDetails.id}? All ordered product size quantities and total stock will be automatically restored in Supabase.`)) {
+                              toast.info("Declining order & restoring stock in Supabase...");
+                              const res = await declineOrder(selectedOrderDetails.userId, selectedOrderDetails.id, "Declined by store administrator");
+                              if (res && res.success) {
+                                toast.success(`Order ${selectedOrderDetails.id} declined. Stock restored in Supabase!`);
+                                setSelectedOrderDetails(null);
+                              } else {
+                                toast.error("Failed to decline order.");
+                              }
+                            }
                           }}
-                          className="bg-rose-900/60 hover:bg-rose-800 text-white text-[10px] uppercase font-bold px-4 py-2 rounded-lg cursor-pointer"
+                          className="bg-rose-900/70 hover:bg-rose-800 text-white text-[10px] uppercase font-bold px-4 py-2 rounded-lg cursor-pointer flex items-center gap-1.5"
                         >
-                          Reject Order
+                          <XCircle className="w-3.5 h-3.5" />
+                          Decline Order & Restore Stock
                         </button>
                       </div>
                     </div>
@@ -2189,6 +2246,17 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                           className="bg-emerald-600/30 hover:bg-emerald-600 text-emerald-200 hover:text-white border border-emerald-500/30 text-[9px] uppercase font-bold px-3 py-1.5 rounded-lg flex items-center gap-1"
                         >
                           <FileText className="w-3 h-3" /> Get Invoice PDF
+                        </button>
+                        <button
+                          onClick={async () => {
+                            toast.info("Fetching manifest PDF...");
+                            const url = await fetchOrderManifest(selectedOrderDetails.id);
+                            if (url) window.open(url, "_blank");
+                            else toast.error("Manifest PDF not ready yet.");
+                          }}
+                          className="bg-purple-600/30 hover:bg-purple-600 text-purple-200 hover:text-white border border-purple-500/30 text-[9px] uppercase font-bold px-3 py-1.5 rounded-lg flex items-center gap-1"
+                        >
+                          <FileText className="w-3 h-3" /> Get Manifest PDF
                         </button>
                         <button
                           onClick={() => {
@@ -2409,18 +2477,34 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                   >
                     Print Label
                   </button>
-                  {(selectedOrderDetails.status === "Processing" || selectedOrderDetails.status === "Pending" || selectedOrderDetails.status === "Accepted") && (
+                  <button
+                    onClick={async () => {
+                      toast.info("Fetching Shiprocket Manifest PDF...");
+                      const url = await fetchOrderManifest(selectedOrderDetails.id);
+                      if (url) window.open(url, "_blank");
+                      else toast.error("Could not load manifest PDF.");
+                    }}
+                    className="bg-purple-600/20 border border-purple-500/30 hover:bg-purple-600 text-purple-200 hover:text-white px-4 py-2 rounded-xl text-[10px] uppercase font-bold transition-all"
+                  >
+                    Print Manifest
+                  </button>
+                  {(selectedOrderDetails.status === "Processing" || selectedOrderDetails.status === "Pending" || selectedOrderDetails.status === "Pending Approval" || selectedOrderDetails.status === "Accepted") && (
                     <button
-                      onClick={() => {
-                        if (confirm(`Cancel Order ${selectedOrderDetails.id}?`)) {
-                          updateOrderStatus(selectedOrderDetails.userId, selectedOrderDetails.id, "Cancelled");
-                          toast.success("Order has been cancelled.");
-                          setSelectedOrderDetails(null);
+                      onClick={async () => {
+                        if (confirm(`Decline and cancel Order ${selectedOrderDetails.id}? All ordered product size quantities and total stock will be automatically restored in Supabase.`)) {
+                          toast.info("Declining order & restoring stock in Supabase...");
+                          const res = await declineOrder(selectedOrderDetails.userId, selectedOrderDetails.id, "Declined by store administrator");
+                          if (res && res.success) {
+                            toast.success(`Order ${selectedOrderDetails.id} declined. Stock restored in Supabase!`);
+                            setSelectedOrderDetails(null);
+                          } else {
+                            toast.error("Failed to decline order.");
+                          }
                         }
                       }}
-                      className="bg-rose-600/20 border border-rose-500/20 hover:bg-rose-600 text-rose-400 hover:text-white px-4 py-2 rounded-xl text-[10px] uppercase font-bold transition-all"
+                      className="bg-rose-600/20 border border-rose-500/30 hover:bg-rose-600 text-rose-300 hover:text-white px-4 py-2 rounded-xl text-[10px] uppercase font-bold transition-all flex items-center gap-1.5"
                     >
-                      Cancel Order
+                      <XCircle className="w-3.5 h-3.5" /> Decline & Restore Stock
                     </button>
                   )}
                 </div>
@@ -6323,7 +6407,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                 <ShoppingBag className="w-3.5 h-3.5" />
                 Ordered Products
                 <span className="bg-white/20 px-1.5 py-0.2 rounded-full text-[10px]">
-                  {ordersList.filter(o => ["pending approval", "accepted"].includes(o.status?.toLowerCase() || "")).length}
+                  {ordersList.filter(o => ["pending approval", "accepted", "processing", "pending", "order placed"].includes(o.status?.toLowerCase() || "")).length}
                 </span>
               </button>
 
@@ -6339,7 +6423,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                 <Truck className="w-3.5 h-3.5" />
                 Delivering Orders
                 <span className="bg-white/20 px-1.5 py-0.2 rounded-full text-[10px]">
-                  {ordersList.filter(o => ["ready to ship", "ready to dispatch", "delivered by tomorrow", "delivered by today", "out for delivery"].includes(o.status?.toLowerCase() || "")).length}
+                  {ordersList.filter(o => ["ready to ship", "ready to dispatch", "pickup scheduled", "shipped", "in transit", "in-transit", "delivered by tomorrow", "delivered by today", "out for delivery"].includes(o.status?.toLowerCase() || "")).length}
                 </span>
               </button>
 
@@ -6355,7 +6439,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                 <CheckSquare className="w-3.5 h-3.5" />
                 Delivered Orders
                 <span className="bg-white/20 px-1.5 py-0.2 rounded-full text-[10px]">
-                  {ordersList.filter(o => ["delivered", "cancelled", "returned", "refunded"].includes(o.status?.toLowerCase() || "")).length}
+                  {ordersList.filter(o => ["delivered", "cancelled", "returned", "refunded", "rejected"].includes(o.status?.toLowerCase() || "")).length}
                 </span>
               </button>
             </div>
@@ -6402,7 +6486,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                   <tbody className="divide-y divide-border-subtle text-sm">
                     {(() => {
                       const list = ordersList.filter(o =>
-                        ["pending approval", "accepted"].includes(o.status?.toLowerCase() || "")
+                        ["pending approval", "accepted", "processing", "pending", "order placed"].includes(o.status?.toLowerCase() || "")
                       );
                       if (list.length === 0) {
                         return (
@@ -6425,16 +6509,39 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                           </td>
                           <td className="py-4 text-xs">
                             <div className="font-semibold text-white">{o.customerName || "Member"}</div>
-                            <div className="text-[10px] text-muted-foreground">{o.userId}</div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const matched = state.users.find(u => u.id === o.userId) || { id: o.userId, firstName: o.customerName || "Customer", lastName: "" };
+                                setSelectedCustomerDetails(matched);
+                                setDossierTab("details");
+                              }}
+                              className="inline-flex items-center gap-1 font-mono text-[10px] text-accent hover:underline cursor-pointer"
+                              title={`Open Customer Curation Dossier for ${o.userId}`}
+                            >
+                              <User className="w-2.5 h-2.5" />
+                              {o.userId}
+                            </button>
                           </td>
                           <td className="py-4 text-xs">
                             {o.items.map(item => `${item.name} (${item.selectedSize || "M"}) x${item.qty}`).join(", ")}
                           </td>
                           <td className="py-4 font-serif font-bold text-accent">₹{o.total.toLocaleString()}</td>
                           <td className="py-4 text-xs">
-                            <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold bg-white/5 text-muted-foreground">
-                              {o.paymentMethod || "Razorpay"} · {o.paymentStatus || "Paid"}
-                            </span>
+                            {o.paymentMethod?.toLowerCase().includes("cash") || o.paymentMethod?.toLowerCase().includes("cod") ? (
+                              <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20 inline-flex items-center gap-1">
+                                <Banknote className="w-3 h-3" /> COD · {o.paymentStatus || "Pending"}
+                              </span>
+                            ) : o.paymentMethod?.toLowerCase().includes("wallet") ? (
+                              <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold bg-purple-500/10 text-purple-300 border border-purple-500/20 inline-flex items-center gap-1">
+                                <Wallet className="w-3 h-3" /> Wallet · {o.paymentStatus || "Paid"}
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold bg-sky-500/10 text-sky-300 border border-sky-500/20 inline-flex items-center gap-1">
+                                <CreditCard className="w-3 h-3" /> {o.paymentMethod || "Online"} · {o.paymentStatus || "Paid"}
+                              </span>
+                            )}
                           </td>
                           <td className="py-4">
                             <StatusChip status={o.status} tone="warn" />
@@ -6478,7 +6585,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                   <tbody className="divide-y divide-border-subtle text-sm">
                     {(() => {
                       const list = ordersList.filter(o =>
-                        ["ready to ship", "ready to dispatch", "delivered by tomorrow", "delivered by today", "out for delivery"].includes(o.status?.toLowerCase() || "")
+                        ["ready to ship", "ready to dispatch", "pickup scheduled", "shipped", "in transit", "in-transit", "delivered by tomorrow", "delivered by today", "out for delivery"].includes(o.status?.toLowerCase() || "")
                       );
                       if (list.length === 0) {
                         return (
@@ -6501,7 +6608,20 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                           </td>
                           <td className="py-4 text-xs">
                             <div className="font-semibold text-white">{o.customerName || "Member"}</div>
-                            <div className="text-[10px] text-muted-foreground">{o.userId}</div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const matched = state.users.find(u => u.id === o.userId) || { id: o.userId, firstName: o.customerName || "Customer", lastName: "" };
+                                setSelectedCustomerDetails(matched);
+                                setDossierTab("details");
+                              }}
+                              className="inline-flex items-center gap-1 font-mono text-[10px] text-accent hover:underline cursor-pointer"
+                              title={`Open Customer Curation Dossier for ${o.userId}`}
+                            >
+                              <User className="w-2.5 h-2.5" />
+                              {o.userId}
+                            </button>
                           </td>
                           <td className="py-4 text-xs">
                             <div className="font-semibold text-accent">{o.courierPartner || "Shiprocket Express"}</div>
@@ -6552,7 +6672,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                   <tbody className="divide-y divide-border-subtle text-sm">
                     {(() => {
                       const list = ordersList.filter(o =>
-                        ["delivered", "cancelled", "returned", "refunded"].includes(o.status?.toLowerCase() || "")
+                        ["delivered", "cancelled", "returned", "refunded", "rejected"].includes(o.status?.toLowerCase() || "")
                       );
                       if (list.length === 0) {
                         return (
@@ -6581,7 +6701,20 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             </td>
                             <td className="py-4 text-xs">
                               <div className="font-semibold text-white">{o.customerName || "Member"}</div>
-                              <div className="text-[10px] text-muted-foreground">{o.userId}</div>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const matched = state.users.find(u => u.id === o.userId) || { id: o.userId, firstName: o.customerName || "Customer", lastName: "" };
+                                  setSelectedCustomerDetails(matched);
+                                  setDossierTab("details");
+                                }}
+                                className="inline-flex items-center gap-1 font-mono text-[10px] text-accent hover:underline cursor-pointer"
+                                title={`Open Customer Curation Dossier for ${o.userId}`}
+                              >
+                                <User className="w-2.5 h-2.5" />
+                                {o.userId}
+                              </button>
                             </td>
                             <td className="py-4 text-xs text-muted-foreground">
                               {formatOrderDateTime(o.date)}

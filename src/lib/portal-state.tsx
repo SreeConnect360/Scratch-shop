@@ -77,7 +77,8 @@ import {
   fetchUserWishlistFromSupabase,
   creditCustomerWalletInSupabase,
   updateCustomerStatusInSupabase,
-  checkCustomerSuspendedInSupabase
+  checkCustomerSuspendedInSupabase,
+  updateOrderInSupabase
 } from "./supabase-customers";
 export type { CustomerAccount };
 export {
@@ -98,7 +99,16 @@ export {
   fetchUserWishlistFromSupabase,
   creditCustomerWalletInSupabase,
   updateCustomerStatusInSupabase,
-  checkCustomerSuspendedInSupabase
+  checkCustomerSuspendedInSupabase,
+  updateOrderInSupabase
+};
+import {
+  deductProductStockInSupabase,
+  restoreProductStockInSupabase
+} from "./supabase-stock";
+export {
+  deductProductStockInSupabase,
+  restoreProductStockInSupabase
 };
 import {
   fetchReviewsFromSupabase,
@@ -772,8 +782,10 @@ type Ctx = {
   assignAWB: (userId: string, orderId: string, courierId: string, courierName: string) => Promise<any>;
   schedulePickup: (userId: string, orderId: string, pickupDate: string) => Promise<any>;
   cancelOrder: (userId: string, orderId: string) => Promise<any>;
+  declineOrder: (userId: string, orderId: string, reason?: string) => Promise<any>;
   fetchOrderLabel: (orderId: string) => Promise<string | null>;
   fetchOrderInvoice: (orderId: string) => Promise<string | null>;
+  fetchOrderManifest: (orderId: string) => Promise<string | null>;
   syncShiprocketTracking: (userId: string, orderId: string) => Promise<any>;
   assignReturnPickup: (returnId: string) => Promise<any>;
   processSplitRefund: (returnId: string) => Promise<any>;
@@ -2193,6 +2205,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       const nextUserOrders = [newOrder, ...(state.orders[userId] || [])];
       notifyBroadcastSync();
       syncOrderToSupabase(newOrder, userId, nextUserOrders).catch(err => console.error("Failed to sync order to Supabase:", err));
+      deductProductStockInSupabase(order.items).catch(err => console.error("Failed to deduct product stock in Supabase:", err));
       syncUserCartToSupabase(userId, []).catch(err => console.error("Failed to clear Supabase cart on order:", err));
       patchCustomerAccountInSupabase(userId, {
         orders: nextUserOrders,
@@ -2230,6 +2243,14 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     },
 
     updateOrderStatus: (userId, orderId, status, patch) => {
+      if (status.toLowerCase().includes("cancel") || status.toLowerCase().includes("reject")) {
+        const orderToCancel = (state.orders[userId] || []).find(o => o.id === orderId);
+        if (orderToCancel && orderToCancel.items) {
+          restoreProductStockInSupabase(orderToCancel.items).catch(err => console.error("Error restoring stock on status change:", err));
+        }
+      }
+      updateOrderInSupabase(orderId, { status, ...patch }).catch(err => console.error("Error updating order in Supabase:", err));
+
       setState(s => {
         const list = s.orders[userId] ?? [];
         const next = list.map(o => o.id === orderId ? { ...o, status, ...patch } : o);
@@ -2287,6 +2308,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       }).catch(err => console.error("Failed to sync order status update to backend:", err));
     },
     acceptOrder: async (userId, orderId) => {
+      updateOrderInSupabase(orderId, { status: "Accepted" }).catch(() => null);
       try {
         const res = await fetch(`${BACKEND_URL}/api/orders/${orderId}/accept`, {
           method: "POST",
@@ -2346,6 +2368,12 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         const data = await res.json();
         if (res.ok) {
           const updatedOrder = data;
+          updateOrderInSupabase(orderId, {
+            status: "Ready to Ship",
+            trackingNumber: updatedOrder.trackingNumber,
+            courierPartner: courierName
+          }).catch(() => null);
+
           setState(s => {
             const list = s.orders[userId] ?? [];
             const next = list.map(o => o.id === orderId ? updatedOrder : o);
@@ -2383,6 +2411,11 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         });
         if (res.ok) {
           const updatedOrder = await res.json();
+          updateOrderInSupabase(orderId, {
+            status: updatedOrder.status || "Pickup Scheduled",
+            pickupScheduledDate: pickupDate
+          }).catch(() => null);
+
           setState(s => {
             const list = s.orders[userId] ?? [];
             const next = list.map(o => o.id === orderId ? updatedOrder : o);
@@ -2399,6 +2432,12 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     },
     cancelOrder: async (userId, orderId) => {
       try {
+        const orderToCancel = (state.orders[userId] || []).find(o => o.id === orderId);
+        if (orderToCancel && orderToCancel.items) {
+          restoreProductStockInSupabase(orderToCancel.items).catch(err => console.error("Error restoring stock on cancelOrder:", err));
+        }
+        updateOrderInSupabase(orderId, { status: "Cancelled" }).catch(() => null);
+
         const res = await fetch(`${BACKEND_URL}/api/orders/${orderId}/cancel`, {
           method: "POST",
           headers: { "Content-Type": "application/json" }
@@ -2419,12 +2458,62 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         console.error("Failed to cancel order:", err);
       }
     },
+    declineOrder: async (userId, orderId, reason) => {
+      try {
+        const orderToDecline = (state.orders[userId] || []).find(o => o.id === orderId);
+        if (orderToDecline && orderToDecline.items) {
+          await restoreProductStockInSupabase(orderToDecline.items);
+        }
+        await updateOrderInSupabase(orderId, {
+          status: "Cancelled",
+          statusHistoryJson: [{
+            timestamp: new Date().toISOString(),
+            previousStatus: orderToDecline?.status || "Processing",
+            newStatus: "Cancelled",
+            comments: reason || "Declined by store administrator",
+            source: "Admin Portal"
+          }]
+        });
+
+        fetch(`${BACKEND_URL}/api/orders/${orderId}/cancel`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reason: reason || "Declined by store administrator" })
+        }).catch(() => null);
+
+        setState(s => {
+          const list = s.orders[userId] ?? [];
+          const next = list.map(o => o.id === orderId ? { ...o, status: "Cancelled" } : o);
+          const newNotif: Notif = {
+            id: `n-${Date.now()}`,
+            icon: "order",
+            title: "Order Declined",
+            body: `Your order ${orderId} was declined by the atelier and stock was restored.`,
+            time: "now",
+            unread: true
+          };
+          const existingUserNotifs = s.userNotifications[userId] || [];
+          return {
+            ...s,
+            orders: { ...s.orders, [userId]: next },
+            notifications: [newNotif, ...s.notifications],
+            userNotifications: { ...s.userNotifications, [userId]: [newNotif, ...existingUserNotifs] }
+          };
+        });
+        notifyBroadcastSync();
+        return { success: true };
+      } catch (err) {
+        console.error("Failed to decline order:", err);
+        return { error: true };
+      }
+    },
     fetchOrderLabel: async (orderId) => {
       try {
         const res = await fetch(`${BACKEND_URL}/api/orders/${orderId}/label`);
         if (res.ok) {
           const data = await res.json();
           if (data.labelUrl) {
+            updateOrderInSupabase(orderId, { labelUrl: data.labelUrl }).catch(() => null);
             return data.labelUrl.startsWith("/") ? `${BACKEND_URL}${data.labelUrl}` : data.labelUrl;
           }
         }
@@ -2439,11 +2528,29 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         if (res.ok) {
           const data = await res.json();
           if (data.invoiceUrl) {
+            updateOrderInSupabase(orderId, { invoiceUrl: data.invoiceUrl }).catch(() => null);
             return data.invoiceUrl.startsWith("/") ? `${BACKEND_URL}${data.invoiceUrl}` : data.invoiceUrl;
           }
         }
       } catch (err) {
         console.error("Failed to fetch invoice:", err);
+      }
+      return null;
+    },
+    fetchOrderManifest: async (orderId) => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/orders/${orderId}/manifest`, {
+          method: "POST"
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.manifestUrl) {
+            updateOrderInSupabase(orderId, { manifestUrl: data.manifestUrl }).catch(() => null);
+            return data.manifestUrl.startsWith("/") ? `${BACKEND_URL}${data.manifestUrl}` : data.manifestUrl;
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch manifest:", err);
       }
       return null;
     },
