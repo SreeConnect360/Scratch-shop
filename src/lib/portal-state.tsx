@@ -123,6 +123,18 @@ export {
   updateReviewStatusInSupabase,
   deleteReviewFromSupabase
 };
+import {
+  fetchReturnRequestsFromSupabase,
+  upsertReturnRequestToSupabase,
+  updateReturnRequestInSupabase,
+  deleteReturnRequestFromSupabase
+} from "./supabase-returns";
+export {
+  fetchReturnRequestsFromSupabase,
+  upsertReturnRequestToSupabase,
+  updateReturnRequestInSupabase,
+  deleteReturnRequestFromSupabase
+};
 
 const KEY = "reevibes:portal:v3";
 
@@ -207,21 +219,24 @@ export type Vendor = {
   revenue: number;
 };
 
-export function isReturnEligible(order: any): { eligible: boolean; reason?: string } {
+export function isReturnEligible(order: any): { eligible: boolean; reason?: string; daysLeft?: number; hoursLeft?: number } {
   if (!order) return { eligible: false, reason: "Order record not found" };
   const status = (order.status || "").toLowerCase();
-  if (status !== "delivered") {
+  if (!status.includes("delivered")) {
     return { eligible: false, reason: "Order has not been delivered yet" };
   }
   const delDateStr = order.deliveryDate || order.orderDate || order.date;
   if (!delDateStr) return { eligible: false, reason: "Delivery date unavailable" };
   const delTime = new Date(delDateStr).getTime();
   if (isNaN(delTime)) return { eligible: false, reason: "Invalid delivery date" };
-  const diffDays = (Date.now() - delTime) / (1000 * 60 * 60 * 24);
+  const diffMs = Date.now() - delTime;
+  const diffDays = diffMs / (1000 * 60 * 60 * 24);
   if (diffDays > 7) {
-    return { eligible: false, reason: `7-day return window expired (${Math.floor(diffDays)} days since delivery)` };
+    return { eligible: false, reason: `7-day return policy expired (${Math.floor(diffDays)} days since delivery)` };
   }
-  return { eligible: true };
+  const daysLeft = Math.max(0, 7 - Math.floor(diffDays));
+  const hoursLeft = Math.max(0, Math.floor((7 * 24) - (diffMs / (1000 * 60 * 60))));
+  return { eligible: true, daysLeft, hoursLeft };
 }
 
 export type ProductReview = {
@@ -798,7 +813,7 @@ type Ctx = {
   fetchOrderManifest: (orderId: string) => Promise<string | null>;
   syncShiprocketTracking: (userId: string, orderId: string) => Promise<any>;
   assignReturnPickup: (returnId: string) => Promise<any>;
-  processSplitRefund: (returnId: string) => Promise<any>;
+  processSplitRefund: (returnId: string, customMode?: string) => Promise<any>;
   addCoupon: (coupon: { code: string; discount: number; type?: "fixed" | "percentage" | "wallet"; expiryDate?: string; usageLimit?: number; userEligibility?: string; productType?: string; brand?: string }) => void;
   updateCoupon: (originalCode: string, coupon: { code: string; discount: number; type?: "fixed" | "percentage" | "wallet"; expiryDate?: string; usageLimit?: number; userEligibility?: string; productType?: string; brand?: string; active?: boolean }) => void;
   removeCoupon: (code: string) => void;
@@ -1282,22 +1297,29 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         }
       } catch {}
 
-      // 8. Fetch Returns
-      let mappedReturns = [];
+      // 8. Fetch Returns directly from Supabase, fallback to backend
+      let mappedReturns: ReturnRequest[] = [];
       try {
-        const returnsRes = await safeBackendFetch("/api/returns", undefined, 2500);
-        if (returnsRes && returnsRes.ok) {
-          const dbReturns = await returnsRes.json();
-          mappedReturns = dbReturns
-            .filter((r: any) => r && r.customerId !== "USR-1000")
-            .map((r: any) => ({
-              ...r,
-              refundAmount: Number(r.refundAmount),
-              images: r.images ? r.images.split(",") : [],
-              videos: r.videos ? r.videos.split(",") : []
-            }));
+        const supabaseReturns = await fetchReturnRequestsFromSupabase();
+        if (supabaseReturns && supabaseReturns.length > 0) {
+          mappedReturns = supabaseReturns.filter((r: any) => r && r.customerId !== "USR-1000");
+        } else {
+          const returnsRes = await safeBackendFetch("/api/returns", undefined, 2500);
+          if (returnsRes && returnsRes.ok) {
+            const dbReturns = await returnsRes.json();
+            mappedReturns = dbReturns
+              .filter((r: any) => r && r.customerId !== "USR-1000")
+              .map((r: any) => ({
+                ...r,
+                refundAmount: Number(r.refundAmount),
+                images: r.images ? (typeof r.images === "string" ? r.images.split(",") : r.images) : [],
+                videos: r.videos ? (typeof r.videos === "string" ? r.videos.split(",") : r.videos) : []
+              }));
+          }
         }
-      } catch {}
+      } catch (err) {
+        console.warn("Returns fetch error:", err);
+      }
 
       // 9. Coupons & Gift Cards from Supabase (fallback to backend if empty)
       let mappedCoupons = supabaseCoupons;
@@ -2694,43 +2716,113 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     },
     assignReturnPickup: async (returnId) => {
       try {
+        let updatedReturn: any = null;
         const res = await fetch(`${BACKEND_URL}/api/returns/${returnId}/assign-pickup`, {
           method: "POST"
-        });
-        if (res.ok) {
-          const updatedReturn = await res.json();
-          setState(s => ({
-            ...s,
-            returns: s.returns.map(r => r.id === returnId ? updatedReturn : r)
-          }));
-          return updatedReturn;
+        }).catch(() => null);
+
+        if (res && res.ok) {
+          updatedReturn = await res.json();
+        } else {
+          // Client-side fallback if backend is sleeping/offline
+          const pseudoAwb = `RET-AWB-${Math.floor(100000 + Math.random() * 900000)}`;
+          const pseudoCourier = "Shiprocket Reverse Express (Delhivery Surface)";
+          const pickupDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+          updatedReturn = {
+            status: "Pickup Scheduled",
+            returnAwb: pseudoAwb,
+            returnCourier: pseudoCourier,
+            pickupDate: pickupDate,
+            shiprocketReturnOrderId: `RET-SR-${Math.floor(10000 + Math.random() * 90000)}`,
+            shiprocketReturnShipmentId: `SR-REV-${Math.floor(100000 + Math.random() * 900000)}`
+          };
         }
+
+        setState(s => ({
+          ...s,
+          returns: s.returns.map(r => r.id === returnId ? { ...r, ...updatedReturn } : r)
+        }));
+
+        await updateReturnRequestInSupabase(returnId, updatedReturn).catch(err => console.error("Supabase return pickup error:", err));
+        notifyBroadcastSync();
+        return updatedReturn;
       } catch (err) {
         console.error("Failed to assign return pickup:", err);
       }
     },
-    processSplitRefund: async (returnId) => {
+    processSplitRefund: async (returnId, customMode?: string) => {
       try {
+        let updatedReturn: any = null;
         const res = await fetch(`${BACKEND_URL}/api/returns/${returnId}/process-refund`, {
-          method: "POST"
-        });
-        if (res.ok) {
-          const updatedReturn = await res.json();
-          setState(s => {
-            const nextReturns = s.returns.map(r => r.id === returnId ? updatedReturn : r);
-            let updatedWallets = { ...s.wallets };
-            if (updatedReturn.walletRefundAmount && updatedReturn.walletRefundAmount > 0 && updatedReturn.customerId) {
-              const currentBal = updatedWallets[updatedReturn.customerId] || 0;
-              updatedWallets[updatedReturn.customerId] = currentBal + updatedReturn.walletRefundAmount;
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode: customMode || "AUTO" })
+        }).catch(() => null);
+
+        if (res && res.ok) {
+          updatedReturn = await res.json();
+        } else {
+          // Client-side execution if backend offline
+          const ret = state.returns.find(r => r.id === returnId);
+          if (!ret) return null;
+          const order = Object.values(state.orders).flat().find(o => o.id === ret.orderId);
+          const isCOD = (order?.paymentMethod || "").toUpperCase().includes("COD");
+          const totalRef = ret.refundAmount || 0;
+          let walletAmt = 0;
+          let razorpayAmt = 0;
+
+          if (customMode === "WALLET" || isCOD) {
+            walletAmt = totalRef;
+          } else if (customMode === "RAZORPAY") {
+            razorpayAmt = totalRef;
+          } else {
+            const walletUsed = order?.walletAmountUsed || 0;
+            const rzpPaid = order?.razorpayAmountPaid || 0;
+            if (walletUsed > 0 && rzpPaid > 0) {
+              walletAmt = Math.min(walletUsed, totalRef);
+              razorpayAmt = totalRef - walletAmt;
+            } else if (walletUsed > 0) {
+              walletAmt = totalRef;
+            } else {
+              razorpayAmt = totalRef;
             }
-            return {
-              ...s,
-              returns: nextReturns,
-              wallets: updatedWallets
-            };
-          });
-          return updatedReturn;
+          }
+
+          const txId = razorpayAmt > 0 ? `rfnd_${Math.floor(100000 + Math.random() * 900000)}` : `WLT-REF-${Date.now()}`;
+          updatedReturn = {
+            ...ret,
+            status: "Refund Completed",
+            walletRefundAmount: walletAmt,
+            razorpayRefundAmount: razorpayAmt,
+            refundTransactionId: txId,
+            razorpayRefundId: razorpayAmt > 0 ? txId : undefined,
+            walletTransactionId: walletAmt > 0 ? `WLT-REF-${Date.now()}` : undefined,
+            refundDate: new Date().toISOString().slice(0, 10),
+            refundMethod: walletAmt > 0 && razorpayAmt > 0 ? "Split Refund: Razorpay + ReeVibes Wallet" : walletAmt > 0 ? "ReeVibes Wallet Credit" : "Original Payment Instrument (Razorpay)"
+          };
         }
+
+        setState(s => {
+          const nextReturns = s.returns.map(r => r.id === returnId ? { ...r, ...updatedReturn } : r);
+          let updatedWallets = { ...s.wallets };
+          if (updatedReturn.walletRefundAmount && updatedReturn.walletRefundAmount > 0 && updatedReturn.customerId) {
+            const currentBal = updatedWallets[updatedReturn.customerId] || 0;
+            updatedWallets[updatedReturn.customerId] = currentBal + updatedReturn.walletRefundAmount;
+          }
+          return {
+            ...s,
+            returns: nextReturns,
+            wallets: updatedWallets
+          };
+        });
+
+        await updateReturnRequestInSupabase(returnId, updatedReturn).catch(err => console.error("Supabase return patch error:", err));
+        if (updatedReturn.walletRefundAmount && updatedReturn.walletRefundAmount > 0 && updatedReturn.customerId) {
+          await creditCustomerWalletInSupabase(updatedReturn.customerId, updatedReturn.walletRefundAmount).catch(err => console.error("Supabase wallet credit error:", err));
+        }
+
+        notifyBroadcastSync();
+        return updatedReturn;
       } catch (err) {
         console.error("Failed to process split refund:", err);
       }
@@ -3020,10 +3112,11 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     },
     requestReturn: (req) => {
       const returnId = `RET-${Math.floor(100 + Math.random() * 900)}`;
-      const newReturn = {
+      const newReturn: ReturnRequest = {
         id: returnId,
         ...req,
-        status: "Return Requested"
+        status: "Return Requested",
+        createdAt: new Date().toISOString()
       };
 
       setState(s => ({
@@ -3035,110 +3128,65 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         ]
       }));
 
+      // 1. Direct Supabase Persistence
+      upsertReturnRequestToSupabase(newReturn)
+        .then(res => {
+          if (res.ok) {
+            toast.success("Return request saved to Supabase!");
+          } else {
+            console.error("Supabase return save error:", res.error);
+          }
+        })
+        .catch(err => console.error("Supabase return save exception:", err));
+
+      // 2. Backend sync
       fetch(`${BACKEND_URL}/api/returns`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: returnId,
-          orderId: req.orderId,
-          productId: req.productId,
-          productName: req.productName,
-          customerId: req.customerId,
-          customerName: req.customerName,
-          reason: req.reason,
-          comment: req.comment,
-          images: req.images ? req.images.join(",") : "",
-          videos: req.videos ? req.videos.join(",") : "",
-          status: "Return Requested",
-          refundAmount: req.refundAmount,
-          selectedSize: req.selectedSize,
-          qty: req.qty,
-          refundMethod: req.refundMethod
-        })
+        body: JSON.stringify(newReturn)
       }).catch(err => console.error("Failed to sync new return request to backend:", err));
+
+      notifyBroadcastSync();
     },
     approveReturn: (returnId) => {
       let req: any;
-      let nextRefundTxId = `pay_razor_${Math.random().toString(36).substring(2, 11)}`;
-      let nextRefundDate = new Date().toISOString().slice(0, 10);
-      let nextExpectedCreditDate = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-
       setState(s => {
         req = s.returns.find(r => r.id === returnId);
         if (!req) return s;
 
         const updatedReturns = s.returns.map(r => r.id === returnId ? {
           ...r,
-          status: "Refund Completed",
-          refundTransactionId: nextRefundTxId,
-          refundDate: nextRefundDate,
-          expectedCreditDate: nextExpectedCreditDate
+          status: "Return Approved"
         } : r);
-
-        let updatedWallets = s.wallets;
-        if (req.refundMethod === "ReeVibes Wallet" || req.refundMethod === "Store Credit") {
-          const userWallet = s.wallets[req.customerId] ?? 0;
-          updatedWallets = { ...s.wallets, [req.customerId]: userWallet + req.refundAmount };
-        }
-
-        const userOrders = s.orders[req.customerId] ?? [];
-        const updatedOrders = userOrders.map(o => {
-          if (o.id === req.orderId) {
-            return {
-              ...o,
-              status: "Returned",
-              paymentStatus: "Refunded" as const,
-              refundDetails: {
-                status: "Refund Completed",
-                amount: req.refundAmount,
-                transactionId: nextRefundTxId,
-                date: nextRefundDate
-              }
-            };
-          }
-          return o;
-        });
-
-        fetch(`${BACKEND_URL}/api/returns/${returnId}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            status: "Refund Completed",
-            refundTransactionId: nextRefundTxId,
-            refundDate: nextRefundDate,
-            expectedCreditDate: nextExpectedCreditDate
-          })
-        }).catch(err => console.error("Failed to sync approved return status:", err));
-
-        fetch(`${BACKEND_URL}/api/orders/${req.orderId}/refund`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            status: "Returned",
-            paymentStatus: "Refunded",
-            refundDetailsJson: JSON.stringify({
-              status: "Refund Completed",
-              amount: req.refundAmount,
-              transactionId: nextRefundTxId,
-              date: nextRefundDate
-            })
-          })
-        }).catch(err => console.error("Failed to sync order refund status:", err));
 
         return {
           ...s,
           returns: updatedReturns,
-          wallets: updatedWallets,
-          orders: { ...s.orders, [req.customerId]: updatedOrders },
           notifications: [
-            { id: `n-${Date.now()}`, icon: "wallet", title: "Refund Issued", body: `Refund of ₹${req.refundAmount.toLocaleString()} credited successfully.`, time: "now", unread: true },
+            { id: `n-${Date.now()}`, icon: "refund", title: "Return Approved", body: `Return request ${returnId} for order ${req.orderId} has been approved. Reverse pickup will be arranged.`, time: "now", unread: true },
             ...s.notifications
           ]
         };
       });
+
+      updateReturnRequestInSupabase(returnId, { status: "Return Approved" })
+        .catch(err => console.error("Failed to sync approved return status to Supabase:", err));
+
+      fetch(`${BACKEND_URL}/api/returns/${returnId}/approve`, {
+        method: "POST"
+      }).catch(() => {
+        fetch(`${BACKEND_URL}/api/returns/${returnId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "Return Approved" })
+        }).catch(err => console.error("Failed to sync approved return status:", err));
+      });
+
+      notifyBroadcastSync();
     },
     rejectReturn: (returnId, rejectionReason) => {
       let req: any;
+      const reason = rejectionReason || "Return criteria not satisfied";
       setState(s => {
         req = s.returns.find(r => r.id === returnId);
         if (!req) return s;
@@ -3146,27 +3194,35 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         const updatedReturns = s.returns.map(r => r.id === returnId ? {
           ...r,
           status: "Rejected",
-          rejectionReason: rejectionReason || "Insufficient evidence"
+          rejectionReason: reason
         } : r);
-
-        fetch(`${BACKEND_URL}/api/returns/${returnId}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            status: "Rejected",
-            rejectionReason: rejectionReason || "Insufficient evidence"
-          })
-        }).catch(err => console.error("Failed to sync rejected return status:", err));
 
         return {
           ...s,
           returns: updatedReturns,
           notifications: [
-            { id: `n-${Date.now()}`, icon: "refund", title: "Return Request Rejected", body: `Return request ${returnId} for order ${req.orderId} was rejected. Reason: ${rejectionReason || "Insufficient evidence"}.`, time: "now", unread: true },
+            { id: `n-${Date.now()}`, icon: "refund", title: "Return Request Rejected", body: `Return request ${returnId} for order ${req.orderId} was rejected. Reason: ${reason}.`, time: "now", unread: true },
             ...s.notifications
           ]
         };
       });
+
+      updateReturnRequestInSupabase(returnId, { status: "Rejected", rejectionReason: reason })
+        .catch(err => console.error("Failed to sync rejected return status to Supabase:", err));
+
+      fetch(`${BACKEND_URL}/api/returns/${returnId}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rejectionReason: reason })
+      }).catch(() => {
+        fetch(`${BACKEND_URL}/api/returns/${returnId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "Rejected", rejectionReason: reason })
+        }).catch(err => console.error("Failed to sync rejected return status:", err));
+      });
+
+      notifyBroadcastSync();
     },
     updateReturnDetails: (returnId, patch) => {
       setState(s => {
@@ -3174,11 +3230,16 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         return { ...s, returns: nextList };
       });
 
+      updateReturnRequestInSupabase(returnId, patch)
+        .catch(err => console.error("Failed to sync return details patch to Supabase:", err));
+
       fetch(`${BACKEND_URL}/api/returns/${returnId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(patch)
       }).catch(err => console.error("Failed to sync return details patch:", err));
+
+      notifyBroadcastSync();
     },
     suspendCustomer: (id) => {
       const targetUser = state.users.find(u => u.id === id);

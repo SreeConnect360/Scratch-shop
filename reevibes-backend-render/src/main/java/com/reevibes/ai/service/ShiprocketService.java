@@ -593,23 +593,80 @@ public class ShiprocketService {
     }
 
     /**
-     * Creates a reverse return order in Shiprocket.
+     * Creates a reverse return order in Shiprocket from Customer pickup location to Warehouse.
      */
-    public Map<String, String> createReturnOrder(com.reevibes.ai.model.ReturnRequest returnReq, ShopOrder order) {
+     public Map<String, String> createReturnOrder(com.reevibes.ai.model.ReturnRequest returnReq, ShopOrder order) {
         String token = getAuthToken();
-        if (token == null) return Collections.emptyMap();
+        if (token == null) {
+            System.err.println("Could not create return order: Shiprocket token is null");
+            return Collections.emptyMap();
+        }
 
         try {
+            String customerName = returnReq.getCustomerName() != null ? returnReq.getCustomerName().trim() : "Customer";
+            String firstName = customerName;
+            String lastName = "Customer";
+            if (customerName.contains(" ")) {
+                String[] nameParts = customerName.split(" ", 2);
+                firstName = nameParts[0];
+                lastName = nameParts[1];
+            }
+
+            String rawAddress = order != null && order.getAddress() != null ? order.getAddress() : "";
+            String street = "Customer Pickup Address";
+            String city = "Bangalore";
+            String state = "Karnataka";
+            String pincode = "560038";
+            String phone = "9999999999";
+
+            if (rawAddress.trim().startsWith("{")) {
+                try {
+                    Map<String, Object> addrMap = objectMapper.readValue(rawAddress, Map.class);
+                    if (addrMap.containsKey("name") && addrMap.get("name") != null) {
+                        String fullName = String.valueOf(addrMap.get("name")).trim();
+                        String[] nameParts = fullName.split(" ", 2);
+                        firstName = nameParts[0];
+                        if (nameParts.length > 1) lastName = nameParts[1];
+                    }
+                    if (addrMap.containsKey("phone") && addrMap.get("phone") != null) {
+                        String p = String.valueOf(addrMap.get("phone")).replaceAll("[^0-9]", "");
+                        if (!p.isEmpty()) phone = p;
+                    }
+                    if (addrMap.containsKey("street") && addrMap.get("street") != null) street = String.valueOf(addrMap.get("street"));
+                    if (addrMap.containsKey("city") && addrMap.get("city") != null) city = String.valueOf(addrMap.get("city"));
+                    if (addrMap.containsKey("state") && addrMap.get("state") != null) state = String.valueOf(addrMap.get("state"));
+                    if (addrMap.containsKey("pincode") && addrMap.get("pincode") != null) pincode = String.valueOf(addrMap.get("pincode")).replaceAll("[^0-9]", "");
+                } catch (Exception e) {
+                    System.err.println("Failed to parse address JSON in createReturnOrder: " + e.getMessage());
+                }
+            } else if (!rawAddress.isEmpty()) {
+                street = rawAddress;
+                java.util.regex.Matcher pm = java.util.regex.Pattern.compile("(?:\\+91|91|0)?[6-9]\\d{9}").matcher(rawAddress);
+                if (pm.find()) {
+                    phone = pm.group();
+                }
+                java.util.regex.Matcher pinm = java.util.regex.Pattern.compile("\\b[1-9][0-9]{5}\\b").matcher(rawAddress);
+                if (pinm.find()) {
+                    pincode = pinm.group();
+                }
+                String[] parts = rawAddress.split(",");
+                if (parts.length >= 3) {
+                    street = parts[0].trim();
+                    city = parts[parts.length - 2].trim().replaceAll("[^a-zA-Z ]", "");
+                    state = parts[parts.length - 1].trim().replaceAll("[^a-zA-Z ]", "");
+                }
+            }
+
             Map<String, Object> payload = new HashMap<>();
             payload.put("order_id", "RET-" + returnReq.getId());
             payload.put("order_date", new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm").format(new java.util.Date()));
-            payload.put("pickup_customer_name", returnReq.getCustomerName() != null ? returnReq.getCustomerName() : "Customer");
-            payload.put("pickup_last_name", "ReeVibes");
-            payload.put("pickup_address", order != null && order.getAddress() != null ? order.getAddress() : "Customer Address");
-            payload.put("pickup_city", "Bangalore");
-            payload.put("pickup_state", "Karnataka");
-            payload.put("pickup_pincode", "560038");
-            payload.put("pickup_phone", "9999999999");
+            payload.put("pickup_customer_name", firstName);
+            payload.put("pickup_last_name", lastName);
+            payload.put("pickup_address", street);
+            payload.put("pickup_city", city);
+            payload.put("pickup_state", state);
+            payload.put("pickup_pincode", pincode);
+            payload.put("pickup_phone", phone);
 
             List<Map<String, Object>> orderItems = new ArrayList<>();
             Map<String, Object> item = new HashMap<>();
@@ -641,6 +698,8 @@ public class ShiprocketService {
                 Map<String, String> res = new HashMap<>();
                 if (body.containsKey("order_id")) res.put("order_id", String.valueOf(body.get("order_id")));
                 if (body.containsKey("shipment_id")) res.put("shipment_id", String.valueOf(body.get("shipment_id")));
+                if (body.containsKey("awb_code")) res.put("awb_code", String.valueOf(body.get("awb_code")));
+                if (body.containsKey("courier_name")) res.put("courier_name", String.valueOf(body.get("courier_name")));
                 return res;
             }
         } catch (Exception e) {

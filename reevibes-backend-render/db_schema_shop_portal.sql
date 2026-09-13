@@ -277,4 +277,55 @@ BEGIN
   END IF;
 END $$;
 
+CREATE TABLE IF NOT EXISTS return_requests (
+    id VARCHAR(50) PRIMARY KEY,
+    order_id VARCHAR(50) NOT NULL,
+    product_id VARCHAR(50) NOT NULL,
+    product_name VARCHAR(255) NOT NULL,
+    customer_id VARCHAR(50) NOT NULL,
+    customer_name VARCHAR(100) NOT NULL,
+    reason TEXT NOT NULL,
+    comment TEXT,
+    images TEXT,
+    videos TEXT,
+    status VARCHAR(50) NOT NULL DEFAULT 'Return Requested',
+    refund_amount NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    refund_transaction_id VARCHAR(100),
+    refund_date VARCHAR(20),
+    selected_size VARCHAR(10),
+    qty INT DEFAULT 1,
+    refund_method VARCHAR(50),
+    rejection_reason TEXT,
+    expected_credit_date VARCHAR(20),
+    pickup_date VARCHAR(20),
+    shiprocket_return_order_id VARCHAR(100),
+    shiprocket_return_shipment_id VARCHAR(100),
+    return_awb VARCHAR(100),
+    return_courier VARCHAR(100),
+    wallet_refund_amount NUMERIC(12, 2) DEFAULT 0,
+    razorpay_refund_amount NUMERIC(12, 2) DEFAULT 0,
+    razorpay_refund_id VARCHAR(100),
+    wallet_transaction_id VARCHAR(100),
+    return_label_url TEXT,
+    return_scans_json TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
 
+ALTER TABLE return_requests ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'return_requests' AND policyname = 'Allow public select on return_requests') THEN
+    CREATE POLICY "Allow public select on return_requests" ON return_requests FOR SELECT USING (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'return_requests' AND policyname = 'Allow public insert on return_requests') THEN
+    CREATE POLICY "Allow public insert on return_requests" ON return_requests FOR INSERT WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'return_requests' AND policyname = 'Allow public update on return_requests') THEN
+    CREATE POLICY "Allow public update on return_requests" ON return_requests FOR UPDATE USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'return_requests' AND policyname = 'Allow public delete on return_requests') THEN
+    CREATE POLICY "Allow public delete on return_requests" ON return_requests FOR DELETE USING (true);
+  END IF;
+END $$;

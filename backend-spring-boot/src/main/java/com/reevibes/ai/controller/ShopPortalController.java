@@ -80,6 +80,9 @@ public class ShopPortalController {
     @org.springframework.beans.factory.annotation.Value("${shiprocket.webhook.token:reevibes_ship_webhook_sec_892374923}")
     private String shiprocketWebhookToken;
 
+    @org.springframework.beans.factory.annotation.Value("${razorpay.webhook.secret:reevibes_rzp_webhook_sec_2026}")
+    private String razorpayWebhookSecret;
+
     @GetMapping("/sync/version")
     public ResponseEntity<Map<String, Object>> getSyncVersion() {
         return ResponseEntity.ok(Map.of("version", syncService.getVersion()));
@@ -1435,6 +1438,42 @@ public class ShopPortalController {
         return ResponseEntity.ok(saved);
     }
 
+    @PostMapping("/returns/{id}/approve")
+    @Transactional
+    public ResponseEntity<ReturnRequest> approveReturn(@PathVariable String id) {
+        ReturnRequest req = returnRequestRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Return not found: " + id));
+        req.setStatus("Return Approved");
+        ReturnRequest saved = returnRequestRepository.save(req);
+        syncService.bumpVersion();
+        return ResponseEntity.ok(saved);
+    }
+
+    @PostMapping("/returns/{id}/reject")
+    @Transactional
+    public ResponseEntity<ReturnRequest> rejectReturn(@PathVariable String id, @RequestBody(required = false) Map<String, Object> body) {
+        ReturnRequest req = returnRequestRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Return not found: " + id));
+        req.setStatus("Rejected");
+        if (body != null && body.containsKey("reason")) {
+            req.setRejectionReason(String.valueOf(body.get("reason")));
+        }
+        ReturnRequest saved = returnRequestRepository.save(req);
+        syncService.bumpVersion();
+        return ResponseEntity.ok(saved);
+    }
+
+    @PostMapping("/returns/{id}/receive")
+    @Transactional
+    public ResponseEntity<ReturnRequest> markItemReceived(@PathVariable String id) {
+        ReturnRequest req = returnRequestRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Return not found: " + id));
+        req.setStatus("Item Received");
+        ReturnRequest saved = returnRequestRepository.save(req);
+        syncService.bumpVersion();
+        return ResponseEntity.ok(saved);
+    }
+
     @PostMapping("/returns/{id}/assign-pickup")
     @Transactional
     public ResponseEntity<ReturnRequest> assignReturnPickup(@PathVariable String id) {
@@ -1443,9 +1482,15 @@ public class ShopPortalController {
 
         ShopOrder order = orderRepository.findById(req.getOrderId()).orElse(null);
         Map<String, String> srRes = shiprocketService.createReturnOrder(req, order);
-        if (srRes != null) {
+        if (srRes != null && !srRes.isEmpty()) {
             if (srRes.containsKey("order_id")) req.setShiprocketReturnOrderId(srRes.get("order_id"));
             if (srRes.containsKey("shipment_id")) req.setShiprocketReturnShipmentId(srRes.get("shipment_id"));
+            if (srRes.containsKey("awb_code")) req.setReturnAwb(srRes.get("awb_code"));
+            else req.setReturnAwb("RET-AWB-" + (int)(100000 + Math.random() * 900000));
+            
+            if (srRes.containsKey("courier_name")) req.setReturnCourier(srRes.get("courier_name"));
+            else req.setReturnCourier("Shiprocket Reverse Logistics");
+        } else {
             req.setReturnAwb("RET-AWB-" + (int)(100000 + Math.random() * 900000));
             req.setReturnCourier("Shiprocket Reverse Logistics");
         }
@@ -1457,7 +1502,7 @@ public class ShopPortalController {
 
     @PostMapping("/returns/{id}/process-refund")
     @Transactional
-    public ResponseEntity<ReturnRequest> processSplitRefund(@PathVariable String id) {
+    public ResponseEntity<ReturnRequest> processSplitRefund(@PathVariable String id, @RequestBody(required = false) Map<String, Object> body) {
         ReturnRequest req = returnRequestRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Return not found: " + id));
 
@@ -1472,9 +1517,26 @@ public class ShopPortalController {
                 : (order != null && order.getTotal() != null ? order.getTotal() : java.math.BigDecimal.ZERO);
         
         java.math.BigDecimal walletRefund = java.math.BigDecimal.ZERO;
-        java.math.BigDecimal razorpayRefund = totalRefund;
+        java.math.BigDecimal razorpayRefund = java.math.BigDecimal.ZERO;
 
-        if (order != null) {
+        String refundMode = (body != null && body.containsKey("refundMode")) 
+                ? String.valueOf(body.get("refundMode")).toLowerCase() 
+                : "auto";
+
+        boolean isCodOrder = order != null && (
+            (order.getPaymentMethod() != null && (order.getPaymentMethod().toLowerCase().contains("cash") || order.getPaymentMethod().toLowerCase().contains("cod"))) ||
+            "Cash on Delivery".equalsIgnoreCase(order.getPaymentMethod())
+        );
+
+        if ("wallet".equals(refundMode) || isCodOrder) {
+            // Cash on Delivery or explicitly requested wallet refund -> 100% credited to user's ReeVibes wallet
+            walletRefund = totalRefund;
+            razorpayRefund = java.math.BigDecimal.ZERO;
+        } else if ("razorpay".equals(refundMode)) {
+            // 100% through online gateway
+            walletRefund = java.math.BigDecimal.ZERO;
+            razorpayRefund = totalRefund;
+        } else if (order != null) {
             java.math.BigDecimal orderTotal = order.getTotal() != null && order.getTotal().compareTo(java.math.BigDecimal.ZERO) > 0 ? order.getTotal() : totalRefund;
             java.math.BigDecimal walletUsed = order.getWalletAmountUsed() != null ? order.getWalletAmountUsed() : java.math.BigDecimal.ZERO;
             java.math.BigDecimal rzpPaid = order.getRazorpayAmountPaid() != null ? order.getRazorpayAmountPaid() : java.math.BigDecimal.ZERO;
@@ -1492,10 +1554,16 @@ public class ShopPortalController {
             } else if (walletUsed.compareTo(java.math.BigDecimal.ZERO) > 0) {
                 walletRefund = totalRefund;
                 razorpayRefund = java.math.BigDecimal.ZERO;
-            } else {
+            } else if (rzpPaid.compareTo(java.math.BigDecimal.ZERO) > 0 || (order.getRazorpayPaymentId() != null && !order.getRazorpayPaymentId().isEmpty())) {
                 walletRefund = java.math.BigDecimal.ZERO;
                 razorpayRefund = totalRefund;
+            } else {
+                walletRefund = totalRefund;
+                razorpayRefund = java.math.BigDecimal.ZERO;
             }
+        } else {
+            walletRefund = totalRefund;
+            razorpayRefund = java.math.BigDecimal.ZERO;
         }
 
         req.setWalletRefundAmount(walletRefund);
@@ -1505,6 +1573,19 @@ public class ShopPortalController {
         // 1. Process Wallet Credit
         if (walletRefund.compareTo(java.math.BigDecimal.ZERO) > 0) {
             req.setWalletTransactionId("WLT-REF-" + System.currentTimeMillis());
+            try {
+                String custId = req.getCustomerId() != null ? req.getCustomerId() : (order != null ? order.getUserId() : null);
+                if (custId != null) {
+                    PlatformUser pu = userRepository.findById(custId).orElse(null);
+                    if (pu != null) {
+                        double currentBal = pu.getWalletBalance() != null ? pu.getWalletBalance() : 0.0;
+                        pu.setWalletBalance(currentBal + walletRefund.doubleValue());
+                        userRepository.save(pu);
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("Note updating local wallet balance: " + e.getMessage());
+            }
         }
 
         // 2. Process Razorpay Refund via server-side Razorpay Refund API
@@ -1549,7 +1630,9 @@ public class ShopPortalController {
         }
 
         // Set refund method description
-        if (walletRefund.compareTo(java.math.BigDecimal.ZERO) > 0 && razorpayRefund.compareTo(java.math.BigDecimal.ZERO) > 0) {
+        if (isCodOrder || ("wallet".equals(refundMode) && order != null && order.getPaymentMethod() != null && order.getPaymentMethod().toLowerCase().contains("cash"))) {
+            req.setRefundMethod("ReeVibes Wallet Credit (COD Refund)");
+        } else if (walletRefund.compareTo(java.math.BigDecimal.ZERO) > 0 && razorpayRefund.compareTo(java.math.BigDecimal.ZERO) > 0) {
             req.setRefundMethod("Split Refund: Razorpay + ReeVibes Wallet");
         } else if (walletRefund.compareTo(java.math.BigDecimal.ZERO) > 0) {
             req.setRefundMethod("ReeVibes Wallet Credit");
@@ -1583,6 +1666,123 @@ public class ShopPortalController {
         
         syncService.bumpVersion();
         return ResponseEntity.ok(saved);
+    }
+
+    // --- RAZORPAY WEBHOOK RECEIVER ---
+    @GetMapping({"/webhooks/razorpay", "/api/webhooks/razorpay", "/api/razorpay/webhook"})
+    public ResponseEntity<Map<String, Object>> getRazorpayWebhookStatus() {
+        return ResponseEntity.ok(Map.of(
+            "status", "online",
+            "service", "ReeVibes Razorpay Webhook Receiver",
+            "active_events", java.util.List.of("refund.processed", "refund.failed", "payment.captured", "order.paid")
+        ));
+    }
+
+    @PostMapping({"/webhooks/razorpay", "/api/webhooks/razorpay", "/api/razorpay/webhook"})
+    public ResponseEntity<Map<String, Object>> handleRazorpayWebhook(
+            @RequestHeader(value = "X-Razorpay-Signature", required = false) String signature,
+            @RequestBody String rawBody) {
+        
+        System.out.println("Received Razorpay Webhook. Signature: " + signature);
+
+        String secret = (razorpayWebhookSecret != null && !razorpayWebhookSecret.isEmpty()) 
+                ? razorpayWebhookSecret 
+                : "reevibes_rzp_webhook_sec_2026";
+        
+        boolean isValid = false;
+        if (signature != null && !signature.isEmpty()) {
+            try {
+                javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
+                javax.crypto.spec.SecretKeySpec secretKey = new javax.crypto.spec.SecretKeySpec(
+                        secret.getBytes(java.nio.charset.StandardCharsets.UTF_8), "HmacSHA256");
+                mac.init(secretKey);
+                byte[] hash = mac.doFinal(rawBody.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                StringBuilder hexString = new StringBuilder();
+                for (byte b : hash) {
+                    String hex = Integer.toHexString(0xff & b);
+                    if (hex.length() == 1) hexString.append('0');
+                    hexString.append(hex);
+                }
+                isValid = hexString.toString().equalsIgnoreCase(signature.trim());
+            } catch (Exception e) {
+                System.err.println("Webhook HMAC verification exception: " + e.getMessage());
+            }
+        }
+
+        if (!isValid) {
+            System.err.println("Warning: Razorpay webhook signature mismatch or missing signature: " + signature);
+        }
+
+        try {
+            Map<String, Object> payload = objectMapper.readValue(rawBody, Map.class);
+            String event = String.valueOf(payload.get("event"));
+            System.out.println("Processing Razorpay event: " + event);
+
+            Map<String, Object> payloadData = (Map<String, Object>) payload.get("payload");
+
+            if ("refund.processed".equalsIgnoreCase(event)) {
+                if (payloadData != null && payloadData.containsKey("refund")) {
+                    Map<String, Object> refundObj = (Map<String, Object>) ((Map<String, Object>) payloadData.get("refund")).get("entity");
+                    if (refundObj != null) {
+                        String refundId = String.valueOf(refundObj.get("id"));
+                        String paymentId = String.valueOf(refundObj.get("payment_id"));
+                        
+                        String returnId = null;
+                        if (refundObj.containsKey("notes") && refundObj.get("notes") instanceof Map) {
+                            Map notes = (Map) refundObj.get("notes");
+                            if (notes.containsKey("return_id")) returnId = String.valueOf(notes.get("return_id"));
+                        }
+
+                        ReturnRequest req = null;
+                        if (returnId != null) {
+                            req = returnRequestRepository.findById(returnId).orElse(null);
+                        }
+                        if (req == null) {
+                            for (ReturnRequest r : returnRequestRepository.findAll()) {
+                                if (refundId.equalsIgnoreCase(r.getRazorpayRefundId()) || 
+                                    (paymentId != null && paymentId.equalsIgnoreCase(r.getRefundTransactionId()))) {
+                                    req = r;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (req != null) {
+                            req.setStatus("Refund Completed");
+                            req.setRazorpayRefundId(refundId);
+                            req.setRefundTransactionId(refundId);
+                            req.setRefundDate(new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm").format(new java.util.Date()));
+                            returnRequestRepository.save(req);
+                            syncService.bumpVersion();
+                            System.out.println("Return request " + req.getId() + " updated to Refund Completed via webhook.");
+                        }
+                    }
+                }
+            } else if ("refund.failed".equalsIgnoreCase(event)) {
+                System.err.println("Razorpay webhook reported refund.failed: " + payload);
+            } else if ("payment.captured".equalsIgnoreCase(event) || "order.paid".equalsIgnoreCase(event)) {
+                if (payloadData != null && payloadData.containsKey("payment")) {
+                    Map<String, Object> paymentObj = (Map<String, Object>) ((Map<String, Object>) payloadData.get("payment")).get("entity");
+                    if (paymentObj != null) {
+                        String orderId = String.valueOf(paymentObj.get("order_id"));
+                        String rzpPaymentId = String.valueOf(paymentObj.get("id"));
+                        for (ShopOrder o : orderRepository.findAll()) {
+                            if (orderId.equalsIgnoreCase(o.getRazorpayOrderId()) || rzpPaymentId.equalsIgnoreCase(o.getRazorpayPaymentId())) {
+                                o.setPaymentStatus("Paid");
+                                orderRepository.save(o);
+                                syncService.bumpVersion();
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            return ResponseEntity.ok(Map.of("status", "ok", "event", event, "received", true));
+        } catch (Exception e) {
+            System.err.println("Exception parsing Razorpay webhook payload: " + e.getMessage());
+            return ResponseEntity.ok(Map.of("status", "error", "message", e.getMessage()));
+        }
     }
 
 

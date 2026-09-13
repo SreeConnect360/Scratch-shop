@@ -58,6 +58,51 @@ const getStatusBadge = (status: string) => {
   return "bg-amber-500/15 border-amber-500/30 text-amber-600 dark:text-amber-400";
 };
 
+export const REFINED_RETURN_REASONS = [
+  {
+    id: "size_fit",
+    label: "Size & Fit Discrepancy",
+    description: "Item does not fit as expected (runs too small, too large, or tight fit)",
+    icon: "📏"
+  },
+  {
+    id: "wrong_item",
+    label: "Incorrect Item or Color Received",
+    description: "Received a different product, wrong variant, or mismatched color",
+    icon: "📦"
+  },
+  {
+    id: "quality_defect",
+    label: "Defective Finish or Poor Material Quality",
+    description: "Flawed stitching, fabric defects, zipper issue, or substandard workmanship",
+    icon: "⚠️"
+  },
+  {
+    id: "transit_damage",
+    label: "Damaged or Broken in Transit",
+    description: "Item arrived physically broken, torn, or outer parcel heavily crushed",
+    icon: "💔"
+  },
+  {
+    id: "not_as_described",
+    label: "Item Does Not Match Catalog Description",
+    description: "Physical product appearance or specifications differ from maison display",
+    icon: "🔍"
+  },
+  {
+    id: "missing_accessories",
+    label: "Missing Items, Tags, or Luxury Packaging",
+    description: "Incomplete shipment; accessories, luxury garment box, or authenticity tags missing",
+    icon: "❓"
+  },
+  {
+    id: "changed_mind",
+    label: "Change of Preference / No Longer Needed",
+    description: "Selected in error or decided against keeping the piece",
+    icon: "🔄"
+  }
+];
+
 function ShopOrdersPage() {
   const { state, requestReturn, addReview } = usePortal();
   const { tab } = Route.useSearch();
@@ -77,8 +122,21 @@ function ShopOrdersPage() {
   const [reviewRating, setReviewRating] = useState(5);
 
   // Return Wizard States
-  const [returnFormItem, setReturnFormItem] = useState<{ orderId: string; productId: string; productName: string; price: string; selectedSize: string; qty: number } | null>(null);
-  const [returnReason, setReturnReason] = useState("Product arrived damaged");
+  const [returnFormItem, setReturnFormItem] = useState<{
+    orderId: string;
+    productId: string;
+    productName: string;
+    price: string;
+    selectedSize: string;
+    qty: number;
+    image?: string;
+    paymentMethod?: string;
+    razorpayAmountPaid?: number;
+    walletAmountUsed?: number;
+    total?: number;
+    deliveryDate?: string;
+  } | null>(null);
+  const [returnReason, setReturnReason] = useState("Size & Fit Discrepancy");
   const [returnDesc, setReturnDesc] = useState("");
 
   const userOrders = useMemo(() => {
@@ -711,24 +769,31 @@ function ShopOrdersPage() {
                             onClick={() => {
                               setReturnFormItem({
                                 orderId: selectedOrderDetails.id,
-                                productId: item.productId,
+                                productId: item.productId || item.id,
                                 productName: item.name,
                                 price: String(item.price),
                                 selectedSize: item.selectedSize || "M",
-                                qty: item.qty || 1
+                                qty: item.qty || 1,
+                                image: item.image,
+                                paymentMethod: selectedOrderDetails.paymentMethod || "Razorpay Gateway",
+                                razorpayAmountPaid: selectedOrderDetails.razorpayAmountPaid,
+                                walletAmountUsed: selectedOrderDetails.walletAmountUsed,
+                                total: selectedOrderDetails.total,
+                                deliveryDate: selectedOrderDetails.deliveryDate
                               });
                               setSelectedOrderDetails(null);
                             }}
-                            className="text-[9px] uppercase font-bold px-2.5 py-1 rounded-full border border-rose-500/30 text-rose-500 hover:bg-rose-500 hover:text-white cursor-pointer transition-colors"
+                            className="text-[9px] uppercase font-bold px-3 py-1 rounded-full border border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-500 hover:text-white cursor-pointer transition-colors flex items-center gap-1 shadow-sm"
                           >
-                            Return Item
+                            <RotateCcw className="w-2.5 h-2.5" />
+                            <span>Return Product ({returnEligibility.daysLeft}d left)</span>
                           </button>
                         ) : (
                           <span
                             title={returnEligibility.reason}
                             className="text-[9px] uppercase font-bold px-2.5 py-1 rounded-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-muted-foreground opacity-60 cursor-not-allowed"
                           >
-                            Return Closed
+                            {orderStatus.includes("delivered") ? "7-Day Window Expired" : "Return Available After Delivery"}
                           </span>
                         )}
                       </div>
@@ -999,90 +1064,179 @@ function ShopOrdersPage() {
       )}
 
       {/* Return Request Form Modal */}
-      {returnFormItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="liquid-glass max-w-lg w-full p-6 md:p-8 space-y-6 shadow-2xl bg-white dark:bg-zinc-950 border border-black/15 dark:border-white/20 rounded-3xl animate-in zoom-in-95 duration-200 text-foreground">
-            <div className="flex justify-between items-center border-b border-black/10 dark:border-white/10 pb-4">
-              <div>
-                <span className="text-[10px] uppercase tracking-widest text-accent font-bold">Maison Returns Desk</span>
-                <h3 className="font-serif text-xl font-bold mt-1">Return: {returnFormItem.productName}</h3>
-              </div>
-              <button onClick={() => setReturnFormItem(null)} className="text-muted-foreground hover:text-foreground">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      {returnFormItem && (() => {
+        const unitPriceNum = Number(String(returnFormItem.price).replace(/[^0-9.]/g, "")) || 0;
+        const totalRefundAmount = unitPriceNum * (returnFormItem.qty || 1);
+        const isCOD = (returnFormItem.paymentMethod || "").toUpperCase().includes("COD");
+        const isWallet = (returnFormItem.paymentMethod || "").toLowerCase().includes("wallet") || ((returnFormItem.walletAmountUsed ?? 0) > 0 && (returnFormItem.razorpayAmountPaid ?? 0) === 0);
 
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="block text-xs text-muted-foreground uppercase tracking-wider font-semibold">Return Reason</label>
-                <select
-                  value={returnReason}
-                  onChange={e => setReturnReason(e.target.value)}
-                  className="w-full bg-black/5 dark:bg-zinc-900 border border-black/15 dark:border-white/10 p-3 rounded-xl text-xs outline-none text-foreground focus:border-accent"
-                >
-                  <option value="Product arrived damaged">Product arrived damaged</option>
-                  <option value="Wrong item delivered">Wrong item delivered</option>
-                  <option value="Wrong size delivered">Wrong size delivered</option>
-                  <option value="Too small">Too small</option>
-                  <option value="Too large">Too large</option>
-                  <option value="Product color different from website">Product color different from website</option>
-                  <option value="Poor quality material">Poor quality material</option>
-                  <option value="No longer needed">No longer needed</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-              
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <label className="block text-xs text-muted-foreground uppercase tracking-wider font-semibold">Comments (Optional)</label>
-                  <span className="text-[10px] font-mono text-muted-foreground">{returnDesc.length} / 500 characters</span>
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="liquid-glass max-w-xl w-full p-6 md:p-8 space-y-5 shadow-2xl bg-white dark:bg-zinc-950 border border-black/15 dark:border-white/20 rounded-3xl animate-in zoom-in-95 duration-200 text-foreground max-h-[92vh] overflow-y-auto">
+              {/* Modal Header */}
+              <div className="flex justify-between items-start border-b border-black/10 dark:border-white/10 pb-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] uppercase tracking-widest text-accent font-bold">Maison Returns & Exchanges</span>
+                    <span className="text-[9px] font-mono bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-2 py-0.5 rounded-full font-bold">
+                      7-Day Window Active
+                    </span>
+                  </div>
+                  <h3 className="font-serif text-xl sm:text-2xl font-bold mt-1">Initiate Product Return</h3>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Order #{returnFormItem.orderId} • Reverse courier arranged by Shiprocket</p>
                 </div>
-                <textarea
-                  maxLength={500}
-                  placeholder="Please explain the issue or provide details..."
-                  className="w-full bg-black/5 dark:bg-white/5 border border-black/15 dark:border-white/10 rounded-2xl p-3 text-xs outline-none focus:border-accent h-24 text-foreground resize-none"
-                  value={returnDesc}
-                  onChange={e => setReturnDesc(e.target.value)}
-                />
+                <button onClick={() => setReturnFormItem(null)} className="p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10">
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-            </div>
 
-            <div className="flex gap-3 pt-4 border-t border-black/10 dark:border-white/10">
-              <button
-                onClick={() => setReturnFormItem(null)}
-                className="flex-1 bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 border border-black/15 dark:border-white/15 py-2.5 rounded-full text-xs text-foreground font-semibold transition-colors uppercase tracking-wider cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  requestReturn({
-                    orderId: returnFormItem.orderId,
-                    productId: returnFormItem.productId,
-                    productName: returnFormItem.productName,
-                    customerId: user.id,
-                    customerName: `${user.firstName} ${user.lastName}`,
-                    reason: returnReason,
-                    comment: returnDesc.trim(),
-                    images: [],
-                    videos: [],
-                    refundAmount: Number(String(returnFormItem.price).replace(/[^0-9.]/g, "")) * returnFormItem.qty,
-                    selectedSize: returnFormItem.selectedSize,
-                    qty: returnFormItem.qty,
-                    refundMethod: "Original Payment Method"
-                  });
-                  toast.success("Return request logged with Maison operations team!");
-                  setReturnFormItem(null);
-                  navigate({ to: "/orders", search: { tab: "returns" } as any });
-                }}
-                className="flex-1 bg-accent text-white hover:bg-accent/90 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest transition-transform hover:scale-105 active:scale-95 shadow-md cursor-pointer"
-              >
-                Submit Return Request
-              </button>
+              {/* Product Brief Card */}
+              <div className="p-3.5 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 flex items-center gap-3.5">
+                {returnFormItem.image ? (
+                  <img src={returnFormItem.image} alt="" className="w-14 h-16 object-cover rounded-xl border border-black/10 dark:border-white/10 shrink-0" />
+                ) : (
+                  <div className="w-14 h-16 rounded-xl bg-accent/15 border border-accent/30 flex items-center justify-center text-accent shrink-0 font-bold">
+                    <RotateCcw className="w-6 h-6" />
+                  </div>
+                )}
+                <div className="min-w-0 flex-1 space-y-0.5 text-xs">
+                  <div className="font-serif font-bold text-sm text-foreground truncate">{returnFormItem.productName}</div>
+                  <div className="text-muted-foreground flex flex-wrap gap-2 text-[11px]">
+                    <span>Size: <strong className="text-foreground font-mono">{returnFormItem.selectedSize || "M"}</strong></span>
+                    <span>•</span>
+                    <span>Qty: <strong className="text-foreground font-mono">{returnFormItem.qty || 1}</strong></span>
+                    <span>•</span>
+                    <span>Unit: <strong className="text-accent font-mono">₹{unitPriceNum.toLocaleString()}</strong></span>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground pt-0.5">
+                    Original Payment: <strong className="text-foreground">{returnFormItem.paymentMethod || "Razorpay Gateway"}</strong>
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <span className="text-[9px] uppercase tracking-wider text-muted-foreground block font-bold">Refundable</span>
+                  <span className="font-mono text-base font-bold text-accent">₹{totalRefundAmount.toLocaleString()}</span>
+                </div>
+              </div>
+
+              {/* Form Controls */}
+              <div className="space-y-4">
+                {/* Refined Reason Selector */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs text-muted-foreground uppercase tracking-wider font-bold">
+                    Primary Reason for Return <span className="text-accent">*</span>
+                  </label>
+                  <div className="space-y-1.5">
+                    <select
+                      value={returnReason}
+                      onChange={e => setReturnReason(e.target.value)}
+                      className="w-full bg-black/5 dark:bg-zinc-900 border border-black/15 dark:border-white/15 p-3 rounded-xl text-xs outline-none text-foreground focus:border-accent font-medium cursor-pointer"
+                    >
+                      {REFINED_RETURN_REASONS.map(r => (
+                        <option key={r.id} value={`${r.icon} ${r.label}`}>
+                          {r.icon} {r.label} — {r.description}
+                        </option>
+                      ))}
+                    </select>
+                    {(() => {
+                      const matched = REFINED_RETURN_REASONS.find(r => returnReason.includes(r.label));
+                      if (matched) {
+                        return (
+                          <div className="text-[11px] text-muted-foreground bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+                            <span className="text-accent">{matched.icon}</span>
+                            <span>{matched.description}</span>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </div>
+                </div>
+                
+                {/* Comments */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <label className="block text-xs text-muted-foreground uppercase tracking-wider font-bold">
+                      Additional Remarks & Observations
+                    </label>
+                    <span className="text-[10px] font-mono text-muted-foreground">{returnDesc.length} / 500 characters</span>
+                  </div>
+                  <textarea
+                    maxLength={500}
+                    placeholder="Provide details about size discrepancy, flaw placement, or parcel condition to accelerate atelier verification..."
+                    className="w-full bg-black/5 dark:bg-zinc-900 border border-black/15 dark:border-white/10 rounded-2xl p-3 text-xs outline-none focus:border-accent h-22 text-foreground resize-none"
+                    value={returnDesc}
+                    onChange={e => setReturnDesc(e.target.value)}
+                  />
+                </div>
+
+                {/* Refund Settlement Preview Box */}
+                <div className="p-3.5 rounded-2xl bg-accent/10 border border-accent/25 space-y-2 text-xs">
+                  <div className="flex items-center justify-between font-bold">
+                    <span className="flex items-center gap-1.5 text-accent uppercase tracking-wider text-[10px]">
+                      <ShieldCheck className="w-4 h-4 text-accent" />
+                      <span>Settlement & Refund Guarantee</span>
+                    </span>
+                    <span className="font-mono text-sm text-foreground">₹{totalRefundAmount.toLocaleString()}</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    {isCOD ? (
+                      <span>
+                        <strong>Cash on Delivery Order:</strong> Since this order was paid via cash, your refund will be deposited directly to your <strong>ReeVibes Wallet</strong> instantly once the return parcel is verified at the warehouse. You can use your wallet balance for future curated shopping anytime.
+                      </span>
+                    ) : isWallet ? (
+                      <span>
+                        <strong>ReeVibes Wallet Order:</strong> The entire refund amount of ₹{totalRefundAmount.toLocaleString()} will be refunded directly back to your <strong>ReeVibes Wallet balance</strong>.
+                      </span>
+                    ) : (
+                      <span>
+                        <strong>Online Payment (Razorpay / UPI):</strong> Once our warehouse team receives and inspects the return parcel, the refund of ₹{totalRefundAmount.toLocaleString()} will be automatically processed via <strong>Razorpay</strong> back to your original payment instrument (UPI / Bank Account / Card) or credited to your ReeVibes Wallet.
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-3 border-t border-black/10 dark:border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setReturnFormItem(null)}
+                  className="flex-1 bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 border border-black/15 dark:border-white/15 py-2.5 rounded-full text-xs text-foreground font-semibold transition-colors uppercase tracking-wider cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    requestReturn({
+                      orderId: returnFormItem.orderId,
+                      productId: returnFormItem.productId,
+                      productName: returnFormItem.productName,
+                      customerId: user.id,
+                      customerName: `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email || "Maison Customer",
+                      reason: returnReason,
+                      comment: returnDesc.trim(),
+                      images: returnFormItem.image ? [returnFormItem.image] : [],
+                      videos: [],
+                      refundAmount: totalRefundAmount,
+                      selectedSize: returnFormItem.selectedSize,
+                      qty: returnFormItem.qty,
+                      refundMethod: isCOD ? "ReeVibes Wallet (COD Refund)" : isWallet ? "ReeVibes Wallet" : "Original Payment Method (Razorpay)"
+                    });
+                    toast.success("Return request logged! Operations atelier has received your request.");
+                    setReturnFormItem(null);
+                    navigate({ to: "/orders", search: { tab: "returns" } as any });
+                  }}
+                  className="flex-1 bg-accent text-white hover:bg-accent/90 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest transition-transform hover:scale-105 active:scale-95 shadow-md cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Submit Return Request</span>
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Review & Rating Form Modal */}
       {reviewFormItem && (
