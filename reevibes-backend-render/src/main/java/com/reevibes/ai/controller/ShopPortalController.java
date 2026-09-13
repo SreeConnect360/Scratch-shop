@@ -1519,9 +1519,14 @@ public class ShopPortalController {
         java.math.BigDecimal walletRefund = java.math.BigDecimal.ZERO;
         java.math.BigDecimal razorpayRefund = java.math.BigDecimal.ZERO;
 
-        String refundMode = (body != null && body.containsKey("refundMode")) 
-                ? String.valueOf(body.get("refundMode")).toLowerCase() 
-                : "auto";
+        String refundMode = "auto";
+        if (body != null) {
+            if (body.containsKey("refundMode")) {
+                refundMode = String.valueOf(body.get("refundMode")).toLowerCase().trim();
+            } else if (body.containsKey("mode")) {
+                refundMode = String.valueOf(body.get("mode")).toLowerCase().trim();
+            }
+        }
 
         boolean isCodOrder = order != null && (
             (order.getPaymentMethod() != null && (order.getPaymentMethod().toLowerCase().contains("cash") || order.getPaymentMethod().toLowerCase().contains("cod"))) ||
@@ -1647,6 +1652,28 @@ public class ShopPortalController {
             order.setPaymentStatus("Refunded");
             order.setStatus("Refunded");
             orderRepository.save(order);
+        }
+
+        // Log to razorpay_webhook_events for real-time gateway operations monitoring
+        try {
+            String evtId = "evt_rfnd_" + System.currentTimeMillis();
+            String entityId = req.getRazorpayRefundId() != null ? req.getRazorpayRefundId() : req.getRefundTransactionId();
+            String payloadJson = "{\"event\": \"refund.processed\", \"refund\": {\"id\": \"" + entityId + "\", \"amount\": " + (int)(totalRefund.doubleValue() * 100) + ", \"status\": \"processed\", \"order_id\": \"" + req.getOrderId() + "\", \"return_id\": \"" + req.getId() + "\", \"method\": \"" + req.getRefundMethod() + "\"}}";
+            String sql = "INSERT INTO public.razorpay_webhook_events (id, event_id, event_type, entity_id, amount, currency, status, customer_email, payload_json, signature_valid, created_at) " +
+                         "VALUES (?, ?, 'refund.processed', ?, ?, 'INR', 'processed', ?, ?::jsonb, true, NOW())";
+            String custEmail = "customer@reevibes.com";
+            try {
+                String custId = req.getCustomerId() != null ? req.getCustomerId() : (order != null ? order.getUserId() : null);
+                if (custId != null) {
+                    PlatformUser pu = userRepository.findById(custId).orElse(null);
+                    if (pu != null && pu.getEmail() != null && !pu.getEmail().isEmpty()) {
+                        custEmail = pu.getEmail();
+                    }
+                }
+            } catch (Exception ignored) {}
+            jdbcTemplate.update(sql, evtId, "evt_" + System.currentTimeMillis(), entityId, totalRefund.doubleValue(), custEmail, payloadJson);
+        } catch (Exception dbErr) {
+            System.err.println("Could not log refund to razorpay_webhook_events: " + dbErr.getMessage());
         }
 
         // Restore product stock quantity when item is returned and refunded

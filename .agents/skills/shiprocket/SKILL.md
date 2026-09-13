@@ -17,7 +17,7 @@ The Shiprocket Model Context Protocol (MCP) server allows AI agents (Claude, Cur
 ### Server Location & Build
 - Source: `tools/shiprocket-mcp`
 - Entry Point: `tools/shiprocket-mcp/dist/main.js`
-- Transport: STDIO (`node -r tsconfig-paths/register dist/main.js`)
+- Transport: STDIO (`node dist/main.js`)
 
 ### Environment Variables
 - `SELLER_EMAIL`: Shiprocket API user email (e.g., `sreesri1004@gmail.com` or custom API user email)

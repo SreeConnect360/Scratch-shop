@@ -3137,103 +3137,222 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                 </div>
 
                 {activeReturn.status === "Refund Completed" ? (
-                  <div className="space-y-2 text-xs">
-                    <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-300 flex items-center gap-2">
-                      <Check className="w-4 h-4 text-emerald-400" />
-                      <span>Refund settled successfully on <strong>{activeReturn.refundDate || "Today"}</strong>.</span>
+                  <div className="space-y-3 text-xs">
+                    <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-300 flex items-start gap-3">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+                      <div className="space-y-0.5">
+                        <div className="font-bold text-sm text-emerald-200">
+                          Refund Settled Successfully • ₹{activeReturn.refundAmount.toLocaleString()}
+                        </div>
+                        <p className="text-[11px] text-emerald-300/80">
+                          Disbursed on <strong>{activeReturn.refundDate || "Today"}</strong> via <strong>{activeReturn.refundMethod || "Original Payment Instrument"}</strong>.
+                        </p>
+                      </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 text-[11px] text-muted-foreground font-mono">
-                      {activeReturn.razorpayRefundId && (
-                        <div>Razorpay Refund ID: <span className="text-emerald-400 font-bold">{activeReturn.razorpayRefundId}</span></div>
-                      )}
-                      {activeReturn.walletTransactionId && (
-                        <div>Wallet Transaction: <span className="text-amber-300 font-bold">{activeReturn.walletTransactionId}</span></div>
+
+                    {/* Official Settlement Ledger Card */}
+                    <div className="bg-surface-2/90 border border-white/10 rounded-xl p-3.5 space-y-2.5 font-mono text-[11px]">
+                      <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                        <span className="text-muted-foreground uppercase text-[10px] tracking-wider font-bold">Settlement Audit Log</span>
+                        <span className="text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 text-[10px]">
+                          ACQUIRER CONFIRMED
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                        {/* Razorpay Refund ID */}
+                        {(activeReturn.razorpayRefundId || activeReturn.refundTransactionId) && (
+                          <div className="p-2.5 bg-black/30 rounded-lg border border-white/5 space-y-1">
+                            <div className="text-muted-foreground text-[10px] uppercase font-bold flex items-center justify-between">
+                              <span>Razorpay Refund ID</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(activeReturn.razorpayRefundId || activeReturn.refundTransactionId || "");
+                                  toast.success("Razorpay Refund ID copied!");
+                                }}
+                                className="text-accent hover:text-white flex items-center gap-1 cursor-pointer font-sans text-[10px]"
+                              >
+                                <Copy className="w-3 h-3" /> Copy
+                              </button>
+                            </div>
+                            <div className="text-sky-300 font-bold text-xs truncate">
+                              {activeReturn.razorpayRefundId || activeReturn.refundTransactionId}
+                            </div>
+                            <div className="text-[9px] text-muted-foreground font-sans">
+                              Reversed directly to user's original payment source (UPI/Card/Bank)
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Wallet Transaction ID */}
+                        {activeReturn.walletTransactionId && (
+                          <div className="p-2.5 bg-black/30 rounded-lg border border-white/5 space-y-1">
+                            <div className="text-muted-foreground text-[10px] uppercase font-bold flex items-center justify-between">
+                              <span>ReeVibes Wallet Tx</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(activeReturn.walletTransactionId || "");
+                                  toast.success("Wallet Transaction ID copied!");
+                                }}
+                                className="text-accent hover:text-white flex items-center gap-1 cursor-pointer font-sans text-[10px]"
+                              >
+                                <Copy className="w-3 h-3" /> Copy
+                              </button>
+                            </div>
+                            <div className="text-amber-300 font-bold text-xs truncate">
+                              {activeReturn.walletTransactionId}
+                            </div>
+                            <div className="text-[9px] text-muted-foreground font-sans">
+                              Credited directly to customer's store credit balance
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {order?.razorpayPaymentId && (
+                        <div className="flex justify-between items-center text-[10px] text-muted-foreground pt-1 border-t border-white/5">
+                          <span>Original Razorpay Payment ID:</span>
+                          <span className="font-bold text-foreground">{order.razorpayPaymentId}</span>
+                        </div>
                       )}
                     </div>
                   </div>
                 ) : activeReturn.status === "Item Received" ? (
                   <div className="space-y-3 text-xs">
                     <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-200">
-                      <div className="font-bold mb-1">Returned Package Inspected & Received at Warehouse</div>
+                      <div className="font-bold mb-1 flex items-center gap-1.5">
+                        <Check className="w-4 h-4 text-emerald-400" />
+                        Returned Item Inspected & Verified at Warehouse
+                      </div>
                       <p className="text-[11px] leading-relaxed text-muted-foreground">
-                        Pending refund amount: <strong className="text-white font-serif text-sm">₹{activeReturn.refundAmount.toLocaleString()}</strong>.
-                        Select the refund disbursement mode below:
+                        Customer return received in warehouse. Pending refund amount: <strong className="text-white font-serif text-sm">₹{activeReturn.refundAmount.toLocaleString()}</strong>.
                       </p>
                     </div>
 
-                    <div className="flex flex-wrap gap-2">
-                      {/* COD or Wallet purchase: credit to wallet */}
+                    {/* Original Payment Information */}
+                    <div className="p-3 bg-surface-2 border border-white/5 rounded-xl space-y-1.5 text-[11px]">
+                      <div className="text-muted-foreground uppercase text-[10px] tracking-wider font-bold">Original Order Payment Breakdown:</div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Payment Method:</span>
+                        <span className="font-semibold text-white">{order?.paymentMethod || (order?.razorpayPaymentId ? "Razorpay Gateway" : "Cash on Delivery")}</span>
+                      </div>
+                      {order?.razorpayPaymentId && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Razorpay Payment ID:</span>
+                          <span className="font-mono text-sky-400">{order.razorpayPaymentId}</span>
+                        </div>
+                      )}
+                      {(order?.razorpayAmountPaid ?? 0) > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Razorpay Amount Paid:</span>
+                          <span className="font-mono font-bold text-sky-400">₹{(order?.razorpayAmountPaid ?? 0).toLocaleString()}</span>
+                        </div>
+                      )}
+                      {(order?.walletAmountUsed ?? 0) > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Wallet Amount Used:</span>
+                          <span className="font-mono font-bold text-purple-400">₹{(order?.walletAmountUsed ?? 0).toLocaleString()}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-2 pt-1">
+                      <div className="text-muted-foreground uppercase text-[10px] tracking-wider font-bold">Select Disbursement Route:</div>
+
+                      {/* Mode-specific actions */}
                       {((order?.paymentMethod || "").toLowerCase().includes("cash") || (order?.paymentMethod || "").toLowerCase().includes("cod")) ? (
-                        <button
-                          onClick={async () => {
-                            if (confirm(`Deposit ₹${activeReturn.refundAmount.toLocaleString()} into Customer's ReeVibes Wallet?`)) {
-                              toast.info("Crediting customer's ReeVibes Wallet...");
-                              const res = await processSplitRefund(activeReturn.id, "WALLET");
-                              if (res) toast.success("Wallet credited successfully!");
-                              else toast.error("Failed to credit wallet.");
-                            }
-                          }}
-                          className="bg-amber-600 hover:bg-amber-500 text-white text-[10px] uppercase font-bold px-3.5 py-2 rounded-lg flex items-center gap-1.5 shadow-md cursor-pointer"
-                        >
-                          <Wallet className="w-3.5 h-3.5" /> Credit ₹{activeReturn.refundAmount.toLocaleString()} to ReeVibes Wallet (COD)
-                        </button>
-                      ) : ((order?.paymentMethod || "").toLowerCase().includes("wallet") && ((order?.razorpayAmountPaid ?? 0) === 0)) ? (
-                        <button
-                          onClick={async () => {
-                            if (confirm(`Refund ₹${activeReturn.refundAmount.toLocaleString()} back to Customer's ReeVibes Wallet?`)) {
-                              toast.info("Refunding to ReeVibes Wallet...");
-                              const res = await processSplitRefund(activeReturn.id, "WALLET");
-                              if (res) toast.success("Wallet refund processed!");
-                              else toast.error("Failed to refund to wallet.");
-                            }
-                          }}
-                          className="bg-purple-600 hover:bg-purple-500 text-white text-[10px] uppercase font-bold px-3.5 py-2 rounded-lg flex items-center gap-1.5 shadow-md cursor-pointer"
-                        >
-                          <Wallet className="w-3.5 h-3.5" /> Refund ₹{activeReturn.refundAmount.toLocaleString()} to ReeVibes Wallet
-                        </button>
-                      ) : (((order?.walletAmountUsed ?? 0) > 0) && ((order?.razorpayAmountPaid ?? 0) > 0)) ? (
-                        <button
-                          onClick={async () => {
-                            if (confirm(`Execute Split Refund of ₹${activeReturn.refundAmount.toLocaleString()} (Wallet + Razorpay Gateway)?`)) {
-                              toast.info("Processing split refund...");
-                              const res = await processSplitRefund(activeReturn.id, "AUTO");
-                              if (res) toast.success("Split refund executed successfully!");
-                              else toast.error("Failed to process split refund.");
-                            }
-                          }}
-                          className="bg-accent hover:bg-accent/90 text-white text-[10px] uppercase font-bold px-3.5 py-2 rounded-lg flex items-center gap-1.5 shadow-md cursor-pointer"
-                        >
-                          <Layers3 className="w-3.5 h-3.5" /> Execute Split Refund (Wallet + Razorpay)
-                        </button>
-                      ) : (
-                        <>
+                        <div className="space-y-2">
+                          <div className="text-[11px] text-amber-300 bg-amber-500/10 p-2.5 rounded-lg border border-amber-500/20">
+                            ℹ️ Order was placed with <strong>Cash on Delivery</strong>. Offline cash payments cannot be reversed via card/gateway. The refund will be credited directly to the customer's <strong>ReeVibes Wallet</strong>.
+                          </div>
                           <button
                             onClick={async () => {
-                              if (confirm(`Trigger Razorpay API Refund of ₹${activeReturn.refundAmount.toLocaleString()} to original payment instrument?`)) {
-                                toast.info("Triggering Razorpay API refund...");
-                                const res = await processSplitRefund(activeReturn.id, "RAZORPAY");
-                                if (res) toast.success("Razorpay API refund initiated successfully!");
-                                else toast.error("Failed to trigger Razorpay refund.");
-                              }
-                            }}
-                            className="bg-sky-600 hover:bg-sky-500 text-white text-[10px] uppercase font-bold px-3.5 py-2 rounded-lg flex items-center gap-1.5 shadow-md cursor-pointer"
-                          >
-                            <CreditCard className="w-3.5 h-3.5" /> Refund via Razorpay API (₹{activeReturn.refundAmount.toLocaleString()})
-                          </button>
-                          <button
-                            onClick={async () => {
-                              if (confirm(`Deposit ₹${activeReturn.refundAmount.toLocaleString()} into Customer's ReeVibes Wallet instead?`)) {
+                              if (confirm(`Deposit ₹${activeReturn.refundAmount.toLocaleString()} into Customer's ReeVibes Wallet?`)) {
                                 toast.info("Crediting customer's ReeVibes Wallet...");
                                 const res = await processSplitRefund(activeReturn.id, "WALLET");
                                 if (res) toast.success("Wallet credited successfully!");
                                 else toast.error("Failed to credit wallet.");
                               }
                             }}
-                            className="bg-purple-600/30 hover:bg-purple-600 text-purple-200 hover:text-white border border-purple-500/40 text-[10px] uppercase font-bold px-3 py-2 rounded-lg flex items-center gap-1.5 cursor-pointer"
+                            className="w-full bg-amber-600 hover:bg-amber-500 text-white text-xs uppercase font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 shadow-md cursor-pointer"
                           >
-                            <Wallet className="w-3.5 h-3.5" /> Or Credit to ReeVibes Wallet
+                            <Wallet className="w-4 h-4" /> Credit ₹{activeReturn.refundAmount.toLocaleString()} to ReeVibes Wallet (COD Refund)
                           </button>
-                        </>
+                        </div>
+                      ) : ((order?.paymentMethod || "").toLowerCase().includes("wallet") && ((order?.razorpayAmountPaid ?? 0) === 0)) ? (
+                        <div className="space-y-2">
+                          <div className="text-[11px] text-purple-300 bg-purple-500/10 p-2.5 rounded-lg border border-purple-500/20">
+                            ℹ️ Order was paid 100% using <strong>ReeVibes Wallet Credits</strong>. The full refund will be restored to their wallet balance.
+                          </div>
+                          <button
+                            onClick={async () => {
+                              if (confirm(`Refund ₹${activeReturn.refundAmount.toLocaleString()} back to Customer's ReeVibes Wallet?`)) {
+                                toast.info("Refunding to ReeVibes Wallet...");
+                                const res = await processSplitRefund(activeReturn.id, "WALLET");
+                                if (res) toast.success("Wallet refund processed!");
+                                else toast.error("Failed to refund to wallet.");
+                              }
+                            }}
+                            className="w-full bg-purple-600 hover:bg-purple-500 text-white text-xs uppercase font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 shadow-md cursor-pointer"
+                          >
+                            <Wallet className="w-4 h-4" /> Refund ₹{activeReturn.refundAmount.toLocaleString()} to ReeVibes Wallet
+                          </button>
+                        </div>
+                      ) : (((order?.walletAmountUsed ?? 0) > 0) && ((order?.razorpayAmountPaid ?? 0) > 0)) ? (
+                        <div className="space-y-2">
+                          <div className="text-[11px] text-sky-300 bg-sky-500/10 p-2.5 rounded-lg border border-sky-500/20">
+                            ℹ️ Order was a <strong>Split Payment</strong> (₹{order?.walletAmountUsed} Wallet + ₹{order?.razorpayAmountPaid} Razorpay). This will refund only the Razorpay portion to the payment instrument and the remainder to Wallet.
+                          </div>
+                          <button
+                            onClick={async () => {
+                              if (confirm(`Execute Split Refund of ₹${activeReturn.refundAmount.toLocaleString()} (Wallet + Razorpay Gateway)?`)) {
+                                toast.info("Processing split refund...");
+                                const res = await processSplitRefund(activeReturn.id, "AUTO");
+                                if (res) toast.success("Split refund executed successfully!");
+                                else toast.error("Failed to process split refund.");
+                              }
+                            }}
+                            className="w-full bg-accent hover:bg-accent/90 text-white text-xs uppercase font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 shadow-md cursor-pointer"
+                          >
+                            <Layers3 className="w-4 h-4" /> Execute Split Refund (Wallet + Razorpay)
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <div className="text-[11px] text-sky-300 bg-sky-500/10 p-2.5 rounded-lg border border-sky-500/20">
+                            ℹ️ Order was paid via <strong>Razorpay Online Gateway</strong>. Refunding via Razorpay calls the Razorpay Refund API to return the amount back to the customer's source payment instrument (Card/UPI/Netbanking).
+                          </div>
+                          <div className="flex flex-col sm:flex-row gap-2">
+                            <button
+                              onClick={async () => {
+                                if (confirm(`Trigger Razorpay API Refund of ₹${activeReturn.refundAmount.toLocaleString()} to original payment instrument?`)) {
+                                  toast.info("Triggering Razorpay API refund...");
+                                  const res = await processSplitRefund(activeReturn.id, "RAZORPAY");
+                                  if (res) toast.success("Razorpay API refund initiated successfully!");
+                                  else toast.error("Failed to trigger Razorpay refund.");
+                                }
+                              }}
+                              className="flex-1 bg-sky-600 hover:bg-sky-500 text-white text-xs uppercase font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 shadow-md cursor-pointer"
+                            >
+                              <CreditCard className="w-4 h-4" /> Refund via Razorpay API (₹{activeReturn.refundAmount.toLocaleString()})
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (confirm(`Deposit ₹${activeReturn.refundAmount.toLocaleString()} into Customer's ReeVibes Wallet instead?`)) {
+                                  toast.info("Crediting customer's ReeVibes Wallet...");
+                                  const res = await processSplitRefund(activeReturn.id, "WALLET");
+                                  if (res) toast.success("Wallet credited successfully!");
+                                  else toast.error("Failed to credit wallet.");
+                                }
+                              }}
+                              className="bg-purple-600/30 hover:bg-purple-600 text-purple-200 hover:text-white border border-purple-500/40 text-xs uppercase font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 cursor-pointer"
+                            >
+                              <Wallet className="w-4 h-4" /> Or Store Credit (Wallet)
+                            </button>
+                          </div>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -3341,16 +3460,29 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                     {activeReturn.status === "Item Received" && (
                       <button
                         onClick={async () => {
-                          if (confirm(`Execute Refund for Return ${activeReturn.id}?`)) {
-                            toast.info("Processing refund...");
-                            const res = await processSplitRefund(activeReturn.id);
-                            if (res) toast.success("Refund completed successfully!");
+                          const isCod = ((order?.paymentMethod || "").toLowerCase().includes("cash") || (order?.paymentMethod || "").toLowerCase().includes("cod"));
+                          const isWlt = ((order?.paymentMethod || "").toLowerCase().includes("wallet") && ((order?.razorpayAmountPaid ?? 0) === 0));
+                          const isSplt = (((order?.walletAmountUsed ?? 0) > 0) && ((order?.razorpayAmountPaid ?? 0) > 0));
+                          const mode = isCod ? "WALLET" : isWlt ? "WALLET" : isSplt ? "AUTO" : "RAZORPAY";
+                          const label = isCod ? "Credit to ReeVibes Wallet (COD)" : isWlt ? "Refund to ReeVibes Wallet" : isSplt ? "Split Refund (Wallet + Razorpay)" : "Refund via Razorpay API";
+
+                          if (confirm(`Execute ${label} of ₹${activeReturn.refundAmount.toLocaleString()} for Return ${activeReturn.id}?`)) {
+                            toast.info(`Executing ${label}...`);
+                            const res = await processSplitRefund(activeReturn.id, mode);
+                            if (res) toast.success("Refund processed successfully!");
                             else toast.error("Failed to process refund");
                           }
                         }}
-                        className="bg-accent hover:bg-accent/90 text-white text-[10px] uppercase font-bold px-3 py-2 rounded-lg shadow-lg flex items-center gap-1"
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] uppercase font-bold px-3 py-2 rounded-lg shadow-lg flex items-center gap-1 cursor-pointer"
                       >
-                        <ShieldCheck className="w-3.5 h-3.5" /> Process Refund
+                        <ShieldCheck className="w-3.5 h-3.5" /> 
+                        {((order?.paymentMethod || "").toLowerCase().includes("cash") || (order?.paymentMethod || "").toLowerCase().includes("cod")) 
+                          ? "Refund to Wallet (COD)" 
+                          : (((order?.walletAmountUsed ?? 0) > 0) && ((order?.razorpayAmountPaid ?? 0) > 0))
+                          ? "Split Refund"
+                          : ((order?.paymentMethod || "").toLowerCase().includes("wallet") && ((order?.razorpayAmountPaid ?? 0) === 0))
+                          ? "Refund to Wallet"
+                          : "Refund via Razorpay API"}
                       </button>
                     )}
 
@@ -7400,11 +7532,51 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                         </td>
                         <td className="py-4">
                           <div className="font-serif font-semibold">₹{r.refundAmount.toLocaleString()}</div>
-                          <div className="text-[9px] font-mono">
+                          <div className="text-[9px] font-mono mt-0.5">
                             {r.status === "Refund Completed" ? (
-                              <span className="text-emerald-400 font-bold">Settled</span>
+                              <div className="space-y-0.5">
+                                <span className="text-emerald-400 font-bold flex items-center gap-1">
+                                  <CheckCircle2 className="w-2.5 h-2.5" /> Refund Settled
+                                </span>
+                                {(r.razorpayRefundId || r.refundTransactionId) && (
+                                  <div className="flex items-center gap-1 text-[9px] text-sky-400">
+                                    <span className="font-bold">RP:</span>
+                                    <span className="truncate max-w-[85px]">{r.razorpayRefundId || r.refundTransactionId}</span>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigator.clipboard.writeText(r.razorpayRefundId || r.refundTransactionId || "");
+                                        toast.success("Refund ID copied!");
+                                      }}
+                                      className="text-muted-foreground hover:text-white p-0.5 cursor-pointer"
+                                      title="Copy Refund ID"
+                                    >
+                                      <Copy className="w-2.5 h-2.5" />
+                                    </button>
+                                  </div>
+                                )}
+                                {r.walletTransactionId && (
+                                  <div className="flex items-center gap-1 text-[9px] text-amber-300">
+                                    <span className="font-bold">WLT:</span>
+                                    <span className="truncate max-w-[85px]">{r.walletTransactionId}</span>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigator.clipboard.writeText(r.walletTransactionId || "");
+                                        toast.success("Wallet Tx ID copied!");
+                                      }}
+                                      className="text-muted-foreground hover:text-white p-0.5 cursor-pointer"
+                                      title="Copy Wallet Tx ID"
+                                    >
+                                      <Copy className="w-2.5 h-2.5" />
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
                             ) : r.status === "Item Received" ? (
-                              <span className="text-amber-300 font-bold">Ready to Refund</span>
+                              <span className="text-amber-300 font-bold animate-pulse">● Ready to Refund</span>
                             ) : (
                               <span className="text-muted-foreground">Pending Return</span>
                             )}
@@ -7477,12 +7649,85 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             )}
 
                             {r.status === "Item Received" && (
+                              <>
+                                {isCod ? (
+                                  <button
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      if (confirm(`Credit ₹${r.refundAmount.toLocaleString()} to Customer's ReeVibes Wallet (COD Refund)?`)) {
+                                        toast.info("Crediting customer's wallet...");
+                                        const res = await processSplitRefund(r.id, "WALLET");
+                                        if (res) toast.success("Wallet refund processed!");
+                                        else toast.error("Failed to process refund.");
+                                      }
+                                    }}
+                                    title="Credit Refund to ReeVibes Wallet (COD)"
+                                    className="bg-amber-600 hover:bg-amber-500 text-white text-[10px] uppercase font-bold px-2 py-1 rounded shadow flex items-center gap-1 cursor-pointer animate-pulse"
+                                  >
+                                    <Wallet className="w-3 h-3" /> Refund to Wallet
+                                  </button>
+                                ) : isWallet ? (
+                                  <button
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      if (confirm(`Refund ₹${r.refundAmount.toLocaleString()} back to Customer's ReeVibes Wallet?`)) {
+                                        toast.info("Refunding to wallet...");
+                                        const res = await processSplitRefund(r.id, "WALLET");
+                                        if (res) toast.success("Wallet refund processed!");
+                                        else toast.error("Failed to process refund.");
+                                      }
+                                    }}
+                                    title="Refund to ReeVibes Wallet"
+                                    className="bg-purple-600 hover:bg-purple-500 text-white text-[10px] uppercase font-bold px-2 py-1 rounded shadow flex items-center gap-1 cursor-pointer animate-pulse"
+                                  >
+                                    <Wallet className="w-3 h-3" /> Refund to Wallet
+                                  </button>
+                                ) : isSplit ? (
+                                  <button
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      if (confirm(`Execute Split Refund of ₹${r.refundAmount.toLocaleString()} (Wallet + Razorpay)?`)) {
+                                        toast.info("Processing split refund...");
+                                        const res = await processSplitRefund(r.id, "AUTO");
+                                        if (res) toast.success("Split refund executed!");
+                                        else toast.error("Failed to process refund.");
+                                      }
+                                    }}
+                                    title="Execute Split Refund (Wallet + Razorpay)"
+                                    className="bg-accent hover:bg-accent/90 text-white text-[10px] uppercase font-bold px-2 py-1 rounded shadow flex items-center gap-1 cursor-pointer animate-pulse"
+                                  >
+                                    <Layers3 className="w-3 h-3" /> Split Refund
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      if (confirm(`Initiate Razorpay API Refund of ₹${r.refundAmount.toLocaleString()} to customer's original payment method?`)) {
+                                        toast.info("Initiating Razorpay API refund...");
+                                        const res = await processSplitRefund(r.id, "RAZORPAY");
+                                        if (res) toast.success(`Razorpay refund initiated! ID: ${res.razorpayRefundId || res.refundTransactionId}`);
+                                        else toast.error("Failed to initiate Razorpay refund.");
+                                      }
+                                    }}
+                                    title="Initiate Gateway Refund via Razorpay API"
+                                    className="bg-sky-600 hover:bg-sky-500 text-white text-[10px] uppercase font-bold px-2 py-1 rounded shadow flex items-center gap-1 cursor-pointer animate-pulse"
+                                  >
+                                    <CreditCard className="w-3 h-3" /> Refund via Razorpay
+                                  </button>
+                                )}
+                              </>
+                            )}
+
+                            {r.status === "Refund Completed" && (
                               <button
-                                onClick={() => setSelectedReturnDetails(r)}
-                                title="Settle Pending Refund"
-                                className="bg-amber-600 hover:bg-amber-500 text-white text-[10px] uppercase font-bold px-2 py-1 rounded shadow flex items-center gap-1 cursor-pointer animate-pulse"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedReturnDetails(r);
+                                }}
+                                title="View Refund Settlement Receipt"
+                                className="bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white text-[10px] uppercase font-bold px-2 py-1 rounded border border-emerald-500/30 flex items-center gap-1 cursor-pointer"
                               >
-                                <ShieldCheck className="w-3 h-3" /> Refund
+                                <CheckCircle2 className="w-3 h-3" /> Receipt
                               </button>
                             )}
 

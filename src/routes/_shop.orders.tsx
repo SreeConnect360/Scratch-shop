@@ -5,7 +5,7 @@ import { z } from "zod";
 import { 
   X, Check, AlertTriangle, Star, ListOrdered, 
   RotateCcw, ArrowLeft, Search, FileText, Copy, ExternalLink, Package, Truck, Clock, ShieldCheck,
-  MapPin, Download, Calendar, ChevronRight, Sparkles
+  MapPin, Download, Calendar, ChevronRight, Sparkles, CheckCircle2
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -434,6 +434,54 @@ function ShopOrdersPage() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Settled Refund Information Banner */}
+                  {r.status === "Refund Completed" && (
+                    <div className="mt-4 pt-3 border-t border-emerald-500/20 flex flex-wrap items-center justify-between gap-3 bg-emerald-500/10 -mx-4 -mb-4 sm:-mx-5 sm:-mb-5 p-3 sm:px-5 rounded-b-2xl">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                        <div className="text-xs">
+                          <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                            Refund Disbursed
+                          </span>
+                          <span className="text-muted-foreground ml-1.5 text-[11px]">
+                            • {r.refundMethod || (r.razorpayRefundId ? "Original Payment Source (Razorpay)" : "ReeVibes Wallet")}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-[11px] font-mono">
+                        {(r.razorpayRefundId || r.refundTransactionId) && (
+                          <div className="flex items-center gap-1.5 bg-white/80 dark:bg-black/40 px-2.5 py-1 rounded-lg border border-black/10 dark:border-white/10 shadow-xs">
+                            <span className="text-muted-foreground font-sans text-[10px] font-semibold uppercase">Razorpay Ref:</span>
+                            <span className="font-bold text-sky-600 dark:text-sky-400">
+                              {r.razorpayRefundId || r.refundTransactionId}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigator.clipboard.writeText(r.razorpayRefundId || r.refundTransactionId || "");
+                                toast.success("Razorpay Refund ID copied!");
+                              }}
+                              className="text-muted-foreground hover:text-accent p-0.5 cursor-pointer ml-1"
+                              title="Copy Refund ID"
+                            >
+                              <Copy className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )}
+                        {r.walletTransactionId && (
+                          <div className="flex items-center gap-1.5 bg-white/80 dark:bg-black/40 px-2.5 py-1 rounded-lg border border-black/10 dark:border-white/10 shadow-xs">
+                            <span className="text-muted-foreground font-sans text-[10px] font-semibold uppercase">Wallet:</span>
+                            <span className="font-bold text-amber-600 dark:text-amber-400">
+                              {r.walletTransactionId}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))
             )}
@@ -962,42 +1010,107 @@ function ShopOrdersPage() {
                 )}
               </div>
 
-              <div className="p-4 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 space-y-2 text-xs">
-                <span className="text-[10px] uppercase font-bold tracking-wider text-accent block">Refund Statement & Settlement</span>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground font-semibold">Total Refund:</span>
-                  <span className="font-mono text-sm font-bold text-accent">₹{(selectedReturnDetails.refundAmount || 0).toLocaleString()}</span>
+              <div className="p-4 sm:p-5 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 space-y-3 text-xs">
+                <div className="flex justify-between items-center border-b border-black/5 dark:border-white/5 pb-2">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-accent block">Refund Statement & Settlement</span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                    selectedReturnDetails.status === "Refund Completed"
+                      ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                      : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30"
+                  }`}>
+                    {selectedReturnDetails.status === "Refund Completed" ? "Disbursed & Settled" : "Refund Pending"}
+                  </span>
                 </div>
+
+                <div className="flex justify-between items-baseline">
+                  <span className="text-muted-foreground font-semibold">Total Refund Amount:</span>
+                  <span className="font-mono text-base font-bold text-accent">₹{(selectedReturnDetails.refundAmount || 0).toLocaleString()}</span>
+                </div>
+
                 {selectedReturnDetails.razorpayRefundAmount > 0 && (
                   <div className="flex justify-between text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
-                    <span>• Razorpay Gateway Refund:</span>
-                    <span className="font-mono">₹{selectedReturnDetails.razorpayRefundAmount.toLocaleString()}</span>
+                    <span>• Razorpay Gateway Reversal:</span>
+                    <span className="font-mono font-bold">₹{selectedReturnDetails.razorpayRefundAmount.toLocaleString()}</span>
                   </div>
                 )}
                 {selectedReturnDetails.walletRefundAmount > 0 && (
                   <div className="flex justify-between text-[11px] text-amber-600 dark:text-amber-400 font-medium">
                     <span>• ReeVibes Wallet Credit:</span>
-                    <span className="font-mono">₹{selectedReturnDetails.walletRefundAmount.toLocaleString()}</span>
+                    <span className="font-mono font-bold">₹{selectedReturnDetails.walletRefundAmount.toLocaleString()}</span>
                   </div>
                 )}
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground font-semibold">Refund Method:</span>
-                  <span className="font-medium text-foreground">{selectedReturnDetails.refundMethod || "Original Payment Split"}</span>
+
+                <div className="flex justify-between text-[11px]">
+                  <span className="text-muted-foreground font-semibold">Refund Mode:</span>
+                  <span className="font-medium text-foreground">{selectedReturnDetails.refundMethod || (selectedReturnDetails.razorpayRefundId ? "Original Payment Source (Razorpay)" : "ReeVibes Wallet")}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground font-semibold">Razorpay Ref:</span>
-                  <span className="font-mono text-[10px] text-foreground">{selectedReturnDetails.razorpayRefundId || selectedReturnDetails.refundTransactionId || "N/A"}</span>
-                </div>
+
+                {/* Copyable Razorpay Refund ID */}
+                {(selectedReturnDetails.razorpayRefundId || selectedReturnDetails.refundTransactionId) && (
+                  <div className="flex justify-between items-center bg-black/5 dark:bg-white/5 p-2 rounded-xl border border-black/5 dark:border-white/5">
+                    <div>
+                      <div className="text-[10px] uppercase font-bold text-muted-foreground">Razorpay Refund ID</div>
+                      <div className="font-mono text-xs text-sky-600 dark:text-sky-400 font-bold">
+                        {selectedReturnDetails.razorpayRefundId || selectedReturnDetails.refundTransactionId}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(selectedReturnDetails.razorpayRefundId || selectedReturnDetails.refundTransactionId || "");
+                        toast.success("Razorpay Refund ID copied!");
+                      }}
+                      className="text-xs text-muted-foreground hover:text-accent flex items-center gap-1 bg-white dark:bg-zinc-800 px-2 py-1 rounded-md border border-black/10 dark:border-white/10 cursor-pointer shadow-xs"
+                      title="Copy Refund ID"
+                    >
+                      <Copy className="w-3 h-3" />
+                      <span>Copy</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Copyable Wallet Transaction ID */}
                 {selectedReturnDetails.walletTransactionId && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground font-semibold">Wallet Ref:</span>
-                    <span className="font-mono text-[10px] text-amber-500">{selectedReturnDetails.walletTransactionId}</span>
+                  <div className="flex justify-between items-center bg-black/5 dark:bg-white/5 p-2 rounded-xl border border-black/5 dark:border-white/5">
+                    <div>
+                      <div className="text-[10px] uppercase font-bold text-muted-foreground">Wallet Transaction ID</div>
+                      <div className="font-mono text-xs text-amber-600 dark:text-amber-400 font-bold">
+                        {selectedReturnDetails.walletTransactionId}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(selectedReturnDetails.walletTransactionId || "");
+                        toast.success("Wallet Transaction ID copied!");
+                      }}
+                      className="text-xs text-muted-foreground hover:text-accent flex items-center gap-1 bg-white dark:bg-zinc-800 px-2 py-1 rounded-md border border-black/10 dark:border-white/10 cursor-pointer shadow-xs"
+                      title="Copy Wallet Tx ID"
+                    >
+                      <Copy className="w-3 h-3" />
+                      <span>Copy</span>
+                    </button>
                   </div>
                 )}
-                <div className="flex justify-between pt-1.5 border-t border-black/5 dark:border-white/5">
-                  <span className="text-muted-foreground font-semibold">Settlement Status:</span>
-                  <span className="font-bold text-emerald-600 dark:text-emerald-400">{selectedReturnDetails.status === "Refund Completed" ? "Refund Completed" : "Processing"}</span>
-                </div>
+
+                {selectedReturnDetails.refundDate && (
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-muted-foreground font-semibold">Refund Date:</span>
+                    <span className="font-mono text-foreground">{selectedReturnDetails.refundDate}</span>
+                  </div>
+                )}
+
+                {selectedReturnDetails.status === "Refund Completed" && (
+                  <div className="pt-2 border-t border-black/5 dark:border-white/5 space-y-1">
+                    <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Settlement Confirmed</span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground leading-relaxed">
+                      For Razorpay online payments, refunds are directly sent to your original bank, card, or UPI account. Depending on your bank's clearance cycles, funds typically reflect in 2–5 business days.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>

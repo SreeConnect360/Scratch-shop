@@ -2756,7 +2756,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         const res = await fetch(`${BACKEND_URL}/api/returns/${returnId}/process-refund`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mode: customMode || "AUTO" })
+          body: JSON.stringify({ mode: customMode || "AUTO", refundMode: customMode || "AUTO" })
         }).catch(() => null);
 
         if (res && res.ok) {
