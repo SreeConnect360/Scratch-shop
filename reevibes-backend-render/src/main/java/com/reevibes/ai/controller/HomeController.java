@@ -216,6 +216,10 @@ public class HomeController {
             """;
     }
 
+    @org.springframework.beans.factory.annotation.Autowired
+    @org.springframework.context.annotation.Lazy
+    private ShopPortalController shopPortalController;
+
     @GetMapping("/health")
     public ResponseEntity<Map<String, Object>> health() {
         return ResponseEntity.ok(Map.of(
@@ -224,5 +228,27 @@ public class HomeController {
             "database", "Supabase PostgreSQL",
             "timestamp", Instant.now().toString()
         ));
+    }
+
+    @GetMapping({"/webhooks/razorpay", "/razorpay/webhook"})
+    public ResponseEntity<Map<String, Object>> rootRazorpayWebhookStatus() {
+        if (shopPortalController != null) {
+            return shopPortalController.getRazorpayWebhookStatus();
+        }
+        return ResponseEntity.ok(Map.of(
+            "status", "online",
+            "service", "ReeVibes Razorpay Webhook Receiver",
+            "active_events", java.util.List.of("refund.processed", "refund.failed", "payment.captured", "order.paid")
+        ));
+    }
+
+    @PostMapping({"/webhooks/razorpay", "/razorpay/webhook"})
+    public ResponseEntity<Map<String, Object>> rootHandleRazorpayWebhook(
+            @RequestHeader(value = "X-Razorpay-Signature", required = false) String signature,
+            @RequestBody String rawBody) {
+        if (shopPortalController != null) {
+            return shopPortalController.handleRazorpayWebhook(signature, rawBody);
+        }
+        return ResponseEntity.ok(Map.of("status", "ok", "received", true));
     }
 }

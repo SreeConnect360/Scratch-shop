@@ -3,8 +3,6 @@
     "shiprocket": {
       "command": "node",
       "args": [
-        "-r",
-        "tsconfig-paths/register",
         "./tools/shiprocket-mcp/dist/main.js"
       ],
       "env": {

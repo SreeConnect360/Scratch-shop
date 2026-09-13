@@ -71,10 +71,10 @@ public class ShopPortalController {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    @org.springframework.beans.factory.annotation.Value("${razorpay.key.id}")
+    @org.springframework.beans.factory.annotation.Value("${razorpay.key.id:}")
     private String razorpayKeyId;
 
-    @org.springframework.beans.factory.annotation.Value("${razorpay.key.secret}")
+    @org.springframework.beans.factory.annotation.Value("${razorpay.key.secret:}")
     private String razorpayKeySecret;
 
     @org.springframework.beans.factory.annotation.Value("${shiprocket.webhook.token:reevibes_ship_webhook_sec_892374923}")
