@@ -5,7 +5,7 @@ import { z } from "zod";
 import { 
   X, Check, AlertTriangle, Star, ListOrdered, 
   RotateCcw, ArrowLeft, Search, FileText, Copy, ExternalLink, Package, Truck, Clock, ShieldCheck,
-  MapPin, Download, Calendar, ChevronRight, Sparkles, CheckCircle2
+  MapPin, Download, Calendar, ChevronRight, CheckCircle2
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -103,8 +103,16 @@ export const REFINED_RETURN_REASONS = [
   }
 ];
 
+export const CANCELLATION_REASONS = [
+  "Placed order by mistake",
+  "Changed my decision / mind",
+  "Found another choice / alternative",
+  "Postponed / will purchase next time",
+  "Other"
+];
+
 function ShopOrdersPage() {
-  const { state, requestReturn, addReview } = usePortal();
+  const { state, requestReturn, addReview, cancelOrder } = usePortal();
   const { tab } = Route.useSearch();
   const navigate = useNavigate();
   const user = state.user;
@@ -115,6 +123,36 @@ function ShopOrdersPage() {
   // Details Modal States
   const [selectedOrderDetails, setSelectedOrderDetails] = useState<any | null>(null);
   const [selectedReturnDetails, setSelectedReturnDetails] = useState<any | null>(null);
+
+  // Cancellation Modal States
+  const [cancelModalOrder, setCancelModalOrder] = useState<any | null>(null);
+  const [cancelReason, setCancelReason] = useState("Placed order by mistake");
+  const [cancelNote, setCancelNote] = useState("");
+  const [isCancelling, setIsCancelling] = useState(false);
+
+  const handleConfirmCancelOrder = async () => {
+    if (!user || !cancelModalOrder) return;
+    if (cancelReason === "Other" && !cancelNote.trim()) {
+      toast.error("Please enter a note explaining your reason for cancellation.");
+      return;
+    }
+    setIsCancelling(true);
+    try {
+      toast.info(`Cancelling order #${cancelModalOrder.id}...`);
+      await cancelOrder(user.id, cancelModalOrder.id, cancelReason, cancelNote.trim());
+      toast.success(`Order #${cancelModalOrder.id} successfully cancelled. All items restored to inventory!`);
+      setCancelModalOrder(null);
+      setCancelReason("Placed order by mistake");
+      setCancelNote("");
+      if (selectedOrderDetails?.id === cancelModalOrder.id) {
+        setSelectedOrderDetails(null);
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to cancel order.");
+    } finally {
+      setIsCancelling(false);
+    }
+  };
 
   // Review Form States
   const [reviewFormItem, setReviewFormItem] = useState<{ productId: string; orderId: string; productName?: string; productImage?: string } | null>(null);
@@ -322,11 +360,29 @@ function ShopOrdersPage() {
                         <span className={`px-3 py-1 rounded-full border text-[10px] font-bold uppercase tracking-wider ${getStatusBadge(order.status)}`}>
                           {order.status || "Processing"}
                         </span>
+                        {order.cancelReason && (
+                          <span className="text-[10px] text-rose-500 dark:text-rose-400 font-semibold block text-right max-w-[160px] truncate" title={order.cancelReason}>
+                            {order.cancelReason}
+                          </span>
+                        )}
                         <div className="text-right">
                           <span className="text-[10px] uppercase tracking-wider text-muted-foreground block font-semibold">Total Amount</span>
                           <span className="font-mono text-sm sm:text-base font-bold text-accent">₹{order.total.toLocaleString()}</span>
                         </div>
-                        <div className="flex items-center gap-1.5 mt-1">
+                        <div className="flex items-center gap-1.5 mt-1 flex-wrap justify-end">
+                          {!["delivered", "cancelled", "returned", "refunded", "rejected"].includes((order.status || "").toLowerCase()) && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setCancelModalOrder(order);
+                              }}
+                              className="text-[10px] uppercase font-bold px-3 py-1 rounded-full border border-rose-500/30 text-rose-500 hover:bg-rose-500 hover:text-white cursor-pointer transition-colors flex items-center gap-1 shadow-sm"
+                            >
+                              <X className="w-3 h-3" />
+                              <span>Cancel</span>
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={(e) => {
@@ -507,6 +563,43 @@ function ShopOrdersPage() {
                 <X className="w-5 h-5" />
               </button>
             </div>
+
+            {/* Order Cancellation Notice Banner */}
+            {(selectedOrderDetails.status?.toLowerCase().includes("cancel") || selectedOrderDetails.cancelReason) && (
+              <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-500 dark:text-rose-400 space-y-1.5 animate-fadeIn">
+                <div className="flex items-center gap-2 font-bold text-xs uppercase tracking-wider">
+                  <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
+                  <span>Order Cancelled & Restored to Atelier Inventory</span>
+                </div>
+                <div className="text-xs">
+                  <span className="text-muted-foreground">Cancellation Reason: </span>
+                  <span className="font-semibold text-foreground">{selectedOrderDetails.cancelReason || "Customer Cancellation"}</span>
+                </div>
+                {selectedOrderDetails.cancelNote && (
+                  <div className="text-xs">
+                    <span className="text-muted-foreground">Note: </span>
+                    <span className="italic text-muted-foreground">"{selectedOrderDetails.cancelNote}"</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Order Active Cancellation Action Bar */}
+            {!["delivered", "cancelled", "returned", "refunded", "rejected"].includes((selectedOrderDetails.status || "").toLowerCase()) && (
+              <div className="p-3.5 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+                <div>
+                  <span className="font-bold text-foreground">Need to cancel this order?</span>
+                  <p className="text-[11px] text-muted-foreground">You can cancel anytime before delivery. Size inventory will be immediately restored.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCancelModalOrder(selectedOrderDetails)}
+                  className="px-4 py-2 rounded-full border border-rose-500/40 text-rose-500 hover:bg-rose-500 hover:text-white font-bold uppercase tracking-wider text-[10px] transition-colors cursor-pointer shrink-0"
+                >
+                  Cancel Order
+                </button>
+              </div>
+            )}
 
             {/* Transit Timeline Progress Bar */}
             <div className="bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-2xl p-5 space-y-4">
@@ -710,7 +803,7 @@ function ShopOrdersPage() {
                 return (
                   <div className="p-3 rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5 text-xs text-muted-foreground space-y-1">
                     <div className="font-semibold text-foreground flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-accent" />
+                      <Package className="w-3.5 h-3.5 text-accent" />
                       <span>{isDispatched ? "Shipment Registered with Courier Partner" : "Order Placed & In Queue"}</span>
                     </div>
                     <p className="text-[11px] leading-relaxed">
@@ -1479,6 +1572,106 @@ function ShopOrdersPage() {
                 }`}
               >
                 Submit Review
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Interactive Order Cancellation Modal */}
+      {cancelModalOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="liquid-glass max-w-md w-full bg-white dark:bg-zinc-950 border border-black/15 dark:border-white/20 rounded-3xl p-6 sm:p-7 space-y-5 text-foreground shadow-2xl animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex justify-between items-start border-b border-black/10 dark:border-white/10 pb-3">
+              <div>
+                <span className="text-[10px] uppercase tracking-widest text-rose-500 font-bold">Cancellation Request</span>
+                <h3 className="font-serif text-xl font-bold mt-0.5">Cancel Order #{cancelModalOrder.id}</h3>
+              </div>
+              <button
+                disabled={isCancelling}
+                onClick={() => setCancelModalOrder(null)}
+                className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Warning / Restock Notice */}
+            <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-start gap-3 text-xs text-rose-600 dark:text-rose-400">
+              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+              <p className="leading-relaxed">
+                Cancelling will stop order fulfillment. All reserved quantities across your selected sizes will be automatically restored to the atelier catalog immediately.
+              </p>
+            </div>
+
+            {/* Cancellation Reason Radios */}
+            <div className="space-y-2.5">
+              <label className="text-xs font-bold uppercase tracking-wider text-accent block">
+                Please select a reason for cancellation:
+              </label>
+
+              <div className="space-y-1.5">
+                {CANCELLATION_REASONS.map((r) => {
+                  const isSelected = cancelReason === r;
+                  return (
+                    <label
+                      key={r}
+                      onClick={() => setCancelReason(r)}
+                      className={`flex items-center gap-3 p-3 rounded-xl border text-xs cursor-pointer transition-all ${
+                        isSelected
+                          ? "bg-accent/15 border-accent text-foreground font-semibold shadow-xs"
+                          : "bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 hover:border-black/20 dark:hover:border-white/20 text-muted-foreground"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="cancel_reason"
+                        checked={isSelected}
+                        onChange={() => setCancelReason(r)}
+                        className="w-3.5 h-3.5 text-accent accent-accent cursor-pointer"
+                      />
+                      <span>{r}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Note / Comments Textarea */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block">
+                {cancelReason === "Other" ? (
+                  <span className="text-rose-500 dark:text-rose-400">Please provide reason details (Required) *</span>
+                ) : (
+                  <span>Additional note (Optional)</span>
+                )}
+              </label>
+              <textarea
+                value={cancelNote}
+                onChange={(e) => setCancelNote(e.target.value)}
+                placeholder={cancelReason === "Other" ? "Explain why you are cancelling this order..." : "Any feedback for the atelier team..."}
+                className="w-full bg-black/5 dark:bg-white/5 border border-black/15 dark:border-white/10 rounded-xl p-3 text-xs outline-none focus:border-accent h-20 text-foreground resize-none leading-relaxed"
+              />
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex gap-2.5 pt-2 border-t border-black/10 dark:border-white/10">
+              <button
+                type="button"
+                disabled={isCancelling}
+                onClick={() => setCancelModalOrder(null)}
+                className="flex-1 py-2.5 rounded-full border border-black/15 dark:border-white/15 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Keep Order
+              </button>
+              <button
+                type="button"
+                disabled={isCancelling || (cancelReason === "Other" && !cancelNote.trim())}
+                onClick={handleConfirmCancelOrder}
+                className="flex-1 py-2.5 rounded-full bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold uppercase tracking-wider transition-all shadow-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isCancelling ? "Cancelling..." : "Confirm Cancel"}
               </button>
             </div>
           </div>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Sparkles, MessageCircleCode } from "lucide-react";
+import { MessageCircleCode, X } from "lucide-react";
 import AssistantWindow from "./AssistantWindow";
 import "./assistant.css";
 
@@ -17,7 +17,7 @@ export default function AssistantLauncher() {
         <div className="ai-assistant-pulse" />
         
         {isOpen ? (
-          <Sparkles className="w-6 h-6 text-accent animate-spin-slow" />
+          <X className="w-6 h-6 text-accent" />
         ) : (
           <MessageCircleCode className="w-6 h-6 text-accent" />
         )}

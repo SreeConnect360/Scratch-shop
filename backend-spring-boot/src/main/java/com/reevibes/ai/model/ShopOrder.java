@@ -106,6 +106,12 @@ public class ShopOrder {
     @Column(name = "status_history_json", columnDefinition = "TEXT")
     private String statusHistoryJson;
 
+    @Column(name = "cancel_reason", columnDefinition = "TEXT")
+    private String cancelReason;
+
+    @Column(name = "cancel_note", columnDefinition = "TEXT")
+    private String cancelNote;
+
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
 
@@ -198,4 +204,10 @@ public class ShopOrder {
 
     public String getStatusHistoryJson() { return statusHistoryJson; }
     public void setStatusHistoryJson(String statusHistoryJson) { this.statusHistoryJson = statusHistoryJson; }
+
+    public String getCancelReason() { return cancelReason; }
+    public void setCancelReason(String cancelReason) { this.cancelReason = cancelReason; }
+
+    public String getCancelNote() { return cancelNote; }
+    public void setCancelNote(String cancelNote) { this.cancelNote = cancelNote; }
 }

@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useTheme } from "@/hooks/use-theme";
 import { BrandLogo } from "@/components/theme/ThemeToggle";
-import { ShieldCheck, Lock, Eye, FileText, UserCheck, ArrowLeft, Sparkles, Server, Key, HeartHandshake } from "lucide-react";
+import { ShieldCheck, Lock, Eye, FileText, UserCheck, ArrowLeft, Server, Key, HeartHandshake } from "lucide-react";
 
 export const Route = createFileRoute("/_shop/privacy")({
   head: () => ({ meta: [{ title: "Privacy Policy — ReeVibes Curation" }] }),

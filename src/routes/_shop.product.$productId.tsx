@@ -21,7 +21,9 @@ import {
   Minus,
   ChevronDown,
   Maximize2,
-  Sparkles,
+  Layers,
+  Crown,
+  Wallet,
   ShoppingCart,
   CheckCircle2,
   ChevronLeft,
@@ -254,6 +256,27 @@ function ProductDetail() {
 
   const [selectedSize, setSelectedSize] = useState<string>(() => availableSizes[0] || "S");
   const [quantity, setQuantity] = useState(1);
+  const [isMultiSizeMode, setIsMultiSizeMode] = useState(false);
+  const [multiSizeQuantities, setMultiSizeQuantities] = useState<Record<string, number>>({});
+
+  const handleUpdateMultiSizeQty = (size: string, delta: number) => {
+    const maxStock = stockPerSize[size] ?? 0;
+    setMultiSizeQuantities(prev => {
+      const current = prev[size] || 0;
+      const next = Math.max(0, Math.min(maxStock, current + delta));
+      if (next === 0) {
+        const copy = { ...prev };
+        delete copy[size];
+        return copy;
+      }
+      return { ...prev, [size]: next };
+    });
+  };
+
+  const totalMultiSizeQty = useMemo(() => {
+    return Object.values(multiSizeQuantities).reduce((a, b) => a + (Number(b) || 0), 0);
+  }, [multiSizeQuantities]);
+
   const [isProductInfoOpen, setIsProductInfoOpen] = useState(true);
   const [showAuthModal, setShowAuthModal] = useState(false);
 
@@ -302,7 +325,7 @@ function ProductDetail() {
       <div className={cn("min-h-[85vh] flex flex-col items-center justify-center p-6 text-center space-y-6 transition-colors duration-300", isDark ? "bg-[#0A0A0A] text-white" : "bg-[#F9FAFB] text-slate-900")}>
         <div className="relative flex items-center justify-center">
           <div className="w-20 h-20 rounded-full border-2 border-[#D4AF37]/20 border-t-[#D4AF37] animate-spin" />
-          <Sparkles className="w-8 h-8 text-[#D4AF37] absolute animate-pulse" />
+          <ShoppingBag className="w-8 h-8 text-[#D4AF37] absolute" />
         </div>
         <div className="space-y-2 max-w-sm">
           <span className="text-[10px] uppercase font-mono font-bold tracking-[0.3em] text-[#D4AF37]">
@@ -462,6 +485,43 @@ function ProductDetail() {
       setShowAuthModal(true);
       return;
     }
+    if (isMultiSizeMode) {
+      const cleanBreakdown = Object.fromEntries(
+        Object.entries(multiSizeQuantities).filter(([_, q]) => Number(q) > 0)
+      );
+      const totalQty = Object.values(cleanBreakdown).reduce((a, b) => a + b, 0);
+      if (totalQty <= 0) {
+        toast.error("Please select at least 1 unit across available sizes.");
+        return;
+      }
+      const sizeLabel = "Multi-Size (" + Object.entries(cleanBreakdown).map(([s, q]) => `${s}: ${q}`).join(", ") + ")";
+      const item: any = {
+        productId: product.id,
+        name: product.name,
+        house: product.house,
+        price: displayFinalPrice,
+        image: product.image,
+        qty: totalQty,
+        selectedSize: sizeLabel,
+        sizeBreakdown: cleanBreakdown,
+      };
+      if (appliedCoupon) {
+        item.appliedCoupon = appliedCoupon.code;
+        if (appliedCoupon.type === "wallet") {
+          item.cashbackAmount = appliedCoupon.discount;
+        }
+      }
+      addToShopCart(item);
+      triggerPopup(
+        `${product.name} (Bulk: ${totalQty} units) added to bag!`,
+        () => removeFromShopCart(product.id, sizeLabel),
+        `${product.name} removed from bag.`,
+        () => addToShopCart(item),
+        `${product.name} added to bag!`
+      );
+      return;
+    }
+
     if (!selectedSize) {
       toast.error("Please select a size before adding to bag.");
       return;
@@ -496,6 +556,45 @@ function ProductDetail() {
       setShowAuthModal(true);
       return;
     }
+    if (isMultiSizeMode) {
+      const cleanBreakdown = Object.fromEntries(
+        Object.entries(multiSizeQuantities).filter(([_, q]) => Number(q) > 0)
+      );
+      const totalQty = Object.values(cleanBreakdown).reduce((a, b) => a + b, 0);
+      if (totalQty <= 0) {
+        toast.error("Please select at least 1 unit across available sizes.");
+        return;
+      }
+      const sizeLabel = "Multi-Size (" + Object.entries(cleanBreakdown).map(([s, q]) => `${s}: ${q}`).join(", ") + ")";
+      const item: any = {
+        productId: product.id,
+        name: product.name,
+        house: product.house,
+        price: displayFinalPrice,
+        image: product.image,
+        qty: totalQty,
+        selectedSize: sizeLabel,
+        sizeBreakdown: cleanBreakdown,
+      };
+      if (appliedCoupon) {
+        item.appliedCoupon = appliedCoupon.code;
+        if (appliedCoupon.type === "wallet") {
+          item.cashbackAmount = appliedCoupon.discount;
+        }
+      }
+      addToShopCart(item);
+      navigate({
+        to: "/cart",
+        search: {
+          buyNow: "true",
+          productId: product.id,
+          size: sizeLabel,
+          coupon: appliedCoupon ? appliedCoupon.code : undefined
+        } as any,
+      });
+      return;
+    }
+
     if (!selectedSize) {
       toast.error("Please select a size before proceeding.");
       return;
@@ -1012,7 +1111,7 @@ function ProductDetail() {
                 {/* Live Applied Cashback Banner */}
                 {appliedCoupon && appliedCoupon.type === "wallet" && (
                   <div className="flex items-center gap-2 mt-1 p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-semibold">
-                    <Sparkles className="w-4 h-4 shrink-0 text-emerald-400" />
+                    <Wallet className="w-4 h-4 shrink-0 text-emerald-400" />
                     <span>
                       ReeVibes Wallet Cashback: <strong>₹{appliedCoupon.discount.toLocaleString()}</strong> will be credited to your account upon successful delivery.
                     </span>
@@ -1027,75 +1126,195 @@ function ProductDetail() {
             <div className="flex flex-col gap-3">
               <div className="flex items-center justify-between text-xs sm:text-sm">
                 <span className="font-bold uppercase tracking-widest text-[#D4AF37]">
-                  SELECT SIZE
+                  {isMultiSizeMode ? "MULTI-SIZE / BULK SELECTION" : "SELECT SIZE"}
                 </span>
-                <span className="font-semibold text-emerald-500 dark:text-emerald-400">
-                  In Stock ({totalStock > 0 ? totalStock : 12} left)
-                </span>
+
+                {/* Multi-Size / Bulk Selection Toggle Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMultiSizeMode(prev => !prev);
+                    if (!isMultiSizeMode) {
+                      setMultiSizeQuantities(selectedSize ? { [selectedSize]: quantity } : {});
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#D4AF37]/50 bg-[#D4AF37]/10 text-[11px] font-bold text-[#D4AF37] hover:bg-[#D4AF37]/20 transition-all cursor-pointer"
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>{isMultiSizeMode ? "Single Size Mode" : "Multi-Size / Bulk Order"}</span>
+                </button>
               </div>
 
-              <div className="grid grid-cols-4 gap-2.5 sm:gap-3">
-                {availableSizes.map((size: string) => {
-                  const isSelected = selectedSize === size;
-                  const stock = stockPerSize[size] ?? 8;
+              {isMultiSizeMode ? (
+                /* Multi-Size Rows Layout */
+                <div className="space-y-2.5 pt-1">
+                  <div className="text-[11px] text-muted-foreground flex justify-between px-1">
+                    <span>Select multiple sizes & set quantities for each:</span>
+                    <span className="font-semibold text-emerald-500 dark:text-emerald-400">
+                      {totalStock > 0 ? `${totalStock} pieces in stock` : "Out of Stock"}
+                    </span>
+                  </div>
 
-                  return (
-                    <button
-                      key={size}
-                      type="button"
-                      onClick={() => setSelectedSize(size)}
-                      className={cn(
-                        "relative flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all duration-200 cursor-pointer active:scale-95",
-                        isSelected
-                          ? "bg-[#D4AF37] text-black border-[#D4AF37] font-bold shadow-md shadow-[#D4AF37]/20"
-                          : isDark
-                          ? "bg-zinc-900/80 text-white border-zinc-800 hover:border-zinc-700"
-                          : "bg-white text-slate-900 border-slate-200 hover:border-slate-300"
-                      )}
-                    >
-                      {/* Checkmark Icon top-left when selected */}
-                      {isSelected && (
-                        <div className="absolute top-1.5 left-1.5">
-                          <Check className="w-3.5 h-3.5 text-black stroke-[3]" />
+                  <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                    {availableSizes.map((size: string) => {
+                      const stock = stockPerSize[size] ?? 0;
+                      const isOutOfStock = stock <= 0;
+                      const qtyForSize = multiSizeQuantities[size] || 0;
+
+                      return (
+                        <div
+                          key={size}
+                          className={cn(
+                            "flex items-center justify-between p-3 rounded-2xl border transition-all duration-200",
+                            qtyForSize > 0
+                              ? "border-[#D4AF37] bg-[#D4AF37]/5 shadow-sm"
+                              : isDark
+                              ? "border-zinc-800 bg-zinc-900/60"
+                              : "border-slate-200 bg-slate-50/70",
+                            isOutOfStock && "opacity-50 pointer-events-none"
+                          )}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="w-10 h-10 rounded-xl bg-background border border-border flex items-center justify-center font-extrabold text-base text-foreground">
+                              {size}
+                            </span>
+                            <div>
+                              <div className="text-xs font-bold text-foreground">
+                                Size {size}
+                              </div>
+                              <div className="text-[10px]">
+                                {isOutOfStock ? (
+                                  <span className="text-rose-500 font-semibold">Out of Stock</span>
+                                ) : (
+                                  <span className="text-emerald-500 dark:text-emerald-400 font-medium">
+                                    {stock} available
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Stepper for this size */}
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center border border-border/70 rounded-xl overflow-hidden bg-background">
+                              <button
+                                type="button"
+                                disabled={qtyForSize <= 0}
+                                onClick={() => handleUpdateMultiSizeQty(size, -1)}
+                                className="p-2 hover:bg-accent/10 transition-colors text-foreground disabled:opacity-30 cursor-pointer"
+                              >
+                                <Minus className="w-3.5 h-3.5" />
+                              </button>
+                              <span className="w-9 text-center font-bold text-xs text-foreground">
+                                {qtyForSize}
+                              </span>
+                              <button
+                                type="button"
+                                disabled={qtyForSize >= stock}
+                                onClick={() => handleUpdateMultiSizeQty(size, 1)}
+                                className="p-2 hover:bg-accent/10 transition-colors text-foreground disabled:opacity-30 cursor-pointer"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                            {qtyForSize >= stock && stock > 0 && (
+                              <span className="text-[9px] font-semibold text-amber-500 uppercase tracking-wider">
+                                Max
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      )}
-                      <span className="text-base sm:text-lg font-extrabold">{size}</span>
-                      <span
-                        className={cn(
-                          "text-[10px] font-medium mt-0.5",
-                          isSelected ? "text-black/80" : "text-muted-foreground"
-                        )}
-                      >
-                        {stock} left
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+                      );
+                    })}
+                  </div>
 
-            {/* Quantity Selector */}
-            <div className="flex items-center justify-between gap-4 py-2">
-              <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                QUANTITY
-              </span>
-              <div className="flex items-center border border-border/60 rounded-xl overflow-hidden bg-background">
-                <button
-                  type="button"
-                  onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                  className="p-2.5 hover:bg-accent/10 transition-colors text-foreground cursor-pointer"
-                >
-                  <Minus className="w-4 h-4" />
-                </button>
-                <span className="w-10 text-center font-bold text-sm text-foreground">{quantity}</span>
-                <button
-                  type="button"
-                  onClick={() => setQuantity((q) => Math.min(currentSizeStock, q + 1))}
-                  className="p-2.5 hover:bg-accent/10 transition-colors text-foreground cursor-pointer"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
-              </div>
+                  {/* Live Bulk Summary Box */}
+                  <div className="p-3.5 rounded-2xl bg-black/5 dark:bg-white/5 border border-border/60 flex items-center justify-between text-xs">
+                    <div>
+                      <span className="text-muted-foreground">Total Selected: </span>
+                      <span className="font-bold text-foreground">
+                        {totalMultiSizeQty} {totalMultiSizeQty === 1 ? "unit" : "units"}
+                      </span>
+                      {totalMultiSizeQty > 0 && (
+                        <span className="text-[10px] text-accent block font-medium">
+                          ({Object.entries(multiSizeQuantities).filter(([_, q]) => q > 0).map(([s, q]) => `${s}: ${q}`).join(", ")})
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <span className="text-muted-foreground">Subtotal: </span>
+                      <span className="font-serif font-bold text-sm text-[#D4AF37]">
+                        ₹{((Number(String(displayFinalPrice).replace(/[^0-9.]/g, "")) || 0) * (totalMultiSizeQty || 1)).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* Standard Single Size Grid */
+                <>
+                  <div className="grid grid-cols-4 gap-2.5 sm:gap-3">
+                    {availableSizes.map((size: string) => {
+                      const isSelected = selectedSize === size;
+                      const stock = stockPerSize[size] ?? 8;
+
+                      return (
+                        <button
+                          key={size}
+                          type="button"
+                          onClick={() => setSelectedSize(size)}
+                          className={cn(
+                            "relative flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all duration-200 cursor-pointer active:scale-95",
+                            isSelected
+                              ? "bg-[#D4AF37] text-black border-[#D4AF37] font-bold shadow-md shadow-[#D4AF37]/20"
+                              : isDark
+                              ? "bg-zinc-900/80 text-white border-zinc-800 hover:border-zinc-700"
+                              : "bg-white text-slate-900 border-slate-200 hover:border-slate-300"
+                          )}
+                        >
+                          {isSelected && (
+                            <div className="absolute top-1.5 left-1.5">
+                              <Check className="w-3.5 h-3.5 text-black stroke-[3]" />
+                            </div>
+                          )}
+                          <span className="text-base sm:text-lg font-extrabold">{size}</span>
+                          <span
+                            className={cn(
+                              "text-[10px] font-medium mt-0.5",
+                              isSelected ? "text-black/80" : "text-muted-foreground"
+                            )}
+                          >
+                            {stock} left
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Single Size Quantity Selector */}
+                  <div className="flex items-center justify-between gap-4 py-2">
+                    <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                      QUANTITY
+                    </span>
+                    <div className="flex items-center border border-border/60 rounded-xl overflow-hidden bg-background">
+                      <button
+                        type="button"
+                        onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                        className="p-2.5 hover:bg-accent/10 transition-colors text-foreground cursor-pointer"
+                      >
+                        <Minus className="w-4 h-4" />
+                      </button>
+                      <span className="w-10 text-center font-bold text-sm text-foreground">{quantity}</span>
+                      <button
+                        type="button"
+                        onClick={() => setQuantity((q) => Math.min(currentSizeStock, q + 1))}
+                        className="p-2.5 hover:bg-accent/10 transition-colors text-foreground cursor-pointer"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Desktop Action Buttons (Positioned directly below Quantity Selector) */}
@@ -1174,7 +1393,7 @@ function ProductDetail() {
                         className="w-full p-4 flex items-center justify-between text-left font-bold text-sm sm:text-base text-foreground cursor-pointer hover:bg-accent/5 transition-colors"
                       >
                         <div className="flex items-center gap-2">
-                          <Sparkles className="w-4 h-4 text-[#D4AF37]" />
+                          <Layers className="w-4 h-4 text-[#D4AF37]" />
                           <span>{sec.title}</span>
                         </div>
                         <ChevronDown

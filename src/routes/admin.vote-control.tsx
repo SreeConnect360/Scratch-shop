@@ -3,7 +3,7 @@ import { useMemo, useState, useEffect } from "react";
 import { useTheme } from "@/hooks/use-theme";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ChevronLeft, Radio, Vote, Star, Play, Square, Crown, Sparkles, X, Heart, Shield, Film, Image as ImageIcon
+  ChevronLeft, Radio, Vote, Star, Play, Square, Crown, Activity, X, Heart, Shield, Film, Image as ImageIcon
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AdminLayout, AdminCard, AdminButton, StatusChip } from "@/components/layout/AdminLayout";
@@ -640,7 +640,7 @@ function ContestantCard({
             <div className="font-serif text-lg mt-0.5 font-bold">{eng.votes.toLocaleString()}</div>
           </div>
           <div>
-            <div className="editorial-label text-muted-foreground flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5 text-accent" />Engagement</div>
+            <div className="editorial-label text-muted-foreground flex items-center gap-1.5"><Activity className="w-3.5 h-3.5 text-accent" />Engagement</div>
             <div className="text-xs text-muted-foreground mt-1 uppercase tracking-wider font-mono">Live stats</div>
           </div>
         </div>

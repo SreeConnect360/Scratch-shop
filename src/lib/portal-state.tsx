@@ -154,7 +154,7 @@ export type PortalUser = {
   roles: Role[];
 };
 
-export type CartItem = { productId: string; name: string; house: string; price: string; image: string; qty: number; selectedSize?: string };
+export type CartItem = { productId: string; name: string; house: string; price: string; image: string; qty: number; selectedSize?: string; sizeBreakdown?: Record<string, number> };
 export type Notif = { id: string; icon: string; title: string; body: string; time: string; unread: boolean; createdAt?: number };
 export type DraftApp = Record<string, unknown> & { id: string; updatedAt: string; step: number };
 
@@ -349,6 +349,8 @@ export type PortalState = {
     statusHistoryJson?: string;
     itemsJson?: string;
     customerName?: string;
+    cancelReason?: string;
+    cancelNote?: string;
   }>>;
   coupons: ShopCoupon[];
   walletGiftCards: WalletGiftCard[];
@@ -836,7 +838,7 @@ type Ctx = {
   fetchCourierQuotes: (orderId: string) => Promise<any>;
   assignAWB: (userId: string, orderId: string, courierId: string, courierName: string) => Promise<any>;
   schedulePickup: (userId: string, orderId: string, pickupDate: string) => Promise<any>;
-  cancelOrder: (userId: string, orderId: string) => Promise<any>;
+  cancelOrder: (userId: string, orderId: string, reason?: string, note?: string) => Promise<any>;
   declineOrder: (userId: string, orderId: string, reason?: string) => Promise<any>;
   fetchOrderLabel: (orderId: string) => Promise<string | null>;
   fetchOrderInvoice: (orderId: string) => Promise<string | null>;
@@ -888,6 +890,7 @@ type Ctx = {
   recordProductView: (productId: string) => void;
   updateShopCartQty: (productId: string, selectedSize: string, qty: number) => void;
   updateShopCartSizeAndQty: (productId: string, oldSize: string, newSize: string, qty: number) => void;
+  updateShopCartBreakdown: (productId: string, oldSizeOrKey: string, sizeBreakdown: Record<string, number>, qty: number) => void;
   restoreToShopCart: (item: CartItem) => void;
   reloadProducts: (force?: boolean) => Promise<void>;
   reloadBuckets: (force?: boolean) => Promise<void>;
@@ -1270,7 +1273,9 @@ export function PortalProvider({ children }: { children: ReactNode }) {
             pickupLocation: o.pickup_location || undefined,
             statusHistoryJson: typeof o.status_history_json === "object" ? JSON.stringify(o.status_history_json) : (o.status_history_json || undefined),
             walletAmountUsed: o.wallet_amount_used ? Number(o.wallet_amount_used) : undefined,
-            razorpayAmountPaid: o.razorpay_amount_paid ? Number(o.razorpay_amount_paid) : undefined
+            razorpayAmountPaid: o.razorpay_amount_paid ? Number(o.razorpay_amount_paid) : undefined,
+            cancelReason: o.cancel_reason || undefined,
+            cancelNote: o.cancel_note || undefined
           });
         });
       }
@@ -2644,36 +2649,71 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         console.error("Failed to schedule pickup:", err);
       }
     },
-    cancelOrder: async (userId, orderId) => {
+    cancelOrder: async (userId, orderId, reason, note) => {
       try {
         const orderToCancel = (state.orders[userId] || []).find(o => o.id === orderId);
         if (orderToCancel && orderToCancel.items) {
-          restoreProductStockInSupabase(orderToCancel.items).catch(err => console.error("Error restoring stock on cancelOrder:", err));
+          await restoreProductStockInSupabase(orderToCancel.items).catch(err => console.error("Error restoring stock on cancelOrder:", err));
         }
-        updateOrderInSupabase(orderId, { status: "Cancelled" }).catch(() => null);
+        await updateOrderInSupabase(orderId, {
+          status: "Cancelled",
+          cancel_reason: reason || "User Cancellation",
+          cancel_note: note || "",
+          statusHistoryJson: [{
+            timestamp: new Date().toISOString(),
+            previousStatus: orderToCancel?.status || "Processing",
+            newStatus: "Cancelled",
+            comments: reason ? `${reason}${note ? ": " + note : ""}` : "Cancelled by customer",
+            source: "User Order Tracker"
+          }]
+        }).catch(() => null);
 
-        const res = await fetch(`${BACKEND_URL}/api/orders/${orderId}/cancel`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" }
-        });
-        if (res.ok) {
-          const updatedOrder = await res.json();
-          setState(s => {
-            const list = s.orders[userId] ?? [];
-            const next = list.map(o => {
-              if (o.id === orderId) {
-                const items = ensureOrderItems(updatedOrder, o.items);
-                return { ...o, ...updatedOrder, items, status: "Cancelled" };
-              }
-              return o;
-            });
-            return {
-              ...s,
-              orders: { ...s.orders, [userId]: next }
-            };
+        let updatedOrder: any = null;
+        try {
+          const res = await fetch(`${BACKEND_URL}/api/orders/${orderId}/cancel`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reason: reason || "User Cancellation", note: note || "" })
           });
-          return updatedOrder;
-        }
+          if (res.ok) {
+            updatedOrder = await res.json();
+          }
+        } catch {}
+
+        setState(s => {
+          const list = s.orders[userId] ?? [];
+          const next = list.map(o => {
+            if (o.id === orderId) {
+              const items = ensureOrderItems(updatedOrder, o.items);
+              return {
+                ...o,
+                ...(updatedOrder || {}),
+                items,
+                status: "Cancelled",
+                cancelReason: reason || o.cancelReason,
+                cancelNote: note || o.cancelNote,
+              };
+            }
+            return o;
+          });
+          const newNotif: Notif = {
+            id: `n-${Date.now()}`,
+            icon: "order",
+            title: "Order Cancelled",
+            body: `Order ${orderId} has been successfully cancelled and stock restored.`,
+            time: "now",
+            unread: true
+          };
+          const existingUserNotifs = s.userNotifications[userId] || [];
+          return {
+            ...s,
+            orders: { ...s.orders, [userId]: next },
+            notifications: [newNotif, ...s.notifications],
+            userNotifications: { ...s.userNotifications, [userId]: [newNotif, ...existingUserNotifs] }
+          };
+        });
+        notifyBroadcastSync();
+        return updatedOrder || { success: true };
       } catch (err) {
         console.error("Failed to cancel order:", err);
       }
@@ -2686,6 +2726,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         }
         await updateOrderInSupabase(orderId, {
           status: "Cancelled",
+          cancel_reason: reason || "Declined by store administrator",
           statusHistoryJson: [{
             timestamp: new Date().toISOString(),
             previousStatus: orderToDecline?.status || "Processing",
@@ -2703,7 +2744,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 
         setState(s => {
           const list = s.orders[userId] ?? [];
-          const next = list.map(o => o.id === orderId ? { ...o, status: "Cancelled" } : o);
+          const next = list.map(o => o.id === orderId ? { ...o, status: "Cancelled", cancelReason: reason || "Declined by store administrator" } : o);
           const newNotif: Notif = {
             id: `n-${Date.now()}`,
             icon: "order",
@@ -4193,11 +4234,28 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       let nextShopCart: CartItem[] = [];
       setState(s => {
         const cartList = s.shopCart || [];
-        const existing = cartList.find(c => c.productId === item.productId && c.selectedSize === item.selectedSize);
         const qty = item.qty ?? 1;
+        const existing = cartList.find(c => {
+          if (item.sizeBreakdown && c.sizeBreakdown) {
+            return c.productId === item.productId;
+          }
+          return c.productId === item.productId && c.selectedSize === item.selectedSize;
+        });
+
         if (existing) {
-          const filtered = cartList.filter(c => !(c.productId === item.productId && c.selectedSize === item.selectedSize));
-          nextShopCart = [{ ...existing, qty: existing.qty + qty }, ...filtered];
+          if (item.sizeBreakdown && existing.sizeBreakdown) {
+            const mergedBreakdown: Record<string, number> = { ...existing.sizeBreakdown };
+            for (const [sz, count] of Object.entries(item.sizeBreakdown)) {
+              mergedBreakdown[sz] = (mergedBreakdown[sz] || 0) + count;
+            }
+            const newTotalQty = Object.values(mergedBreakdown).reduce((a, b) => a + b, 0);
+            const sizeLabel = "Multi-Size (" + Object.entries(mergedBreakdown).filter(([_, q]) => Number(q) > 0).map(([s, q]) => `${s}: ${q}`).join(", ") + ")";
+            const filtered = cartList.filter(c => c !== existing);
+            nextShopCart = [{ ...existing, sizeBreakdown: mergedBreakdown, selectedSize: sizeLabel, qty: newTotalQty }, ...filtered];
+          } else {
+            const filtered = cartList.filter(c => c !== existing);
+            nextShopCart = [{ ...existing, qty: existing.qty + qty }, ...filtered];
+          }
         } else {
           nextShopCart = [{ ...item, qty }, ...cartList];
         }
@@ -4332,6 +4390,35 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ cart: JSON.stringify(nextShopCart) })
         }).catch(err => console.error("Failed to sync updateShopCartSizeAndQty:", err));
+      }
+    },
+    updateShopCartBreakdown: (productId, oldSizeOrKey, sizeBreakdown, qty) => {
+      lastCartMutationRef.current = Date.now();
+      let nextShopCart: CartItem[] = [];
+      const cleanEntries = Object.entries(sizeBreakdown).filter(([_, q]) => Number(q) > 0);
+      const sizeLabel = cleanEntries.length > 0
+        ? "Multi-Size (" + cleanEntries.map(([s, q]) => `${s}: ${q}`).join(", ") + ")"
+        : "Standard";
+
+      setState(s => {
+        nextShopCart = (s.shopCart || []).map(c => {
+          const match = c.productId === productId && (c.selectedSize === oldSizeOrKey || Boolean(c.sizeBreakdown));
+          return match
+            ? { ...c, sizeBreakdown, selectedSize: sizeLabel, qty }
+            : c;
+        });
+        const next = { ...s, shopCart: nextShopCart, cart: nextShopCart };
+        save(next);
+        return next;
+      });
+      notifyBroadcastSync();
+      if (state.user) {
+        syncUserCartToSupabase(state.user.id, nextShopCart).catch(err => console.error("Failed to sync cart breakdown to Supabase:", err));
+        fetch(`${BACKEND_URL}/api/customers/${state.user.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cart: JSON.stringify(nextShopCart) })
+        }).catch(err => console.error("Failed to sync updateShopCartBreakdown:", err));
       }
     },
     restoreToShopCart: (item) => {

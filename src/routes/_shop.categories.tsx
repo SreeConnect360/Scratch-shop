@@ -3,7 +3,7 @@ import { FadeUp } from "@/components/motion/Reveal";
 import { PRODUCTS } from "@/lib/data";
 import { usePortal } from "@/lib/portal-state";
 import { useState, useEffect, useContext, useRef, useCallback, useMemo } from "react";
-import { Heart, ShoppingBag, Star, Sparkles, ArrowRight, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
+import { Heart, ShoppingBag, Star, Crown, ArrowRight, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { QuickAddContext, useShopNotification } from "./_shop";
@@ -591,7 +591,7 @@ function CategoriesPage() {
     <div className="space-y-8 pb-16 public-layout">
       <header className="px-6 lg:px-16 pt-12 pb-12 border border-white/10 dark:border-white/10 bg-white/5 backdrop-blur-md rounded-3xl mx-4 lg:mx-8 relative overflow-hidden grain shadow-[0_4px_30px_rgba(0,0,0,0.1)]">
         <div className="absolute inset-0 bg-gradient-to-br from-accent/10 via-transparent to-transparent opacity-60 pointer-events-none" />
-        <FadeUp><p className="editorial-eyebrow text-accent flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5 text-accent animate-pulse" /> {pageEyebrow}</p></FadeUp>
+        <FadeUp><p className="editorial-eyebrow text-accent flex items-center gap-1.5"><Crown className="w-3.5 h-3.5 text-accent" /> {pageEyebrow}</p></FadeUp>
         <FadeUp delay={0.1}><h1 className="mt-6 font-serif text-5xl lg:text-7xl text-foreground font-bold tracking-wide uppercase">{pageTitle}</h1></FadeUp>
         <FadeUp delay={0.2}>
           <p className="mt-4 max-w-xl text-muted-foreground text-sm">
@@ -772,7 +772,7 @@ function CategoriesPage() {
             <section className="space-y-4">
               <div className="flex items-center justify-between border-b border-white/10 pb-3">
                 <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-gold animate-pulse" />
+                  <Star className="w-4 h-4 text-gold fill-gold/20" />
                   <h2 className="font-serif text-lg sm:text-2xl font-bold tracking-wide uppercase text-foreground">
                     Newly Added Releases
                   </h2>

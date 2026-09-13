@@ -4,7 +4,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import {
   ShoppingBag, Truck, RefreshCw, Users, Ticket, Star, Store, BarChart3,
-  Sparkles, LayoutGrid, Plus, Edit2, Trash2, Check, X, ShieldAlert,
+  LayoutGrid, Plus, Edit2, Trash2, Check, X, ShieldAlert,
   ArrowUpRight, IndianRupee, Search, Shield, Eye, EyeOff, PlusCircle,
   Settings, History, ListFilter, Tag, BarChart2, Undo, CheckSquare,
   Square, ArrowUpDown, Layers3, Download, Upload, ArrowLeft, ArrowRight,
@@ -2085,6 +2085,26 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                   <X className="w-5 h-5" />
                 </button>
               </div>
+
+              {/* Cancellation Notice Banner in Admin Modal */}
+              {(selectedOrderDetails.status === "Cancelled" || selectedOrderDetails.cancelReason) && (
+                <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 space-y-1.5 animate-in fade-in duration-200">
+                  <div className="flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-rose-400">
+                    <XCircle className="w-4 h-4" />
+                    <span>Order Cancelled / Declined — Inventory Restored in Supabase</span>
+                  </div>
+                  <div className="text-xs">
+                    <span className="text-muted-foreground">Cancellation Reason: </span>
+                    <span className="font-semibold text-white">{selectedOrderDetails.cancelReason || "User Cancellation"}</span>
+                  </div>
+                  {selectedOrderDetails.cancelNote && (
+                    <div className="text-xs">
+                      <span className="text-muted-foreground">Customer Note: </span>
+                      <span className="italic text-zinc-300">"{selectedOrderDetails.cancelNote}"</span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="space-y-4 text-xs leading-relaxed">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -8380,7 +8400,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                     disabled={simulatingEvent}
                     className="px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-accent text-white hover:bg-accent/90 flex items-center gap-1.5 shadow-lg shadow-accent/20 cursor-pointer transition-all"
                   >
-                    <Sparkles className="w-3.5 h-3.5" />
+                    <Activity className="w-3.5 h-3.5" />
                     Simulate Event
                   </button>
                   <div className="absolute right-0 top-full mt-1.5 w-72 bg-surface-2 border border-border-subtle rounded-xl shadow-2xl p-1.5 hidden group-hover:block z-50 animate-in fade-in slide-in-from-top-2 duration-150">

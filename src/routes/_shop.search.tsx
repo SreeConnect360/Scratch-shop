@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { z } from "zod";
 import { useState, useEffect } from "react";
 import { usePortal } from "@/lib/portal-state";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight, Search } from "lucide-react";
 import { FadeUp } from "@/components/motion/Reveal";
 import { ProductCard } from "@/components/public/ProductCard";
 
@@ -123,7 +123,7 @@ function SearchResultsPage() {
       <div className="mb-12 text-center">
         <FadeUp>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-accent/20 bg-accent/5 text-accent text-[10px] uppercase tracking-[0.2em] mb-4">
-            <Sparkles className="w-3.5 h-3.5" />
+            <Search className="w-3.5 h-3.5" />
             <span>Search Curation</span>
           </div>
           <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl tracking-tight text-foreground">

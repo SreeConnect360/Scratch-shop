@@ -3,7 +3,7 @@ import { useMemo, useState, useEffect, useRef, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronLeft, GripVertical, Plus, Trash2, Calendar, Save, Radio,
-  Crown, Sparkles, X, Check, ArrowRight, Image as ImageIcon, ExternalLink, Clock,
+  Crown, X, Check, ArrowRight, Image as ImageIcon, ExternalLink, Clock,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AdminLayout, AdminCard, AdminButton, StatusChip } from "@/components/layout/AdminLayout";
@@ -669,7 +669,7 @@ function StageStudio({
               setShowConfirmPublish(true);
             }}
           >
-            <Sparkles className="w-3.5 h-3.5 inline mr-2" />Publish Stage
+            <Radio className="w-3.5 h-3.5 inline mr-2" />Publish Stage
           </AdminButton>
         </div>
       </div>
@@ -705,7 +705,7 @@ function StageStudio({
           <div className="bg-background dark:bg-zinc-950 border border-border-subtle dark:border-zinc-800 w-full max-w-md rounded-lg shadow-2xl p-6 text-foreground animate-in zoom-in-95 duration-200">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center text-accent shrink-0">
-                <Sparkles className="w-6 h-6" />
+                <Radio className="w-6 h-6" />
               </div>
               <h3 className="font-serif text-xl font-bold tracking-tight">Confirm Publish Stage</h3>
             </div>

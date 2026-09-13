@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useTheme } from "@/hooks/use-theme";
 import { BrandLogo } from "@/components/theme/ThemeToggle";
-import { FileText, Shield, Scale, CreditCard, RefreshCw, AlertCircle, ArrowLeft, Sparkles, CheckCircle2 } from "lucide-react";
+import { FileText, Shield, Scale, CreditCard, RefreshCw, AlertCircle, ArrowLeft, CheckCircle2 } from "lucide-react";
 
 export const Route = createFileRoute("/_shop/terms")({
   head: () => ({ meta: [{ title: "Terms of Service — ReeVibes Curation" }] }),

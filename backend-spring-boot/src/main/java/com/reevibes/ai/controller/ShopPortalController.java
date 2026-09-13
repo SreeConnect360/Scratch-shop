@@ -1404,9 +1404,18 @@ public class ShopPortalController {
 
     @PostMapping("/orders/{id}/cancel")
     @Transactional
-    public ResponseEntity<ShopOrder> cancelOrder(@PathVariable String id) {
+    public ResponseEntity<ShopOrder> cancelOrder(@PathVariable String id, @RequestBody(required = false) Map<String, String> body) {
         ShopOrder order = getOrHydrateOrder(id);
         
+        String reason = body != null ? body.get("reason") : null;
+        String note = body != null ? body.get("note") : null;
+        if (reason != null && !reason.trim().isEmpty()) {
+            order.setCancelReason(reason.trim());
+        }
+        if (note != null && !note.trim().isEmpty()) {
+            order.setCancelNote(note.trim());
+        }
+
         if (order.getShiprocketOrderId() != null && !order.getShiprocketOrderId().isEmpty()) {
             try {
                 shiprocketService.cancelShiprocketOrder(order.getShiprocketOrderId());
@@ -1415,7 +1424,8 @@ public class ShopPortalController {
             }
         }
         
-        recordStatusChange(order, "Cancelled", "Admin", "Shipment/Order cancelled.");
+        String comments = reason != null ? "Order cancelled: " + reason : "Shipment/Order cancelled.";
+        recordStatusChange(order, "Cancelled", "User/Admin", comments);
         ShopOrder saved = orderRepository.save(order);
         syncService.bumpVersion();
         return ResponseEntity.ok(saved);

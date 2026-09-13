@@ -3,7 +3,7 @@ import { useState } from "react";
 import { usePortal } from "@/lib/portal-state";
 import { useTheme } from "@/hooks/use-theme";
 import { BrandLogo } from "@/components/theme/ThemeToggle";
-import { ArrowLeft, Sparkles, Mail, Lock, Eye, EyeOff, X } from "lucide-react";
+import { ArrowLeft, Crown, Mail, Lock, Eye, EyeOff, X } from "lucide-react";
 import { useGoogleLogin } from "@react-oauth/google";
 import { toast } from "sonner";
 import { BACKEND_URL } from "@/lib/config";
@@ -218,7 +218,7 @@ function ShopLoginPage() {
           <div className="text-center space-y-2">
             <BrandLogo className="w-28 h-auto mx-auto" />
             <p className="editorial-eyebrow text-accent mt-2 flex items-center justify-center gap-1">
-              <Sparkles className="w-3.5 h-3.5 animate-pulse" /> Curation Membership
+              <Crown className="w-3.5 h-3.5" /> Curation Membership
             </p>
             <h1 className="font-serif text-3xl md:text-4xl mt-3 font-semibold tracking-tight">Sign In</h1>
           </div>

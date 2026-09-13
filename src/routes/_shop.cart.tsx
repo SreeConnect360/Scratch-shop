@@ -49,6 +49,7 @@ type CartItem = {
   image: string;
   qty: number;
   selectedSize?: string;
+  sizeBreakdown?: Record<string, number>;
 };
 
 export function ShopCart() {
@@ -61,6 +62,7 @@ export function ShopCart() {
     updateAddress,
     updateShopCartQty,
     updateShopCartSizeAndQty,
+    updateShopCartBreakdown,
     restoreToShopCart,
     addWalletCredit
   } = usePortal();
@@ -95,6 +97,8 @@ export function ShopCart() {
     availableSizes: string[];
     stockPerSize: Record<string, number>;
     currentStock: number;
+    isMultiSize: boolean;
+    multiBreakdown: Record<string, number>;
   } | null>(null);
 
   const handleOpenEditModal = (item: CartItem) => {
@@ -111,6 +115,11 @@ export function ShopCart() {
       ? Object.keys(stockPerSize)
       : ["S", "M", "L", "XL"];
 
+    const isMultiSize = Boolean(item.sizeBreakdown && Object.keys(item.sizeBreakdown).length > 0);
+    const multiBreakdown: Record<string, number> = isMultiSize
+      ? { ...(item.sizeBreakdown || {}) }
+      : { [item.selectedSize || "M"]: item.qty };
+
     const currentSize = item.selectedSize || "M";
     const currentStock = stockPerSize[currentSize] ?? 0;
 
@@ -123,6 +132,57 @@ export function ShopCart() {
       availableSizes,
       stockPerSize,
       currentStock,
+      isMultiSize,
+      multiBreakdown,
+    });
+  };
+
+  const handleModalToggleMulti = (isMulti: boolean) => {
+    if (!editItemModal) return;
+    if (isMulti) {
+      const breakdown = editItemModal.multiBreakdown && Object.keys(editItemModal.multiBreakdown).length > 0
+        ? { ...editItemModal.multiBreakdown }
+        : { [editItemModal.selectedSize]: editItemModal.qty };
+      const total = Object.values(breakdown).reduce((s, c) => s + (Number(c) || 0), 0);
+      setEditItemModal({
+        ...editItemModal,
+        isMultiSize: true,
+        multiBreakdown: breakdown,
+        qty: total,
+        errorMsg: total === 0 ? "Select at least 1 unit across sizes." : null,
+      });
+    } else {
+      const firstSz = Object.keys(editItemModal.multiBreakdown)[0] || editItemModal.selectedSize || "M";
+      const q = editItemModal.multiBreakdown[firstSz] || 1;
+      const stock = editItemModal.stockPerSize[firstSz] ?? 0;
+      const validQ = Math.min(q, Math.max(1, stock));
+      setEditItemModal({
+        ...editItemModal,
+        isMultiSize: false,
+        selectedSize: firstSz,
+        qty: validQ,
+        customQtyInput: String(validQ),
+        currentStock: stock,
+        errorMsg: validQ > stock ? `Only ${stock} units are available for size ${firstSz}.` : null,
+      });
+    }
+  };
+
+  const handleModalMultiQtyStep = (sz: string, delta: number) => {
+    if (!editItemModal) return;
+    const current = editItemModal.multiBreakdown[sz] || 0;
+    const maxStock = editItemModal.stockPerSize[sz] ?? 0;
+    const nextVal = Math.max(0, Math.min(maxStock, current + delta));
+    const nextBreakdown = { ...editItemModal.multiBreakdown, [sz]: nextVal };
+    if (nextVal === 0) {
+      delete nextBreakdown[sz];
+    }
+    const newTotal = Object.values(nextBreakdown).reduce((s, c) => s + (Number(c) || 0), 0);
+    setEditItemModal({
+      ...editItemModal,
+      multiBreakdown: nextBreakdown,
+      qty: newTotal,
+      errorMsg: newTotal === 0 ? "Select at least 1 unit across sizes." : null,
     });
   };
 
@@ -181,7 +241,22 @@ export function ShopCart() {
   };
 
   const handleModalSave = () => {
-    if (!editItemModal || editItemModal.errorMsg || editItemModal.qty <= 0) return;
+    if (!editItemModal) return;
+
+    if (editItemModal.isMultiSize) {
+      const totalQty = Object.values(editItemModal.multiBreakdown).reduce((s, c) => s + (Number(c) || 0), 0);
+      if (totalQty <= 0) {
+        toast.error("Please select at least 1 unit across sizes.");
+        return;
+      }
+      const { item, multiBreakdown } = editItemModal;
+      updateShopCartBreakdown(item.productId, item.selectedSize || "M", multiBreakdown, totalQty);
+      setEditItemModal(null);
+      toast.success(`Updated bulk quantities for ${item.name} (${totalQty} pcs total)`);
+      return;
+    }
+
+    if (editItemModal.errorMsg || editItemModal.qty <= 0) return;
     
     const { item, selectedSize, qty } = editItemModal;
     const oldSize = item.selectedSize || "M";
@@ -653,29 +728,72 @@ export function ShopCart() {
         return;
       }
 
-      const sizeStock = catalogProduct.stockPerSize?.[item.selectedSize || "M"] ?? 0;
-      if (sizeStock === 0) {
-        outOfStockItems.push({
-          item,
-          maxAvailable: 0,
-          reason: `Size ${item.selectedSize || "M"} is completely out of stock.`
-        });
-      } else if (sizeStock < item.qty) {
-        outOfStockItems.push({
-          item,
-          maxAvailable: sizeStock,
-          reason: `Requested quantity is ${item.qty}, but only ${sizeStock} pieces are left.`
-        });
-        // Partially available, so we add the available quantity to inStock list
-        inStockItems.push({
-          item,
-          maxAvailable: sizeStock
-        });
+      // Check if multi-size / bulk order item
+      if (item.sizeBreakdown && Object.keys(item.sizeBreakdown).length > 0) {
+        let hasShortage = false;
+        let totalAvail = 0;
+        const notes: string[] = [];
+
+        for (const [sz, reqCount] of Object.entries(item.sizeBreakdown)) {
+          const szStock = catalogProduct.stockPerSize?.[sz] ?? 0;
+          totalAvail += Math.min(reqCount, szStock);
+          if (reqCount > szStock) {
+            hasShortage = true;
+            if (szStock === 0) {
+              notes.push(`Size ${sz} (requested ${reqCount}) is completely OUT OF STOCK`);
+            } else {
+              notes.push(`Size ${sz}: requested ${reqCount}, only ${szStock} available`);
+            }
+          }
+        }
+
+        if (totalAvail === 0) {
+          outOfStockItems.push({
+            item,
+            maxAvailable: 0,
+            reason: `All requested sizes are currently out of stock (${notes.join(", ") || "No units left"}).`
+          });
+        } else if (hasShortage) {
+          outOfStockItems.push({
+            item,
+            maxAvailable: totalAvail,
+            reason: notes.join("; ")
+          });
+          inStockItems.push({
+            item,
+            maxAvailable: totalAvail
+          });
+        } else {
+          inStockItems.push({
+            item,
+            maxAvailable: item.qty
+          });
+        }
       } else {
-        inStockItems.push({
-          item,
-          maxAvailable: sizeStock
-        });
+        // Single size check
+        const sizeStock = catalogProduct.stockPerSize?.[item.selectedSize || "M"] ?? 0;
+        if (sizeStock === 0) {
+          outOfStockItems.push({
+            item,
+            maxAvailable: 0,
+            reason: `Size ${item.selectedSize || "M"} is completely out of stock.`
+          });
+        } else if (sizeStock < item.qty) {
+          outOfStockItems.push({
+            item,
+            maxAvailable: sizeStock,
+            reason: `Requested quantity is ${item.qty}, but only ${sizeStock} pieces are left.`
+          });
+          inStockItems.push({
+            item,
+            maxAvailable: sizeStock
+          });
+        } else {
+          inStockItems.push({
+            item,
+            maxAvailable: sizeStock
+          });
+        }
       }
     });
 
@@ -698,7 +816,23 @@ export function ShopCart() {
 
     // Adjust quantities for partially in-stock items
     stockCheckDialog.inStockItems.forEach(({ item, maxAvailable }) => {
-      if (item.qty > maxAvailable) {
+      const catalogProduct = state.products?.find((p) => p.id === item.productId);
+      if (item.sizeBreakdown && Object.keys(item.sizeBreakdown).length > 0) {
+        const adjustedBreakdown: Record<string, number> = {};
+        for (const [sz, reqCount] of Object.entries(item.sizeBreakdown)) {
+          const szStock = catalogProduct?.stockPerSize?.[sz] ?? 0;
+          const clamped = Math.min(reqCount, szStock);
+          if (clamped > 0) {
+            adjustedBreakdown[sz] = clamped;
+          }
+        }
+        const newTotal = Object.values(adjustedBreakdown).reduce((s, c) => s + c, 0);
+        if (newTotal > 0) {
+          updateShopCartBreakdown(item.productId, item.selectedSize || "", adjustedBreakdown, newTotal);
+        } else {
+          removeFromShopCart(item.productId, item.selectedSize);
+        }
+      } else if (item.qty > maxAvailable) {
         updateShopCartQty(item.productId, item.selectedSize || "M", maxAvailable);
       }
     });
@@ -711,10 +845,29 @@ export function ShopCart() {
     });
 
     const finalCheckoutItems = stockCheckDialog.inStockItems
-      .map(({ item, maxAvailable }) => ({
-        ...item,
-        qty: Math.min(item.qty, maxAvailable)
-      }))
+      .map(({ item, maxAvailable }) => {
+        if (item.sizeBreakdown && Object.keys(item.sizeBreakdown).length > 0) {
+          const catalogProduct = state.products?.find((p) => p.id === item.productId);
+          const adjustedBreakdown: Record<string, number> = {};
+          for (const [sz, reqCount] of Object.entries(item.sizeBreakdown)) {
+            const szStock = catalogProduct?.stockPerSize?.[sz] ?? 0;
+            const clamped = Math.min(reqCount, szStock);
+            if (clamped > 0) {
+              adjustedBreakdown[sz] = clamped;
+            }
+          }
+          const newTotal = Object.values(adjustedBreakdown).reduce((s, c) => s + c, 0);
+          return {
+            ...item,
+            sizeBreakdown: adjustedBreakdown,
+            qty: newTotal
+          };
+        }
+        return {
+          ...item,
+          qty: Math.min(item.qty, maxAvailable)
+        };
+      })
       .filter((item) => item.qty > 0);
 
     if (finalCheckoutItems.length === 0) {
@@ -1079,28 +1232,57 @@ export function ShopCart() {
                         {/* Size, Quantity, Edit Icon & Buy Now Row */}
                         <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
                           {/* Left: Size, Qty & Single Edit Icon */}
-                          <div className="flex items-center gap-2">
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-white/5 border border-white/10 rounded-xl text-xs font-medium text-foreground">
-                              <span className="text-muted-foreground">Size:</span>
-                              <span className="font-bold text-accent uppercase">{item.selectedSize || "M"}</span>
-                            </span>
+                          {item.sizeBreakdown && Object.keys(item.sizeBreakdown).length > 0 ? (
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="px-2 py-0.5 bg-accent/20 border border-accent/40 rounded-lg text-[10px] font-bold text-accent uppercase tracking-wider">
+                                Multi-Size
+                              </span>
+                              {Object.entries(item.sizeBreakdown).map(([sz, count]) => (
+                                <span key={sz} className="inline-flex items-center gap-1 px-2.5 py-1 bg-white/5 border border-white/10 rounded-xl text-xs font-mono">
+                                  <span className="text-muted-foreground">{sz}:</span>
+                                  <span className="font-bold text-accent">{count}</span>
+                                </span>
+                              ))}
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white/5 border border-white/10 rounded-xl text-xs font-medium text-foreground">
+                                <span className="text-muted-foreground">Total:</span>
+                                <span className="font-bold text-accent">{item.qty} pcs</span>
+                              </span>
 
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-white/5 border border-white/10 rounded-xl text-xs font-medium text-foreground">
-                              <span className="text-muted-foreground">Qty:</span>
-                              <span className="font-bold text-accent">{item.qty}</span>
-                            </span>
+                              {/* Single Edit Icon */}
+                              <button
+                                type="button"
+                                aria-label="Edit multi-size quantities"
+                                title="Edit Size & Quantity"
+                                onClick={() => handleOpenEditModal(item)}
+                                className="p-2 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-accent/40 text-accent rounded-xl transition-all cursor-pointer hover:scale-105 active:scale-95 flex items-center justify-center shadow-sm"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-white/5 border border-white/10 rounded-xl text-xs font-medium text-foreground">
+                                <span className="text-muted-foreground">Size:</span>
+                                <span className="font-bold text-accent uppercase">{item.selectedSize || "M"}</span>
+                              </span>
 
-                            {/* Single Edit Icon to right of Quantity */}
-                            <button
-                              type="button"
-                              aria-label="Edit size and quantity"
-                              title="Edit Size & Quantity"
-                              onClick={() => handleOpenEditModal(item)}
-                              className="p-2 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-accent/40 text-accent rounded-xl transition-all cursor-pointer hover:scale-105 active:scale-95 flex items-center justify-center shadow-sm"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-white/5 border border-white/10 rounded-xl text-xs font-medium text-foreground">
+                                <span className="text-muted-foreground">Qty:</span>
+                                <span className="font-bold text-accent">{item.qty}</span>
+                              </span>
+
+                              {/* Single Edit Icon to right of Quantity */}
+                              <button
+                                type="button"
+                                aria-label="Edit size and quantity"
+                                title="Edit Size & Quantity"
+                                onClick={() => handleOpenEditModal(item)}
+                                className="p-2 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-accent/40 text-accent rounded-xl transition-all cursor-pointer hover:scale-105 active:scale-95 flex items-center justify-center shadow-sm"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )}
 
                           {/* Far Right: Buy Now Button */}
                           <button
@@ -1794,94 +1976,199 @@ export function ShopCart() {
               </button>
             </div>
 
-            {/* Size Selection Section */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold uppercase tracking-wider text-accent">Select Size</label>
-                <span className="text-[11px] text-muted-foreground">
-                  Available Stock: <span className="font-bold text-accent font-mono">{editItemModal.currentStock} units</span>
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
-                {editItemModal.availableSizes.map((sz) => {
-                  const stock = editItemModal.stockPerSize[sz] ?? 0;
-                  const isSelected = editItemModal.selectedSize === sz;
-                  return (
-                    <button
-                      key={sz}
-                      type="button"
-                      onClick={() => handleModalSelectSize(sz)}
-                      className={`flex items-center justify-between p-3 rounded-2xl border text-xs font-semibold transition-all cursor-pointer ${
-                        isSelected
-                          ? "bg-accent/15 border-accent text-accent shadow-[0_0_12px_rgba(212,175,55,0.25)]"
-                          : stock > 0
-                          ? "bg-white/5 border-white/10 hover:border-white/25 text-foreground"
-                          : "bg-white/[0.02] border-white/5 text-muted-foreground/40 cursor-not-allowed"
-                      }`}
-                    >
-                      <span className="font-bold text-sm uppercase">{sz}</span>
-                      <span className="font-mono text-[11px] opacity-85">
-                        {stock > 0 ? `${stock}` : "Out of stock"}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+            {/* Mode Switcher Toggle */}
+            <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10">
+              <button
+                type="button"
+                onClick={() => handleModalToggleMulti(false)}
+                className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-xl transition-all cursor-pointer ${
+                  !editItemModal.isMultiSize
+                    ? "bg-accent text-obsidian shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Single Size
+              </button>
+              <button
+                type="button"
+                onClick={() => handleModalToggleMulti(true)}
+                className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-xl transition-all cursor-pointer ${
+                  editItemModal.isMultiSize
+                    ? "bg-accent text-obsidian shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Multi-Size / Bulk
+              </button>
             </div>
 
-            {/* Quantity Selection Section */}
-            <div className="space-y-3 pt-3 border-t border-white/10">
-              <label className="text-xs font-bold uppercase tracking-wider text-accent">Select Quantity</label>
-
-              <div className="flex items-center gap-3">
-                {/* Dropdown (1-10) */}
-                <div className="flex-1">
-                  <label className="text-[10px] text-muted-foreground block mb-1 font-semibold uppercase tracking-wider">Quick Selection</label>
-                  <select
-                    value={editItemModal.qty <= 10 ? editItemModal.qty : ""}
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        handleModalUpdateQty(parseInt(e.target.value, 10));
-                      }
-                    }}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs font-semibold text-foreground outline-none focus:border-accent"
-                  >
-                    {[...Array(10)].map((_, i) => (
-                      <option key={i + 1} value={i + 1} className="bg-zinc-950 text-white">
-                        {i + 1}
-                      </option>
-                    ))}
-                    {editItemModal.qty > 10 && (
-                      <option value={editItemModal.qty} className="bg-zinc-950 text-white">
-                        {editItemModal.qty} (Custom)
-                      </option>
-                    )}
-                  </select>
+            {/* MULTI-SIZE MODE */}
+            {editItemModal.isMultiSize ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold uppercase tracking-wider text-accent">Sizes & Quantities Breakdown</label>
+                  <span className="text-[11px] text-muted-foreground font-mono">
+                    Total: <strong className="text-accent">{editItemModal.qty} pcs</strong>
+                  </span>
                 </div>
 
-                {/* Custom Input */}
-                <div className="w-32">
-                  <label className="text-[10px] text-muted-foreground block mb-1 font-semibold uppercase tracking-wider">Custom Qty</label>
-                  <input
-                    type="number"
-                    min="1"
-                    max={editItemModal.currentStock}
-                    value={editItemModal.customQtyInput}
-                    onChange={(e) => handleModalCustomQtyInput(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-foreground outline-none focus:border-accent font-mono font-bold"
-                  />
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                  {editItemModal.availableSizes.map((sz) => {
+                    const maxStock = editItemModal.stockPerSize[sz] ?? 0;
+                    const count = editItemModal.multiBreakdown[sz] || 0;
+                    const isAvailable = maxStock > 0;
+
+                    return (
+                      <div
+                        key={sz}
+                        className={`flex items-center justify-between p-3 rounded-2xl border transition-all ${
+                          count > 0
+                            ? "bg-accent/10 border-accent/40"
+                            : isAvailable
+                            ? "bg-white/5 border-white/10"
+                            : "bg-white/[0.02] border-white/5 opacity-40"
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-sm uppercase text-foreground">{sz}</span>
+                            {count > 0 && (
+                              <span className="text-[10px] font-bold text-accent bg-accent/15 px-2 py-0.5 rounded-full font-mono">
+                                {count} selected
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-muted-foreground font-mono mt-0.5">
+                            {isAvailable ? `${maxStock} in stock` : "Out of stock"}
+                          </p>
+                        </div>
+
+                        {/* Quantity Stepper */}
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            disabled={count <= 0}
+                            onClick={() => handleModalMultiQtyStep(sz, -1)}
+                            className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/15 border border-white/10 flex items-center justify-center text-foreground font-bold disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all hover:scale-105 active:scale-95"
+                          >
+                            -
+                          </button>
+                          <span className="w-8 text-center font-mono font-bold text-sm text-foreground">
+                            {count}
+                          </span>
+                          <button
+                            type="button"
+                            disabled={!isAvailable || count >= maxStock}
+                            onClick={() => handleModalMultiQtyStep(sz, 1)}
+                            className="w-8 h-8 rounded-xl bg-accent text-obsidian flex items-center justify-center font-bold disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all hover:scale-105 active:scale-95 shadow-sm"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Multi Summary Pill */}
+                <div className="p-3 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Order Pieces:</span>
+                  <span className="font-bold text-foreground font-mono">{editItemModal.qty} pieces total</span>
                 </div>
               </div>
+            ) : (
+              /* SINGLE SIZE MODE */
+              <div className="space-y-4">
+                {/* Size Selection Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold uppercase tracking-wider text-accent">Select Size</label>
+                    <span className="text-[11px] text-muted-foreground">
+                      Available Stock: <span className="font-bold text-accent font-mono">{editItemModal.currentStock} units</span>
+                    </span>
+                  </div>
 
-              {/* Stock Validation Alert */}
-              {editItemModal.errorMsg && (
-                <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-xs font-medium flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{editItemModal.errorMsg}</span>
+                  <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+                    {editItemModal.availableSizes.map((sz) => {
+                      const stock = editItemModal.stockPerSize[sz] ?? 0;
+                      const isSelected = editItemModal.selectedSize === sz;
+                      return (
+                        <button
+                          key={sz}
+                          type="button"
+                          onClick={() => handleModalSelectSize(sz)}
+                          className={`flex items-center justify-between p-3 rounded-2xl border text-xs font-semibold transition-all cursor-pointer ${
+                            isSelected
+                              ? "bg-accent/15 border-accent text-accent shadow-[0_0_12px_rgba(212,175,55,0.25)]"
+                              : stock > 0
+                              ? "bg-white/5 border-white/10 hover:border-white/25 text-foreground"
+                              : "bg-white/[0.02] border-white/5 text-muted-foreground/40 cursor-not-allowed"
+                          }`}
+                        >
+                          <span className="font-bold text-sm uppercase">{sz}</span>
+                          <span className="font-mono text-[11px] opacity-85">
+                            {stock > 0 ? `${stock}` : "Out of stock"}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              )}
-            </div>
+
+                {/* Quantity Selection Section */}
+                <div className="space-y-3 pt-3 border-t border-white/10">
+                  <label className="text-xs font-bold uppercase tracking-wider text-accent">Select Quantity</label>
+
+                  <div className="flex items-center gap-3">
+                    {/* Dropdown (1-10) */}
+                    <div className="flex-1">
+                      <label className="text-[10px] text-muted-foreground block mb-1 font-semibold uppercase tracking-wider">Quick Selection</label>
+                      <select
+                        value={editItemModal.qty <= 10 ? editItemModal.qty : ""}
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            handleModalUpdateQty(parseInt(e.target.value, 10));
+                          }
+                        }}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs font-semibold text-foreground outline-none focus:border-accent"
+                      >
+                        {[...Array(10)].map((_, i) => (
+                          <option key={i + 1} value={i + 1} className="bg-zinc-950 text-white">
+                            {i + 1}
+                          </option>
+                        ))}
+                        {editItemModal.qty > 10 && (
+                          <option value={editItemModal.qty} className="bg-zinc-950 text-white">
+                            {editItemModal.qty} (Custom)
+                          </option>
+                        )}
+                      </select>
+                    </div>
+
+                    {/* Custom Input */}
+                    <div className="w-32">
+                      <label className="text-[10px] text-muted-foreground block mb-1 font-semibold uppercase tracking-wider">Custom Qty</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max={editItemModal.currentStock}
+                        value={editItemModal.customQtyInput}
+                        onChange={(e) => handleModalCustomQtyInput(e.target.value)}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-foreground outline-none focus:border-accent font-mono font-bold"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Stock Validation Alert */}
+            {editItemModal.errorMsg && (
+              <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-xs font-medium flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{editItemModal.errorMsg}</span>
+              </div>
+            )}
 
             {/* Footer Modal Actions */}
             <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10">

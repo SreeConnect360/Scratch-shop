@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState, useRef, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Plus, Search, Filter, MapPin, Users as UsersIcon,
-  ChevronRight, Sparkles, AlertTriangle, RotateCcw, Trash2,
+  ChevronRight, Edit2, AlertTriangle, RotateCcw, Trash2,
   Star, Image as ImageIcon, X, Globe, Clock,
 } from "lucide-react";
 import { AdminLayout, AdminCard, AdminButton, StatusChip } from "@/components/layout/AdminLayout";
@@ -418,7 +418,7 @@ function ContestRow({ contest, onEdit, onDelete, onRestore, onStageTransition }:
 
       <div className="col-span-12 md:col-span-1 flex md:justify-end items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         <button onClick={onEdit} className="p-1.5 hover:text-accent text-foreground/60" title="Edit">
-          <Sparkles className="w-3.5 h-3.5" />
+          <Edit2 className="w-3.5 h-3.5" />
         </button>
         {contest.deleted ? (
           <button onClick={onRestore} className="p-1.5 hover:text-accent text-foreground/60" title="Restore">

@@ -2,9 +2,9 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { useState, useEffect, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  LayoutGrid, Crown, Radio, Lock, Sparkles, Camera, Users, UserCheck,
+  LayoutGrid, Crown, Radio, Lock, Camera, Users, UserCheck,
   Flag, BarChart3, Menu, X, Search, Bell, ChevronDown, ShoppingBag, Truck,
-  RefreshCw, Ticket, Star, Store, Layers, CreditCard
+  RefreshCw, Ticket, Star, Store, Layers, CreditCard, Award, Trophy, Palette
 } from "lucide-react";
 import { BrandLogo, ThemeToggle } from "@/components/theme/ThemeToggle";
 import { usePortal } from "@/lib/portal-state";
@@ -12,11 +12,11 @@ import { ShopAdminPortal } from "./ShopAdminPortal";
 
 const CONTEST_NAV = [
   { to: "/admin", label: "Overview", icon: LayoutGrid, exact: true },
-  { to: "/admin/open-contest", label: "Open Contest", icon: Sparkles },
+  { to: "/admin/open-contest", label: "Open Contest", icon: Trophy },
   { to: "/admin/top-16", label: "Top 16", icon: Crown },
   { to: "/admin/live-contest", label: "Live Contest", icon: Radio },
   { to: "/admin/vote-control", label: "Vote & Rate", icon: Lock },
-  { to: "/admin/sponsors", label: "Sponsors", icon: Sparkles },
+  { to: "/admin/sponsors", label: "Sponsors", icon: Award },
   { to: "/admin/photographers", label: "Photographers", icon: Camera },
   { to: "/admin/users", label: "Users", icon: Users },
   { to: "/admin/contestants", label: "Contestants", icon: UserCheck },
@@ -26,7 +26,7 @@ const CONTEST_NAV = [
 
 const SHOP_NAV = [
   { to: "/admin", search: { tab: "overview" }, label: "Overview", icon: LayoutGrid },
-  { to: "/admin", search: { tab: "homepage" }, label: "Homepage Layout", icon: Sparkles },
+  { to: "/admin", search: { tab: "homepage" }, label: "Homepage Layout", icon: Palette },
   { to: "/admin", search: { tab: "buckets" }, label: "Buckets Curation", icon: Layers },
   { to: "/admin", search: { tab: "products" }, label: "Products Catalog", icon: ShoppingBag },
   { to: "/admin", search: { tab: "orders" }, label: "Orders Tracker", icon: Truck },

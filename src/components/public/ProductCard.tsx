@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useContext, useMemo, memo, useEffect } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Heart, ShoppingBag, ChevronLeft, ChevronRight, Star, Ticket, Sparkles } from "lucide-react";
+import { Heart, ShoppingBag, ChevronLeft, ChevronRight, Star, Ticket } from "lucide-react";
 import { motion } from "framer-motion";
 import { usePortal } from "@/lib/portal-state";
 import { getEligibleCouponsForProduct } from "@/lib/supabase-coupons";

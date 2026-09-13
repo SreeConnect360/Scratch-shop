@@ -17,6 +17,28 @@ export interface StockOrderItem {
   productId: string;
   selectedSize?: string;
   qty: number;
+  sizeBreakdown?: Record<string, number>;
+}
+
+function normalizeStockOrderItems(items: StockOrderItem[]): Array<{ productId: string; size: string; qty: number }> {
+  const normalized: Array<{ productId: string; size: string; qty: number }> = [];
+  for (const item of items) {
+    if (item.sizeBreakdown && typeof item.sizeBreakdown === "object" && Object.keys(item.sizeBreakdown).length > 0) {
+      for (const [size, q] of Object.entries(item.sizeBreakdown)) {
+        const count = Number(q) || 0;
+        if (count > 0) {
+          normalized.push({ productId: String(item.productId), size: String(size).trim(), qty: count });
+        }
+      }
+    } else {
+      normalized.push({
+        productId: String(item.productId),
+        size: (item.selectedSize || "M").trim(),
+        qty: Number(item.qty) || 1,
+      });
+    }
+  }
+  return normalized;
 }
 
 /**
@@ -29,9 +51,10 @@ export async function deductProductStockInSupabase(items: StockOrderItem[]): Pro
   if (!items || items.length === 0) return true;
 
   try {
-    for (const item of items) {
+    const flatItems = normalizeStockOrderItems(items);
+    for (const item of flatItems) {
       const prodId = String(item.productId);
-      const size = (item.selectedSize || "M").trim();
+      const size = (item.size || "M").trim();
       const qty = Number(item.qty) || 1;
 
       // 1. Fetch current product from admin_product_catalog
@@ -143,9 +166,10 @@ export async function restoreProductStockInSupabase(items: StockOrderItem[]): Pr
   if (!items || items.length === 0) return true;
 
   try {
-    for (const item of items) {
+    const flatItems = normalizeStockOrderItems(items);
+    for (const item of flatItems) {
       const prodId = String(item.productId);
-      const size = (item.selectedSize || "M").trim();
+      const size = (item.size || "M").trim();
       const qty = Number(item.qty) || 1;
 
       // 1. Fetch current product from admin_product_catalog

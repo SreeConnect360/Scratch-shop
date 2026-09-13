@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { usePortal, useCartTotal } from "@/lib/portal-state";
-import { Send, X, ShoppingBag, Heart, Check, Trash2, MapPin, Wallet, ArrowRight, ShieldAlert, Award, Sparkles, Star, Tag } from "lucide-react";
+import { Send, X, ShoppingBag, Heart, Check, Trash2, MapPin, Wallet, ArrowRight, ShieldAlert, Award, Star, Tag } from "lucide-react";
 import { queryGeminiAssistant, type AssistantResponse } from "./AssistantService";
 import { toast } from "sonner";
 import { useNavigate } from "@tanstack/react-router";
@@ -539,7 +539,7 @@ export default function AssistantWindow({ isOpen, onClose }: { isOpen: boolean; 
                 {/* 3. Checkout Confirmation Card */}
                 {msg.cardData.cardType === "checkout_confirm" && (
                   <div className="space-y-3">
-                    <div className="text-xs font-bold border-b border-accent/20 pb-2 flex items-center gap-1"><Sparkles className="w-3.5 h-3.5 text-accent" /> Complete Couture Purchase</div>
+                    <div className="text-xs font-bold border-b border-accent/20 pb-2 flex items-center gap-1"><ShoppingBag className="w-3.5 h-3.5 text-accent" /> Complete Couture Purchase</div>
                     <div className="text-[11px] space-y-1.5">
                       <div className="max-h-24 overflow-y-auto space-y-1 border-b border-border-subtle pb-2">
                         {msg.cardData.cart.map((item: any, idx: number) => (
@@ -575,7 +575,7 @@ export default function AssistantWindow({ isOpen, onClose }: { isOpen: boolean; 
                 {msg.cardData.cardType === "outfit_curation" && (
                   <div className="space-y-3">
                     <div className="text-xs font-bold flex items-center gap-1.5 text-accent border-b border-accent/20 pb-2">
-                      <Sparkles className="w-4 h-4" /> Custom Curation: {msg.cardData.occasion}
+                      <Tag className="w-4 h-4 text-accent" /> Custom Curation: {msg.cardData.occasion}
                     </div>
                     <div className="grid gap-2">
                       {msg.cardData.items.map((prod: any) => (
