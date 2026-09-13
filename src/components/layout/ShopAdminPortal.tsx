@@ -8,12 +8,20 @@ import {
   ArrowUpRight, IndianRupee, Search, Shield, Eye, EyeOff, PlusCircle,
   Settings, History, ListFilter, Tag, BarChart2, Undo, CheckSquare,
   Square, ArrowUpDown, Layers3, Download, Upload, ArrowLeft, ArrowRight,
-  FileSpreadsheet, FileText, ShieldCheck, Banknote, CreditCard, Wallet, User, XCircle
+  FileSpreadsheet, FileText, ShieldCheck, Banknote, CreditCard, Wallet, User, XCircle,
+  Activity, AlertTriangle, CheckCircle2, Copy, ExternalLink, Terminal
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { AdminCard, AdminButton, StatusChip } from "./AdminCommon";
 import { PRODUCTS } from "@/lib/data";
 import { sortCustomerAccountsById } from "@/lib/supabase-customers";
+import {
+  fetchRazorpayWebhookEvents,
+  insertRazorpayWebhookEvent,
+  type RazorpayWebhookEvent,
+  getEventCategory,
+  type EventCategory,
+} from "@/lib/supabase-razorpay-webhooks";
 import { toast } from "sonner";
 const formatOrderDateTime = (dateStr: string) => {
   const dateObj = new Date(dateStr);
@@ -34,6 +42,94 @@ const formatOrderDateTime = (dateStr: string) => {
 export function ShopAdminPortal({ tab }: { tab: string }) {
   const [statusFilter, setStatusFilter] = useState<string>("All");
   const { state, fetchBackendState, createProduct, updateProduct, deleteProduct, updateOrderStatus, acceptOrder, declineOrder, fetchCourierQuotes, assignAWB, schedulePickup, cancelOrder, fetchOrderLabel, fetchOrderInvoice, fetchOrderManifest, syncShiprocketTracking, assignReturnPickup, processSplitRefund, approveReturn, rejectReturn, updateReturnDetails, suspendCustomer, reactivateCustomer, addCoupon, updateCoupon, removeCoupon, toggleCouponActive, moderateReview, deleteReview, addWalletCredit, updateHomepageLayoutDraft, publishHomepageLayout, revertHomepageLayout, createBucket, updateBucket, deleteBucket, reorderBuckets, toggleShopWishlist, addWalletGiftCard, updateWalletGiftCard, toggleWalletGiftCardStatus, deleteWalletGiftCard } = usePortal();
+
+  // Payment Gateway & Webhooks Monitor State
+  const [rzpEvents, setRzpEvents] = useState<RazorpayWebhookEvent[]>([]);
+  const [loadingRzpEvents, setLoadingRzpEvents] = useState<boolean>(false);
+  const [rzpCategoryFilter, setRzpCategoryFilter] = useState<EventCategory>("ALL");
+  const [rzpSearchQuery, setRzpSearchQuery] = useState<string>("");
+  const [selectedRzpEvent, setSelectedRzpEvent] = useState<RazorpayWebhookEvent | null>(null);
+  const [simulatingEvent, setSimulatingEvent] = useState<boolean>(false);
+
+  const loadGatewayEvents = async () => {
+    setLoadingRzpEvents(true);
+    try {
+      const events = await fetchRazorpayWebhookEvents();
+      setRzpEvents(events);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingRzpEvents(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tab === "gateways" || tab === "returns") {
+      loadGatewayEvents();
+    }
+  }, [tab]);
+
+  const filteredRzpEvents = useMemo(() => {
+    return rzpEvents.filter(evt => {
+      if (rzpCategoryFilter !== "ALL" && getEventCategory(evt.event_type) !== rzpCategoryFilter) {
+        return false;
+      }
+      if (rzpSearchQuery.trim()) {
+        const q = rzpSearchQuery.toLowerCase().trim();
+        const matchesType = evt.event_type.toLowerCase().includes(q);
+        const matchesEntity = (evt.entity_id || "").toLowerCase().includes(q);
+        const matchesEmail = (evt.customer_email || "").toLowerCase().includes(q);
+        const matchesStatus = (evt.status || "").toLowerCase().includes(q);
+        const matchesDesc = (evt.error_description || "").toLowerCase().includes(q);
+        return matchesType || matchesEntity || matchesEmail || matchesStatus || matchesDesc;
+      }
+      return true;
+    });
+  }, [rzpEvents, rzpCategoryFilter, rzpSearchQuery]);
+
+  const capturedPaymentsTotal = useMemo(() => {
+    return rzpEvents
+      .filter(e => e.event_type === "payment.captured" || e.event_type === "order.paid")
+      .reduce((sum, e) => sum + (e.amount || 0), 0);
+  }, [rzpEvents]);
+
+  const capturedPaymentsCount = useMemo(() => {
+    return rzpEvents.filter(e => e.event_type === "payment.captured" || e.event_type === "order.paid").length;
+  }, [rzpEvents]);
+
+  const processedRefundsTotal = useMemo(() => {
+    return rzpEvents
+      .filter(e => e.event_type.startsWith("refund."))
+      .reduce((sum, e) => sum + (e.amount || 0), 0);
+  }, [rzpEvents]);
+
+  const processedRefundsCount = useMemo(() => {
+    return rzpEvents.filter(e => e.event_type.startsWith("refund.")).length;
+  }, [rzpEvents]);
+
+  const activeDisputesTotal = useMemo(() => {
+    return rzpEvents
+      .filter(e => e.event_type.includes("dispute"))
+      .reduce((sum, e) => sum + (e.amount || 0), 0);
+  }, [rzpEvents]);
+
+  const activeDisputesCount = useMemo(() => {
+    return rzpEvents.filter(e => e.event_type.includes("dispute")).length;
+  }, [rzpEvents]);
+
+  const settlementsTotal = useMemo(() => {
+    return rzpEvents
+      .filter(e => e.event_type.startsWith("settlement."))
+      .reduce((sum, e) => sum + (e.amount || 0), 0);
+  }, [rzpEvents]);
+
+  const settlementsCount = useMemo(() => {
+    return rzpEvents.filter(e => e.event_type.startsWith("settlement.")).length;
+  }, [rzpEvents]);
+
+  const activeDowntimes = useMemo(() => {
+    return rzpEvents.filter(e => e.event_type === "payment.downtime.started");
+  }, [rzpEvents]);
 
   // Dynamic products list from state
   const productsList = state.products || [];
@@ -3276,6 +3372,98 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
           </div>
         );
       })()}
+
+      {/* RAZORPAY EVENT INSPECT MODAL */}
+      {selectedRzpEvent && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-surface border border-border-subtle rounded-3xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+            <div className="p-6 border-b border-border-subtle flex justify-between items-center bg-surface-2">
+              <div className="flex items-center gap-3">
+                <CreditCard className="w-5 h-5 text-accent" />
+                <div>
+                  <h3 className="font-serif text-lg text-foreground font-bold">
+                    Razorpay Webhook Event Dossier
+                  </h3>
+                  <div className="text-xs font-mono text-muted-foreground flex items-center gap-2 mt-0.5">
+                    <span className="text-emerald-400 font-bold">{selectedRzpEvent.event_type}</span>
+                    &bull;
+                    <span>{selectedRzpEvent.entity_id || selectedRzpEvent.id}</span>
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedRzpEvent(null)}
+                className="text-muted-foreground hover:text-white p-1 rounded-lg hover:bg-white/10"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-4 text-xs font-sans">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-black/30 p-3.5 rounded-xl border border-white/5">
+                <div>
+                  <div className="text-[10px] uppercase font-mono text-muted-foreground">Amount</div>
+                  <div className="font-mono text-sm font-bold text-accent mt-0.5">
+                    {selectedRzpEvent.amount ? `₹${selectedRzpEvent.amount.toLocaleString()}` : "N/A"}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase font-mono text-muted-foreground">Status</div>
+                  <div className="font-mono text-xs font-bold text-foreground mt-0.5 uppercase">
+                    {selectedRzpEvent.status || "RECEIVED"}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase font-mono text-muted-foreground">Signature</div>
+                  <div className="font-mono text-xs font-bold text-emerald-400 mt-0.5">
+                    {selectedRzpEvent.signature_valid ? "HMAC Valid" : "Unverified"}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase font-mono text-muted-foreground">Timestamp</div>
+                  <div className="font-mono text-xs text-muted-foreground mt-0.5">
+                    {formatOrderDateTime(selectedRzpEvent.created_at)}
+                  </div>
+                </div>
+              </div>
+
+              {selectedRzpEvent.error_description && (
+                <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-300">
+                  <span className="font-bold uppercase text-[10px] block mb-1">Error / Failure Notification</span>
+                  {selectedRzpEvent.error_code && <span className="font-mono font-bold mr-2">[{selectedRzpEvent.error_code}]</span>}
+                  {selectedRzpEvent.error_description}
+                </div>
+              )}
+
+              <div>
+                <div className="flex justify-between items-center mb-1.5">
+                  <span className="text-[10px] uppercase font-mono tracking-wider text-muted-foreground font-bold flex items-center gap-1.5">
+                    <Terminal className="w-3.5 h-3.5 text-accent" /> Raw JSON Payload
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(JSON.stringify(selectedRzpEvent.payload_json || selectedRzpEvent, null, 2));
+                      toast.success("JSON copied to clipboard!");
+                    }}
+                    className="text-accent hover:text-white text-[11px] flex items-center gap-1"
+                  >
+                    <Copy className="w-3 h-3" /> Copy JSON
+                  </button>
+                </div>
+                <pre className="bg-black/60 p-4 rounded-xl border border-white/10 font-mono text-[11px] text-foreground/90 overflow-x-auto max-h-64 leading-relaxed">
+                  {JSON.stringify(selectedRzpEvent.payload_json || selectedRzpEvent, null, 2)}
+                </pre>
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-border-subtle bg-surface-2 flex justify-end gap-2">
+              <AdminButton variant="outline" onClick={() => setSelectedRzpEvent(null)}>Close Dossier</AdminButton>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 1. OVERVIEW & ANALYTICS */}
       {tab === "overview" && (
@@ -7314,6 +7502,360 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
             </table>
           </div>
         </AdminCard>
+      )}
+
+      {/* 5.5 PAYMENT GATEWAY & WEBHOOK MONITOR */}
+      {tab === "gateways" && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          {/* Top Operational Status Header */}
+          <AdminCard className="p-6 bg-gradient-to-r from-surface-2 via-surface to-surface-2 border border-border-subtle relative overflow-hidden">
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <span className="relative flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                  </span>
+                  <span className="editorial-label text-emerald-400 font-mono tracking-widest text-[11px] uppercase font-bold">
+                    Live Webhook Gateway &bull; Active & Listening
+                  </span>
+                </div>
+                <h2 className="font-serif text-2xl lg:text-3xl mt-1.5 flex items-center gap-2">
+                  Payment Gateway & Webhook Operations
+                </h2>
+                <p className="text-xs text-muted-foreground mt-1 max-w-2xl">
+                  Real-time event stream capturing payments, instant refunds, chargeback disputes, bank network downtimes, and automated settlements across all Razorpay action events.
+                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-mono">
+                  <span className="bg-white/5 border border-white/10 px-2.5 py-1 rounded text-foreground/80 flex items-center gap-1.5">
+                    <span className="text-muted-foreground">Endpoint:</span>
+                    <code className="text-accent font-semibold">https://scratch-render-sj9n.onrender.com/api/webhooks/razorpay</code>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText("https://scratch-render-sj9n.onrender.com/api/webhooks/razorpay");
+                      toast.success("Webhook URL copied to clipboard!");
+                    }}
+                    className="bg-accent/15 hover:bg-accent text-accent hover:text-white px-2.5 py-1 rounded border border-accent/30 text-[11px] font-sans font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                  >
+                    <Copy className="w-3 h-3" /> Copy URL
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2.5 self-stretch lg:self-center justify-start lg:justify-end">
+                <button
+                  type="button"
+                  onClick={loadGatewayEvents}
+                  disabled={loadingRzpEvents}
+                  className="px-3 py-2 rounded-xl text-xs font-semibold border border-white/10 hover:bg-white/5 flex items-center gap-1.5 text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+                >
+                  <RefreshCw className={cn("w-3.5 h-3.5", loadingRzpEvents && "animate-spin")} />
+                  Refresh Feed
+                </button>
+
+                {/* Simulate Event Dropdown */}
+                <div className="relative group">
+                  <button
+                    type="button"
+                    disabled={simulatingEvent}
+                    className="px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-accent text-white hover:bg-accent/90 flex items-center gap-1.5 shadow-lg shadow-accent/20 cursor-pointer transition-all"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Simulate Event
+                  </button>
+                  <div className="absolute right-0 top-full mt-1.5 w-72 bg-surface-2 border border-border-subtle rounded-xl shadow-2xl p-1.5 hidden group-hover:block z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                    <div className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground px-2.5 py-1">
+                      Trigger Simulated Event
+                    </div>
+                    {[
+                      { label: "Payment Captured (₹4,499)", event: "payment.captured", amount: 4499 },
+                      { label: "Payment Failed (OTP Expired)", event: "payment.failed", amount: 2499, error: "OTP_TIMEOUT" },
+                      { label: "Payment Dispute Action Required", event: "payment.dispute.action_required", amount: 5999 },
+                      { label: "Bank Network Downtime Alert", event: "payment.downtime.started", amount: 0 },
+                      { label: "Bank Network Downtime Resolved", event: "payment.downtime.resolved", amount: 0 },
+                      { label: "Refund Processed (Instant ₹1,899)", event: "refund.processed", amount: 1899 },
+                      { label: "Refund Speed Changed (Normal ➔ Instant)", event: "refund.speed_changed", amount: 1299 },
+                      { label: "Merchant Settlement (₹42,850)", event: "settlement.processed", amount: 42850 },
+                      { label: "Order Paid & Confirmed", event: "order.paid", amount: 3199 },
+                    ].map(sim => (
+                      <button
+                        key={sim.event + sim.label}
+                        type="button"
+                        onClick={async () => {
+                          setSimulatingEvent(true);
+                          toast.info(`Simulating ${sim.event}...`);
+                          await insertRazorpayWebhookEvent({
+                            event_type: sim.event,
+                            amount: sim.amount,
+                            status: sim.event.includes("failed") ? "failed" : sim.event.includes("dispute") ? "action_required" : "processed",
+                            error_description: sim.error ? "Simulated issuing bank OTP timeout" : undefined,
+                            payload_json: { simulated: true, event: sim.event, amount: sim.amount * 100 }
+                          });
+                          await loadGatewayEvents();
+                          setSimulatingEvent(false);
+                          toast.success(`Event ${sim.event} received and recorded!`);
+                        }}
+                        className="w-full text-left px-2.5 py-1.5 text-xs text-foreground/80 hover:text-foreground hover:bg-white/5 rounded-lg flex items-center justify-between cursor-pointer"
+                      >
+                        <span className="truncate">{sim.label}</span>
+                        <ArrowUpRight className="w-3 h-3 text-muted-foreground shrink-0" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </AdminCard>
+
+          {/* Active Downtime Notification Banner (if any bank downtime is open) */}
+          {activeDowntimes.length > 0 && (
+            <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 flex items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 animate-bounce" />
+                <div>
+                  <div className="text-sm font-bold text-amber-300">Bank Gateway Downtime Notification Active</div>
+                  <div className="text-xs text-amber-200/80">
+                    Razorpay network has reported temporary downtime on partner banking switches (e.g. Netbanking / UPI). Success rates may fluctuate.
+                  </div>
+                </div>
+              </div>
+              <span className="text-[10px] uppercase font-bold tracking-widest bg-amber-500/20 text-amber-300 px-2.5 py-1 rounded border border-amber-500/30 shrink-0">
+                Active Alert
+              </span>
+            </div>
+          )}
+
+          {/* 5 KPI Stat Metric Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+            <AdminCard className="p-4">
+              <div className="editorial-label text-muted-foreground flex items-center justify-between">
+                <span>Webhook Events</span>
+                <Activity className="w-3.5 h-3.5 text-accent" />
+              </div>
+              <div className="font-serif text-3xl mt-2">{rzpEvents.length}</div>
+              <div className="text-[11px] text-emerald-400 mt-1 flex items-center gap-1 font-mono">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Live Stream Active
+              </div>
+            </AdminCard>
+
+            <AdminCard className="p-4">
+              <div className="editorial-label text-muted-foreground flex items-center justify-between">
+                <span>Captured Payments</span>
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+              </div>
+              <div className="font-serif text-3xl mt-2">
+                ₹{capturedPaymentsTotal.toLocaleString()}
+              </div>
+              <div className="text-[11px] text-muted-foreground mt-1">
+                {capturedPaymentsCount} transactions settled
+              </div>
+            </AdminCard>
+
+            <AdminCard className="p-4">
+              <div className="editorial-label text-muted-foreground flex items-center justify-between">
+                <span>Processed Refunds</span>
+                <RefreshCw className="w-3.5 h-3.5 text-purple-400" />
+              </div>
+              <div className="font-serif text-3xl mt-2">
+                ₹{processedRefundsTotal.toLocaleString()}
+              </div>
+              <div className="text-[11px] text-purple-400 mt-1 font-mono">
+                {processedRefundsCount} refunds completed
+              </div>
+            </AdminCard>
+
+            <AdminCard className="p-4">
+              <div className="editorial-label text-muted-foreground flex items-center justify-between">
+                <span>Disputes & Alerts</span>
+                <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+              </div>
+              <div className="font-serif text-3xl mt-2">
+                {activeDisputesCount}
+              </div>
+              <div className="text-[11px] text-rose-400 mt-1 font-mono">
+                ₹{activeDisputesTotal.toLocaleString()} in dispute
+              </div>
+            </AdminCard>
+
+            <AdminCard className="p-4">
+              <div className="editorial-label text-muted-foreground flex items-center justify-between">
+                <span>Bank Settlements</span>
+                <Banknote className="w-3.5 h-3.5 text-sky-400" />
+              </div>
+              <div className="font-serif text-3xl mt-2">
+                ₹{settlementsTotal.toLocaleString()}
+              </div>
+              <div className="text-[11px] text-sky-400 mt-1 font-mono">
+                {settlementsCount} payouts processed
+              </div>
+            </AdminCard>
+          </div>
+
+          {/* Filter Bar & Search */}
+          <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 bg-surface border border-border-subtle p-3 rounded-2xl">
+            {/* Category Pills */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 text-xs">
+              {[
+                { id: "ALL", label: "All Events" },
+                { id: "PAYMENTS", label: "Payments" },
+                { id: "REFUNDS", label: "Refunds" },
+                { id: "DISPUTES", label: "Disputes" },
+                { id: "DOWNTIMES", label: "Downtimes" },
+                { id: "ORDERS", label: "Orders" },
+                { id: "SETTLEMENTS", label: "Settlements" },
+                { id: "INVOICES", label: "Invoices" },
+                { id: "SUBSCRIPTIONS", label: "Subscriptions" },
+                { id: "LINKS_ENGAGE", label: "Links & Engage" },
+              ].map(cat => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setRzpCategoryFilter(cat.id as EventCategory)}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-colors cursor-pointer text-xs",
+                    rzpCategoryFilter === cat.id
+                      ? "bg-accent text-white font-bold"
+                      : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                  )}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Search Input */}
+            <div className="relative w-full md:w-72">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search Event, Pay ID, Email..."
+                value={rzpSearchQuery}
+                onChange={e => setRzpSearchQuery(e.target.value)}
+                className="w-full bg-surface-2 border border-border-subtle rounded-xl pl-9 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-accent"
+              />
+            </div>
+          </div>
+
+          {/* Events Stream Table */}
+          <AdminCard className="p-0 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-border-subtle bg-white/[0.02] text-muted-foreground text-[11px] uppercase tracking-widest font-mono">
+                    <th className="py-3 px-4">Event Type</th>
+                    <th className="py-3 px-4">Entity ID</th>
+                    <th className="py-3 px-4">Customer</th>
+                    <th className="py-3 px-4">Amount</th>
+                    <th className="py-3 px-4">Status</th>
+                    <th className="py-3 px-4">Time</th>
+                    <th className="py-3 px-4 text-right">Inspect</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border-subtle text-xs">
+                  {filteredRzpEvents.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-12 text-center text-muted-foreground">
+                        <Activity className="w-8 h-8 mx-auto mb-2 opacity-30 animate-pulse" />
+                        <div>No webhook events found matching the filter criteria.</div>
+                        <div className="text-[11px] text-muted-foreground/70 mt-1">
+                          Use the "Simulate Event" button above or trigger real events in Razorpay dashboard.
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredRzpEvents.map(evt => {
+                      const isDispute = evt.event_type.includes("dispute");
+                      const isDowntime = evt.event_type.includes("downtime");
+                      const isRefund = evt.event_type.startsWith("refund.");
+                      const isSettlement = evt.event_type.startsWith("settlement.");
+
+                      return (
+                        <tr key={evt.id} className="hover:bg-white/[0.02] transition-colors">
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-2">
+                              <span className={cn(
+                                "w-2 h-2 rounded-full",
+                                isDispute ? "bg-rose-500" :
+                                isDowntime ? "bg-amber-500" :
+                                isRefund ? "bg-purple-400" :
+                                isSettlement ? "bg-sky-400" :
+                                evt.event_type.includes("failed") ? "bg-rose-400" :
+                                "bg-emerald-400"
+                              )} />
+                              <span className="font-mono text-xs font-semibold text-foreground">
+                                {evt.event_type}
+                              </span>
+                            </div>
+                            {evt.error_description && (
+                              <div className="text-[10px] text-rose-400 truncate max-w-xs mt-0.5">
+                                {evt.error_description}
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 font-mono text-[11px] text-muted-foreground">
+                            <div className="flex items-center gap-1">
+                              <span>{evt.entity_id || evt.event_id || "N/A"}</span>
+                              {evt.entity_id && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(evt.entity_id!);
+                                    toast.success("Entity ID copied!");
+                                  }}
+                                  className="text-muted-foreground hover:text-accent p-0.5 cursor-pointer"
+                                  title="Copy Entity ID"
+                                >
+                                  <Copy className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="text-foreground">{evt.customer_email || "System/Merchant"}</div>
+                            {evt.customer_contact && (
+                              <div className="text-[10px] text-muted-foreground font-mono">{evt.customer_contact}</div>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 font-mono font-semibold">
+                            {evt.amount && evt.amount > 0 ? `₹${evt.amount.toLocaleString()}` : "—"}
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className={cn(
+                              "text-[10px] font-mono uppercase px-2 py-0.5 rounded font-bold border",
+                              evt.status === "captured" || evt.status === "processed" || evt.status === "paid"
+                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                : evt.status === "failed"
+                                ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                                : evt.status === "under_review" || evt.status === "action_required"
+                                ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                                : "bg-white/5 text-muted-foreground border-white/10"
+                            )}>
+                              {evt.status || "logged"}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-muted-foreground text-[11px] whitespace-nowrap">
+                            {formatOrderDateTime(evt.created_at)}
+                          </td>
+                          <td className="py-3 px-4 text-right whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedRzpEvent(evt)}
+                              className="bg-accent/15 hover:bg-accent text-accent hover:text-white px-2.5 py-1 rounded text-[10px] font-bold uppercase transition-colors cursor-pointer"
+                            >
+                              Inspect
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </AdminCard>
+        </div>
       )}
 
       {/* 6. CUSTOMERS DIRECTORY */}

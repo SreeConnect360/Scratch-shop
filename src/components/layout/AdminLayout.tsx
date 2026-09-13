@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   LayoutGrid, Crown, Radio, Lock, Sparkles, Camera, Users, UserCheck,
   Flag, BarChart3, Menu, X, Search, Bell, ChevronDown, ShoppingBag, Truck,
-  RefreshCw, Ticket, Star, Store, Layers
+  RefreshCw, Ticket, Star, Store, Layers, CreditCard
 } from "lucide-react";
 import { BrandLogo, ThemeToggle } from "@/components/theme/ThemeToggle";
 import { usePortal } from "@/lib/portal-state";
@@ -31,6 +31,7 @@ const SHOP_NAV = [
   { to: "/admin", search: { tab: "products" }, label: "Products Catalog", icon: ShoppingBag },
   { to: "/admin", search: { tab: "orders" }, label: "Orders Tracker", icon: Truck },
   { to: "/admin", search: { tab: "returns" }, label: "Returns & Refunds", icon: RefreshCw },
+  { to: "/admin", search: { tab: "gateways" }, label: "Payment Gateway Monitor", icon: CreditCard },
   { to: "/admin", search: { tab: "customers" }, label: "Customers Directory", icon: Users },
   { to: "/admin", search: { tab: "coupons" }, label: "Coupons Manager", icon: Ticket },
   { to: "/admin", search: { tab: "reviews" }, label: "Reviews Moderator", icon: Star },

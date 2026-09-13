@@ -1669,18 +1669,74 @@ public class ShopPortalController {
     }
 
     // --- RAZORPAY WEBHOOK RECEIVER ---
-    @GetMapping({"/webhooks/razorpay", "/api/webhooks/razorpay", "/api/razorpay/webhook"})
+    @GetMapping({"/webhooks/razorpay", "/api/webhooks/razorpay", "/api/razorpay/webhook", "/razorpay/webhook"})
     public ResponseEntity<Map<String, Object>> getRazorpayWebhookStatus() {
         return ResponseEntity.ok(Map.of(
             "status", "online",
             "service", "ReeVibes Razorpay Webhook Receiver",
-            "active_events", java.util.List.of("refund.processed", "refund.failed", "payment.captured", "order.paid")
+            "webhook_endpoint", "https://scratch-render-sj9n.onrender.com/api/webhooks/razorpay",
+            "active_categories", java.util.List.of(
+                "payment (authorized, failed, captured, dispute, downtime)",
+                "refund (created, processed, failed, speed_changed)",
+                "order (paid, notification.delivered, notification.failed)",
+                "invoice (paid, partially_paid, expired)",
+                "subscription (authenticated, activated, paused, resumed, charged, cancelled)",
+                "settlement (processed)",
+                "fund_account (validation.completed, validation.failed)",
+                "payment_link (paid, partially_paid, expired, cancelled)",
+                "engage (rewards, inventory, balance)"
+            )
         ));
     }
 
-    @PostMapping({"/webhooks/razorpay", "/api/webhooks/razorpay", "/api/razorpay/webhook"})
+    @GetMapping({"/webhooks/razorpay/events", "/api/webhooks/razorpay/events"})
+    public ResponseEntity<List<Map<String, Object>>> getRazorpayWebhookEvents(
+            @RequestParam(value = "category", required = false) String category,
+            @RequestParam(value = "limit", defaultValue = "100") int limit) {
+        try {
+            String sql = "SELECT id, event_id, event_type, entity_id, amount, currency, status, customer_email, customer_contact, error_code, error_description, payload_json, signature_valid, created_at FROM public.razorpay_webhook_events ";
+            if (category != null && !category.trim().isEmpty() && !category.equalsIgnoreCase("ALL")) {
+                sql += "WHERE event_type ILIKE ? ";
+            }
+            sql += "ORDER BY created_at DESC LIMIT ?";
+
+            List<Map<String, Object>> events;
+            if (category != null && !category.trim().isEmpty() && !category.equalsIgnoreCase("ALL")) {
+                events = jdbcTemplate.queryForList(sql, "%" + category.trim() + "%", limit);
+            } else {
+                events = jdbcTemplate.queryForList(sql, limit);
+            }
+            return ResponseEntity.ok(events);
+        } catch (Exception e) {
+            System.err.println("Error querying razorpay webhook events: " + e.getMessage());
+            return ResponseEntity.ok(java.util.Collections.emptyList());
+        }
+    }
+
+    @PostMapping({"/webhooks/razorpay/simulate", "/api/webhooks/razorpay/simulate"})
+    public ResponseEntity<Map<String, Object>> simulateRazorpayWebhook(@RequestBody Map<String, Object> body) {
+        String eventType = String.valueOf(body.getOrDefault("event", "payment.captured"));
+        String entityId = String.valueOf(body.getOrDefault("entity_id", "pay_sim_" + System.currentTimeMillis()));
+        Double amount = body.containsKey("amount") ? Double.valueOf(String.valueOf(body.get("amount"))) : 2999.00;
+        String email = String.valueOf(body.getOrDefault("email", "customer@reevibes.com"));
+        String status = String.valueOf(body.getOrDefault("status", "processed"));
+        
+        try {
+            String insertSql = "INSERT INTO public.razorpay_webhook_events (id, event_id, event_type, entity_id, amount, currency, status, customer_email, payload_json, signature_valid, created_at) " +
+                               "VALUES (?, ?, ?, ?, ?, 'INR', ?, ?, ?::jsonb, true, NOW())";
+            String eventId = "evt_sim_" + System.currentTimeMillis();
+            String payloadJson = objectMapper.writeValueAsString(body);
+            jdbcTemplate.update(insertSql, "evt_" + System.currentTimeMillis(), eventId, eventType, entityId, amount, status, email, payloadJson);
+            return ResponseEntity.ok(Map.of("status", "ok", "simulated", true, "event", eventType, "entity_id", entityId));
+        } catch (Exception e) {
+            return ResponseEntity.ok(Map.of("status", "error", "message", e.getMessage()));
+        }
+    }
+
+    @PostMapping({"/webhooks/razorpay", "/api/webhooks/razorpay", "/api/razorpay/webhook", "/razorpay/webhook"})
     public ResponseEntity<Map<String, Object>> handleRazorpayWebhook(
             @RequestHeader(value = "X-Razorpay-Signature", required = false) String signature,
+            @RequestHeader(value = "X-Razorpay-Event-Id", required = false) String eventHeaderId,
             @RequestBody String rawBody) {
         
         System.out.println("Received Razorpay Webhook. Signature: " + signature);
@@ -1720,6 +1776,50 @@ public class ShopPortalController {
 
             Map<String, Object> payloadData = (Map<String, Object>) payload.get("payload");
 
+            String entityId = null;
+            Double amount = 0.0;
+            String currency = "INR";
+            String status = null;
+            String customerEmail = null;
+            String customerContact = null;
+            String errorCode = null;
+            String errorDescription = null;
+
+            // Extract generic entity details across all event types
+            if (payloadData != null) {
+                for (String key : java.util.List.of("payment", "refund", "order", "dispute", "invoice", "subscription", "settlement", "fund_account", "payment_link")) {
+                    if (payloadData.containsKey(key) && payloadData.get(key) instanceof Map) {
+                        Map item = (Map) payloadData.get(key);
+                        Map entity = item.containsKey("entity") && item.get("entity") instanceof Map ? (Map) item.get("entity") : item;
+                        if (entity != null) {
+                            if (entity.containsKey("id")) entityId = String.valueOf(entity.get("id"));
+                            if (entity.containsKey("amount")) {
+                                try { amount = Double.parseDouble(String.valueOf(entity.get("amount"))) / 100.0; } catch (Exception ignored) {}
+                            }
+                            if (entity.containsKey("currency")) currency = String.valueOf(entity.get("currency"));
+                            if (entity.containsKey("status")) status = String.valueOf(entity.get("status"));
+                            if (entity.containsKey("email")) customerEmail = String.valueOf(entity.get("email"));
+                            if (entity.containsKey("contact")) customerContact = String.valueOf(entity.get("contact"));
+                            if (entity.containsKey("error_code")) errorCode = String.valueOf(entity.get("error_code"));
+                            if (entity.containsKey("error_description")) errorDescription = String.valueOf(entity.get("error_description"));
+                            if (entity.containsKey("reason") && errorDescription == null) errorDescription = String.valueOf(entity.get("reason"));
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Record event into PostgreSQL razorpay_webhook_events table
+            try {
+                String eventId = eventHeaderId != null ? eventHeaderId : ("evt_" + System.currentTimeMillis());
+                String insertSql = "INSERT INTO public.razorpay_webhook_events (id, event_id, event_type, entity_id, amount, currency, status, customer_email, customer_contact, error_code, error_description, payload_json, signature_valid, created_at) " +
+                                   "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, NOW()) ON CONFLICT (id) DO NOTHING";
+                jdbcTemplate.update(insertSql, "evt_" + System.currentTimeMillis() + "_" + ((int)(Math.random()*1000)), eventId, event, entityId, amount, currency, status, customerEmail, customerContact, errorCode, errorDescription, rawBody, isValid);
+            } catch (Exception dbErr) {
+                System.err.println("Could not persist razorpay webhook event to DB: " + dbErr.getMessage());
+            }
+
+            // 1. REFUND EVENTS
             if ("refund.processed".equalsIgnoreCase(event)) {
                 if (payloadData != null && payloadData.containsKey("refund")) {
                     Map<String, Object> refundObj = (Map<String, Object>) ((Map<String, Object>) payloadData.get("refund")).get("entity");
@@ -1760,7 +1860,9 @@ public class ShopPortalController {
                 }
             } else if ("refund.failed".equalsIgnoreCase(event)) {
                 System.err.println("Razorpay webhook reported refund.failed: " + payload);
-            } else if ("payment.captured".equalsIgnoreCase(event) || "order.paid".equalsIgnoreCase(event)) {
+            } 
+            // 2. PAYMENT & ORDER EVENTS
+            else if ("payment.captured".equalsIgnoreCase(event) || "order.paid".equalsIgnoreCase(event)) {
                 if (payloadData != null && payloadData.containsKey("payment")) {
                     Map<String, Object> paymentObj = (Map<String, Object>) ((Map<String, Object>) payloadData.get("payment")).get("entity");
                     if (paymentObj != null) {
@@ -1776,6 +1878,22 @@ public class ShopPortalController {
                         }
                     }
                 }
+            } else if ("payment.authorized".equalsIgnoreCase(event)) {
+                System.out.println("Razorpay payment authorized: " + entityId);
+            } else if ("payment.failed".equalsIgnoreCase(event)) {
+                System.err.println("Razorpay payment failed for " + entityId + ": " + errorDescription);
+            }
+            // 3. DISPUTE EVENTS
+            else if (event.startsWith("payment.dispute.")) {
+                System.out.println("Razorpay dispute event [" + event + "] for entity " + entityId);
+            }
+            // 4. DOWNTIME EVENTS
+            else if (event.startsWith("payment.downtime.")) {
+                System.out.println("Razorpay downtime event [" + event + "]");
+            }
+            // 5. SETTLEMENT EVENTS
+            else if ("settlement.processed".equalsIgnoreCase(event)) {
+                System.out.println("Razorpay settlement processed: " + entityId + " Amount: ₹" + amount);
             }
 
             return ResponseEntity.ok(Map.of("status", "ok", "event", event, "received", true));

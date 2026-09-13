@@ -245,9 +245,10 @@ public class HomeController {
     @PostMapping({"/webhooks/razorpay", "/razorpay/webhook"})
     public ResponseEntity<Map<String, Object>> rootHandleRazorpayWebhook(
             @RequestHeader(value = "X-Razorpay-Signature", required = false) String signature,
+            @RequestHeader(value = "X-Razorpay-Event-Id", required = false) String eventHeaderId,
             @RequestBody String rawBody) {
         if (shopPortalController != null) {
-            return shopPortalController.handleRazorpayWebhook(signature, rawBody);
+            return shopPortalController.handleRazorpayWebhook(signature, eventHeaderId, rawBody);
         }
         return ResponseEntity.ok(Map.of("status", "ok", "received", true));
     }
