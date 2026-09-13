@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { usePortal, useCartTotal, DEFAULT_HOMEPAGE_LAYOUT } from "@/lib/portal-state";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import {
   ShoppingBag, Truck, RefreshCw, Users, Ticket, Star, Store, BarChart3,
@@ -9,8 +9,15 @@ import {
   Settings, History, ListFilter, Tag, BarChart2, Undo, CheckSquare,
   Square, ArrowUpDown, Layers3, Download, Upload, ArrowLeft, ArrowRight,
   FileSpreadsheet, FileText, ShieldCheck, Banknote, CreditCard, Wallet, User, XCircle,
-  Activity, AlertTriangle, CheckCircle2, Copy, ExternalLink, Terminal
+  Activity, AlertTriangle, CheckCircle2, Copy, ExternalLink, Terminal, Package, Clock
 } from "lucide-react";
+import {
+  type TimeframeFilter,
+  type OverviewMetrics,
+  computeOverviewMetrics,
+  saveOverviewMetricsToSupabase,
+  fetchOverviewMetricsFromSupabase
+} from "@/lib/supabase-overview";
 import * as XLSX from "xlsx";
 import { AdminCard, AdminButton, StatusChip } from "./AdminCommon";
 import { PRODUCTS } from "@/lib/data";
@@ -42,6 +49,7 @@ const formatOrderDateTime = (dateStr: string) => {
 export function ShopAdminPortal({ tab }: { tab: string }) {
   const [statusFilter, setStatusFilter] = useState<string>("All");
   const { state, fetchBackendState, createProduct, updateProduct, deleteProduct, updateOrderStatus, acceptOrder, declineOrder, fetchCourierQuotes, assignAWB, schedulePickup, cancelOrder, fetchOrderLabel, fetchOrderInvoice, fetchOrderManifest, syncShiprocketTracking, assignReturnPickup, processSplitRefund, approveReturn, rejectReturn, updateReturnDetails, suspendCustomer, reactivateCustomer, addCoupon, updateCoupon, removeCoupon, toggleCouponActive, moderateReview, deleteReview, addWalletCredit, updateHomepageLayoutDraft, publishHomepageLayout, revertHomepageLayout, createBucket, updateBucket, deleteBucket, reorderBuckets, toggleShopWishlist, addWalletGiftCard, updateWalletGiftCard, toggleWalletGiftCardStatus, deleteWalletGiftCard } = usePortal();
+  const navigate = useNavigate();
 
   // Payment Gateway & Webhooks Monitor State
   const [rzpEvents, setRzpEvents] = useState<RazorpayWebhookEvent[]>([]);
@@ -215,6 +223,43 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
   }, [returnsList, returnsFilter]);
   const customersList = useMemo(() => sortCustomerAccountsById(state.users || []), [state.users]);
   const couponsList = state.coupons || [];
+
+  // Overview Dashboard Timeframe & Live Metrics State
+  const [overviewTimeframe, setOverviewTimeframe] = useState<TimeframeFilter>("today");
+  const [isRefreshingOverview, setIsRefreshingOverview] = useState<boolean>(false);
+  const [lastOverviewSyncTime, setLastOverviewSyncTime] = useState<string>(() => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+
+  const overviewMetrics = useMemo(() => {
+    return computeOverviewMetrics(
+      overviewTimeframe,
+      ordersList,
+      returnsList,
+      customersList,
+      productsList
+    );
+  }, [overviewTimeframe, ordersList, returnsList, customersList, productsList]);
+
+  // Persist live overview metrics snapshot to Supabase
+  useEffect(() => {
+    if (tab === "overview" && overviewMetrics) {
+      saveOverviewMetricsToSupabase(overviewMetrics).catch(() => {});
+    }
+  }, [tab, overviewMetrics]);
+
+  const handleRefreshOverview = async () => {
+    setIsRefreshingOverview(true);
+    try {
+      await fetchBackendState();
+      const fresh = computeOverviewMetrics(overviewTimeframe, ordersList, returnsList, customersList, productsList);
+      await saveOverviewMetricsToSupabase(fresh);
+      setLastOverviewSyncTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+      toast.success("Overview dashboard & Supabase metrics synchronized!");
+    } catch (e) {
+      toast.error("Failed to sync overview metrics.");
+    } finally {
+      setIsRefreshingOverview(false);
+    }
+  };
 
   // Derive distinct Product Types and Brands from published product catalog for smart suggestions
   const availableProductTypes = useMemo(() => {
@@ -3599,64 +3644,592 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
 
       {/* 1. OVERVIEW & ANALYTICS */}
       {tab === "overview" && (
-        <div className="space-y-6 animate-in fade-in duration-200">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              ["Live Users", "148", "Active right now"],
-              ["Active Sessions", "3,489", "Today's traffic"],
-              ["Orders Today", ordersList.filter(o => o.date.slice(0, 10) === new Date().toISOString().slice(0, 10)).length.toString(), "Real-time updates"],
-              ["Revenue Today", "₹" + ordersList.filter(o => o.date.slice(0, 10) === new Date().toISOString().slice(0, 10)).reduce((sum, o) => sum + o.total, 0).toLocaleString(), "Paid orders"],
-            ].map(([k, v, d]) => (
-              <AdminCard key={k}>
-                <div className="editorial-label text-muted-foreground">{k}</div>
-                <div className="font-serif text-3xl mt-3">{v}</div>
-                <div className="text-[10px] text-accent mt-2 uppercase tracking-wider">{d}</div>
-              </AdminCard>
-            ))}
-          </div>
+        <div className="space-y-8 animate-in fade-in duration-200">
+          {/* Top Control Bar: Timeframe Filters & Real-Time Sync Pill */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-surface-2/60 border border-border-subtle p-4 rounded-sm backdrop-blur-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                </span>
+                <span className="editorial-label text-foreground/90 font-semibold tracking-wider">
+                  Supabase Live Sync
+                </span>
+              </div>
+              <span className="hidden sm:inline text-border-subtle">|</span>
+              <span className="text-[11px] text-muted-foreground font-mono">
+                Last synced: {lastOverviewSyncTime}
+              </span>
+            </div>
 
-          <div className="grid lg:grid-cols-3 gap-6">
-            <AdminCard className="lg:col-span-2 space-y-6">
-              <h3 className="font-serif text-xl">Top Categories & Sales</h3>
-              <div className="space-y-4">
-                {[
-                  ["Tops & Corsets", "₹12,45,000", "72% conversion"],
-                  ["Bottoms & Pants", "₹8,90,000", "65% conversion"],
-                  ["Couture Dresses", "₹24,50,000", "42% conversion"],
-                  ["Shirts & Tees", "₹4,12,000", "88% conversion"],
-                ].map(([cat, rev, rate]) => (
-                  <div key={cat} className="flex items-center justify-between border-b border-border-subtle pb-3 last:border-0">
-                    <div>
-                      <div className="text-sm font-semibold">{cat}</div>
-                      <div className="text-xs text-muted-foreground mt-0.5">{rate}</div>
-                    </div>
-                    <div className="font-serif text-sm">{rev}</div>
-                  </div>
+            <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
+              {/* Timeframe Selector Pills */}
+              <div className="inline-flex rounded-sm p-1 bg-surface-1 border border-border-subtle">
+                {(
+                  [
+                    { id: "today", label: "Today" },
+                    { id: "7days", label: "7 Days" },
+                    { id: "30days", label: "30 Days" },
+                    { id: "all_time", label: "All Time" },
+                  ] as const
+                ).map((tf) => (
+                  <button
+                    key={tf.id}
+                    type="button"
+                    onClick={() => setOverviewTimeframe(tf.id)}
+                    className={cn(
+                      "px-3.5 py-1 text-xs tracking-wider uppercase font-semibold transition-all duration-200 rounded-sm cursor-pointer",
+                      overviewTimeframe === tf.id
+                        ? "bg-foreground text-background shadow-sm"
+                        : "text-muted-foreground hover:text-foreground hover:bg-surface-2"
+                    )}
+                  >
+                    {tf.label}
+                  </button>
                 ))}
               </div>
+
+              {/* Manual Refresh Button */}
+              <AdminButton
+                variant="outline"
+                onClick={handleRefreshOverview}
+                disabled={isRefreshingOverview}
+                className="flex items-center gap-2 text-xs py-1 px-3 border-border-subtle hover:border-accent"
+              >
+                <RefreshCw className={cn("w-3.5 h-3.5", isRefreshingOverview && "animate-spin")} />
+                <span>{isRefreshingOverview ? "Syncing..." : "Sync Live Data"}</span>
+              </AdminButton>
+            </div>
+          </div>
+
+          {/* Section 1: Hero Performance & Financial KPIs */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <AdminCard className="relative overflow-hidden group hover:border-accent/40 transition-colors">
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="editorial-label text-muted-foreground">
+                    Net Revenue ({overviewTimeframe === "today" ? "Today" : overviewTimeframe === "7days" ? "7 Days" : overviewTimeframe === "30days" ? "30 Days" : "All Time"})
+                  </div>
+                  <div className="font-serif text-3xl mt-2 text-foreground font-semibold">
+                    ₹{overviewMetrics.netRevenueAmount.toLocaleString()}
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <CreditCard className="w-5 h-5" />
+                </div>
+              </div>
+              <div className="text-[11px] text-muted-foreground mt-3 flex items-center justify-between border-t border-border-subtle pt-2">
+                <span>Turnover − Refunds</span>
+                <span className="font-mono text-emerald-400">
+                  ₹{(overviewMetrics.turnoverAmount - overviewMetrics.settledRefundAmount).toLocaleString()}
+                </span>
+              </div>
             </AdminCard>
-            <AdminCard className="space-y-6">
-              <h3 className="font-serif text-xl">Refund Metrics</h3>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">Total Returns Queue</span>
-                  <span className="font-serif font-bold text-lg">{returnsList.length}</span>
+
+            <AdminCard className="relative overflow-hidden group hover:border-accent/40 transition-colors">
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="editorial-label text-muted-foreground">
+                    Turnover (GMV)
+                  </div>
+                  <div className="font-serif text-3xl mt-2 text-foreground font-semibold">
+                    ₹{overviewMetrics.turnoverAmount.toLocaleString()}
+                  </div>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">Pending Approval</span>
-                  <span className="font-serif text-amber-300 font-bold">{returnsList.filter(r => r.status === "Pending").length}</span>
+                <div className="p-2.5 rounded-full bg-accent/10 text-accent border border-accent/20">
+                  <ShoppingBag className="w-5 h-5" />
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">Approved Refunds</span>
-                  <span className="font-serif text-emerald-300 font-bold">{returnsList.filter(r => r.status === "Approved").length}</span>
+              </div>
+              <div className="text-[11px] text-muted-foreground mt-3 flex items-center justify-between border-t border-border-subtle pt-2">
+                <span>Total Bookings</span>
+                <span className="font-mono text-foreground">{overviewMetrics.totalOrdersCount} orders</span>
+              </div>
+            </AdminCard>
+
+            <AdminCard className="relative overflow-hidden group hover:border-accent/40 transition-colors">
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="editorial-label text-muted-foreground">
+                    Total Orders
+                  </div>
+                  <div className="font-serif text-3xl mt-2 text-foreground font-semibold">
+                    {overviewMetrics.totalOrdersCount}
+                  </div>
                 </div>
-                <div className="h-px bg-border-subtle" />
-                <div className="text-xs text-muted-foreground italic">
-                  Razorpay Auto-Payout integration status: <span className="text-emerald-400 font-semibold uppercase tracking-widest text-[9px]">ONLINE</span>
+                <div className="p-2.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                  <Package className="w-5 h-5" />
                 </div>
+              </div>
+              <div className="text-[11px] text-muted-foreground mt-3 flex items-center justify-between border-t border-border-subtle pt-2">
+                <span>Delivered / In Transit</span>
+                <span className="font-mono text-sky-400">
+                  {overviewMetrics.deliveredOrdersCount} / {overviewMetrics.inShippingCount}
+                </span>
+              </div>
+            </AdminCard>
+
+            <AdminCard className="relative overflow-hidden group hover:border-accent/40 transition-colors">
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="editorial-label text-muted-foreground">
+                    New Users
+                  </div>
+                  <div className="font-serif text-3xl mt-2 text-foreground font-semibold">
+                    {overviewMetrics.newUsersCount}
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                  <Users className="w-5 h-5" />
+                </div>
+              </div>
+              <div className="text-[11px] text-muted-foreground mt-3 flex items-center justify-between border-t border-border-subtle pt-2">
+                <span>Registered Profiles</span>
+                <span className="font-mono text-purple-400">
+                  {overviewTimeframe === "today" ? "Active today" : "In period"}
+                </span>
               </div>
             </AdminCard>
           </div>
+
+          {/* Section 2: Order Fulfillment & Reverse Operations Funnel */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-serif text-lg font-medium">Order Operations & Action Pipeline</h3>
+                <p className="text-xs text-muted-foreground">Real-time status breakdown across active orders and customer requests</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+              {/* 1. Orders to Accept */}
+              <AdminCard className={cn(
+                "p-4 flex flex-col justify-between border transition-all",
+                overviewMetrics.pendingApprovalCount > 0 ? "border-amber-500/40 bg-amber-500/[0.03]" : "border-border-subtle"
+              )}>
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="editorial-label text-muted-foreground">To Accept</span>
+                    <span className={cn(
+                      "text-[9px] px-1.5 py-0.5 font-semibold rounded tracking-wider uppercase",
+                      overviewMetrics.pendingApprovalCount > 0 ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" : "bg-surface-2 text-muted-foreground"
+                    )}>
+                      {overviewMetrics.pendingApprovalCount > 0 ? "Action" : "Clear"}
+                    </span>
+                  </div>
+                  <div className="font-serif text-2xl font-bold mt-2 text-amber-400">
+                    {overviewMetrics.pendingApprovalCount}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Pending admin acceptance
+                  </p>
+                </div>
+                <Link
+                  to="/admin"
+                  search={{ tab: "orders" } as any}
+                  className="mt-3 text-[11px] text-accent hover:underline flex items-center gap-1 font-medium pt-2 border-t border-border-subtle"
+                >
+                  Review Orders <ArrowUpRight className="w-3 h-3" />
+                </Link>
+              </AdminCard>
+
+              {/* 2. Pending Refunds */}
+              <AdminCard className={cn(
+                "p-4 flex flex-col justify-between border transition-all",
+                overviewMetrics.pendingRefundCount > 0 ? "border-rose-500/40 bg-rose-500/[0.03]" : "border-border-subtle"
+              )}>
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="editorial-label text-muted-foreground">Pending Refund</span>
+                    <span className={cn(
+                      "text-[9px] px-1.5 py-0.5 font-semibold rounded tracking-wider uppercase",
+                      overviewMetrics.pendingRefundCount > 0 ? "bg-rose-500/20 text-rose-400 border border-rose-500/30" : "bg-surface-2 text-muted-foreground"
+                    )}>
+                      {overviewMetrics.pendingRefundCount > 0 ? "Payout Due" : "Settled"}
+                    </span>
+                  </div>
+                  <div className="font-serif text-2xl font-bold mt-2 text-rose-400">
+                    {overviewMetrics.pendingRefundCount}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1 font-mono">
+                    ₹{overviewMetrics.pendingRefundAmount.toLocaleString()} liability
+                  </p>
+                </div>
+                <Link
+                  to="/admin"
+                  search={{ tab: "returns" } as any}
+                  className="mt-3 text-[11px] text-rose-400 hover:underline flex items-center gap-1 font-medium pt-2 border-t border-border-subtle"
+                >
+                  Process Refunds <ArrowUpRight className="w-3 h-3" />
+                </Link>
+              </AdminCard>
+
+              {/* 3. In Shipping */}
+              <AdminCard className="p-4 flex flex-col justify-between border-border-subtle">
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="editorial-label text-muted-foreground">In Shipping</span>
+                    <span className="text-[9px] px-1.5 py-0.5 font-semibold rounded tracking-wider uppercase bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                      Transit
+                    </span>
+                  </div>
+                  <div className="font-serif text-2xl font-bold mt-2 text-sky-400">
+                    {overviewMetrics.inShippingCount}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Dispatched / In courier route
+                  </p>
+                </div>
+                <Link
+                  to="/admin"
+                  search={{ tab: "orders" } as any}
+                  className="mt-3 text-[11px] text-sky-400 hover:underline flex items-center gap-1 font-medium pt-2 border-t border-border-subtle"
+                >
+                  Track Logistics <ArrowUpRight className="w-3 h-3" />
+                </Link>
+              </AdminCard>
+
+              {/* 4. Delivered */}
+              <AdminCard className="p-4 flex flex-col justify-between border-border-subtle">
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="editorial-label text-muted-foreground">Delivered</span>
+                    <span className="text-[9px] px-1.5 py-0.5 font-semibold rounded tracking-wider uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      Success
+                    </span>
+                  </div>
+                  <div className="font-serif text-2xl font-bold mt-2 text-emerald-400">
+                    {overviewMetrics.deliveredOrdersCount}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    {overviewTimeframe === "today" ? "Delivered today" : "Delivered in period"}
+                  </p>
+                </div>
+                <div className="mt-3 text-[11px] text-muted-foreground flex items-center gap-1 pt-2 border-t border-border-subtle">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-400" /> Fulfilled successfully
+                </div>
+              </AdminCard>
+
+              {/* 5. Declined / Cancelled */}
+              <AdminCard className="p-4 flex flex-col justify-between border-border-subtle">
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="editorial-label text-muted-foreground">Declined</span>
+                    <span className="text-[9px] px-1.5 py-0.5 font-semibold rounded tracking-wider uppercase bg-surface-2 text-muted-foreground">
+                      Closed
+                    </span>
+                  </div>
+                  <div className="font-serif text-2xl font-bold mt-2 text-muted-foreground">
+                    {overviewMetrics.declinedOrdersCount}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Cancelled or rejected orders
+                  </p>
+                </div>
+                <div className="mt-3 text-[11px] text-muted-foreground flex items-center gap-1 pt-2 border-t border-border-subtle">
+                  <XCircle className="w-3 h-3 text-muted-foreground" /> Closed orders
+                </div>
+              </AdminCard>
+            </div>
+          </div>
+
+          {/* Section 3: Dual Analytics Panels (Payments Breakdown & Returns Health) */}
+          <div className="grid lg:grid-cols-2 gap-6">
+            {/* Panel 1: Payment Channels Split */}
+            <AdminCard className="space-y-5">
+              <div className="flex items-center justify-between border-b border-border-subtle pb-3">
+                <div>
+                  <h3 className="font-serif text-lg font-medium">Payment Methods Breakdown</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Settlement channels for ₹{overviewMetrics.turnoverAmount.toLocaleString()} gross turnover
+                  </p>
+                </div>
+                <div className="p-2 rounded-full bg-surface-2 text-muted-foreground border border-border-subtle">
+                  <Wallet className="w-4 h-4" />
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {/* Razorpay Online */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-foreground">Razorpay Online Gateway</span>
+                      <span className="text-[9px] font-mono uppercase bg-blue-500/10 text-blue-400 border border-blue-500/20 px-1.5 py-0.2 rounded">Cards • UPI • Netbanking</span>
+                    </div>
+                    <span className="font-serif font-bold text-sm">
+                      ₹{overviewMetrics.razorpayPaymentsAmount.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="w-full h-1.5 bg-surface-2 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-blue-500 rounded-full transition-all duration-500"
+                      style={{
+                        width: `${overviewMetrics.turnoverAmount > 0 ? Math.min(100, Math.round((overviewMetrics.razorpayPaymentsAmount / overviewMetrics.turnoverAmount) * 100)) : 0}%`
+                      }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-[10px] text-muted-foreground font-mono">
+                    <span>Direct merchant settlement</span>
+                    <span>
+                      {overviewMetrics.turnoverAmount > 0 ? ((overviewMetrics.razorpayPaymentsAmount / overviewMetrics.turnoverAmount) * 100).toFixed(1) : "0"}% of volume
+                    </span>
+                  </div>
+                </div>
+
+                {/* ReeVibes Store Wallet */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-foreground">ReeVibes Store Wallet</span>
+                      <span className="text-[9px] font-mono uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.2 rounded">Balance • Gift Cards</span>
+                    </div>
+                    <span className="font-serif font-bold text-sm">
+                      ₹{overviewMetrics.walletPaymentsAmount.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="w-full h-1.5 bg-surface-2 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                      style={{
+                        width: `${overviewMetrics.turnoverAmount > 0 ? Math.min(100, Math.round((overviewMetrics.walletPaymentsAmount / overviewMetrics.turnoverAmount) * 100)) : 0}%`
+                      }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-[10px] text-muted-foreground font-mono">
+                    <span>Store balance debited</span>
+                    <span>
+                      {overviewMetrics.turnoverAmount > 0 ? ((overviewMetrics.walletPaymentsAmount / overviewMetrics.turnoverAmount) * 100).toFixed(1) : "0"}% of volume
+                    </span>
+                  </div>
+                </div>
+
+                {/* Cash on Delivery */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-foreground">Cash on Delivery (COD)</span>
+                      <span className="text-[9px] font-mono uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.2 rounded">Doorstep Cash</span>
+                    </div>
+                    <span className="font-serif font-bold text-sm">
+                      ₹{overviewMetrics.codPaymentsAmount.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="w-full h-1.5 bg-surface-2 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-amber-500 rounded-full transition-all duration-500"
+                      style={{
+                        width: `${overviewMetrics.turnoverAmount > 0 ? Math.min(100, Math.round((overviewMetrics.codPaymentsAmount / overviewMetrics.turnoverAmount) * 100)) : 0}%`
+                      }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-[10px] text-muted-foreground font-mono">
+                    <span>Courier remittance pending</span>
+                    <span>
+                      {overviewMetrics.turnoverAmount > 0 ? ((overviewMetrics.codPaymentsAmount / overviewMetrics.turnoverAmount) * 100).toFixed(1) : "0"}% of volume
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </AdminCard>
+
+            {/* Panel 2: Returns & Reverse Logistics Health */}
+            <AdminCard className="space-y-5">
+              <div className="flex items-center justify-between border-b border-border-subtle pb-3">
+                <div>
+                  <h3 className="font-serif text-lg font-medium">Returns & Reverse Logistics</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Customer return rate, liability pipeline, and Razorpay auto-refund status
+                  </p>
+                </div>
+                <div className="p-2 rounded-full bg-surface-2 text-muted-foreground border border-border-subtle">
+                  <RefreshCw className="w-4 h-4" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 bg-surface-2/60 border border-border-subtle rounded-sm">
+                  <div className="editorial-label text-muted-foreground">Return Rate</div>
+                  <div className="font-serif text-2xl font-bold mt-1 text-foreground">
+                    {overviewMetrics.totalOrdersCount > 0
+                      ? ((overviewMetrics.totalReturnsCount / overviewMetrics.totalOrdersCount) * 100).toFixed(1)
+                      : "0.0"}%
+                  </div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5 font-mono">
+                    {overviewMetrics.totalReturnsCount} requests / {overviewMetrics.totalOrdersCount} orders
+                  </div>
+                </div>
+
+                <div className="p-3 bg-surface-2/60 border border-border-subtle rounded-sm">
+                  <div className="editorial-label text-muted-foreground">Settled Refunds</div>
+                  <div className="font-serif text-2xl font-bold mt-1 text-emerald-400">
+                    ₹{overviewMetrics.settledRefundAmount.toLocaleString()}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5 font-mono">
+                    Completed payouts in period
+                  </div>
+                </div>
+
+                <div className="p-3 bg-surface-2/60 border border-border-subtle rounded-sm">
+                  <div className="editorial-label text-muted-foreground">Pending Liability</div>
+                  <div className="font-serif text-2xl font-bold mt-1 text-rose-400">
+                    ₹{overviewMetrics.pendingRefundAmount.toLocaleString()}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5 font-mono">
+                    {overviewMetrics.pendingRefundCount} returns waiting payout
+                  </div>
+                </div>
+
+                <div className="p-3 bg-surface-2/60 border border-border-subtle rounded-sm flex flex-col justify-between">
+                  <div className="editorial-label text-muted-foreground">Gateway Status</div>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <span className="h-2 w-2 rounded-full bg-emerald-400"></span>
+                    <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">ONLINE</span>
+                  </div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5 font-mono">
+                    Instant Razorpay Payouts
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3 bg-surface-1 border border-border-subtle rounded-sm flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">Need to inspect and settle returns?</span>
+                <Link
+                  to="/admin"
+                  search={{ tab: "returns" } as any}
+                  className="text-accent hover:underline font-medium flex items-center gap-1"
+                >
+                  Go to Returns & Refunds Dashboard <ArrowRight className="w-3 h-3" />
+                </Link>
+              </div>
+            </AdminCard>
+          </div>
+
+          {/* Section 4: Top Selling Products Leaderboard */}
+          <AdminCard className="space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border-subtle pb-4">
+              <div>
+                <h3 className="font-serif text-xl font-medium">Top Selling Products</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Top performing items ranked by units sold and gross revenue during the selected timeframe
+                </p>
+              </div>
+              <Link
+                to="/admin"
+                search={{ tab: "products" } as any}
+                className="text-xs text-accent hover:underline flex items-center gap-1 self-start sm:self-auto"
+              >
+                Browse Full Product Catalog <ArrowUpRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+
+            {overviewMetrics.topProducts.length === 0 ? (
+              <div className="py-12 text-center text-muted-foreground text-xs space-y-2">
+                <ShoppingBag className="w-8 h-8 mx-auto opacity-30 text-accent" />
+                <p>No product orders recorded in this timeframe.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-border-subtle text-muted-foreground uppercase text-[10px] tracking-wider">
+                      <th className="pb-3 font-medium w-12 text-center">Rank</th>
+                      <th className="pb-3 font-medium">Product Item & Brand</th>
+                      <th className="pb-3 font-medium text-center">Units Sold</th>
+                      <th className="pb-3 font-medium text-right">Revenue Generated</th>
+                      <th className="pb-3 font-medium text-right">Inventory Status</th>
+                      <th className="pb-3 font-medium text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border-subtle/50">
+                    {overviewMetrics.topProducts.map((p, idx) => (
+                      <tr key={p.id || idx} className="hover:bg-surface-2/40 transition-colors">
+                        {/* Rank */}
+                        <td className="py-3 text-center">
+                          <span
+                            className={cn(
+                              "inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-serif font-bold",
+                              idx === 0
+                                ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                                : idx === 1
+                                ? "bg-zinc-400/20 text-zinc-300 border border-zinc-400/30"
+                                : idx === 2
+                                ? "bg-amber-700/20 text-amber-500 border border-amber-700/30"
+                                : "text-muted-foreground bg-surface-2"
+                            )}
+                          >
+                            {idx + 1}
+                          </span>
+                        </td>
+
+                        {/* Product Info */}
+                        <td className="py-3">
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={p.image}
+                              alt={p.name}
+                              className="w-10 h-10 object-cover rounded-sm border border-border-subtle flex-shrink-0 bg-surface-2"
+                              onError={(e) => {
+                                (e.currentTarget as HTMLImageElement).src = "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=400&q=80";
+                              }}
+                            />
+                            <div className="min-w-0">
+                              <div className="font-medium text-foreground truncate max-w-[220px] sm:max-w-[320px]">
+                                {p.name}
+                              </div>
+                              <div className="text-[11px] text-muted-foreground">
+                                {p.house}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Units Sold */}
+                        <td className="py-3 text-center">
+                          <span className="font-mono font-semibold text-sm px-2 py-0.5 rounded bg-surface-2 border border-border-subtle">
+                            {p.unitsSold} pcs
+                          </span>
+                        </td>
+
+                        {/* Revenue */}
+                        <td className="py-3 text-right">
+                          <span className="font-serif font-semibold text-sm text-foreground">
+                            ₹{p.revenue.toLocaleString()}
+                          </span>
+                        </td>
+
+                        {/* Stock status */}
+                        <td className="py-3 text-right">
+                          <span
+                            className={cn(
+                              "inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-wider",
+                              p.inStock
+                                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                            )}
+                          >
+                            <span className={cn("h-1.5 w-1.5 rounded-full", p.inStock ? "bg-emerald-400" : "bg-rose-400")} />
+                            {p.inStock ? `${p.stockLeft} in stock` : "Out of stock"}
+                          </span>
+                        </td>
+
+                        {/* Action */}
+                        <td className="py-3 text-right">
+                          <Link
+                            to="/admin"
+                            search={{ tab: "products" } as any}
+                            className="text-[11px] text-accent hover:underline font-medium"
+                          >
+                            Edit
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </AdminCard>
         </div>
       )}
 

@@ -329,3 +329,53 @@ BEGIN
     CREATE POLICY "Allow public delete on return_requests" ON return_requests FOR DELETE USING (true);
   END IF;
 END $$;
+
+CREATE TABLE IF NOT EXISTS public.shop_overview_metrics (
+    id VARCHAR(50) PRIMARY KEY,
+    timeframe VARCHAR(20) NOT NULL,
+    new_users_count INT DEFAULT 0,
+    total_orders_count INT DEFAULT 0,
+    turnover_amount NUMERIC(14, 2) DEFAULT 0,
+    net_revenue_amount NUMERIC(14, 2) DEFAULT 0,
+    delivered_orders_count INT DEFAULT 0,
+    in_shipping_count INT DEFAULT 0,
+    pending_approval_count INT DEFAULT 0,
+    declined_orders_count INT DEFAULT 0,
+    total_returns_count INT DEFAULT 0,
+    pending_refund_amount NUMERIC(14, 2) DEFAULT 0,
+    pending_refund_count INT DEFAULT 0,
+    settled_refund_amount NUMERIC(14, 2) DEFAULT 0,
+    razorpay_payments_amount NUMERIC(14, 2) DEFAULT 0,
+    wallet_payments_amount NUMERIC(14, 2) DEFAULT 0,
+    cod_payments_amount NUMERIC(14, 2) DEFAULT 0,
+    top_products_json JSONB DEFAULT '[]'::jsonb,
+    metrics_json JSONB DEFAULT '{}'::jsonb,
+    last_calculated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE public.shop_overview_metrics ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE tablename = 'shop_overview_metrics' AND policyname = 'Allow public select on shop_overview_metrics'
+  ) THEN
+    CREATE POLICY "Allow public select on shop_overview_metrics" ON public.shop_overview_metrics FOR SELECT USING (true);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE tablename = 'shop_overview_metrics' AND policyname = 'Allow public insert on shop_overview_metrics'
+  ) THEN
+    CREATE POLICY "Allow public insert on shop_overview_metrics" ON public.shop_overview_metrics FOR INSERT WITH CHECK (true);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE tablename = 'shop_overview_metrics' AND policyname = 'Allow public update on shop_overview_metrics'
+  ) THEN
+    CREATE POLICY "Allow public update on shop_overview_metrics" ON public.shop_overview_metrics FOR UPDATE USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+

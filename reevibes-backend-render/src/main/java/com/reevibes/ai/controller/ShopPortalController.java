@@ -2719,5 +2719,213 @@ public class ShopPortalController {
         if (val instanceof Boolean) return (Boolean) val;
         return "true".equalsIgnoreCase(String.valueOf(val));
     }
+
+    // --- SHOP OVERVIEW METRICS API ---
+
+    @GetMapping("/overview/metrics")
+    public ResponseEntity<Map<String, Object>> getOverviewMetrics(@RequestParam(value = "timeframe", defaultValue = "today") String timeframe) {
+        String tf = normalizeTimeframe(timeframe);
+        try {
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT * FROM public.shop_overview_metrics WHERE id = ? LIMIT 1",
+                "metric_" + tf
+            );
+            if (!rows.isEmpty()) {
+                return ResponseEntity.ok(rows.get(0));
+            }
+        } catch (Exception e) {
+            System.err.println("Note reading from shop_overview_metrics: " + e.getMessage());
+        }
+
+        Map<String, Object> metrics = calculateMetricsForTimeframe(tf);
+        persistOverviewMetrics(metrics);
+        return ResponseEntity.ok(metrics);
+    }
+
+    @PostMapping("/overview/metrics/refresh")
+    public ResponseEntity<Map<String, Object>> refreshOverviewMetrics() {
+        String[] timeframes = {"today", "7days", "30days", "all_time"};
+        Map<String, Object> result = new HashMap<>();
+        for (String tf : timeframes) {
+            Map<String, Object> m = calculateMetricsForTimeframe(tf);
+            persistOverviewMetrics(m);
+            result.put(tf, m);
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    private String normalizeTimeframe(String tf) {
+        if (tf == null) return "today";
+        String lower = tf.toLowerCase().trim();
+        if (lower.contains("7")) return "7days";
+        if (lower.contains("30")) return "30days";
+        if (lower.contains("all")) return "all_time";
+        return "today";
+    }
+
+    private Map<String, Object> calculateMetricsForTimeframe(String tf) {
+        List<ShopOrder> orders = orderRepository.findAll();
+        List<ReturnRequest> returns = returnRequestRepository.findAll();
+        List<PlatformUser> users = userRepository.findAll();
+
+        LocalDateTime cutoff;
+        LocalDateTime now = LocalDateTime.now();
+        if ("today".equals(tf)) {
+            cutoff = now.toLocalDate().atStartOfDay();
+        } else if ("7days".equals(tf)) {
+            cutoff = now.minusDays(7);
+        } else if ("30days".equals(tf)) {
+            cutoff = now.minusDays(30);
+        } else {
+            cutoff = LocalDateTime.of(2000, 1, 1, 0, 0);
+        }
+
+        List<ShopOrder> scopedOrders = orders.stream()
+            .filter(o -> o != null && !"USR-1000".equals(o.getUserId()))
+            .filter(o -> {
+                LocalDateTime od = o.getOrderDate() != null ? o.getOrderDate() : o.getTransactionDate();
+                return od == null || !od.isBefore(cutoff);
+            })
+            .collect(Collectors.toList());
+
+        List<ReturnRequest> scopedReturns = returns.stream()
+            .filter(r -> r != null && !"USR-1000".equals(r.getCustomerId()))
+            .collect(Collectors.toList());
+
+        int newUsersCount = (int) users.stream()
+            .filter(u -> u != null && !"USR-1000".equals(u.getId()))
+            .count();
+
+        double turnover = 0.0;
+        double razorpayAmt = 0.0;
+        double walletAmt = 0.0;
+        double codAmt = 0.0;
+        int pendingApproval = 0;
+        int inShipping = 0;
+        int delivered = 0;
+        int declined = 0;
+
+        for (ShopOrder o : scopedOrders) {
+            double total = o.getTotal() != null ? o.getTotal().doubleValue() : 0.0;
+            turnover += total;
+
+            String pm = o.getPaymentMethod() != null ? o.getPaymentMethod().toLowerCase() : "";
+            double rzpPaid = o.getRazorpayAmountPaid() != null ? o.getRazorpayAmountPaid().doubleValue() : 0.0;
+            double wltUsed = o.getWalletAmountUsed() != null ? o.getWalletAmountUsed().doubleValue() : 0.0;
+
+            if (rzpPaid > 0 && wltUsed > 0) {
+                razorpayAmt += rzpPaid;
+                walletAmt += wltUsed;
+            } else if (pm.contains("cash") || pm.contains("cod")) {
+                codAmt += total;
+            } else if (pm.contains("wallet")) {
+                walletAmt += total;
+            } else {
+                razorpayAmt += total;
+            }
+
+            String st = o.getStatus() != null ? o.getStatus().toLowerCase() : "";
+            if (st.contains("pending") || st.contains("placed") || st.contains("approval")) {
+                pendingApproval++;
+            } else if (st.contains("transit") || st.contains("shipped") || st.contains("pickup") || st.contains("delivery")) {
+                inShipping++;
+            } else if (st.contains("delivered")) {
+                delivered++;
+            } else if (st.contains("cancel") || st.contains("decline") || st.contains("reject")) {
+                declined++;
+            }
+        }
+
+        int totalReturns = scopedReturns.size();
+        double pendingRefundAmt = 0.0;
+        int pendingRefundCount = 0;
+        double settledRefundAmt = 0.0;
+
+        for (ReturnRequest r : returns) {
+            double amt = r.getRefundAmount() != null ? r.getRefundAmount().doubleValue() : 0.0;
+            String st = r.getStatus() != null ? r.getStatus() : "";
+            if ("Item Received".equalsIgnoreCase(st) || "Ready for Refund".equalsIgnoreCase(st)) {
+                pendingRefundAmt += amt;
+                pendingRefundCount++;
+            } else if ("Refund Completed".equalsIgnoreCase(st)) {
+                settledRefundAmt += amt;
+            }
+        }
+
+        double netRevenue = Math.max(0.0, turnover - settledRefundAmt);
+
+        Map<String, Object> m = new HashMap<>();
+        m.put("id", "metric_" + tf);
+        m.put("timeframe", tf);
+        m.put("new_users_count", newUsersCount);
+        m.put("total_orders_count", scopedOrders.size());
+        m.put("turnover_amount", turnover);
+        m.put("net_revenue_amount", netRevenue);
+        m.put("delivered_orders_count", delivered);
+        m.put("in_shipping_count", inShipping);
+        m.put("pending_approval_count", pendingApproval);
+        m.put("declined_orders_count", declined);
+        m.put("total_returns_count", totalReturns);
+        m.put("pending_refund_amount", pendingRefundAmt);
+        m.put("pending_refund_count", pendingRefundCount);
+        m.put("settled_refund_amount", settledRefundAmt);
+        m.put("razorpay_payments_amount", razorpayAmt);
+        m.put("wallet_payments_amount", walletAmt);
+        m.put("cod_payments_amount", codAmt);
+        m.put("last_calculated_at", now.toString());
+        return m;
+    }
+
+    private void persistOverviewMetrics(Map<String, Object> m) {
+        try {
+            String sql = "INSERT INTO public.shop_overview_metrics " +
+                "(id, timeframe, new_users_count, total_orders_count, turnover_amount, net_revenue_amount, " +
+                "delivered_orders_count, in_shipping_count, pending_approval_count, declined_orders_count, " +
+                "total_returns_count, pending_refund_amount, pending_refund_count, settled_refund_amount, " +
+                "razorpay_payments_amount, wallet_payments_amount, cod_payments_amount, last_calculated_at) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW()) " +
+                "ON CONFLICT (id) DO UPDATE SET " +
+                "timeframe = EXCLUDED.timeframe, " +
+                "new_users_count = EXCLUDED.new_users_count, " +
+                "total_orders_count = EXCLUDED.total_orders_count, " +
+                "turnover_amount = EXCLUDED.turnover_amount, " +
+                "net_revenue_amount = EXCLUDED.net_revenue_amount, " +
+                "delivered_orders_count = EXCLUDED.delivered_orders_count, " +
+                "in_shipping_count = EXCLUDED.in_shipping_count, " +
+                "pending_approval_count = EXCLUDED.pending_approval_count, " +
+                "declined_orders_count = EXCLUDED.declined_orders_count, " +
+                "total_returns_count = EXCLUDED.total_returns_count, " +
+                "pending_refund_amount = EXCLUDED.pending_refund_amount, " +
+                "pending_refund_count = EXCLUDED.pending_refund_count, " +
+                "settled_refund_amount = EXCLUDED.settled_refund_amount, " +
+                "razorpay_payments_amount = EXCLUDED.razorpay_payments_amount, " +
+                "wallet_payments_amount = EXCLUDED.wallet_payments_amount, " +
+                "cod_payments_amount = EXCLUDED.cod_payments_amount, " +
+                "last_calculated_at = NOW()";
+
+            jdbcTemplate.update(sql,
+                m.get("id"),
+                m.get("timeframe"),
+                m.get("new_users_count"),
+                m.get("total_orders_count"),
+                m.get("turnover_amount"),
+                m.get("net_revenue_amount"),
+                m.get("delivered_orders_count"),
+                m.get("in_shipping_count"),
+                m.get("pending_approval_count"),
+                m.get("declined_orders_count"),
+                m.get("total_returns_count"),
+                m.get("pending_refund_amount"),
+                m.get("pending_refund_count"),
+                m.get("settled_refund_amount"),
+                m.get("razorpay_payments_amount"),
+                m.get("wallet_payments_amount"),
+                m.get("cod_payments_amount")
+            );
+        } catch (Exception e) {
+            System.err.println("Note persisting shop_overview_metrics: " + e.getMessage());
+        }
+    }
 }
+
 
