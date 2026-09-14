@@ -1050,7 +1050,7 @@ function ProductDetail() {
           </div>
 
           {/* ─── RIGHT: PRODUCT INFORMATION & ACTIONS ────────────────────────── */}
-          <div className="lg:col-span-6 flex flex-col gap-5 sm:gap-6">
+          <div className="lg:col-span-6 flex flex-col gap-5 sm:gap-6 relative pb-6">
             
             {/* Brand Name & Category Tag */}
             <div className="flex items-center justify-between gap-2">
@@ -1473,52 +1473,6 @@ function ProductDetail() {
               )}
             </div>
 
-            {/* Desktop Action Buttons (Positioned directly below Quantity Selector) */}
-            <div className="hidden lg:flex flex-col gap-3 pt-1">
-              {/* Row 1: Add to Bag + Wishlist Icon in one line */}
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={handleAddToCart}
-                  className={cn(
-                    "flex-1 py-3.5 px-4 rounded-xl border-2 font-extrabold text-xs uppercase tracking-wider transition-all duration-200 cursor-pointer active:scale-95 flex items-center justify-center gap-2",
-                    isDark
-                      ? "border-[#D4AF37] text-white hover:bg-[#D4AF37]/10"
-                      : "border-[#D4AF37] text-slate-900 hover:bg-[#D4AF37]/10"
-                  )}
-                >
-                  <ShoppingBag className="w-4 h-4 text-[#D4AF37]" />
-                  <span>ADD TO BAG</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleWishlistToggle}
-                  className={cn(
-                    "p-3.5 rounded-xl border-2 transition-all duration-200 cursor-pointer active:scale-95 flex items-center justify-center shrink-0",
-                    isFavorite
-                      ? "bg-red-500/20 text-red-500 border-red-500/40"
-                      : isDark
-                      ? "border-[#D4AF37]/40 text-white hover:border-[#D4AF37]"
-                      : "border-slate-300 text-slate-900 hover:border-[#D4AF37]"
-                  )}
-                  title={isFavorite ? "Remove from Wishlist" : "Add to Wishlist"}
-                >
-                  <Heart className={cn("w-5 h-5", isFavorite && "fill-current")} />
-                </button>
-              </div>
-
-              {/* Row 2: Buy Now Button below */}
-              <button
-                type="button"
-                onClick={handleBuyNow}
-                className="w-full py-3.5 px-4 rounded-xl bg-[#D4AF37] text-black font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-[#D4AF37]/25 hover:bg-[#c49f2f] transition-all duration-200 cursor-pointer active:scale-95 flex items-center justify-center gap-2"
-              >
-                <ShoppingCart className="w-4 h-4" />
-                <span>BUY NOW</span>
-              </button>
-            </div>
-
             <div className="h-px w-full bg-border/40" />
 
             {/* Atelier Overview Section */}
@@ -1633,6 +1587,55 @@ function ProductDetail() {
               <div className="p-3 rounded-xl border border-border/40 flex flex-col items-center gap-1.5">
                 <Truck className="w-5 h-5 text-[#D4AF37]" />
                 <span className="font-semibold text-foreground">Free Shipping</span>
+              </div>
+            </div>
+
+            {/* ─── STICKY PRODUCT PURCHASE ACTION BANNER (DESKTOP) ─── */}
+            <div className="hidden lg:block sticky bottom-4 z-30 mt-auto pt-2">
+              <div className="liquid-glass bg-background/95 dark:bg-[#0A0A0A]/95 backdrop-blur-xl border border-border/80 dark:border-white/15 p-2.5 sm:p-3 rounded-2xl shadow-2xl shadow-black/30 transition-all duration-300">
+                <div className="flex items-center gap-2.5">
+                  {/* 1. Add to Bag */}
+                  <button
+                    type="button"
+                    onClick={handleAddToCart}
+                    className={cn(
+                      "flex-1 py-3.5 px-3 rounded-xl border-2 font-extrabold text-xs uppercase tracking-wider transition-all duration-200 cursor-pointer active:scale-95 flex items-center justify-center gap-2 group",
+                      isDark
+                        ? "border-[#D4AF37] text-white hover:bg-[#D4AF37]/10"
+                        : "border-[#D4AF37] text-slate-900 hover:bg-[#D4AF37]/10"
+                    )}
+                  >
+                    <ShoppingBag className="w-4 h-4 text-[#D4AF37] group-hover:scale-110 transition-transform shrink-0" />
+                    <span className="truncate">ADD TO BAG</span>
+                  </button>
+
+                  {/* 2. Wishlist */}
+                  <button
+                    type="button"
+                    onClick={handleWishlistToggle}
+                    className={cn(
+                      "p-3.5 rounded-xl border-2 transition-all duration-200 cursor-pointer active:scale-95 flex items-center justify-center shrink-0 group",
+                      isFavorite
+                        ? "bg-red-500/15 text-red-500 border-red-500/40 shadow-sm shadow-red-500/20"
+                        : isDark
+                        ? "border-white/20 text-white hover:border-[#D4AF37] hover:bg-white/5"
+                        : "border-slate-300 text-slate-900 hover:border-[#D4AF37] hover:bg-slate-50"
+                    )}
+                    title={isFavorite ? "Remove from Wishlist" : "Add to Wishlist"}
+                  >
+                    <Heart className={cn("w-4 h-4 transition-transform group-hover:scale-110", isFavorite && "fill-current text-red-500")} />
+                  </button>
+
+                  {/* 3. Buy Now */}
+                  <button
+                    type="button"
+                    onClick={handleBuyNow}
+                    className="flex-1 py-3.5 px-3 rounded-xl bg-[#D4AF37] text-black font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-[#D4AF37]/25 hover:bg-[#c49f2f] transition-all duration-200 cursor-pointer active:scale-95 flex items-center justify-center gap-2 group"
+                  >
+                    <ShoppingCart className="w-4 h-4 shrink-0 group-hover:scale-110 transition-transform" />
+                    <span className="truncate">BUY NOW</span>
+                  </button>
+                </div>
               </div>
             </div>
 
