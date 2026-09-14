@@ -206,6 +206,7 @@ export type ReturnRequest = {
   walletTransactionId?: string;
   returnLabelUrl?: string;
   returnScansJson?: string;
+  refundConfirmationMessage?: string;
   createdAt?: string;
 };
 

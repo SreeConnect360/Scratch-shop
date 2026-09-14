@@ -538,6 +538,12 @@ function ShopOrdersPage() {
                           </div>
                         )}
                       </div>
+
+                      {r.refundConfirmationMessage && (
+                        <div className="w-full text-[11px] text-emerald-800 dark:text-emerald-300 bg-emerald-500/15 border border-emerald-500/25 p-2 rounded-lg font-sans mt-1">
+                          <strong>Official Confirmation:</strong> {r.refundConfirmationMessage}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1200,11 +1206,16 @@ function ShopOrdersPage() {
                 )}
 
                 {selectedReturnDetails.status === "Refund Completed" && (
-                  <div className="pt-2 border-t border-black/5 dark:border-white/5 space-y-1">
+                  <div className="pt-2 border-t border-black/5 dark:border-white/5 space-y-2">
                     <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       <span>Settlement Confirmed</span>
                     </div>
+                    {selectedReturnDetails.refundConfirmationMessage && (
+                      <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 dark:text-emerald-300 text-[11px] leading-relaxed">
+                        <strong>Official Confirmation:</strong> {selectedReturnDetails.refundConfirmationMessage}
+                      </div>
+                    )}
                     <p className="text-[10px] text-muted-foreground leading-relaxed">
                       For Razorpay online payments, refunds are directly sent to your original bank, card, or UPI account. Depending on your bank's clearance cycles, funds typically reflect in 2–5 business days.
                     </p>

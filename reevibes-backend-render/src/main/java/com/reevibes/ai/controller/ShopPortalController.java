@@ -1258,6 +1258,50 @@ public class ShopPortalController {
     public ResponseEntity<ShopOrder> trackOrderShiprocket(@PathVariable String id) {
         ShopOrder order = getOrHydrateOrder(id);
         
+        // If order was created on Shiprocket, attempt to sync live AWB and courier assigned in Shiprocket portal
+        if (order.getShiprocketOrderId() != null && !order.getShiprocketOrderId().isEmpty()) {
+            try {
+                Map<String, Object> srOrder = shiprocketService.getShiprocketOrder(order.getShiprocketOrderId());
+                if (srOrder != null && srOrder.containsKey("data") && srOrder.get("data") instanceof Map) {
+                    Map<String, Object> data = (Map<String, Object>) srOrder.get("data");
+                    String srAwb = null;
+                    String srCourier = null;
+                    if (data.containsKey("awb_code") && data.get("awb_code") != null && !String.valueOf(data.get("awb_code")).isEmpty() && !String.valueOf(data.get("awb_code")).equalsIgnoreCase("null")) {
+                        srAwb = String.valueOf(data.get("awb_code")).trim();
+                    }
+                    if (data.containsKey("courier_name") && data.get("courier_name") != null) {
+                        srCourier = String.valueOf(data.get("courier_name")).trim();
+                    }
+                    if (srAwb == null && data.containsKey("shipments")) {
+                        Object shpObj = data.get("shipments");
+                        if (shpObj instanceof List && !((List<?>) shpObj).isEmpty()) {
+                            Object first = ((List<?>) shpObj).get(0);
+                            if (first instanceof Map) {
+                                Map<?, ?> sm = (Map<?, ?>) first;
+                                if (sm.get("awb") != null && !String.valueOf(sm.get("awb")).isEmpty() && !String.valueOf(sm.get("awb")).equalsIgnoreCase("null")) {
+                                    srAwb = String.valueOf(sm.get("awb")).trim();
+                                }
+                                if (sm.get("courier") != null) {
+                                    srCourier = String.valueOf(sm.get("courier")).trim();
+                                }
+                            }
+                        }
+                    }
+                    if (srAwb != null && !srAwb.isEmpty()) {
+                        order.setTrackingNumber(srAwb);
+                        order.setAwbCode(srAwb);
+                        if (srCourier != null && !srCourier.isEmpty()) order.setCourierPartner(srCourier);
+                        if ("Accepted".equalsIgnoreCase(order.getStatus()) || "Processing".equalsIgnoreCase(order.getStatus())) {
+                            order.setStatus("Ready to Ship");
+                            recordStatusChange(order, "Ready to Ship", "Shiprocket Sync", "AWB " + srAwb + " retrieved from Shiprocket");
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("Failed to sync live AWB from Shiprocket: " + e.getMessage());
+            }
+        }
+
         String trk = order.getTrackingNumber();
         if (trk != null && !trk.isEmpty()) {
             Map<String, Object> trackRes = shiprocketService.trackShipment(trk);
@@ -1722,6 +1766,88 @@ public class ShopPortalController {
             jdbcTemplate.update(sql, evtId, "evt_" + System.currentTimeMillis(), entityId, totalRefund.doubleValue(), custEmail, payloadJson);
         } catch (Exception dbErr) {
             System.err.println("Could not log refund to razorpay_webhook_events: " + dbErr.getMessage());
+        }
+
+        // Deliver refund confirmation message & notification to customer account in Supabase
+        try {
+            String custId = req.getCustomerId() != null ? req.getCustomerId() : (order != null ? order.getUserId() : null);
+            if (custId != null) {
+                String txnId = req.getRazorpayRefundId() != null ? req.getRazorpayRefundId() : req.getRefundTransactionId();
+                if (txnId == null || txnId.isEmpty()) {
+                    txnId = "rfnd_" + (int)(100000 + Math.random() * 900000);
+                }
+                String notifId = "notif_rfnd_" + System.currentTimeMillis();
+                String confirmationMsg = String.format(
+                    "Refund of ₹%s for Order #%s (%s) has been successfully disbursed via %s. Transaction ID: %s.",
+                    totalRefund.toPlainString(),
+                    req.getOrderId(),
+                    req.getProductName() != null ? req.getProductName() : "Product",
+                    req.getRefundMethod() != null ? req.getRefundMethod() : "Original Source",
+                    txnId
+                );
+
+                Map<String, Object> notifMap = new HashMap<>();
+                notifMap.put("id", notifId);
+                notifMap.put("icon", "refund");
+                notifMap.put("title", "Refund Processed Successfully");
+                notifMap.put("body", confirmationMsg);
+                notifMap.put("time", "Just now");
+                notifMap.put("unread", true);
+                notifMap.put("transactionId", txnId);
+                notifMap.put("orderId", req.getOrderId());
+                notifMap.put("refundAmount", totalRefund.doubleValue());
+                notifMap.put("refundDate", req.getRefundDate());
+                notifMap.put("refundMethod", req.getRefundMethod());
+
+                String notifJson = objectMapper.writeValueAsString(notifMap);
+
+                // Update public.customer_accounts notifications JSON array
+                jdbcTemplate.update(
+                    "UPDATE public.customer_accounts " +
+                    "SET notifications = COALESCE(notifications, '[]'::jsonb) || ?::jsonb, " +
+                    "    updated_at = NOW() " +
+                    "WHERE id = ?",
+                    "[" + notifJson + "]",
+                    custId
+                );
+
+                // Also update the order within customer_accounts orders JSON array with confirmation message & refund txn ID
+                try {
+                    String selectOrdersSql = "SELECT orders FROM public.customer_accounts WHERE id = ?";
+                    List<String> ordersRaw = jdbcTemplate.query(selectOrdersSql, (rs, rowNum) -> rs.getString("orders"), custId);
+                    if (!ordersRaw.isEmpty() && ordersRaw.get(0) != null) {
+                        List<?> rawList = objectMapper.readValue(ordersRaw.get(0), List.class);
+                        List<Map<String, Object>> userOrders = new ArrayList<>();
+                        boolean updated = false;
+                        for (Object oObj : rawList) {
+                            if (oObj instanceof Map) {
+                                Map<String, Object> ordMap = new HashMap<>((Map<String, Object>) oObj);
+                                if (req.getOrderId().equals(String.valueOf(ordMap.get("id")))) {
+                                    ordMap.put("paymentStatus", "Refunded");
+                                    ordMap.put("status", "Refunded");
+                                    ordMap.put("refundTransactionId", txnId);
+                                    ordMap.put("refundAmount", totalRefund.doubleValue());
+                                    ordMap.put("refundDate", req.getRefundDate());
+                                    ordMap.put("refundConfirmationMessage", confirmationMsg);
+                                    updated = true;
+                                }
+                                userOrders.add(ordMap);
+                            }
+                        }
+                        if (updated) {
+                            jdbcTemplate.update(
+                                "UPDATE public.customer_accounts SET orders = ?::jsonb, updated_at = NOW() WHERE id = ?",
+                                objectMapper.writeValueAsString(userOrders),
+                                custId
+                            );
+                        }
+                    }
+                } catch (Exception ordErr) {
+                    System.err.println("Could not patch customer_accounts orders JSON: " + ordErr.getMessage());
+                }
+            }
+        } catch (Exception notifErr) {
+            System.err.println("Could not deliver user refund confirmation notification: " + notifErr.getMessage());
         }
 
         // Restore product stock quantity when item is returned and refunded

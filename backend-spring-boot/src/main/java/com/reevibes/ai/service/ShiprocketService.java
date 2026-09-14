@@ -263,8 +263,8 @@ public class ShiprocketService {
             payload.put("order_items", orderItems);
             payload.put("payment_method", paymentMethod);
             payload.put("sub_total", order.getTotal().doubleValue());
-            payload.put("length", 15);
-            payload.put("breadth", 15);
+            payload.put("length", 10);
+            payload.put("breadth", 10);
             payload.put("height", 10);
             payload.put("weight", 0.5);
 
@@ -371,16 +371,12 @@ public class ShiprocketService {
             }
         }
 
-        Map<String, Object> fallback = new HashMap<>();
+        // Return informative response without fake mock AWB
         Map<String, Object> response = new HashMap<>();
-        Map<String, Object> data = new HashMap<>();
-        String mockAwb = "SR" + (100000000L + (long)(Math.random() * 900000000L));
-        data.put("awb_code", mockAwb);
-        data.put("courier_name", (courierId != null && courierId.equals("1")) ? "Blue Dart Surface" : "Delhivery Surface");
-        response.put("data", data);
-        fallback.put("response", response);
-        fallback.put("awb_assign_status", 1);
-        return fallback;
+        response.put("awb_assign_status", 0);
+        response.put("error", true);
+        response.put("message", "AWB pending courier payment. Please open the Shiprocket Dashboard (app.shiprocket.in/orders) to pay delivery charges and book the courier, then click 'Sync from Shiprocket'.");
+        return response;
     }
 
     /**
@@ -411,11 +407,33 @@ public class ShiprocketService {
         }
 
         Map<String, Object> fallback = new HashMap<>();
-        Map<String, Object> response = new HashMap<>();
-        response.put("pickup_status", 1);
-        response.put("pickup_scheduled_date", pickupDate);
-        fallback.put("response", response);
+        fallback.put("pickup_status", 0);
+        fallback.put("message", "Pickup scheduling can also be completed directly on the Shiprocket Dashboard once courier is confirmed.");
         return fallback;
+    }
+
+    /**
+     * Fetches live order details directly from Shiprocket by Shiprocket Order ID.
+     */
+    public Map<String, Object> getShiprocketOrder(String shiprocketOrderId) {
+        String token = getAuthToken();
+        if (token == null || shiprocketOrderId == null || shiprocketOrderId.isEmpty()) return Collections.emptyMap();
+
+        try {
+            String url = "https://apiv2.shiprocket.in/v1/external/orders/show/" + shiprocketOrderId;
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Authorization", "Bearer " + token);
+
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+            ResponseEntity<Map> response = restTemplate.exchange(url, org.springframework.http.HttpMethod.GET, entity, Map.class);
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                return (Map<String, Object>) response.getBody();
+            }
+        } catch (Exception e) {
+            System.err.println("Exception fetching Shiprocket order: " + e.getMessage());
+        }
+        return Collections.emptyMap();
     }
 
     /**
@@ -595,7 +613,7 @@ public class ShiprocketService {
     /**
      * Creates a reverse return order in Shiprocket from Customer pickup location to Warehouse.
      */
-    public Map<String, String> createReturnOrder(com.reevibes.ai.model.ReturnRequest returnReq, ShopOrder order) {
+     public Map<String, String> createReturnOrder(com.reevibes.ai.model.ReturnRequest returnReq, ShopOrder order) {
         String token = getAuthToken();
         if (token == null) {
             System.err.println("Could not create return order: Shiprocket token is null");
@@ -680,8 +698,8 @@ public class ShiprocketService {
 
             payload.put("order_items", orderItems);
             payload.put("sub_total", returnReq.getRefundAmount() != null ? returnReq.getRefundAmount().doubleValue() : 1000.0);
-            payload.put("length", 15);
-            payload.put("breadth", 15);
+            payload.put("length", 10);
+            payload.put("breadth", 10);
             payload.put("height", 10);
             payload.put("weight", 0.5);
 

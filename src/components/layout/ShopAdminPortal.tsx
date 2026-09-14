@@ -59,6 +59,10 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
   const [rzpSearchQuery, setRzpSearchQuery] = useState<string>("");
   const [selectedRzpEvent, setSelectedRzpEvent] = useState<RazorpayWebhookEvent | null>(null);
   const [simulatingEvent, setSimulatingEvent] = useState<boolean>(false);
+  const [gatewaySubTab, setGatewaySubTab] = useState<"orders" | "webhooks">("orders");
+  const [selectedGatewayOrder, setSelectedGatewayOrder] = useState<any | null>(null);
+  const [gatewaySearchQuery, setGatewaySearchQuery] = useState<string>("");
+  const [gatewayMethodFilter, setGatewayMethodFilter] = useState<string>("ALL");
 
   const loadGatewayEvents = async () => {
     setLoadingRzpEvents(true);
@@ -222,6 +226,41 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
       return true;
     });
   }, [returnsList, returnsFilter]);
+
+  const filteredGatewayOrders = useMemo(() => {
+    return ordersList.filter(o => {
+      if (gatewayMethodFilter !== "ALL") {
+        const pm = (o.paymentMethod || "").toLowerCase();
+        const hasWallet = (o.walletAmountUsed ?? 0) > 0;
+        const hasRzp = (o.razorpayAmountPaid ?? 0) > 0 || !!o.razorpayPaymentId;
+        if (gatewayMethodFilter === "RAZORPAY") {
+          if (!pm.includes("razorpay") && !pm.includes("online") && !hasRzp) return false;
+          if (hasWallet && hasRzp) return false;
+        }
+        if (gatewayMethodFilter === "WALLET") {
+          if (!pm.includes("wallet") && !hasWallet) return false;
+          if (hasWallet && hasRzp) return false;
+        }
+        if (gatewayMethodFilter === "COD") {
+          if (!pm.includes("cod") && !pm.includes("cash")) return false;
+        }
+        if (gatewayMethodFilter === "SPLIT") {
+          if (!(hasWallet && hasRzp)) return false;
+        }
+      }
+      if (gatewaySearchQuery.trim()) {
+        const q = gatewaySearchQuery.toLowerCase().trim();
+        const matchId = (o.id || "").toLowerCase().includes(q);
+        const matchUser = (o.customerName || "").toLowerCase().includes(q) || (o.userId || "").toLowerCase().includes(q);
+        const matchTxn = (o.razorpayPaymentId || "").toLowerCase().includes(q);
+        const matchMethod = (o.paymentMethod || "").toLowerCase().includes(q);
+        const matchItems = (o.items || []).some((it: any) => (it.name || "").toLowerCase().includes(q) || (it.productId || "").toLowerCase().includes(q));
+        return matchId || matchUser || matchTxn || matchMethod || matchItems;
+      }
+      return true;
+    });
+  }, [ordersList, gatewayMethodFilter, gatewaySearchQuery]);
+
   const customersList = useMemo(() => sortCustomerAccountsById(state.users || []), [state.users]);
   const couponsList = state.coupons || [];
 
@@ -640,19 +679,29 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
     }
   };
 
-  const handleDownloadBulkCSV = () => {
+  const handleDownloadBulkCSV = (targetOrderId?: string) => {
     try {
-      toast.info("Generating Shiprocket Bulk Order CSV...");
+      toast.info("Generating Shiprocket Order CSV...");
 
-      const orderedOrders = ordersList.filter(o =>
-        ["pending approval", "processing", "pending", "accepted", "ready to ship", "ready to dispatch", "confirmed", "packed"].includes(o.status?.toLowerCase() || "")
-      );
+      let targetOrders: any[] = [];
+      if (targetOrderId) {
+        const found = ordersList.find(o => o.id === targetOrderId);
+        targetOrders = found ? [found] : [];
+      } else {
+        const acceptedOrders = ordersList.filter(o =>
+          ["accepted", "ready to ship", "ready to dispatch", "processing", "pending approval", "pending", "confirmed", "packed"].includes(o.status?.toLowerCase() || "")
+        );
+        targetOrders = acceptedOrders.length > 0 ? acceptedOrders : ordersList;
+      }
 
-      const targetOrders = orderedOrders.length > 0 ? orderedOrders : ordersList;
+      if (targetOrders.length === 0) {
+        toast.error("No orders found to export.");
+        return;
+      }
 
-      // CSV header row matching Shiprocket sample.csv exactly
+      // Exact CSV header row matching Shiprocket sample.csv uploaded by user
       const csvHeaders = [
-        "*Order ID", "Channel", "Payment Method", "Customer Name", "Customer Email",
+        "*Order ID", "*Channel", "Payment Method", "Customer Name", "Customer Email",
         "Customer Mobile", "Address Line 1", "Address Line 2", "Address State",
         "Address City", "Address Pincode", "Pickup Address Name", "dimensions (CM)",
         "Package Name", "Invoice id", "Weight (KG)", "Archive", "Self Fulfilled",
@@ -667,14 +716,18 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
         let customerName = [u?.firstName, u?.lastName].filter(Boolean).join(" ") || ord.customerName || "Customer";
         let customerEmail = u?.email || "customer@reevibes.com";
         const rawPhone = (u?.phone || "9876543210").replace(/[^0-9]/g, "");
-        let customerMobile = rawPhone.length >= 10 ? rawPhone.slice(-10) : "9876543210";
+        let cleanPhone = rawPhone.replace(/^0+/, "");
+        if (cleanPhone.startsWith("91") && cleanPhone.length === 12) {
+          cleanPhone = cleanPhone.slice(2);
+        }
+        let customerMobile = cleanPhone.length >= 10 ? cleanPhone.slice(-10) : (cleanPhone || "9876543210");
 
         let rawAddr = ord.address || (u as any)?.address || "";
-        let street = "Indiranagar";
+        let street = "17-6-20, Sanjay Nagar, Dairy Farm Center";
         let addressLine2 = "";
-        let stateName = "Karnataka";
-        let city = "Bangalore";
-        let pincode = "560038";
+        let stateName = "Andhra Pradesh";
+        let city = "Kakinada";
+        let pincode = "533001";
 
         if (typeof rawAddr === "string" && rawAddr.trim().startsWith("{")) {
           try {
@@ -687,8 +740,9 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
             if (parsed.pincode) pincode = String(parsed.pincode).replace(/[^0-9]/g, "");
             if (parsed.name) customerName = parsed.name;
             if (parsed.phone) {
-              const p = String(parsed.phone).replace(/[^0-9]/g, "");
-              if (p.length >= 10) customerMobile = p.slice(-10);
+              const p = String(parsed.phone).replace(/[^0-9]/g, "").replace(/^0+/, "");
+              const pClean = p.startsWith("91") && p.length === 12 ? p.slice(2) : p;
+              if (pClean.length >= 10) customerMobile = pClean.slice(-10);
             }
           } catch (e) {
             street = rawAddr;
@@ -700,7 +754,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
           if (parts.length >= 3) {
             street = parts[0];
             city = parts[parts.length - 2];
-            stateName = parts[parts.length - 1].replace(/\d+/g, "").trim() || "Karnataka";
+            stateName = parts[parts.length - 1].replace(/\d+/g, "").trim() || "Andhra Pradesh";
             if (parts.length >= 4) {
               addressLine2 = parts[1];
             }
@@ -720,7 +774,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
 
           const row = [
             ord.id, // *Order ID
-            "reevibes", // Channel
+            "Custom", // *Channel
             payMethod, // Payment Method
             customerName, // Customer Name
             customerEmail, // Customer Email
@@ -730,7 +784,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
             stateName, // Address State
             city, // Address City
             pincode, // Address Pincode
-            "17-6-20, Sanjay Nagar, Dairy Farm Center Kakinada", // Pickup Address Name
+            "warehouse", // Pickup Address Name (registered Shiprocket nickname for Kakinada warehouse)
             "10 x 10 x 10", // dimensions (CM)
             prodName, // Package Name
             ord.id, // Invoice id
@@ -740,7 +794,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
             "", // Delivery Executive Name
             "", // Delivery Executive Phone Number
             ord.trackingNumber ? `https://apiv2.shiprocket.in/v1/external/courier/track/awb/${ord.trackingNumber}` : "", // Tracking Url
-            "Essentials", // Order Type
+            "Non Essentials", // Order Type
             "", // Order Tag
             "610910", // Hsn Code
             masterSku // Sku
@@ -751,7 +805,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
 
       const escapeCsvField = (field: string) => {
         const str = String(field ?? "");
-        if (str.includes(",") || str.includes("\"") || str.includes("\n")) {
+        if (str.includes(",") || str.includes("\"") || str.includes("\n") || str.includes("\r")) {
           return `"${str.replace(/"/g, '""')}"`;
         }
         return `"${str}"`;
@@ -760,19 +814,19 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
       const csvContent = [
         csvHeaders.map(h => escapeCsvField(h)).join(","),
         ...csvRows.map(row => row.map(cell => escapeCsvField(cell)).join(","))
-      ].join("\n");
+      ].join("\r\n");
 
       const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "ReeVibes_Bulk_Orders_Shiprocket.csv";
+      a.download = targetOrderId ? `ReeVibes_Order_${targetOrderId}_Shiprocket.csv` : `ReeVibes_Bulk_Orders_Shiprocket_${new Date().toISOString().slice(0, 10)}.csv`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      toast.success("Downloaded Shiprocket Bulk Order CSV!");
+      toast.success(targetOrderId ? `Exported Order ${targetOrderId} (Shiprocket CSV)!` : "Downloaded Shiprocket Bulk Order CSV!");
     } catch (err: any) {
       console.error("Failed to generate CSV:", err);
       toast.error(err.message || "Failed to export CSV file.");
@@ -2594,6 +2648,20 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                   >
                     <RefreshCw className="w-3.5 h-3.5" /> Sync Live Tracking
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadBulkCSV(selectedOrderDetails.id)}
+                    className="bg-sky-600/30 hover:bg-sky-600 text-sky-200 hover:text-white border border-sky-500/40 text-[10px] uppercase font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" /> Export Order (Shiprocket CSV)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => window.open("https://app.shiprocket.in/orders", "_blank")}
+                    className="bg-purple-600/30 hover:bg-purple-600 text-purple-200 hover:text-white border border-purple-500/40 text-[10px] uppercase font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" /> Open Shiprocket Dashboard ↗
+                  </button>
                 </div>
 
                 {/* Live Shiprocket Timeline Scans */}
@@ -2727,26 +2795,68 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                   {(selectedOrderDetails.status === "Accepted" || (selectedOrderDetails.status === "Pending Approval" && courierQuotes)) && (
                     <div className="space-y-3">
                       <p className="text-xs text-muted-foreground">Order accepted. Select a Shiprocket courier delivery partner to generate real AWB tracking number.</p>
-                      {!courierQuotes && !quotesLoading && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        {!courierQuotes && !quotesLoading && (
+                          <button
+                            onClick={async () => {
+                              setQuotesLoading(true);
+                              const res = await fetchCourierQuotes(selectedOrderDetails.id);
+                              setQuotesLoading(false);
+                              if (res && res.data && res.data.available_courier_companies) {
+                                setCourierQuotes(res.data.available_courier_companies);
+                                toast.success("Shiprocket courier serviceability retrieved.");
+                              } else if (res && res.error) {
+                                toast.error(res.message || "Failed to retrieve courier rates.");
+                              } else {
+                                toast.error("No serviceability quotes returned for pincode.");
+                              }
+                            }}
+                            className="bg-accent hover:bg-accent/80 text-white text-[10px] uppercase font-bold px-4 py-2 rounded-lg cursor-pointer flex items-center gap-1.5"
+                          >
+                            <Truck className="w-3.5 h-3.5" /> Get Serviceability Quotes
+                          </button>
+                        )}
                         <button
+                          type="button"
+                          onClick={() => handleDownloadBulkCSV(selectedOrderDetails.id)}
+                          className="bg-sky-600/30 hover:bg-sky-600 text-sky-200 hover:text-white border border-sky-500/40 text-[10px] uppercase font-bold px-3 py-2 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+                        >
+                          <Download className="w-3.5 h-3.5" /> Export Order (Shiprocket CSV)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => window.open("https://app.shiprocket.in/orders", "_blank")}
+                          className="bg-purple-600/30 hover:bg-purple-600 text-purple-200 hover:text-white border border-purple-500/40 text-[10px] uppercase font-bold px-3 py-2 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" /> Open Shiprocket Web Dashboard ↗
+                        </button>
+                        <button
+                          type="button"
                           onClick={async () => {
-                            setQuotesLoading(true);
-                            const res = await fetchCourierQuotes(selectedOrderDetails.id);
-                            setQuotesLoading(false);
-                            if (res && res.data && res.data.available_courier_companies) {
-                              setCourierQuotes(res.data.available_courier_companies);
-                              toast.success("Shiprocket courier serviceability retrieved.");
-                            } else if (res && res.error) {
-                              toast.error(res.message || "Failed to retrieve courier rates.");
+                            toast.info("Syncing live AWB & courier from Shiprocket...");
+                            const updated = await syncShiprocketTracking(selectedOrderDetails.userId, selectedOrderDetails.id);
+                            if (updated && updated.trackingNumber) {
+                              toast.success(`AWB synced: ${updated.trackingNumber} (${updated.courierPartner || "Shiprocket"})`);
+                              setSelectedOrderDetails((prev: any) => ({
+                                ...prev,
+                                ...updated,
+                                items: (Array.isArray(updated?.items) && updated.items.length > 0) ? updated.items : prev?.items
+                              }));
                             } else {
-                              toast.error("No serviceability quotes returned for pincode.");
+                              toast.info("No new AWB assigned in Shiprocket yet.");
                             }
                           }}
-                          className="bg-accent hover:bg-accent/80 text-white text-[10px] uppercase font-bold px-4 py-2 rounded-lg cursor-pointer"
+                          className="bg-emerald-600/30 hover:bg-emerald-600 text-emerald-200 hover:text-white border border-emerald-500/40 text-[10px] uppercase font-bold px-3 py-2 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
                         >
-                          Get Serviceability Quotes
+                          <RefreshCw className="w-3.5 h-3.5" /> Sync Live AWB from Shiprocket
                         </button>
-                      )}
+                      </div>
+
+                      <div className="p-3 rounded-xl bg-surface-2/60 border border-white/10 text-[11px] text-muted-foreground space-y-1">
+                        <strong className="text-accent">Fulfillment Flow:</strong>
+                        <div>1. If you have active prepaid credits in Shiprocket, click <em>Get Serviceability Quotes</em> and select a courier partner.</div>
+                        <div>2. Alternatively, export this order via <em>Shiprocket CSV</em> or open the <em>Shiprocket Web Dashboard</em> to recharge and book the courier directly. Once booked, click <em>Sync Live AWB from Shiprocket</em> to pull the live tracking details into ReeVibes automatically!</div>
+                      </div>
 
                       {quotesLoading && <div className="text-xs text-muted-foreground animate-pulse">Querying live Shiprocket serviceability API...</div>}
 
@@ -8474,11 +8584,12 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                     Download Excel
                   </button>
                   <button
-                    onClick={handleDownloadBulkCSV}
+                    type="button"
+                    onClick={() => handleDownloadBulkCSV()}
                     className="bg-sky-600/20 hover:bg-sky-600 text-sky-400 hover:text-white border border-sky-500/30 text-xs font-bold px-3 py-1.5 rounded-md flex items-center gap-2 transition-colors cursor-pointer"
                   >
-                    <FileText className="w-4 h-4" />
-                    Download CSV
+                    <Download className="w-4 h-4" />
+                    Export Accepted (Shiprocket CSV)
                   </button>
                 </div>
               </div>
@@ -8567,6 +8678,14 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                           </td>
                           <td className="py-4 text-right space-x-2 whitespace-nowrap">
                             <button
+                              type="button"
+                              onClick={() => handleDownloadBulkCSV(o.id)}
+                              title="Export single order in Shiprocket CSV format"
+                              className="bg-sky-600/20 hover:bg-sky-600 text-sky-400 hover:text-white border border-sky-500/30 text-[10px] uppercase font-bold px-2.5 py-1.5 rounded transition-colors cursor-pointer inline-flex items-center gap-1"
+                            >
+                              <Download className="w-3 h-3" /> CSV
+                            </button>
+                            <button
                               onClick={() => setSelectedOrderDetails(o)}
                               className="bg-accent/20 hover:bg-accent text-accent hover:text-white text-[10px] uppercase font-bold px-3 py-1.5 rounded transition-colors cursor-pointer"
                             >
@@ -8653,6 +8772,14 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             <StatusChip status={o.status} tone="accent" />
                           </td>
                           <td className="py-4 text-right space-x-2 whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={() => handleDownloadBulkCSV(o.id)}
+                              title="Export single order in Shiprocket CSV format"
+                              className="bg-sky-600/20 hover:bg-sky-600 text-sky-400 hover:text-white border border-sky-500/30 text-[10px] uppercase font-bold px-2.5 py-1.5 rounded transition-colors cursor-pointer inline-flex items-center gap-1"
+                            >
+                              <Download className="w-3 h-3" /> CSV
+                            </button>
                             <button
                               onClick={() => setSelectedOrderDetails(o)}
                               className="bg-accent/20 hover:bg-accent text-accent hover:text-white text-[10px] uppercase font-bold px-3 py-1.5 rounded transition-colors cursor-pointer"
@@ -9276,168 +9403,654 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
             </AdminCard>
           </div>
 
-          {/* Filter Bar & Search */}
-          <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 bg-surface border border-border-subtle p-3 rounded-2xl">
-            {/* Category Pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 text-xs">
-              {[
-                { id: "ALL", label: "All Events" },
-                { id: "PAYMENTS", label: "Payments" },
-                { id: "REFUNDS", label: "Refunds" },
-                { id: "DISPUTES", label: "Disputes" },
-                { id: "DOWNTIMES", label: "Downtimes" },
-                { id: "ORDERS", label: "Orders" },
-                { id: "SETTLEMENTS", label: "Settlements" },
-                { id: "INVOICES", label: "Invoices" },
-                { id: "SUBSCRIPTIONS", label: "Subscriptions" },
-                { id: "LINKS_ENGAGE", label: "Links & Engage" },
-              ].map(cat => (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => setRzpCategoryFilter(cat.id as EventCategory)}
-                  className={cn(
-                    "px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-colors cursor-pointer text-xs",
-                    rzpCategoryFilter === cat.id
-                      ? "bg-accent text-white font-bold"
-                      : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-                  )}
-                >
-                  {cat.label}
-                </button>
-              ))}
-            </div>
+          {/* Sub Navigation: User Purchases & Payment Breakdown vs. Razorpay Webhook Stream */}
+          <div className="flex items-center gap-2 border-b border-border-subtle pb-3">
+            <button
+              type="button"
+              onClick={() => setGatewaySubTab("orders")}
+              className={cn(
+                "px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2",
+                gatewaySubTab === "orders"
+                  ? "bg-accent text-white shadow-lg shadow-accent/20"
+                  : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+              )}
+            >
+              <ShoppingBag className="w-3.5 h-3.5" />
+              User Purchases & Transactions
+              <span className="bg-white/20 px-1.5 py-0.2 rounded-full text-[10px]">
+                {ordersList.length}
+              </span>
+            </button>
 
-            {/* Search Input */}
-            <div className="relative w-full md:w-72">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Search Event, Pay ID, Email..."
-                value={rzpSearchQuery}
-                onChange={e => setRzpSearchQuery(e.target.value)}
-                className="w-full bg-surface-2 border border-border-subtle rounded-xl pl-9 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-accent"
-              />
-            </div>
+            <button
+              type="button"
+              onClick={() => setGatewaySubTab("webhooks")}
+              className={cn(
+                "px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2",
+                gatewaySubTab === "webhooks"
+                  ? "bg-accent text-white shadow-lg shadow-accent/20"
+                  : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+              )}
+            >
+              <Activity className="w-3.5 h-3.5" />
+              Razorpay Webhook Stream
+              <span className="bg-white/20 px-1.5 py-0.2 rounded-full text-[10px]">
+                {rzpEvents.length}
+              </span>
+            </button>
           </div>
 
-          {/* Events Stream Table */}
-          <AdminCard className="p-0 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-border-subtle bg-white/[0.02] text-muted-foreground text-[11px] uppercase tracking-widest font-mono">
-                    <th className="py-3 px-4">Event Type</th>
-                    <th className="py-3 px-4">Entity ID</th>
-                    <th className="py-3 px-4">Customer</th>
-                    <th className="py-3 px-4">Amount</th>
-                    <th className="py-3 px-4">Status</th>
-                    <th className="py-3 px-4">Time</th>
-                    <th className="py-3 px-4 text-right">Inspect</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border-subtle text-xs">
-                  {filteredRzpEvents.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="py-12 text-center text-muted-foreground">
-                        <Activity className="w-8 h-8 mx-auto mb-2 opacity-30 animate-pulse" />
-                        <div>No webhook events found matching the filter criteria.</div>
-                        <div className="text-[11px] text-muted-foreground/70 mt-1">
-                          Use the "Simulate Event" button above or trigger real events in Razorpay dashboard.
-                        </div>
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredRzpEvents.map(evt => {
-                      const isDispute = evt.event_type.includes("dispute");
-                      const isDowntime = evt.event_type.includes("downtime");
-                      const isRefund = evt.event_type.startsWith("refund.");
-                      const isSettlement = evt.event_type.startsWith("settlement.");
+          {/* VIEW 1: USER PURCHASES & PAYMENT TRANSACTIONS BREAKDOWN */}
+          {gatewaySubTab === "orders" && (
+            <div className="space-y-4">
+              {/* Filter Bar & Search */}
+              <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 bg-surface border border-border-subtle p-3 rounded-2xl">
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 text-xs">
+                  {[
+                    { id: "ALL", label: "All Payment Methods" },
+                    { id: "RAZORPAY", label: "Razorpay Online" },
+                    { id: "WALLET", label: "ReeVibes Wallet" },
+                    { id: "SPLIT", label: "Split (Wallet + Razorpay)" },
+                    { id: "COD", label: "Cash on Delivery" },
+                  ].map(m => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => setGatewayMethodFilter(m.id)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-colors cursor-pointer text-xs",
+                        gatewayMethodFilter === m.id
+                          ? "bg-accent text-white font-bold"
+                          : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                      )}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
 
-                      return (
-                        <tr key={evt.id} className="hover:bg-white/[0.02] transition-colors">
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-2">
-                              <span className={cn(
-                                "w-2 h-2 rounded-full",
-                                isDispute ? "bg-rose-500" :
-                                isDowntime ? "bg-amber-500" :
-                                isRefund ? "bg-purple-400" :
-                                isSettlement ? "bg-sky-400" :
-                                evt.event_type.includes("failed") ? "bg-rose-400" :
-                                "bg-emerald-400"
-                              )} />
-                              <span className="font-mono text-xs font-semibold text-foreground">
-                                {evt.event_type}
-                              </span>
-                            </div>
-                            {evt.error_description && (
-                              <div className="text-[10px] text-rose-400 truncate max-w-xs mt-0.5">
-                                {evt.error_description}
-                              </div>
-                            )}
+                <div className="relative w-full md:w-80">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Search Order ID, Customer, Pay ID, Product..."
+                    value={gatewaySearchQuery}
+                    onChange={e => setGatewaySearchQuery(e.target.value)}
+                    className="w-full bg-surface-2 border border-border-subtle rounded-xl pl-9 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-accent"
+                  />
+                </div>
+              </div>
+
+              {/* Transactions Table */}
+              <AdminCard className="p-0 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-border-subtle bg-white/[0.02] text-muted-foreground text-[11px] uppercase tracking-widest font-mono">
+                        <th className="py-3 px-4">Order ID & Date</th>
+                        <th className="py-3 px-4">Customer</th>
+                        <th className="py-3 px-4">Ordered Products</th>
+                        <th className="py-3 px-4">Transaction ID</th>
+                        <th className="py-3 px-4">Payment Method Breakdown</th>
+                        <th className="py-3 px-4">Amount</th>
+                        <th className="py-3 px-4">Status</th>
+                        <th className="py-3 px-4 text-right">Inspect</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border-subtle text-xs">
+                      {filteredGatewayOrders.length === 0 ? (
+                        <tr>
+                          <td colSpan={8} className="py-12 text-center text-muted-foreground italic">
+                            No purchases found matching the selected filter.
                           </td>
-                          <td className="py-3 px-4 font-mono text-[11px] text-muted-foreground">
-                            <div className="flex items-center gap-1">
-                              <span>{evt.entity_id || evt.event_id || "N/A"}</span>
-                              {evt.entity_id && (
+                        </tr>
+                      ) : (
+                        filteredGatewayOrders.map(ord => {
+                          const itemsList = Array.isArray(ord.items) && ord.items.length > 0
+                            ? ord.items
+                            : (ord.itemsJson ? (() => { try { const p = JSON.parse(ord.itemsJson); return Array.isArray(p) ? p : []; } catch { return []; } })() : []);
+                          const u = state.users.find(usr => usr.id === ord.userId);
+                          const customerName = [u?.firstName, u?.lastName].filter(Boolean).join(" ") || ord.customerName || "Customer";
+                          const isSplit = ((ord.walletAmountUsed ?? 0) > 0) && (((ord.razorpayAmountPaid ?? 0) > 0) || !!ord.razorpayPaymentId);
+                          const isCod = (ord.paymentMethod || "").toLowerCase().includes("cod") || (ord.paymentMethod || "").toLowerCase().includes("cash");
+                          const isWallet = (ord.paymentMethod || "").toLowerCase().includes("wallet") && !isSplit;
+
+                          const txnId = ord.razorpayPaymentId
+                            ? ord.razorpayPaymentId
+                            : isWallet
+                            ? `WLT-${ord.id}`
+                            : isCod
+                            ? `COD-${ord.id}`
+                            : "N/A";
+
+                          return (
+                            <tr key={ord.id} className="hover:bg-white/[0.02] transition-colors">
+                              {/* Order ID & Date */}
+                              <td className="py-3 px-4 whitespace-nowrap">
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedGatewayOrder(ord)}
+                                  className="font-mono text-xs font-bold text-accent hover:underline cursor-pointer block"
+                                >
+                                  {ord.id}
+                                </button>
+                                <div className="text-[10px] text-muted-foreground mt-0.5">
+                                  {formatOrderDateTime(ord.date || ord.orderDate)}
+                                </div>
+                              </td>
+
+                              {/* Customer */}
+                              <td className="py-3 px-4">
+                                <div className="font-semibold text-white">{customerName}</div>
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    navigator.clipboard.writeText(evt.entity_id!);
-                                    toast.success("Entity ID copied!");
+                                    if (u) {
+                                      setSelectedCustomerDetails(u);
+                                      setDossierTab("details");
+                                    } else {
+                                      toast.info(`Customer ID: ${ord.userId}`);
+                                    }
                                   }}
-                                  className="text-muted-foreground hover:text-accent p-0.5 cursor-pointer"
-                                  title="Copy Entity ID"
+                                  className="inline-flex items-center gap-1 font-mono text-[10px] text-accent hover:underline cursor-pointer"
                                 >
-                                  <Copy className="w-3 h-3" />
+                                  <User className="w-2.5 h-2.5" />
+                                  {ord.userId}
                                 </button>
-                              )}
+                              </td>
+
+                              {/* Ordered Products (with images, names, sizes, qty) */}
+                              <td className="py-3 px-4 max-w-xs">
+                                {itemsList.length === 0 ? (
+                                  <span className="text-muted-foreground italic">Fashion Item</span>
+                                ) : (
+                                  <div className="space-y-1.5">
+                                    {itemsList.slice(0, 2).map((it: any, idx: number) => {
+                                      const liveProd = state.products.find((p: any) => p.id === it.productId || p.sku === it.sku) || it;
+                                      const prodImg = liveProd.image || it.image;
+                                      return (
+                                        <div key={idx} className="flex items-center gap-2">
+                                          {prodImg ? (
+                                            <img src={prodImg} alt="" className="w-7 h-7 rounded object-cover border border-white/10 shrink-0" />
+                                          ) : (
+                                            <div className="w-7 h-7 rounded bg-white/5 border border-white/10 flex items-center justify-center text-accent shrink-0">
+                                              <Package className="w-3.5 h-3.5" />
+                                            </div>
+                                          )}
+                                          <div className="min-w-0">
+                                            <div className="truncate font-medium text-white text-[11px] max-w-[180px]">
+                                              {it.name || "Product"}
+                                            </div>
+                                            <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                              <span className="bg-white/5 px-1 rounded border border-white/10">{it.selectedSize || "M"}</span>
+                                              <span>Qty: <strong className="text-foreground">{it.qty || 1}</strong></span>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                    {itemsList.length > 2 && (
+                                      <div className="text-[10px] text-accent font-semibold">
+                                        +{itemsList.length - 2} more item(s)
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </td>
+
+                              {/* Transaction ID */}
+                              <td className="py-3 px-4 font-mono text-[11px] whitespace-nowrap">
+                                <div className="flex items-center gap-1.5">
+                                  <span className={cn(
+                                    "font-bold",
+                                    ord.razorpayPaymentId ? "text-accent" : isWallet ? "text-purple-300" : "text-amber-300"
+                                  )}>
+                                    {txnId}
+                                  </span>
+                                  {txnId !== "N/A" && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(txnId);
+                                        toast.success(`Transaction ID copied: ${txnId}`);
+                                      }}
+                                      className="text-muted-foreground hover:text-accent p-0.5 cursor-pointer"
+                                      title="Copy Transaction ID"
+                                    >
+                                      <Copy className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* Payment Method Breakdown */}
+                              <td className="py-3 px-4">
+                                {isSplit ? (
+                                  <span className="px-2.5 py-1 rounded-md text-[10px] uppercase font-bold bg-accent/15 text-accent border border-accent/30 inline-flex items-center gap-1.5">
+                                    <Layers3 className="w-3 h-3" />
+                                    Split: ₹{(ord.walletAmountUsed ?? 0).toLocaleString()} Wlt + ₹{(ord.razorpayAmountPaid ?? 0).toLocaleString()} Rzp
+                                  </span>
+                                ) : isCod ? (
+                                  <span className="px-2.5 py-1 rounded-md text-[10px] uppercase font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20 inline-flex items-center gap-1.5">
+                                    <Banknote className="w-3 h-3" /> COD · Cash on Delivery
+                                  </span>
+                                ) : isWallet ? (
+                                  <span className="px-2.5 py-1 rounded-md text-[10px] uppercase font-bold bg-purple-500/10 text-purple-300 border border-purple-500/20 inline-flex items-center gap-1.5">
+                                    <Wallet className="w-3 h-3" /> 100% ReeVibes Wallet
+                                  </span>
+                                ) : (
+                                  <span className="px-2.5 py-1 rounded-md text-[10px] uppercase font-bold bg-sky-500/10 text-sky-300 border border-sky-500/20 inline-flex items-center gap-1.5">
+                                    <CreditCard className="w-3 h-3" /> 100% Razorpay Online
+                                  </span>
+                                )}
+                              </td>
+
+                              {/* Amount */}
+                              <td className="py-3 px-4 font-serif font-bold text-accent whitespace-nowrap">
+                                ₹{(ord.total || 0).toLocaleString()}
+                              </td>
+
+                              {/* Status */}
+                              <td className="py-3 px-4 whitespace-nowrap">
+                                <span className={cn(
+                                  "text-[10px] font-mono uppercase px-2 py-0.5 rounded font-bold border",
+                                  (ord.paymentStatus || "").toLowerCase() === "paid"
+                                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                    : (ord.paymentStatus || "").toLowerCase() === "refunded"
+                                    ? "bg-purple-500/10 text-purple-400 border-purple-500/20"
+                                    : "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                                )}>
+                                  {ord.paymentStatus || "Paid"}
+                                </span>
+                              </td>
+
+                              {/* Actions */}
+                              <td className="py-3 px-4 text-right whitespace-nowrap">
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedGatewayOrder(ord)}
+                                  className="bg-accent/15 hover:bg-accent text-accent hover:text-white px-2.5 py-1 rounded text-[10px] font-bold uppercase transition-colors cursor-pointer"
+                                >
+                                  Inspect Details
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </AdminCard>
+            </div>
+          )}
+
+          {/* VIEW 2: RAZORPAY WEBHOOK STREAM */}
+          {gatewaySubTab === "webhooks" && (
+            <div className="space-y-4">
+              {/* Filter Bar & Search */}
+              <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 bg-surface border border-border-subtle p-3 rounded-2xl">
+                {/* Category Pills */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 text-xs">
+                  {[
+                    { id: "ALL", label: "All Events" },
+                    { id: "PAYMENTS", label: "Payments" },
+                    { id: "REFUNDS", label: "Refunds" },
+                    { id: "DISPUTES", label: "Disputes" },
+                    { id: "DOWNTIMES", label: "Downtimes" },
+                    { id: "ORDERS", label: "Orders" },
+                    { id: "SETTLEMENTS", label: "Settlements" },
+                    { id: "INVOICES", label: "Invoices" },
+                    { id: "SUBSCRIPTIONS", label: "Subscriptions" },
+                    { id: "LINKS_ENGAGE", label: "Links & Engage" },
+                  ].map(cat => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setRzpCategoryFilter(cat.id as EventCategory)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-colors cursor-pointer text-xs",
+                        rzpCategoryFilter === cat.id
+                          ? "bg-accent text-white font-bold"
+                          : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                      )}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Search Input */}
+                <div className="relative w-full md:w-72">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Search Event, Pay ID, Email..."
+                    value={rzpSearchQuery}
+                    onChange={e => setRzpSearchQuery(e.target.value)}
+                    className="w-full bg-surface-2 border border-border-subtle rounded-xl pl-9 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-accent"
+                  />
+                </div>
+              </div>
+
+              {/* Events Stream Table */}
+              <AdminCard className="p-0 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-border-subtle bg-white/[0.02] text-muted-foreground text-[11px] uppercase tracking-widest font-mono">
+                        <th className="py-3 px-4">Event Type</th>
+                        <th className="py-3 px-4">Entity ID</th>
+                        <th className="py-3 px-4">Customer</th>
+                        <th className="py-3 px-4">Amount</th>
+                        <th className="py-3 px-4">Status</th>
+                        <th className="py-3 px-4">Time</th>
+                        <th className="py-3 px-4 text-right">Inspect</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y border-subtle text-xs">
+                      {filteredRzpEvents.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="py-12 text-center text-muted-foreground">
+                            <Activity className="w-8 h-8 mx-auto mb-2 opacity-30 animate-pulse" />
+                            <div>No webhook events found matching the filter criteria.</div>
+                            <div className="text-[11px] text-muted-foreground/70 mt-1">
+                              Use the "Simulate Event" button above or trigger real events in Razorpay dashboard.
                             </div>
                           </td>
-                          <td className="py-3 px-4">
-                            <div className="text-foreground">{evt.customer_email || "System/Merchant"}</div>
-                            {evt.customer_contact && (
-                              <div className="text-[10px] text-muted-foreground font-mono">{evt.customer_contact}</div>
-                            )}
-                          </td>
-                          <td className="py-3 px-4 font-mono font-semibold">
-                            {evt.amount && evt.amount > 0 ? `₹${evt.amount.toLocaleString()}` : "—"}
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className={cn(
-                              "text-[10px] font-mono uppercase px-2 py-0.5 rounded font-bold border",
-                              evt.status === "captured" || evt.status === "processed" || evt.status === "paid"
-                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                                : evt.status === "failed"
-                                ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
-                                : evt.status === "under_review" || evt.status === "action_required"
-                                ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
-                                : "bg-white/5 text-muted-foreground border-white/10"
-                            )}>
-                              {evt.status || "logged"}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-muted-foreground text-[11px] whitespace-nowrap">
-                            {formatOrderDateTime(evt.created_at)}
-                          </td>
-                          <td className="py-3 px-4 text-right whitespace-nowrap">
-                            <button
-                              type="button"
-                              onClick={() => setSelectedRzpEvent(evt)}
-                              className="bg-accent/15 hover:bg-accent text-accent hover:text-white px-2.5 py-1 rounded text-[10px] font-bold uppercase transition-colors cursor-pointer"
-                            >
-                              Inspect
-                            </button>
-                          </td>
                         </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
+                      ) : (
+                        filteredRzpEvents.map(evt => {
+                          const isDispute = evt.event_type.includes("dispute");
+                          const isDowntime = evt.event_type.includes("downtime");
+                          const isRefund = evt.event_type.startsWith("refund.");
+                          const isSettlement = evt.event_type.startsWith("settlement.");
+
+                          return (
+                            <tr key={evt.id} className="hover:bg-white/[0.02] transition-colors">
+                              <td className="py-3 px-4">
+                                <div className="flex items-center gap-2">
+                                  <span className={cn(
+                                    "w-2 h-2 rounded-full",
+                                    isDispute ? "bg-rose-500" :
+                                    isDowntime ? "bg-amber-500" :
+                                    isRefund ? "bg-purple-400" :
+                                    isSettlement ? "bg-sky-400" :
+                                    evt.event_type.includes("failed") ? "bg-rose-400" :
+                                    "bg-emerald-400"
+                                  )} />
+                                  <span className="font-mono text-xs font-semibold text-foreground">
+                                    {evt.event_type}
+                                  </span>
+                                </div>
+                                {evt.error_description && (
+                                  <div className="text-[10px] text-rose-400 truncate max-w-xs mt-0.5">
+                                    {evt.error_description}
+                                  </div>
+                                )}
+                              </td>
+                              <td className="py-3 px-4 font-mono text-[11px] text-muted-foreground">
+                                <div className="flex items-center gap-1">
+                                  <span>{evt.entity_id || evt.event_id || "N/A"}</span>
+                                  {evt.entity_id && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(evt.entity_id!);
+                                        toast.success("Entity ID copied!");
+                                      }}
+                                      className="text-muted-foreground hover:text-accent p-0.5 cursor-pointer"
+                                      title="Copy Entity ID"
+                                    >
+                                      <Copy className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="text-foreground">{evt.customer_email || "System/Merchant"}</div>
+                                {evt.customer_contact && (
+                                  <div className="text-[10px] text-muted-foreground font-mono">{evt.customer_contact}</div>
+                                )}
+                              </td>
+                              <td className="py-3 px-4 font-mono font-semibold">
+                                {evt.amount && evt.amount > 0 ? `₹${evt.amount.toLocaleString()}` : "—"}
+                              </td>
+                              <td className="py-3 px-4">
+                                <span className={cn(
+                                  "text-[10px] font-mono uppercase px-2 py-0.5 rounded font-bold border",
+                                  evt.status === "captured" || evt.status === "processed" || evt.status === "paid"
+                                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                    : evt.status === "failed"
+                                    ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                                    : evt.status === "under_review" || evt.status === "action_required"
+                                    ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                                    : "bg-white/5 text-muted-foreground border-white/10"
+                                )}>
+                                  {evt.status || "logged"}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 text-muted-foreground text-[11px] whitespace-nowrap">
+                                {formatOrderDateTime(evt.created_at)}
+                              </td>
+                              <td className="py-3 px-4 text-right whitespace-nowrap">
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedRzpEvent(evt)}
+                                  className="bg-accent/15 hover:bg-accent text-accent hover:text-white px-2.5 py-1 rounded text-[10px] font-bold uppercase transition-colors cursor-pointer"
+                                >
+                                  Inspect
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </AdminCard>
             </div>
-          </AdminCard>
+          )}
+
+          {/* INSPECTION MODAL FOR USER ORDER & TRANSACTION DETAILS */}
+          {selectedGatewayOrder && (() => {
+            const ord = selectedGatewayOrder;
+            const u = state.users.find(usr => usr.id === ord.userId);
+            const customerName = [u?.firstName, u?.lastName].filter(Boolean).join(" ") || ord.customerName || "Customer";
+            const itemsList = Array.isArray(ord.items) && ord.items.length > 0
+              ? ord.items
+              : (ord.itemsJson ? (() => { try { const p = JSON.parse(ord.itemsJson); return Array.isArray(p) ? p : []; } catch { return []; } })() : []);
+            const isSplit = ((ord.walletAmountUsed ?? 0) > 0) && (((ord.razorpayAmountPaid ?? 0) > 0) || !!ord.razorpayPaymentId);
+            const isCod = (ord.paymentMethod || "").toLowerCase().includes("cod") || (ord.paymentMethod || "").toLowerCase().includes("cash");
+            const isWallet = (ord.paymentMethod || "").toLowerCase().includes("wallet") && !isSplit;
+            const txnId = ord.razorpayPaymentId
+              ? ord.razorpayPaymentId
+              : isWallet
+              ? `WLT-${ord.id}`
+              : isCod
+              ? `COD-${ord.id}`
+              : "N/A";
+
+            return (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="liquid-glass max-w-2xl w-full p-6 space-y-6 shadow-2xl animate-in zoom-in-95 duration-200 overflow-y-auto max-h-[90vh]">
+                  <div className="flex justify-between items-center border-b border-white/10 pb-4">
+                    <div className="flex items-center gap-2.5">
+                      <CreditCard className="w-5 h-5 text-accent" />
+                      <div>
+                        <h3 className="font-serif text-xl font-bold">Transaction & Order Dossier</h3>
+                        <p className="text-[11px] text-muted-foreground font-mono">Order #{ord.id} &bull; {formatOrderDateTime(ord.date || ord.orderDate)}</p>
+                      </div>
+                    </div>
+                    <button onClick={() => setSelectedGatewayOrder(null)} className="text-muted-foreground hover:text-foreground cursor-pointer">
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {/* Customer Info Card */}
+                  <div className="bg-surface-2/40 border border-white/5 p-4 rounded-xl space-y-2 text-xs">
+                    <div className="font-bold text-accent uppercase tracking-wider text-[10px]">Customer Details</div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div>
+                        <span className="text-muted-foreground block text-[10px]">Name:</span>
+                        <strong className="text-white">{customerName}</strong>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground block text-[10px]">User ID:</span>
+                        <span className="font-mono text-accent">{ord.userId}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground block text-[10px]">Email:</span>
+                        <span className="truncate block text-foreground/80">{u?.email || "customer@reevibes.com"}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground block text-[10px]">Phone:</span>
+                        <span className="font-mono text-foreground/80">{u?.phone || "N/A"}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Product Items Breakdown */}
+                  <div className="space-y-2.5">
+                    <div className="flex justify-between items-center">
+                      <h4 className="font-bold text-white uppercase tracking-wider text-[11px]">Ordered Product Items ({itemsList.length})</h4>
+                      <span className="text-xs text-accent font-serif font-bold">Total: ₹{(ord.total || 0).toLocaleString()}</span>
+                    </div>
+                    <div className="border border-white/10 rounded-xl overflow-hidden text-xs">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-white/5 text-[10px] uppercase font-mono tracking-wider text-muted-foreground border-b border-white/10">
+                            <th className="p-2.5">Product</th>
+                            <th className="p-2.5">Size</th>
+                            <th className="p-2.5">Qty</th>
+                            <th className="p-2.5">Unit Price</th>
+                            <th className="p-2.5 text-right">Subtotal</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                          {itemsList.map((item: any, idx: number) => {
+                            const liveProd = state.products.find((p: any) => p.id === item.productId || p.sku === item.sku) || item;
+                            const prodImg = liveProd.image || item.image;
+                            const price = Number(item.price || 1000);
+                            const qty = Number(item.qty || 1);
+                            return (
+                              <tr key={idx} className="hover:bg-white/[0.02]">
+                                <td className="p-2.5">
+                                  <div className="flex items-center gap-2.5">
+                                    {prodImg ? (
+                                      <img src={prodImg} alt="" className="w-8 h-8 rounded object-cover border border-white/10 shrink-0" />
+                                    ) : (
+                                      <div className="w-8 h-8 rounded bg-white/5 border border-white/10 flex items-center justify-center text-accent shrink-0">
+                                        <Package className="w-4 h-4" />
+                                      </div>
+                                    )}
+                                    <div className="min-w-0">
+                                      <div className="font-semibold text-white truncate max-w-[200px]">{item.name || "Product"}</div>
+                                      <div className="text-[10px] text-muted-foreground font-mono">SKU: {liveProd.sku || item.sku || item.productId || "RV-SKU"}</div>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="p-2.5">
+                                  <span className="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[10px] font-bold">
+                                    {item.selectedSize || "M"}
+                                  </span>
+                                </td>
+                                <td className="p-2.5 font-mono font-bold text-foreground">
+                                  x{qty}
+                                </td>
+                                <td className="p-2.5 font-mono text-muted-foreground">
+                                  ₹{price.toLocaleString()}
+                                </td>
+                                <td className="p-2.5 text-right font-serif font-bold text-accent">
+                                  ₹{(price * qty).toLocaleString()}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Payment & Transaction Info Card */}
+                  <div className="space-y-3 bg-surface-2/60 border border-white/10 p-4 rounded-xl text-xs">
+                    <h4 className="font-bold text-accent uppercase tracking-wider text-[10px]">Payment Instrument & Transaction Info</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="border-b sm:border-b-0 sm:border-r border-white/5 pb-2 sm:pb-0 sm:pr-3 space-y-1.5">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Primary Transaction ID:</span>
+                          <span className="font-mono font-bold text-accent">{txnId}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Payment Method:</span>
+                          <span className="font-semibold text-white">{ord.paymentMethod || "Online"}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Payment Status:</span>
+                          <span className="font-bold text-emerald-400">{ord.paymentStatus || "Paid"}</span>
+                        </div>
+                        {ord.razorpayOrderId && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Razorpay Order ID:</span>
+                            <span className="font-mono text-muted-foreground">{ord.razorpayOrderId}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Order Total:</span>
+                          <strong className="font-serif text-accent">₹{(ord.total || 0).toLocaleString()}</strong>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Wallet Amount Used:</span>
+                          <span className="font-mono text-purple-300">₹{(ord.walletAmountUsed ?? 0).toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Razorpay Paid:</span>
+                          <span className="font-mono text-sky-300">₹{(ord.razorpayAmountPaid ?? (isCod || isWallet ? 0 : ord.total)).toLocaleString()}</span>
+                        </div>
+                        {ord.refundTransactionId && (
+                          <div className="flex justify-between border-t border-purple-500/20 pt-1 text-purple-300">
+                            <span>Refund Transaction ID:</span>
+                            <span className="font-mono font-bold">{ord.refundTransactionId}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {ord.refundConfirmationMessage && (
+                      <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[11px] mt-2">
+                        <strong>Official Confirmation:</strong> {ord.refundConfirmationMessage}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Actions Footer */}
+                  <div className="flex justify-between items-center pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedGatewayOrder(null);
+                        setSelectedOrderDetails(ord);
+                      }}
+                      className="text-xs text-accent hover:underline flex items-center gap-1 cursor-pointer font-bold"
+                    >
+                      <Truck className="w-3.5 h-3.5" /> View in Order Tracker & Fulfillment
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadBulkCSV(ord.id)}
+                      className="bg-sky-600/20 hover:bg-sky-600 text-sky-400 hover:text-white border border-sky-500/30 text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 cursor-pointer transition-colors"
+                    >
+                      <Download className="w-3.5 h-3.5" /> Export Order (Shiprocket CSV)
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
