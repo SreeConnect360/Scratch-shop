@@ -861,7 +861,9 @@ type Ctx = {
   fetchOrderInvoice: (orderId: string) => Promise<string | null>;
   fetchOrderManifest: (orderId: string) => Promise<string | null>;
   syncShiprocketTracking: (userId: string, orderId: string) => Promise<any>;
+  acceptReturn: (returnId: string) => Promise<any>;
   assignReturnPickup: (returnId: string) => Promise<any>;
+  syncShiprocketReturnTracking: (returnId: string) => Promise<any>;
   processSplitRefund: (returnId: string, customMode?: string) => Promise<any>;
   addCoupon: (coupon: { code: string; discount: number; type?: "fixed" | "percentage" | "wallet"; expiryDate?: string; usageLimit?: number; userEligibility?: string; productType?: string; brand?: string }) => void;
   updateCoupon: (originalCode: string, coupon: { code: string; discount: number; type?: "fixed" | "percentage" | "wallet"; expiryDate?: string; usageLimit?: number; userEligibility?: string; productType?: string; brand?: string; active?: boolean }) => void;
@@ -3006,6 +3008,55 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       }
       return null;
     },
+    acceptReturn: async (returnId) => {
+      try {
+        let updatedReturn: any = null;
+        const res = await fetch(`${BACKEND_URL}/api/returns/${returnId}/accept`, {
+          method: "POST"
+        }).catch(() => null);
+
+        if (res && res.ok) {
+          updatedReturn = await res.json();
+        } else {
+          updatedReturn = {
+            status: "Return Approved",
+            returnCourier: "Shiprocket Reverse Logistics"
+          };
+        }
+
+        setState(s => ({
+          ...s,
+          returns: s.returns.map(r => r.id === returnId ? { ...r, ...updatedReturn } : r)
+        }));
+
+        await updateReturnRequestInSupabase(returnId, updatedReturn).catch(err => console.error("Supabase return accept error:", err));
+        notifyBroadcastSync();
+        return updatedReturn;
+      } catch (err) {
+        console.error("Failed to accept return:", err);
+      }
+    },
+    syncShiprocketReturnTracking: async (returnId) => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/returns/${returnId}/track-shiprocket`, {
+          method: "POST"
+        }).catch(() => null);
+
+        if (res && res.ok) {
+          const updated = await res.json();
+          setState(s => ({
+            ...s,
+            returns: s.returns.map(r => r.id === returnId ? { ...r, ...updated } : r)
+          }));
+          await updateReturnRequestInSupabase(returnId, updated).catch(err => console.error("Supabase return track error:", err));
+          notifyBroadcastSync();
+          return updated;
+        }
+      } catch (err) {
+        console.error("Failed to sync Shiprocket return tracking:", err);
+      }
+      return null;
+    },
     assignReturnPickup: async (returnId) => {
       try {
         let updatedReturn: any = null;
@@ -3016,17 +3067,11 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         if (res && res.ok) {
           updatedReturn = await res.json();
         } else {
-          // Client-side fallback if backend is sleeping/offline
-          const pseudoAwb = `RET-AWB-${Math.floor(100000 + Math.random() * 900000)}`;
-          const pseudoCourier = "Shiprocket Reverse Express (Delhivery Surface)";
           const pickupDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split("T")[0];
           updatedReturn = {
             status: "Pickup Scheduled",
-            returnAwb: pseudoAwb,
-            returnCourier: pseudoCourier,
-            pickupDate: pickupDate,
-            shiprocketReturnOrderId: `RET-SR-${Math.floor(10000 + Math.random() * 90000)}`,
-            shiprocketReturnShipmentId: `SR-REV-${Math.floor(100000 + Math.random() * 900000)}`
+            returnCourier: "Shiprocket Reverse Logistics",
+            pickupDate: pickupDate
           };
         }
 

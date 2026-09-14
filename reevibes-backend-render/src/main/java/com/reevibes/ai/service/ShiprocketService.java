@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -675,16 +676,32 @@ public class ShiprocketService {
                 }
             }
 
+            String cleanPhone = phone.replaceAll("[^0-9]", "");
+            if (cleanPhone.startsWith("0")) cleanPhone = cleanPhone.replaceFirst("^0+", "");
+            if (cleanPhone.startsWith("91") && cleanPhone.length() == 12) cleanPhone = cleanPhone.substring(2);
+            if (cleanPhone.length() > 10) cleanPhone = cleanPhone.substring(cleanPhone.length() - 10);
+            if (cleanPhone.length() < 10) cleanPhone = "9876543210";
+
             Map<String, Object> payload = new HashMap<>();
             payload.put("order_id", "RET-" + returnReq.getId());
             payload.put("order_date", new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm").format(new java.util.Date()));
+            payload.put("channel_id", "");
             payload.put("pickup_customer_name", firstName);
             payload.put("pickup_last_name", lastName);
             payload.put("pickup_address", street);
             payload.put("pickup_city", city);
             payload.put("pickup_state", state);
             payload.put("pickup_pincode", pincode);
-            payload.put("pickup_phone", phone);
+            payload.put("pickup_phone", cleanPhone);
+
+            // Warehouse Destination (Admin Warehouse: 17-6-20, Sanjay Nagar, Dairy Farm Center, Kakinada, 533001)
+            payload.put("pickup_location", "warehouse");
+            payload.put("delivery_customer_name", "ReeVibes Atelier Warehouse");
+            payload.put("delivery_address", "17-6-20, Sanjay Nagar, Dairy Farm Center");
+            payload.put("delivery_city", "Kakinada");
+            payload.put("delivery_state", "Andhra Pradesh");
+            payload.put("delivery_pincode", "533001");
+            payload.put("delivery_phone", "6301519997");
 
             List<Map<String, Object>> orderItems = new ArrayList<>();
             Map<String, Object> item = new HashMap<>();
@@ -723,6 +740,38 @@ public class ShiprocketService {
         } catch (Exception e) {
             System.err.println("Exception creating return order in Shiprocket: " + e.getMessage());
         }
+        return Collections.emptyMap();
+    }
+
+    /**
+     * Tracks a return order by Return AWB or Shiprocket Order/Shipment ID.
+     */
+    public Map<String, Object> getReturnTracking(String returnAwbOrOrderId) {
+        String token = getAuthToken();
+        if (token == null || returnAwbOrOrderId == null || returnAwbOrOrderId.trim().isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        try {
+            String url = "https://apiv2.shiprocket.in/v1/external/courier/track/awb/" + returnAwbOrOrderId.trim();
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Authorization", "Bearer " + token);
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+            ResponseEntity<Map> response = restTemplate.exchange(url, org.springframework.http.HttpMethod.GET, entity, Map.class);
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                return (Map<String, Object>) response.getBody();
+            }
+        } catch (Exception e) {
+            System.err.println("Could not track return via AWB (" + returnAwbOrOrderId + "): " + e.getMessage());
+        }
+
+        try {
+            return getShiprocketOrder(returnAwbOrOrderId.trim());
+        } catch (Exception e) {
+            System.err.println("Could not fetch return order show for (" + returnAwbOrOrderId + "): " + e.getMessage());
+        }
+
         return Collections.emptyMap();
     }
 }

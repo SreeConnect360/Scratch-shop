@@ -45,6 +45,7 @@ export interface SupabaseReturnRow {
   wallet_transaction_id?: string | null;
   return_label_url?: string | null;
   return_scans_json?: string | null;
+  refund_confirmation_message?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
 }
@@ -99,6 +100,7 @@ export function mapSupabaseRowToReturn(row: SupabaseReturnRow): ReturnRequest {
     walletTransactionId: row.wallet_transaction_id || undefined,
     returnLabelUrl: row.return_label_url || undefined,
     returnScansJson: row.return_scans_json || undefined,
+    refundConfirmationMessage: row.refund_confirmation_message || undefined,
     createdAt: row.created_at || undefined,
   };
 }
@@ -135,6 +137,7 @@ export function mapReturnToSupabaseRow(req: Partial<ReturnRequest>): Partial<Sup
   if (req.walletTransactionId !== undefined) row.wallet_transaction_id = req.walletTransactionId;
   if (req.returnLabelUrl !== undefined) row.return_label_url = req.returnLabelUrl;
   if (req.returnScansJson !== undefined) row.return_scans_json = req.returnScansJson;
+  if (req.refundConfirmationMessage !== undefined) row.refund_confirmation_message = req.refundConfirmationMessage;
   return row;
 }
 

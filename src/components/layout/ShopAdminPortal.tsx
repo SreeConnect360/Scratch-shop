@@ -9,7 +9,8 @@ import {
   Settings, History, ListFilter, Tag, BarChart2, Undo, CheckSquare,
   Square, ArrowUpDown, Layers3, Download, Upload, ArrowLeft, ArrowRight,
   FileSpreadsheet, FileText, ShieldCheck, Banknote, CreditCard, Wallet, User, XCircle,
-  Activity, AlertTriangle, CheckCircle2, Copy, ExternalLink, Terminal, Package, Clock, Bell
+  Activity, AlertTriangle, CheckCircle2, Copy, ExternalLink, Terminal, Package, Clock, Bell,
+  RotateCcw, Building2
 } from "lucide-react";
 import {
   type TimeframeFilter,
@@ -49,7 +50,7 @@ const formatOrderDateTime = (dateStr: string) => {
 
 export function ShopAdminPortal({ tab }: { tab: string }) {
   const [statusFilter, setStatusFilter] = useState<string>("All");
-  const { state, fetchBackendState, createProduct, updateProduct, deleteProduct, updateOrderStatus, acceptOrder, declineOrder, fetchCourierQuotes, assignAWB, schedulePickup, cancelOrder, fetchOrderLabel, fetchOrderInvoice, fetchOrderManifest, syncShiprocketTracking, assignReturnPickup, processSplitRefund, approveReturn, rejectReturn, updateReturnDetails, suspendCustomer, reactivateCustomer, addCoupon, updateCoupon, removeCoupon, toggleCouponActive, moderateReview, deleteReview, addWalletCredit, updateHomepageLayoutDraft, publishHomepageLayout, revertHomepageLayout, createBucket, updateBucket, deleteBucket, reorderBuckets, toggleShopWishlist, addWalletGiftCard, updateWalletGiftCard, toggleWalletGiftCardStatus, deleteWalletGiftCard } = usePortal();
+  const { state, fetchBackendState, createProduct, updateProduct, deleteProduct, updateOrderStatus, acceptOrder, declineOrder, fetchCourierQuotes, assignAWB, schedulePickup, cancelOrder, fetchOrderLabel, fetchOrderInvoice, fetchOrderManifest, syncShiprocketTracking, acceptReturn, assignReturnPickup, syncShiprocketReturnTracking, processSplitRefund, approveReturn, rejectReturn, updateReturnDetails, suspendCustomer, reactivateCustomer, addCoupon, updateCoupon, removeCoupon, toggleCouponActive, moderateReview, deleteReview, addWalletCredit, updateHomepageLayoutDraft, publishHomepageLayout, revertHomepageLayout, createBucket, updateBucket, deleteBucket, reorderBuckets, toggleShopWishlist, addWalletGiftCard, updateWalletGiftCard, toggleWalletGiftCardStatus, deleteWalletGiftCard } = usePortal();
   const navigate = useNavigate();
 
   // Payment Gateway & Webhooks Monitor State
@@ -208,24 +209,68 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
     return list;
   }, [ordersList, statusFilter]);
   const [returnsFilter, setReturnsFilter] = useState<string>("All");
+  const [returnsSubTab, setReturnsSubTab] = useState<"requests" | "returning" | "received" | "refunded" | "all">("requests");
+  const [returnsSearchQuery, setReturnsSearchQuery] = useState<string>("");
   const returnsList = state.returns || [];
+
+  const returnCounts = useMemo(() => {
+    let requests = 0;
+    let returning = 0;
+    let received = 0;
+    let refunded = 0;
+    returnsList.forEach(r => {
+      const st = (r.status || "").toLowerCase();
+      if (["return requested", "pending", "under review"].includes(st)) requests++;
+      else if (["return approved", "pickup scheduled", "out for pickup", "in transit", "in-transit", "shipped"].includes(st)) returning++;
+      else if (["item received", "received", "inspection passed"].includes(st)) received++;
+      else if (["refund completed", "refunded"].includes(st)) refunded++;
+    });
+    return { requests, returning, received, refunded, all: returnsList.length };
+  }, [returnsList]);
+
   const filteredReturns = useMemo(() => {
     let list = [...returnsList];
-    if (returnsFilter === "All") return list;
-    
-    return list.filter(r => {
-      const status = r.status?.toLowerCase();
-      if (returnsFilter === "New Requests") return status === "return requested" || status === "pending" || status === "under review";
-      if (returnsFilter === "Approved") return status === "return approved";
-      if (returnsFilter === "Pickup Scheduled") return status === "pickup scheduled";
-      if (returnsFilter === "In Transit") return status === "in transit" || status === "shipped";
-      if (returnsFilter === "Received") return status === "item received";
-      if (returnsFilter === "Refund Pending") return status === "refund processed";
-      if (returnsFilter === "Refunded") return status === "refund completed" || status === "approved";
-      if (returnsFilter === "Rejected") return status === "rejected";
-      return true;
-    });
-  }, [returnsList, returnsFilter]);
+
+    // Filter by active tracker sub-tab
+    if (returnsSubTab === "requests") {
+      list = list.filter(r => ["return requested", "pending", "under review"].includes((r.status || "").toLowerCase()));
+    } else if (returnsSubTab === "returning") {
+      list = list.filter(r => ["return approved", "pickup scheduled", "out for pickup", "in transit", "in-transit", "shipped"].includes((r.status || "").toLowerCase()));
+    } else if (returnsSubTab === "received") {
+      list = list.filter(r => ["item received", "received", "inspection passed"].includes((r.status || "").toLowerCase()));
+    } else if (returnsSubTab === "refunded") {
+      list = list.filter(r => ["refund completed", "refunded"].includes((r.status || "").toLowerCase()));
+    }
+
+    if (returnsFilter !== "All" && returnsSubTab === "all") {
+      list = list.filter(r => {
+        const status = r.status?.toLowerCase();
+        if (returnsFilter === "New Requests") return status === "return requested" || status === "pending" || status === "under review";
+        if (returnsFilter === "Approved") return status === "return approved";
+        if (returnsFilter === "Pickup Scheduled") return status === "pickup scheduled";
+        if (returnsFilter === "In Transit") return status === "in transit" || status === "shipped";
+        if (returnsFilter === "Received") return status === "item received";
+        if (returnsFilter === "Refund Pending") return status === "refund processed";
+        if (returnsFilter === "Refunded") return status === "refund completed" || status === "approved";
+        if (returnsFilter === "Rejected") return status === "rejected";
+        return true;
+      });
+    }
+
+    if (returnsSearchQuery.trim()) {
+      const q = returnsSearchQuery.toLowerCase().trim();
+      list = list.filter(r =>
+        (r.id || "").toLowerCase().includes(q) ||
+        (r.orderId || "").toLowerCase().includes(q) ||
+        (r.customerName || "").toLowerCase().includes(q) ||
+        (r.productName || "").toLowerCase().includes(q) ||
+        (r.returnAwb || "").toLowerCase().includes(q) ||
+        (r.shiprocketReturnOrderId || "").toLowerCase().includes(q)
+      );
+    }
+
+    return list;
+  }, [returnsList, returnsSubTab, returnsFilter, returnsSearchQuery]);
 
   const filteredGatewayOrders = useMemo(() => {
     return ordersList.filter(o => {
@@ -830,6 +875,153 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
     } catch (err: any) {
       console.error("Failed to generate CSV:", err);
       toast.error(err.message || "Failed to export CSV file.");
+    }
+  };
+
+  const handleDownloadReturnCSV = (targetReturnId?: string) => {
+    try {
+      toast.info("Generating Shiprocket Return Order CSV...");
+
+      let targetReturns: any[] = [];
+      if (targetReturnId) {
+        const found = returnsList.find(r => r.id === targetReturnId);
+        targetReturns = found ? [found] : [];
+      } else {
+        const eligible = returnsList.filter(r =>
+          ["return approved", "pickup scheduled", "in transit", "in-transit", "out for pickup", "return requested", "pending", "under review"].includes(r.status?.toLowerCase() || "")
+        );
+        targetReturns = eligible.length > 0 ? eligible : returnsList;
+      }
+
+      if (targetReturns.length === 0) {
+        toast.error("No return orders found to export.");
+        return;
+      }
+
+      const csvHeaders = [
+        "*Order ID", "*Channel", "Payment Method", "Customer Name", "Customer Email",
+        "Customer Mobile", "Address Line 1", "Address Line 2", "Address State",
+        "Address City", "Address Pincode", "Pickup Address Name", "dimensions (CM)",
+        "Package Name", "Invoice id", "Weight (KG)", "Archive", "Self Fulfilled",
+        "Delivery Executive Name", "Delivery Executive Phone Number", "Tracking Url",
+        "Order Type", "Order Tag", "Hsn Code", "Sku"
+      ];
+
+      const csvRows: string[][] = [];
+
+      targetReturns.forEach(ret => {
+        const matchedOrder = Object.values(state.orders).flat().find(o => o.id === ret.orderId);
+        const u = state.users.find(usr => usr.id === ret.customerId) || (matchedOrder ? state.users.find(usr => usr.id === (matchedOrder as any).userId) : null);
+
+        let customerName = [u?.firstName, u?.lastName].filter(Boolean).join(" ") || ret.customerName || matchedOrder?.customerName || "Customer";
+        let customerEmail = u?.email || "customer@reevibes.com";
+        const rawPhone = (u?.phone || "9876543210").replace(/[^0-9]/g, "");
+        let cleanPhone = rawPhone.replace(/^0+/, "");
+        if (cleanPhone.startsWith("91") && cleanPhone.length === 12) {
+          cleanPhone = cleanPhone.slice(2);
+        }
+        let customerMobile = cleanPhone.length >= 10 ? cleanPhone.slice(-10) : (cleanPhone || "9876543210");
+
+        let rawAddr = matchedOrder?.address || (u as any)?.address || "";
+        let street = "Customer Pickup Address";
+        let addressLine2 = "";
+        let stateName = "Andhra Pradesh";
+        let city = "Kakinada";
+        let pincode = "533001";
+
+        if (typeof rawAddr === "string" && rawAddr.trim().startsWith("{")) {
+          try {
+            const parsed = JSON.parse(rawAddr);
+            if (parsed.street) street = parsed.street;
+            else if (parsed.address) street = parsed.address;
+            if (parsed.landmark) addressLine2 = parsed.landmark;
+            if (parsed.city) city = parsed.city;
+            if (parsed.state) stateName = parsed.state;
+            if (parsed.pincode) pincode = String(parsed.pincode).replace(/[^0-9]/g, "");
+            if (parsed.name) customerName = parsed.name;
+            if (parsed.phone) {
+              const p = String(parsed.phone).replace(/[^0-9]/g, "").replace(/^0+/, "");
+              const pClean = p.startsWith("91") && p.length === 12 ? p.slice(2) : p;
+              if (pClean.length >= 10) customerMobile = pClean.slice(-10);
+            }
+          } catch (e) {
+            street = rawAddr;
+          }
+        } else if (typeof rawAddr === "string" && rawAddr.length > 0) {
+          const pinMatch = rawAddr.match(/\b\d{6}\b/);
+          if (pinMatch) pincode = pinMatch[0];
+          const parts = rawAddr.split(",").map(s => s.trim()).filter(Boolean);
+          if (parts.length >= 3) {
+            street = parts[0];
+            city = parts[parts.length - 2];
+            stateName = parts[parts.length - 1].replace(/\d+/g, "").trim() || "Andhra Pradesh";
+            if (parts.length >= 4) addressLine2 = parts[1];
+          } else {
+            street = rawAddr;
+          }
+        }
+
+        const liveProd = state.products.find((p: any) => p.id === ret.productId || p.name === ret.productName);
+        const prodName = liveProd?.name || ret.productName || "Returned Fashion Piece";
+        const masterSku = liveProd?.sku || ret.productId || `RV-RET-${ret.id}`;
+
+        const row = [
+          `RET-${ret.id}`, // *Order ID
+          "Custom", // *Channel
+          "prepaid", // Payment Method (reverse return)
+          customerName, // Customer Name
+          customerEmail, // Customer Email
+          customerMobile, // Customer Mobile
+          street, // Address Line 1 (Customer pickup)
+          addressLine2, // Address Line 2
+          stateName, // Address State
+          city, // Address City
+          pincode, // Address Pincode
+          "warehouse", // Pickup Address Name (destination warehouse nickname for return)
+          "10 x 10 x 10", // dimensions (CM)
+          prodName, // Package Name
+          `INV-RET-${ret.id}`, // Invoice id
+          "0.5", // Weight (KG)
+          "no", // Archive
+          "no", // Self Fulfilled
+          "", // Delivery Executive Name
+          "", // Delivery Executive Phone Number
+          ret.returnAwb ? `https://apiv2.shiprocket.in/v1/external/courier/track/awb/${ret.returnAwb}` : "", // Tracking Url
+          "Non Essentials", // Order Type
+          "Return Order", // Order Tag
+          "610910", // Hsn Code
+          masterSku // Sku
+        ];
+        csvRows.push(row);
+      });
+
+      const escapeCsvField = (field: string) => {
+        const str = String(field ?? "");
+        if (str.includes(",") || str.includes("\"") || str.includes("\n") || str.includes("\r")) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return `"${str}"`;
+      };
+
+      const csvContent = [
+        csvHeaders.map(h => escapeCsvField(h)).join(","),
+        ...csvRows.map(row => row.map(cell => escapeCsvField(cell)).join(","))
+      ].join("\r\n");
+
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = targetReturnId ? `ReeVibes_Return_${targetReturnId}_Shiprocket.csv` : `ReeVibes_Bulk_Returns_Shiprocket_${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success(targetReturnId ? `Exported Return Order ${targetReturnId} (Shiprocket CSV)!` : `Exported ${csvRows.length} Return Orders (Shiprocket CSV)!`);
+    } catch (err: any) {
+      console.error("Failed to generate Return CSV:", err);
+      toast.error(err.message || "Failed to export Return CSV file.");
     }
   };
 
@@ -3627,16 +3819,55 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                     <span className="font-mono text-[11px] text-muted-foreground">
                       {activeReturn.shiprocketReturnOrderId || activeReturn.shiprocketReturnShipmentId 
                         ? `${activeReturn.shiprocketReturnOrderId || '—'} / ${activeReturn.shiprocketReturnShipmentId || '—'}`
-                        : "Generated upon assignment"}
+                        : "Generated upon approval"}
                     </span>
                   </div>
                   <div>
-                    <span className="text-muted-foreground text-[10px] uppercase font-semibold block">Pickup Date</span>
-                    <span className="font-semibold text-emerald-400">{activeReturn.pickupDate || (activeReturn.status === "Return Approved" ? "Ready to schedule" : "Pending approval")}</span>
+                    <span className="text-muted-foreground text-[10px] uppercase font-semibold block">Destination Warehouse</span>
+                    <span className="font-semibold text-emerald-400 text-[11px]">Kakinada 533001 (warehouse)</span>
+                  </div>
+                </div>
+
+                <div className="p-2.5 bg-black/30 rounded-xl border border-white/5 text-[11px] space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Warehouse Receiver:</span>
+                    <span className="text-white font-medium">ReeVibes Admin Warehouse (Phone: 6301519997)</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Warehouse Address:</span>
+                    <span className="text-white text-right max-w-[280px]">17-6-20, Sanjay Nagar, Dairy Farm Center, Kakinada, 533001</span>
                   </div>
                 </div>
 
                 <div className="flex flex-wrap gap-2 pt-2 border-t border-white/5">
+                  <button
+                    onClick={() => handleDownloadReturnCSV(activeReturn.id)}
+                    className="bg-accent/20 hover:bg-accent text-accent hover:text-white text-[10px] uppercase font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 cursor-pointer border border-accent/30"
+                  >
+                    <Download className="w-3.5 h-3.5" /> Export Return CSV
+                  </button>
+
+                  <button
+                    onClick={() => window.open("https://app.shiprocket.in/returns", "_blank")}
+                    className="bg-purple-600/20 hover:bg-purple-600 text-purple-200 hover:text-white text-[10px] uppercase font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 cursor-pointer border border-purple-500/30"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" /> Shiprocket Returns ↗
+                  </button>
+
+                  {(activeReturn.returnAwb || activeReturn.shiprocketReturnOrderId) && (
+                    <button
+                      onClick={async () => {
+                        toast.info("Syncing live tracking from Shiprocket...");
+                        const res = await syncShiprocketReturnTracking(activeReturn.id);
+                        if (res) toast.success(`Return tracking synced! Status: ${res.status || 'Updated'}`);
+                        else toast.error("Could not fetch Shiprocket tracking update.");
+                      }}
+                      className="bg-sky-600 hover:bg-sky-500 text-white text-[10px] uppercase font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 cursor-pointer shadow-md"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" /> Sync Live Tracking
+                    </button>
+                  )}
+
                   {activeReturn.status === "Return Approved" && !activeReturn.returnAwb && (
                     <button
                       onClick={async () => {
@@ -3968,12 +4199,14 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                     {(activeReturn.status === "Return Requested" || activeReturn.status === "Pending" || activeReturn.status === "Under Review") && (
                       <button
                         onClick={async () => {
-                          await approveReturn(activeReturn.id);
-                          toast.success("Return request approved!");
+                          toast.info("Accepting return & booking Shiprocket reverse pickup to warehouse...");
+                          const res = await acceptReturn(activeReturn.id);
+                          if (res) toast.success(`Return ${activeReturn.id} approved & Shiprocket reverse order created!`);
+                          else toast.error("Failed to approve return.");
                         }}
-                        className="bg-emerald-600/35 hover:bg-emerald-600 text-emerald-200 hover:text-white text-[10px] uppercase font-bold px-3 py-2 rounded-lg border border-emerald-500/20"
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] uppercase font-bold px-3.5 py-2 rounded-lg flex items-center gap-1.5 cursor-pointer shadow-lg animate-pulse"
                       >
-                        Approve Return
+                        <Check className="w-3.5 h-3.5" /> Accept & Create Reverse Order
                       </button>
                     )}
 
@@ -8902,17 +9135,141 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
       {/* 5. RETURNS & REFUNDS */}
       {tab === "returns" && (
         <AdminCard className="space-y-6 animate-in fade-in duration-200">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-white/5 pb-4">
+          {/* Header & Primary Action Bar */}
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-white/5 pb-4">
             <div>
-              <h3 className="font-serif text-xl">Returns Queue & Refund Processing</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">Manage customer return requests and pipeline operations.</p>
+              <div className="flex items-center gap-2.5">
+                <RotateCcw className="w-6 h-6 text-accent animate-spin-slow" />
+                <h3 className="font-serif text-xl text-white">Returns & Reverse Logistics Tracker</h3>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Reverse delivery pipeline from customer address back to Kakinada warehouse with Shiprocket automated dispatch.
+              </p>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Filter Status:</span>
+
+            <div className="flex flex-wrap items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => handleDownloadReturnCSV()}
+                className="editorial-label bg-accent hover:bg-accent/90 text-white px-3.5 py-2 text-xs flex items-center gap-2 rounded-lg cursor-pointer shadow-md transition-all"
+                title="Download Shiprocket Reverse Order bulk CSV template for accepted returns"
+              >
+                <Download className="w-4 h-4" /> Export Accepted (Shiprocket CSV)
+              </button>
+
+              <button
+                type="button"
+                onClick={() => window.open("https://app.shiprocket.in/returns", "_blank")}
+                className="editorial-label bg-surface-2 hover:bg-white/10 text-white border border-white/10 px-3.5 py-2 text-xs flex items-center gap-2 rounded-lg cursor-pointer transition-all"
+                title="Open Shiprocket Returns Dashboard in browser"
+              >
+                <ExternalLink className="w-4 h-4 text-purple-400" /> Open Shiprocket Returns ↗
+              </button>
+            </div>
+          </div>
+
+          {/* 5 Workflow Tabs Navigation (Styled matching Order Tracker) */}
+          <div className="flex flex-wrap items-center gap-2 bg-surface-2 p-1.5 rounded-xl border border-border-subtle">
+            <button
+              onClick={() => setReturnsSubTab("requests")}
+              className={cn(
+                "px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-2",
+                returnsSubTab === "requests"
+                  ? "bg-accent text-white shadow"
+                  : "text-muted-foreground hover:text-white hover:bg-white/5"
+              )}
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              Return Requests
+              <span className="bg-white/20 px-1.5 py-0.5 rounded-full text-[10px] font-mono">
+                {returnCounts.requests}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setReturnsSubTab("returning")}
+              className={cn(
+                "px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-2",
+                returnsSubTab === "returning"
+                  ? "bg-accent text-white shadow"
+                  : "text-muted-foreground hover:text-white hover:bg-white/5"
+              )}
+            >
+              <Truck className="w-3.5 h-3.5" />
+              Returning to Warehouse
+              <span className="bg-white/20 px-1.5 py-0.5 rounded-full text-[10px] font-mono">
+                {returnCounts.returning}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setReturnsSubTab("received")}
+              className={cn(
+                "px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-2",
+                returnsSubTab === "received"
+                  ? "bg-accent text-white shadow"
+                  : "text-muted-foreground hover:text-white hover:bg-white/5"
+              )}
+            >
+              <Package className="w-3.5 h-3.5" />
+              Received & Inspection
+              <span className="bg-white/20 px-1.5 py-0.5 rounded-full text-[10px] font-mono">
+                {returnCounts.received}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setReturnsSubTab("refunded")}
+              className={cn(
+                "px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-2",
+                returnsSubTab === "refunded"
+                  ? "bg-accent text-white shadow"
+                  : "text-muted-foreground hover:text-white hover:bg-white/5"
+              )}
+            >
+              <ShieldCheck className="w-3.5 h-3.5" />
+              Refunds Settled
+              <span className="bg-white/20 px-1.5 py-0.5 rounded-full text-[10px] font-mono">
+                {returnCounts.refunded}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setReturnsSubTab("all")}
+              className={cn(
+                "px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-2",
+                returnsSubTab === "all"
+                  ? "bg-accent text-white shadow"
+                  : "text-muted-foreground hover:text-white hover:bg-white/5"
+              )}
+            >
+              <ListFilter className="w-3.5 h-3.5" />
+              All Returns Ledger
+              <span className="bg-white/20 px-1.5 py-0.5 rounded-full text-[10px] font-mono">
+                {returnCounts.all}
+              </span>
+            </button>
+          </div>
+
+          {/* Search, Status Filter & Warehouse Routing Info Banner */}
+          <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3 bg-surface p-3 rounded-xl border border-border-subtle">
+            <div className="flex-1 relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="text"
+                value={returnsSearchQuery}
+                onChange={e => setReturnsSearchQuery(e.target.value)}
+                placeholder="Search Return ID, Order ID, Customer, Phone, AWB, Product..."
+                className="w-full bg-surface-2 border border-border-subtle rounded-lg text-xs pl-9 pr-3 py-2 text-white outline-none focus:border-accent"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground whitespace-nowrap">Filter:</span>
               <select
                 value={returnsFilter}
                 onChange={e => setReturnsFilter(e.target.value)}
-                className="bg-surface border border-border-subtle rounded-md text-xs px-2.5 py-1.5 text-white outline-none focus:border-accent"
+                className="bg-surface-2 border border-border-subtle rounded-lg text-xs px-2.5 py-2 text-white outline-none focus:border-accent"
               >
                 <option value="All">All Requests</option>
                 <option value="New Requests">New Requests</option>
@@ -8925,129 +9282,172 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                 <option value="Rejected">Rejected</option>
               </select>
             </div>
+
+            <div className="hidden xl:flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-lg text-emerald-300 text-[11px]">
+              <Building2 className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate max-w-xs">
+                <strong>Warehouse:</strong> 17-6-20, Sanjay Nagar, Kakinada 533001
+              </span>
+            </div>
           </div>
           
-          <div className="overflow-x-auto">
+          {/* Main Returns Ledger Table */}
+          <div className="overflow-x-auto rounded-xl border border-border-subtle">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-border-subtle text-muted-foreground text-xs uppercase tracking-widest">
-                  <th className="pb-3">Return ID</th>
-                  <th className="pb-3">Order ID</th>
-                  <th className="pb-3">Customer</th>
-                  <th className="pb-3">Item Details</th>
-                  <th className="pb-3">Delivery Date</th>
-                  <th className="pb-3">Original Payment</th>
-                  <th className="pb-3">Reason & Comments</th>
-                  <th className="pb-3">Pending Refund</th>
-                  <th className="pb-3">Status</th>
-                  <th className="pb-3 text-right">Actions</th>
+                <tr className="border-b border-border-subtle bg-surface-2/60 text-muted-foreground text-[11px] uppercase tracking-wider">
+                  <th className="py-3 px-3">Return ID / Date</th>
+                  <th className="py-3 px-3">Order & Customer</th>
+                  <th className="py-3 px-3">Item Details</th>
+                  <th className="py-3 px-3">Reverse Logistics (Shiprocket)</th>
+                  <th className="py-3 px-3">Payment & Refund</th>
+                  <th className="py-3 px-3">Status</th>
+                  <th className="py-3 px-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border-subtle text-sm">
+              <tbody className="divide-y divide-border-subtle text-xs">
                 {filteredReturns.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="py-6 text-center text-xs text-muted-foreground italic">
-                      No returns registered in system queue.
+                    <td colSpan={7} className="py-12 text-center text-muted-foreground italic">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <RotateCcw className="w-8 h-8 text-muted-foreground/40" />
+                        <span>No returns found matching the current sub-tab and filter criteria.</span>
+                      </div>
                     </td>
                   </tr>
                 ) : (
                   filteredReturns.map(r => {
                     const order = Object.values(state.orders).flat().find(o => o.id === r.orderId);
+                    const user = state.users.find(u => u.id === r.customerId) || (order ? state.users.find(u => u.id === (order as any).userId) : null);
                     const deliveryDateStr = order?.deliveryDate ? new Date(order.deliveryDate).toLocaleDateString() : "—";
                     const isCod = (order?.paymentMethod || "").toLowerCase().includes("cash") || (order?.paymentMethod || "").toLowerCase().includes("cod");
                     const isWallet = (order?.paymentMethod || "").toLowerCase().includes("wallet") && ((order?.razorpayAmountPaid ?? 0) === 0);
                     const isSplit = ((order?.walletAmountUsed ?? 0) > 0) && ((order?.razorpayAmountPaid ?? 0) > 0);
 
                     return (
-                      <tr key={r.id} className="hover:bg-surface-2/40 group cursor-pointer" onClick={() => setSelectedReturnDetails(r)}>
-                        <td className="py-4 font-mono text-xs text-accent font-bold group-hover:underline">
-                          {r.id}
-                        </td>
-                        <td className="py-4 font-mono text-xs">{r.orderId}</td>
-                        <td className="py-4">
-                          <div className="font-semibold text-white">{r.customerName}</div>
-                        </td>
-                        <td className="py-4">
-                          <div className="font-medium text-white">{r.productName}</div>
-                          <div className="text-[10px] text-muted-foreground">Size: {r.selectedSize || "—"} · Qty: {r.qty || 1}</div>
-                        </td>
-                        <td className="py-4 text-xs text-muted-foreground">{deliveryDateStr}</td>
-                        <td className="py-4 whitespace-nowrap">
-                          {isCod ? (
-                            <span className="text-amber-300 font-bold inline-flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 text-[10px]">
-                              <Banknote className="w-3 h-3" /> COD
-                            </span>
-                          ) : isWallet ? (
-                            <span className="text-purple-300 font-bold inline-flex items-center gap-1 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20 text-[10px]">
-                              <Wallet className="w-3 h-3" /> Wallet
-                            </span>
-                          ) : isSplit ? (
-                            <span className="text-sky-300 font-bold inline-flex items-center gap-1 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20 text-[10px]">
-                              <Layers3 className="w-3 h-3" /> Split
-                            </span>
-                          ) : (
-                            <span className="text-sky-300 font-bold inline-flex items-center gap-1 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20 text-[10px]">
-                              <CreditCard className="w-3 h-3" /> Razorpay
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-4">
-                          <div className="font-semibold text-amber-200">{r.reason}</div>
-                          <div className="text-xs text-muted-foreground max-w-xs truncate">{r.comment}</div>
-                        </td>
-                        <td className="py-4">
-                          <div className="font-serif font-semibold">₹{r.refundAmount.toLocaleString()}</div>
-                          <div className="text-[9px] font-mono mt-0.5">
-                            {r.status === "Refund Completed" ? (
-                              <div className="space-y-0.5">
-                                <span className="text-emerald-400 font-bold flex items-center gap-1">
-                                  <CheckCircle2 className="w-2.5 h-2.5" /> Refund Settled
-                                </span>
-                                {(r.razorpayRefundId || r.refundTransactionId) && (
-                                  <div className="flex items-center gap-1 text-[9px] text-sky-400">
-                                    <span className="font-bold">RP:</span>
-                                    <span className="truncate max-w-[85px]">{r.razorpayRefundId || r.refundTransactionId}</span>
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        navigator.clipboard.writeText(r.razorpayRefundId || r.refundTransactionId || "");
-                                        toast.success("Refund ID copied!");
-                                      }}
-                                      className="text-muted-foreground hover:text-white p-0.5 cursor-pointer"
-                                      title="Copy Refund ID"
-                                    >
-                                      <Copy className="w-2.5 h-2.5" />
-                                    </button>
-                                  </div>
-                                )}
-                                {r.walletTransactionId && (
-                                  <div className="flex items-center gap-1 text-[9px] text-amber-300">
-                                    <span className="font-bold">WLT:</span>
-                                    <span className="truncate max-w-[85px]">{r.walletTransactionId}</span>
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        navigator.clipboard.writeText(r.walletTransactionId || "");
-                                        toast.success("Wallet Tx ID copied!");
-                                      }}
-                                      className="text-muted-foreground hover:text-white p-0.5 cursor-pointer"
-                                      title="Copy Wallet Tx ID"
-                                    >
-                                      <Copy className="w-2.5 h-2.5" />
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            ) : r.status === "Item Received" ? (
-                              <span className="text-amber-300 font-bold animate-pulse">● Ready to Refund</span>
-                            ) : (
-                              <span className="text-muted-foreground">Pending Return</span>
-                            )}
+                      <tr
+                        key={r.id}
+                        className="hover:bg-surface-2/40 group cursor-pointer transition-colors"
+                        onClick={() => setSelectedReturnDetails(r)}
+                      >
+                        {/* 1. Return ID & Date */}
+                        <td className="py-3.5 px-3 align-top">
+                          <div className="font-mono text-xs text-accent font-bold group-hover:underline">
+                            {r.id}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground mt-0.5">
+                            {r.createdAt ? new Date(r.createdAt).toLocaleDateString() : deliveryDateStr}
                           </div>
                         </td>
-                        <td className="py-4">
+
+                        {/* 2. Order ID & Customer */}
+                        <td className="py-3.5 px-3 align-top max-w-[220px]">
+                          <div className="font-semibold text-white truncate">{r.customerName}</div>
+                          <div className="text-[10px] font-mono text-muted-foreground">Order: {r.orderId}</div>
+                          {user?.phone && (
+                            <div className="text-[10px] text-muted-foreground truncate font-mono">
+                              Ph: {user.phone}
+                            </div>
+                          )}
+                          {order?.address && (
+                            <div className="text-[10px] text-muted-foreground/80 truncate mt-0.5" title={order.address}>
+                              📍 {order.address}
+                            </div>
+                          )}
+                        </td>
+
+                        {/* 3. Item Details */}
+                        <td className="py-3.5 px-3 align-top max-w-[220px]">
+                          <div className="font-medium text-white truncate">{r.productName}</div>
+                          <div className="text-[10px] text-muted-foreground">
+                            Size: {r.selectedSize || "—"} · Qty: {r.qty || 1}
+                          </div>
+                          <div className="text-[10px] text-amber-200/90 truncate mt-0.5" title={r.comment || r.reason}>
+                            <span className="font-semibold">{r.reason}:</span> {r.comment || "—"}
+                          </div>
+                        </td>
+
+                        {/* 4. Shiprocket Reverse Logistics */}
+                        <td className="py-3.5 px-3 align-top">
+                          {r.returnAwb ? (
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1">
+                                <span className="font-mono text-[10px] bg-sky-500/15 text-sky-300 px-1.5 py-0.5 rounded border border-sky-500/20 font-bold">
+                                  AWB: {r.returnAwb}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigator.clipboard.writeText(r.returnAwb || "");
+                                    toast.success("Return AWB copied!");
+                                  }}
+                                  className="text-muted-foreground hover:text-white p-0.5 cursor-pointer"
+                                  title="Copy Return AWB"
+                                >
+                                  <Copy className="w-2.5 h-2.5" />
+                                </button>
+                              </div>
+                              <div className="text-[10px] text-muted-foreground">
+                                {r.returnCourier || "Shiprocket Reverse"}
+                              </div>
+                              <div className="text-[9px] text-emerald-400 flex items-center gap-1 font-mono">
+                                <span>→ Warehouse (Kakinada 533001)</span>
+                              </div>
+                            </div>
+                          ) : r.shiprocketReturnOrderId ? (
+                            <div className="space-y-0.5">
+                              <span className="font-mono text-[10px] text-purple-300 font-bold">
+                                Ord: {r.shiprocketReturnOrderId}
+                              </span>
+                              <div className="text-[10px] text-muted-foreground">Shiprocket reverse created</div>
+                              <div className="text-[9px] text-emerald-400 font-mono">→ Warehouse Kakinada</div>
+                            </div>
+                          ) : (
+                            <div className="space-y-0.5">
+                              <span className="text-[10px] text-amber-400 font-medium bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 inline-block">
+                                Awaiting Admin Acceptance
+                              </span>
+                              <div className="text-[9px] text-muted-foreground font-mono">
+                                Reverse order generated on Accept
+                              </div>
+                            </div>
+                          )}
+                        </td>
+
+                        {/* 5. Original Payment & Refund */}
+                        <td className="py-3.5 px-3 align-top whitespace-nowrap">
+                          <div className="font-serif font-bold text-sm text-white">
+                            ₹{r.refundAmount.toLocaleString()}
+                          </div>
+                          <div className="mt-1">
+                            {isCod ? (
+                              <span className="text-amber-300 font-bold inline-flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 text-[10px]">
+                                <Banknote className="w-3 h-3" /> COD
+                              </span>
+                            ) : isWallet ? (
+                              <span className="text-purple-300 font-bold inline-flex items-center gap-1 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20 text-[10px]">
+                                <Wallet className="w-3 h-3" /> Wallet
+                              </span>
+                            ) : isSplit ? (
+                              <span className="text-sky-300 font-bold inline-flex items-center gap-1 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20 text-[10px]">
+                                <Layers3 className="w-3 h-3" /> Split
+                              </span>
+                            ) : (
+                              <span className="text-sky-300 font-bold inline-flex items-center gap-1 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20 text-[10px]">
+                                <CreditCard className="w-3 h-3" /> Razorpay
+                              </span>
+                            )}
+                          </div>
+                          {r.status === "Refund Completed" && (
+                            <div className="text-[9px] text-emerald-400 font-bold flex items-center gap-1 mt-1">
+                              <CheckCircle2 className="w-2.5 h-2.5" /> Settled
+                            </div>
+                          )}
+                        </td>
+
+                        {/* 6. Status Chip */}
+                        <td className="py-3.5 px-3 align-top">
                           <StatusChip
                             status={r.status}
                             tone={
@@ -9057,66 +9457,80 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             }
                           />
                         </td>
-                        <td className="py-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex gap-1.5 justify-end items-center">
+
+                        {/* 7. Contextual Actions */}
+                        <td className="py-3.5 px-3 align-top text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex flex-wrap gap-1.5 justify-end items-center">
+                            {/* Return Requested / Pending / Review: Accept & Book Reverse Order OR Decline */}
                             {(r.status === "Return Requested" || r.status === "Pending" || r.status === "Under Review") && (
                               <>
                                 <button
+                                  type="button"
                                   onClick={async () => {
-                                    await approveReturn(r.id);
-                                    toast.success(`Return ${r.id} approved!`);
+                                    toast.info(`Accepting return ${r.id} & creating Shiprocket reverse order...`);
+                                    const res = await acceptReturn(r.id);
+                                    if (res) toast.success(`Return ${r.id} accepted & Shiprocket reverse booked!`);
+                                    else toast.error("Failed to accept return.");
                                   }}
-                                  title="Approve Return Request"
-                                  className="bg-emerald-600/30 hover:bg-emerald-600 text-emerald-200 hover:text-white text-[10px] uppercase font-bold px-2 py-1 rounded border border-emerald-500/30 flex items-center gap-1 cursor-pointer"
+                                  title="Accept Return & Create Shiprocket Reverse Order"
+                                  className="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] uppercase font-bold px-2.5 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer shadow animate-pulse"
                                 >
-                                  <Check className="w-3 h-3" /> Accept
+                                  <Check className="w-3 h-3" /> Accept Return
                                 </button>
                                 <button
+                                  type="button"
                                   onClick={() => {
                                     setRejectionModalReturnId(r.id);
                                     setSelectedRejectionReason("Return window expired");
                                     setCustomRejectionText("");
                                   }}
                                   title="Decline Return Request"
-                                  className="bg-rose-600/30 hover:bg-rose-600 text-rose-200 hover:text-white text-[10px] uppercase font-bold px-2 py-1 rounded border border-rose-500/30 flex items-center gap-1 cursor-pointer"
+                                  className="bg-rose-600/30 hover:bg-rose-600 text-rose-200 hover:text-white text-[10px] uppercase font-bold px-2 py-1.5 rounded-lg border border-rose-500/30 flex items-center gap-1 cursor-pointer"
                                 >
                                   <X className="w-3 h-3" /> Decline
                                 </button>
                               </>
                             )}
 
-                            {r.status === "Return Approved" && (
-                              <button
-                                onClick={async () => {
-                                  toast.info("Assigning reverse pickup on Shiprocket...");
-                                  const res = await assignReturnPickup(r.id);
-                                  if (res) toast.success("Shiprocket Reverse Pickup assigned!");
-                                  else toast.error("Failed to assign pickup.");
-                                }}
-                                title="Assign Reverse Pickup Agent"
-                                className="bg-sky-600/30 hover:bg-sky-600 text-sky-200 hover:text-white text-[10px] uppercase font-bold px-2 py-1 rounded border border-sky-500/30 flex items-center gap-1 cursor-pointer"
-                              >
-                                <Truck className="w-3 h-3" /> Pickup
-                              </button>
+                            {/* Return Approved / In Transit / Pickup Scheduled: Sync Live Tracking or Mark Received */}
+                            {(r.status === "Return Approved" || r.status === "Pickup Scheduled" || r.status === "In Transit") && (
+                              <>
+                                {(r.returnAwb || r.shiprocketReturnOrderId) && (
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      toast.info(`Syncing live reverse tracking for ${r.id}...`);
+                                      const res = await syncShiprocketReturnTracking(r.id);
+                                      if (res) toast.success(`Tracking synced! Status: ${res.status || "Updated"}`);
+                                      else toast.error("Could not fetch Shiprocket tracking.");
+                                    }}
+                                    title="Sync live tracking from Shiprocket"
+                                    className="bg-sky-600/30 hover:bg-sky-600 text-sky-200 hover:text-white text-[10px] uppercase font-bold px-2 py-1.5 rounded-lg border border-sky-500/30 flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <RefreshCw className="w-3 h-3" /> Sync
+                                  </button>
+                                )}
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    updateReturnDetails(r.id, { status: "Item Received" });
+                                    toast.success(`Return ${r.id} marked as received at warehouse!`);
+                                  }}
+                                  title="Mark Item Received at Warehouse"
+                                  className="bg-indigo-600/30 hover:bg-indigo-600 text-indigo-200 hover:text-white text-[10px] uppercase font-bold px-2 py-1.5 rounded-lg border border-indigo-500/30 flex items-center gap-1 cursor-pointer"
+                                >
+                                  <Check className="w-3 h-3" /> Received
+                                </button>
+                              </>
                             )}
 
-                            {(r.status === "Pickup Scheduled" || r.status === "In Transit") && (
-                              <button
-                                onClick={() => {
-                                  updateReturnDetails(r.id, { status: "Item Received" });
-                                  toast.success(`Return ${r.id} marked as received at warehouse!`);
-                                }}
-                                title="Mark Item Received at Warehouse"
-                                className="bg-indigo-600/30 hover:bg-indigo-600 text-indigo-200 hover:text-white text-[10px] uppercase font-bold px-2 py-1 rounded border border-indigo-500/30 flex items-center gap-1 cursor-pointer"
-                              >
-                                <Check className="w-3 h-3" /> Received
-                              </button>
-                            )}
-
+                            {/* Item Received at Warehouse: Execute Refund */}
                             {r.status === "Item Received" && (
                               <>
                                 {isCod ? (
                                   <button
+                                    type="button"
                                     onClick={async (e) => {
                                       e.stopPropagation();
                                       if (confirm(`Credit ₹${r.refundAmount.toLocaleString()} to Customer's ReeVibes Wallet (COD Refund)?`)) {
@@ -9127,12 +9541,13 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                       }
                                     }}
                                     title="Credit Refund to ReeVibes Wallet (COD)"
-                                    className="bg-amber-600 hover:bg-amber-500 text-white text-[10px] uppercase font-bold px-2 py-1 rounded shadow flex items-center gap-1 cursor-pointer animate-pulse"
+                                    className="bg-amber-600 hover:bg-amber-500 text-white text-[10px] uppercase font-bold px-2.5 py-1.5 rounded-lg shadow flex items-center gap-1 cursor-pointer animate-pulse"
                                   >
                                     <Wallet className="w-3 h-3" /> Refund to Wallet
                                   </button>
                                 ) : isWallet ? (
                                   <button
+                                    type="button"
                                     onClick={async (e) => {
                                       e.stopPropagation();
                                       if (confirm(`Refund ₹${r.refundAmount.toLocaleString()} back to Customer's ReeVibes Wallet?`)) {
@@ -9143,12 +9558,13 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                       }
                                     }}
                                     title="Refund to ReeVibes Wallet"
-                                    className="bg-purple-600 hover:bg-purple-500 text-white text-[10px] uppercase font-bold px-2 py-1 rounded shadow flex items-center gap-1 cursor-pointer animate-pulse"
+                                    className="bg-purple-600 hover:bg-purple-500 text-white text-[10px] uppercase font-bold px-2.5 py-1.5 rounded-lg shadow flex items-center gap-1 cursor-pointer animate-pulse"
                                   >
                                     <Wallet className="w-3 h-3" /> Refund to Wallet
                                   </button>
                                 ) : isSplit ? (
                                   <button
+                                    type="button"
                                     onClick={async (e) => {
                                       e.stopPropagation();
                                       if (confirm(`Execute Split Refund of ₹${r.refundAmount.toLocaleString()} (Wallet + Razorpay)?`)) {
@@ -9159,12 +9575,13 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                       }
                                     }}
                                     title="Execute Split Refund (Wallet + Razorpay)"
-                                    className="bg-accent hover:bg-accent/90 text-white text-[10px] uppercase font-bold px-2 py-1 rounded shadow flex items-center gap-1 cursor-pointer animate-pulse"
+                                    className="bg-accent hover:bg-accent/90 text-white text-[10px] uppercase font-bold px-2.5 py-1.5 rounded-lg shadow flex items-center gap-1 cursor-pointer animate-pulse"
                                   >
                                     <Layers3 className="w-3 h-3" /> Split Refund
                                   </button>
                                 ) : (
                                   <button
+                                    type="button"
                                     onClick={async (e) => {
                                       e.stopPropagation();
                                       if (confirm(`Initiate Razorpay API Refund of ₹${r.refundAmount.toLocaleString()} to customer's original payment method?`)) {
@@ -9175,7 +9592,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                       }
                                     }}
                                     title="Initiate Gateway Refund via Razorpay API"
-                                    className="bg-sky-600 hover:bg-sky-500 text-white text-[10px] uppercase font-bold px-2 py-1 rounded shadow flex items-center gap-1 cursor-pointer animate-pulse"
+                                    className="bg-sky-600 hover:bg-sky-500 text-white text-[10px] uppercase font-bold px-2.5 py-1.5 rounded-lg shadow flex items-center gap-1 cursor-pointer animate-pulse"
                                   >
                                     <CreditCard className="w-3 h-3" /> Refund via Razorpay
                                   </button>
@@ -9183,22 +9600,24 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                               </>
                             )}
 
-                            {r.status === "Refund Completed" && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedReturnDetails(r);
-                                }}
-                                title="View Refund Settlement Receipt"
-                                className="bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white text-[10px] uppercase font-bold px-2 py-1 rounded border border-emerald-500/30 flex items-center gap-1 cursor-pointer"
-                              >
-                                <CheckCircle2 className="w-3 h-3" /> Receipt
-                              </button>
-                            )}
-
+                            {/* Export Single Return CSV */}
                             <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDownloadReturnCSV(r.id);
+                              }}
+                              title="Download Shiprocket Return CSV for this order"
+                              className="bg-surface-2 hover:bg-white/10 text-muted-foreground hover:text-white p-1.5 rounded-lg border border-white/10 cursor-pointer"
+                            >
+                              <Download className="w-3 h-3" />
+                            </button>
+
+                            {/* View Return Dossier Modal */}
+                            <button
+                              type="button"
                               onClick={() => setSelectedReturnDetails(r)}
-                              className="bg-accent/20 hover:bg-accent text-accent hover:text-white text-[10px] uppercase font-bold px-2.5 py-1 rounded cursor-pointer"
+                              className="bg-accent/20 hover:bg-accent text-accent hover:text-white text-[10px] uppercase font-bold px-2.5 py-1.5 rounded-lg cursor-pointer transition-colors"
                             >
                               Details
                             </button>

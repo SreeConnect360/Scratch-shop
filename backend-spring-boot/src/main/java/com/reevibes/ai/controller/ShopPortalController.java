@@ -1530,15 +1530,133 @@ public class ShopPortalController {
         return ResponseEntity.ok(saved);
     }
 
-    @PostMapping("/returns/{id}/approve")
+    @PostMapping("/returns/{id}/accept")
     @Transactional
-    public ResponseEntity<ReturnRequest> approveReturn(@PathVariable String id) {
+    public ResponseEntity<ReturnRequest> acceptReturn(@PathVariable String id) {
         ReturnRequest req = returnRequestRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Return not found: " + id));
+
+        ShopOrder order = getOrHydrateOrder(req.getOrderId());
+        Map<String, String> srRes = shiprocketService.createReturnOrder(req, order);
+        if (srRes != null && !srRes.isEmpty()) {
+            if (srRes.containsKey("order_id")) req.setShiprocketReturnOrderId(srRes.get("order_id"));
+            if (srRes.containsKey("shipment_id")) req.setShiprocketReturnShipmentId(srRes.get("shipment_id"));
+            if (srRes.containsKey("awb_code") && srRes.get("awb_code") != null && !srRes.get("awb_code").isEmpty()) {
+                req.setReturnAwb(srRes.get("awb_code"));
+            }
+            if (srRes.containsKey("courier_name") && srRes.get("courier_name") != null && !srRes.get("courier_name").isEmpty()) {
+                req.setReturnCourier(srRes.get("courier_name"));
+            } else {
+                req.setReturnCourier("Shiprocket Reverse Logistics");
+            }
+        } else {
+            req.setReturnCourier("Shiprocket Reverse Logistics");
+        }
+
         req.setStatus("Return Approved");
         ReturnRequest saved = returnRequestRepository.save(req);
         syncService.bumpVersion();
+
+        // Update Supabase return_requests table and notify user
+        try {
+            jdbcTemplate.update(
+                "UPDATE public.return_requests SET status = ?, shiprocket_return_order_id = ?, shiprocket_return_shipment_id = ?, return_awb = ?, return_courier = ?, updated_at = NOW() WHERE id = ?",
+                saved.getStatus(), saved.getShiprocketReturnOrderId(), saved.getShiprocketReturnShipmentId(), saved.getReturnAwb(), saved.getReturnCourier(), saved.getId()
+            );
+
+            String custId = req.getCustomerId();
+            if (custId != null && !custId.isEmpty()) {
+                Map<String, Object> notifMap = new HashMap<>();
+                notifMap.put("id", "NOTIF-RET-" + System.currentTimeMillis());
+                notifMap.put("date", new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").format(new java.util.Date()));
+                notifMap.put("type", "return_accepted");
+                notifMap.put("title", "Return Request Approved");
+                notifMap.put("message", "Your return request for " + req.getProductName() + " (Order: " + req.getOrderId() + ") has been approved. A reverse pickup order has been created to our warehouse (17-6-20, Sanjay Nagar, Dairy Farm Center, Kakinada, 533001).");
+                notifMap.put("returnId", req.getId());
+                notifMap.put("orderId", req.getOrderId());
+                if (saved.getReturnAwb() != null) notifMap.put("returnAwb", saved.getReturnAwb());
+
+                jdbcTemplate.update(
+                    "UPDATE public.customer_accounts SET notifications = COALESCE(notifications, '[]'::jsonb) || ?::jsonb, updated_at = NOW() WHERE id = ?",
+                    "[" + objectMapper.writeValueAsString(notifMap) + "]",
+                    custId
+                );
+            }
+        } catch (Exception e) {
+            System.err.println("Could not sync accepted return to Supabase: " + e.getMessage());
+        }
+
         return ResponseEntity.ok(saved);
+    }
+
+    @PostMapping("/returns/{id}/approve")
+    @Transactional
+    public ResponseEntity<ReturnRequest> approveReturn(@PathVariable String id) {
+        return acceptReturn(id);
+    }
+
+    @PostMapping("/returns/{id}/track-shiprocket")
+    @Transactional
+    public ResponseEntity<ReturnRequest> trackReturnShiprocket(@PathVariable String id) {
+        ReturnRequest req = returnRequestRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Return not found: " + id));
+
+        String lookupKey = req.getReturnAwb();
+        if (lookupKey == null || lookupKey.isEmpty()) {
+            lookupKey = req.getShiprocketReturnOrderId();
+        }
+        if (lookupKey == null || lookupKey.isEmpty()) {
+            lookupKey = req.getShiprocketReturnShipmentId();
+        }
+
+        if (lookupKey != null && !lookupKey.isEmpty()) {
+            Map<String, Object> trackRes = shiprocketService.getReturnTracking(lookupKey);
+            if (trackRes != null && !trackRes.isEmpty()) {
+                if (trackRes.containsKey("awb_code") && trackRes.get("awb_code") != null) {
+                    req.setReturnAwb(String.valueOf(trackRes.get("awb_code")));
+                }
+                if (trackRes.containsKey("courier_name") && trackRes.get("courier_name") != null) {
+                    req.setReturnCourier(String.valueOf(trackRes.get("courier_name")));
+                }
+
+                if (trackRes.containsKey("tracking_data")) {
+                    Map<String, Object> td = (Map<String, Object>) trackRes.get("tracking_data");
+                    if (td.containsKey("shipment_track_activities")) {
+                        try {
+                            req.setReturnScansJson(objectMapper.writeValueAsString(td.get("shipment_track_activities")));
+                        } catch (Exception ex) {}
+                    }
+                    if (td.containsKey("track_status")) {
+                        String st = String.valueOf(td.get("track_status")).toLowerCase();
+                        if (st.contains("delivered") || st.contains("received")) {
+                            req.setStatus("Item Received");
+                        } else if (st.contains("transit") || st.contains("pickup") || st.contains("shipped")) {
+                            req.setStatus("In Transit");
+                        }
+                    }
+                } else if (trackRes.containsKey("scans")) {
+                    try {
+                        req.setReturnScansJson(objectMapper.writeValueAsString(trackRes.get("scans")));
+                    } catch (Exception ex) {}
+                }
+
+                ReturnRequest saved = returnRequestRepository.save(req);
+                syncService.bumpVersion();
+
+                try {
+                    jdbcTemplate.update(
+                        "UPDATE public.return_requests SET status = ?, return_awb = ?, return_courier = ?, return_scans_json = ?, updated_at = NOW() WHERE id = ?",
+                        saved.getStatus(), saved.getReturnAwb(), saved.getReturnCourier(), saved.getReturnScansJson(), saved.getId()
+                    );
+                } catch (Exception e) {
+                    System.err.println("Could not sync return tracking to Supabase: " + e.getMessage());
+                }
+
+                return ResponseEntity.ok(saved);
+            }
+        }
+
+        return ResponseEntity.ok(req);
     }
 
     @PostMapping("/returns/{id}/reject")
@@ -1552,6 +1670,12 @@ public class ShopPortalController {
         }
         ReturnRequest saved = returnRequestRepository.save(req);
         syncService.bumpVersion();
+        try {
+            jdbcTemplate.update(
+                "UPDATE public.return_requests SET status = 'Rejected', rejection_reason = ?, updated_at = NOW() WHERE id = ?",
+                saved.getRejectionReason(), saved.getId()
+            );
+        } catch (Exception e) {}
         return ResponseEntity.ok(saved);
     }
 
@@ -1563,6 +1687,12 @@ public class ShopPortalController {
         req.setStatus("Item Received");
         ReturnRequest saved = returnRequestRepository.save(req);
         syncService.bumpVersion();
+        try {
+            jdbcTemplate.update(
+                "UPDATE public.return_requests SET status = 'Item Received', updated_at = NOW() WHERE id = ?",
+                saved.getId()
+            );
+        } catch (Exception e) {}
         return ResponseEntity.ok(saved);
     }
 
@@ -1577,18 +1707,26 @@ public class ShopPortalController {
         if (srRes != null && !srRes.isEmpty()) {
             if (srRes.containsKey("order_id")) req.setShiprocketReturnOrderId(srRes.get("order_id"));
             if (srRes.containsKey("shipment_id")) req.setShiprocketReturnShipmentId(srRes.get("shipment_id"));
-            if (srRes.containsKey("awb_code")) req.setReturnAwb(srRes.get("awb_code"));
-            else req.setReturnAwb("RET-AWB-" + (int)(100000 + Math.random() * 900000));
-            
-            if (srRes.containsKey("courier_name")) req.setReturnCourier(srRes.get("courier_name"));
-            else req.setReturnCourier("Shiprocket Reverse Logistics");
+            if (srRes.containsKey("awb_code") && srRes.get("awb_code") != null && !srRes.get("awb_code").isEmpty()) {
+                req.setReturnAwb(srRes.get("awb_code"));
+            }
+            if (srRes.containsKey("courier_name") && srRes.get("courier_name") != null && !srRes.get("courier_name").isEmpty()) {
+                req.setReturnCourier(srRes.get("courier_name"));
+            } else {
+                req.setReturnCourier("Shiprocket Reverse Logistics");
+            }
         } else {
-            req.setReturnAwb("RET-AWB-" + (int)(100000 + Math.random() * 900000));
             req.setReturnCourier("Shiprocket Reverse Logistics");
         }
         req.setStatus("Pickup Scheduled");
         ReturnRequest saved = returnRequestRepository.save(req);
         syncService.bumpVersion();
+        try {
+            jdbcTemplate.update(
+                "UPDATE public.return_requests SET status = ?, shiprocket_return_order_id = ?, shiprocket_return_shipment_id = ?, return_awb = ?, return_courier = ?, updated_at = NOW() WHERE id = ?",
+                saved.getStatus(), saved.getShiprocketReturnOrderId(), saved.getShiprocketReturnShipmentId(), saved.getReturnAwb(), saved.getReturnCourier(), saved.getId()
+            );
+        } catch (Exception e) {}
         return ResponseEntity.ok(saved);
     }
 
