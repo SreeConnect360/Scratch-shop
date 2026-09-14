@@ -25,7 +25,7 @@ const CONTEST_NAV = [
 ] as const;
 
 const SHOP_NAV = [
-  { to: "/admin", search: { tab: "overview" }, label: "Overview", icon: LayoutGrid },
+  { to: "/admin", search: undefined, label: "Overview", icon: LayoutGrid },
   { to: "/admin", search: { tab: "homepage" }, label: "Homepage Layout", icon: Palette },
   { to: "/admin", search: { tab: "buckets" }, label: "Buckets Curation", icon: Layers },
   { to: "/admin", search: { tab: "products" }, label: "Products Catalog", icon: ShoppingBag },
@@ -77,8 +77,9 @@ function NavList({ onClick }: { onClick?: () => void }) {
       {navList.map((item) => {
         let active = false;
         if (state.adminMode === "Shop") {
-          const itemSearch: any = "search" in item ? item.search : {};
-          active = search.tab === itemSearch.tab || (!search.tab && itemSearch.tab === "overview");
+          const itemSearch: any = "search" in item && item.search ? item.search : {};
+          const itemTab = itemSearch.tab;
+          active = search.tab === itemTab || (!search.tab && (!itemTab || itemTab === "overview"));
         } else {
           active = "exact" in item && item.exact ? path === item.to : path === item.to || (item.to !== "/admin" && path.startsWith(item.to));
         }
@@ -87,7 +88,7 @@ function NavList({ onClick }: { onClick?: () => void }) {
           <li key={item.label}>
             <Link
               to={item.to}
-              search={"search" in item ? (item.search as any) : undefined}
+              search={"search" in item && item.search ? (item.search as any) : undefined}
               onClick={onClick}
               className="group relative flex items-center gap-3 py-2.5 pl-6 pr-4 text-[13px] text-foreground/65 hover:text-foreground transition-colors"
             >

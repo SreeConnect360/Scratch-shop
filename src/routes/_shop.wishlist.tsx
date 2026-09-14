@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { usePortal } from "@/lib/portal-state";
 import { PRODUCTS } from "@/lib/data";
+import { getProductSlug } from "@/lib/slug";
 import { useState, useRef, useCallback, useContext, useMemo } from "react";
 import { Heart, ShoppingBag, Trash2, ArrowLeft, ChevronLeft, ChevronRight, Star } from "lucide-react";
 import { useShopNotification, QuickAddContext } from "./_shop";
@@ -263,7 +264,7 @@ function WishlistPageCard({
     >
       {/* Product Image Area */}
       <div className="relative aspect-[4/5] overflow-hidden bg-charcoal/5">
-        <Link to="/product/$productId" params={{ productId: p.id }} className="block w-full h-full">
+        <Link to="/product/$productId" params={{ productId: getProductSlug(p) }} className="block w-full h-full">
           <img
             src={gallery[activeImgIdx]}
             alt={p.name}
@@ -341,7 +342,7 @@ function WishlistPageCard({
             )}
             <Link
               to="/product/$productId"
-              params={{ productId: p.id }}
+              params={{ productId: getProductSlug(p) }}
               className="hover:text-accent transition-colors block"
               onMouseEnter={() => setIsTitleHovered(true)}
               onMouseLeave={() => setIsTitleHovered(false)}

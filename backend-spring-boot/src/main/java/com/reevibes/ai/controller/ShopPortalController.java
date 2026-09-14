@@ -2785,6 +2785,16 @@ public class ShopPortalController {
         if (body.containsKey("seoTitle")) product.setSeoTitle(safeParseString(body.get("seoTitle")));
         if (body.containsKey("seoDescription")) product.setSeoDescription(safeParseString(body.get("seoDescription")));
         if (body.containsKey("seoKeywords")) product.setSeoKeywords(safeParseString(body.get("seoKeywords")));
+        if (body.containsKey("slug") && body.get("slug") != null && !String.valueOf(body.get("slug")).trim().isEmpty()) {
+            product.setSlug(String.valueOf(body.get("slug")).trim().toLowerCase());
+        } else if (product.getName() != null && !product.getName().trim().isEmpty()) {
+            String cleanSlug = product.getName().toLowerCase()
+                .replace("—", "-")
+                .replace("–", "-")
+                .replaceAll("[^a-z0-9]+", "-")
+                .replaceAll("^-+|-+$", "");
+            product.setSlug(cleanSlug);
+        }
 
         if (body.containsKey("customRating")) {
             Object cr = body.get("customRating");
@@ -2923,6 +2933,16 @@ public class ShopPortalController {
         if (body.containsKey("seoTitle")) product.setSeoTitle(safeParseString(body.get("seoTitle")));
         if (body.containsKey("seoDescription")) product.setSeoDescription(safeParseString(body.get("seoDescription")));
         if (body.containsKey("seoKeywords")) product.setSeoKeywords(safeParseString(body.get("seoKeywords")));
+        if (body.containsKey("slug") && body.get("slug") != null && !String.valueOf(body.get("slug")).trim().isEmpty()) {
+            product.setSlug(String.valueOf(body.get("slug")).trim().toLowerCase());
+        } else if (product.getSlug() == null && product.getName() != null && !product.getName().trim().isEmpty()) {
+            String cleanSlug = product.getName().toLowerCase()
+                .replace("—", "-")
+                .replace("–", "-")
+                .replaceAll("[^a-z0-9]+", "-")
+                .replaceAll("^-+|-+$", "");
+            product.setSlug(cleanSlug);
+        }
 
         if (body.containsKey("customRating")) {
             Object cr = body.get("customRating");

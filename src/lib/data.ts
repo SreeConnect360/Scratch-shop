@@ -217,6 +217,7 @@ export function parseProductInfoMarkup(text: string): ProductSection[] {
 
 export type Product = {
   id: string;
+  slug?: string;
   name: string;
   description?: string;
   house: string;
@@ -257,23 +258,23 @@ export type Product = {
 };
 
 export const PRODUCTS: Product[] = [
-  { id: "pr1", name: "Silk Slip — Noir", house: "Maison Lumière", price: "₹85,000", image: U("photo-1485518882345-15568b007407", 900, 1200), tag: "New", gender: "Women", category: "Tops" },
-  { id: "pr2", name: "Cashmere Cape", house: "Atelier Reine", price: "₹1,50,000", image: U("photo-1496747611176-843222e1e57c", 900, 1200), gender: "Women", category: "Tops" },
-  { id: "pr3", name: "Pearl Corset", house: "Studio Onyx", price: "₹1,25,000", image: U("photo-1539109136881-3be0616acf4b", 900, 1200), tag: "Limited", gender: "Women", category: "Tops" },
-  { id: "pr4", name: "Crepe Gown", house: "Curvy Couture", price: "₹2,40,000", image: U("photo-1490481651871-ab68de25d43d", 900, 1200), gender: "Women", category: "Couture" },
-  { id: "pr5", name: "Velvet Trench", house: "Velvet & Co.", price: "₹1,80,000", image: U("photo-1483985988355-763728e1935b", 900, 1200), gender: "Women", category: "Bottoms" },
-  { id: "pr6", name: "Sculpted Heel", house: "Rose Éternelle", price: "₹65,000", image: U("photo-1469334031218-e382a71b716b", 900, 1200), gender: "Women", category: "Accessories" },
+  { id: "pr1", slug: "silk-slip-noir", name: "Silk Slip — Noir", house: "Maison Lumière", price: "₹85,000", image: U("photo-1485518882345-15568b007407", 900, 1200), tag: "New", gender: "Women", category: "Tops" },
+  { id: "pr2", slug: "cashmere-cape", name: "Cashmere Cape", house: "Atelier Reine", price: "₹1,50,000", image: U("photo-1496747611176-843222e1e57c", 900, 1200), gender: "Women", category: "Tops" },
+  { id: "pr3", slug: "pearl-corset", name: "Pearl Corset", house: "Studio Onyx", price: "₹1,25,000", image: U("photo-1539109136881-3be0616acf4b", 900, 1200), tag: "Limited", gender: "Women", category: "Tops" },
+  { id: "pr4", slug: "crepe-gown", name: "Crepe Gown", house: "Curvy Couture", price: "₹2,40,000", image: U("photo-1490481651871-ab68de25d43d", 900, 1200), gender: "Women", category: "Couture" },
+  { id: "pr5", slug: "velvet-trench", name: "Velvet Trench", house: "Velvet & Co.", price: "₹1,80,000", image: U("photo-1483985988355-763728e1935b", 900, 1200), gender: "Women", category: "Bottoms" },
+  { id: "pr6", slug: "sculpted-heel", name: "Sculpted Heel", house: "Rose Éternelle", price: "₹65,000", image: U("photo-1469334031218-e382a71b716b", 900, 1200), gender: "Women", category: "Accessories" },
   
   // Men's Products
-  { id: "prm1", name: "Tailored Linen Shirt", house: "Atelier Reine", price: "₹12,500", image: U("photo-1596755094514-f87e34085b2c", 900, 1200), tag: "Classic", gender: "Men", category: "Shirts" },
-  { id: "prm2", name: "Premium Slim T-Shirt", house: "Studio Onyx", price: "₹6,800", image: U("photo-1521572267360-ee0c2909d518", 900, 1200), gender: "Men", category: "T-Shirts" },
-  { id: "prm3", name: "Editorial Oversized Shirt", house: "Maison Lumière", price: "₹18,000", image: U("photo-1489987707025-afc232f7ea0f", 900, 1200), gender: "Men", category: "Shirts" },
-  { id: "prm4", name: "Premium Pleated Bottoms", house: "Curvy Couture", price: "₹22,000", image: U("photo-1624378439575-d8705ad7ae80", 900, 1200), gender: "Men", category: "Bottoms" },
+  { id: "prm1", slug: "tailored-linen-shirt", name: "Tailored Linen Shirt", house: "Atelier Reine", price: "₹12,500", image: U("photo-1596755094514-f87e34085b2c", 900, 1200), tag: "Classic", gender: "Men", category: "Shirts" },
+  { id: "prm2", slug: "premium-slim-t-shirt", name: "Premium Slim T-Shirt", house: "Studio Onyx", price: "₹6,800", image: U("photo-1521572267360-ee0c2909d518", 900, 1200), gender: "Men", category: "T-Shirts" },
+  { id: "prm3", slug: "editorial-oversized-shirt", name: "Editorial Oversized Shirt", house: "Maison Lumière", price: "₹18,000", image: U("photo-1489987707025-afc232f7ea0f", 900, 1200), gender: "Men", category: "Shirts" },
+  { id: "prm4", slug: "premium-pleated-bottoms", name: "Premium Pleated Bottoms", house: "Curvy Couture", price: "₹22,000", image: U("photo-1624378439575-d8705ad7ae80", 900, 1200), gender: "Men", category: "Bottoms" },
   
   // Women's extra items
-  { id: "prw7", name: "Satin Crop Top", house: "Maison Lumière", price: "₹9,500", image: U("photo-1515886657613-9f3515b0c78f", 900, 1200), gender: "Women", category: "Tops" },
-  { id: "prw8", name: "High-Waist Trousers", house: "Velvet & Co.", price: "₹18,500", image: U("photo-1594633312681-425c7b97ccd1", 900, 1200), gender: "Women", category: "Bottoms" },
-  { id: "prw9", name: "Classic Cotton T-Shirt", house: "Studio Onyx", price: "₹5,200", image: U("photo-1554568218-0f1715e72254", 900, 1200), gender: "Women", category: "T-Shirts" }
+  { id: "prw7", slug: "satin-crop-top", name: "Satin Crop Top", house: "Maison Lumière", price: "₹9,500", image: U("photo-1515886657613-9f3515b0c78f", 900, 1200), gender: "Women", category: "Tops" },
+  { id: "prw8", slug: "high-waist-trousers", name: "High-Waist Trousers", house: "Velvet & Co.", price: "₹18,500", image: U("photo-1594633312681-425c7b97ccd1", 900, 1200), gender: "Women", category: "Bottoms" },
+  { id: "prw9", slug: "classic-cotton-t-shirt", name: "Classic Cotton T-Shirt", house: "Studio Onyx", price: "₹5,200", image: U("photo-1554568218-0f1715e72254", 900, 1200), gender: "Women", category: "T-Shirts" }
 ];
 
 export type AdminUser = { id: string; name: string; role: string; email: string; status: "Active" | "Invited" | "Suspended"; lastSeen: string };

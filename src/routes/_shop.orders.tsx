@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { usePortal, isReturnEligible } from "@/lib/portal-state";
+import { getProductSlug } from "@/lib/slug";
 import { useState, useMemo } from "react";
 import { z } from "zod";
 import { 
@@ -312,7 +313,7 @@ function ShopOrdersPage() {
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              navigate({ to: "/product/$productId", params: { productId: firstItem?.productId || "vnd-1" } });
+                              navigate({ to: "/product/$productId", params: { productId: getProductSlug({ id: firstItem?.productId, name: firstItem?.name }) || "vnd-1" } });
                             }}
                             className="font-serif font-bold text-sm sm:text-base text-foreground hover:text-accent transition-colors truncate block text-left cursor-pointer"
                           >
@@ -464,7 +465,7 @@ function ShopOrdersPage() {
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate({ to: "/product/$productId", params: { productId: r.productId } });
+                            navigate({ to: "/product/$productId", params: { productId: getProductSlug({ id: r.productId, name: r.productName }) } });
                           }}
                           className="font-serif font-bold text-sm sm:text-base text-foreground hover:text-accent transition-colors truncate block text-left cursor-pointer"
                         >
@@ -848,7 +849,7 @@ function ShopOrdersPage() {
                         <div className="min-w-0 space-y-1">
                           <Link
                             to="/product/$productId"
-                            params={{ productId: item.productId || (item as any)?.id || "vnd-1" }}
+                            params={{ productId: getProductSlug({ id: item.productId || (item as any)?.id, name: item.name }) || "vnd-1" }}
                             className="font-serif font-bold text-sm sm:text-base text-foreground hover:text-accent truncate block"
                           >
                             {item.name}

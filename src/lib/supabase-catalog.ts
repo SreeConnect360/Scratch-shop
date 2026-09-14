@@ -1,4 +1,5 @@
 import { type Product } from "./data";
+import { slugify } from "./slug";
 
 export const SUPABASE_URL =
   import.meta.env.VITE_SUPABASE_URL ||
@@ -98,6 +99,7 @@ export function mapSupabaseRowToProduct(row: any): Product {
 
   return {
     id: String(row.id),
+    slug: row.slug || (row.name ? slugify(row.name) : undefined),
     name: row.name || "Untitled Creation",
     house: row.house || row.brand || "Atelier ReeVibes",
     price: formattedPrice,
@@ -181,15 +183,17 @@ export async function fetchAdminCatalogFromSupabase(): Promise<Product[]> {
 }
 
 /**
- * Directly fetches a single product from Supabase `admin_product_catalog` by id or sku.
+ * Directly fetches a single product from Supabase `admin_product_catalog` by slug, id, or sku.
  */
 export async function fetchSingleProductFromSupabase(productId: string): Promise<Product | null> {
   if (!productId) return null;
   const cleanId = String(productId).trim();
+  const slugId = slugify(cleanId);
   try {
-    // Try exact id match first
+    // 1. Try slug, id, or sku match
+    const query = `or=(slug.eq.${encodeURIComponent(slugId)},id.eq.${encodeURIComponent(cleanId)},slug.eq.${encodeURIComponent(cleanId)},sku.eq.${encodeURIComponent(cleanId)})`;
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/admin_product_catalog?id=eq.${encodeURIComponent(cleanId)}&select=*`,
+      `${SUPABASE_URL}/rest/v1/admin_product_catalog?${query}&select=*`,
       {
         method: "GET",
         headers: getHeaders(),
@@ -202,9 +206,9 @@ export async function fetchSingleProductFromSupabase(productId: string): Promise
       }
     }
 
-    // Fallback: try match by id without "-catalog", or sku
+    // 2. Fallback: try match with or without "-catalog"
     const altRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/admin_product_catalog?or=(id.eq.${encodeURIComponent(cleanId + "-catalog")},sku.eq.${encodeURIComponent(cleanId)})&select=*`,
+      `${SUPABASE_URL}/rest/v1/admin_product_catalog?or=(id.eq.${encodeURIComponent(cleanId + "-catalog")},id.eq.${encodeURIComponent(cleanId.replace(/-catalog$/, ""))})&select=*`,
       {
         method: "GET",
         headers: getHeaders(),
@@ -239,7 +243,11 @@ export async function patchCatalogProductInSupabase(
 
     if (patch.status !== undefined) fieldsToUpdate.status = String(patch.status).toUpperCase();
     if (patch.visibility !== undefined) fieldsToUpdate.visibility = String(patch.visibility).toUpperCase();
-    if (patch.name !== undefined && String(patch.name).trim()) fieldsToUpdate.name = String(patch.name).trim();
+    if (patch.name !== undefined && String(patch.name).trim()) {
+      fieldsToUpdate.name = String(patch.name).trim();
+      if (!patch.slug) fieldsToUpdate.slug = slugify(String(patch.name));
+    }
+    if (patch.slug !== undefined && String(patch.slug).trim()) fieldsToUpdate.slug = slugify(String(patch.slug));
     if (patch.house !== undefined) fieldsToUpdate.house = String(patch.house);
     if (patch.brand !== undefined) fieldsToUpdate.brand = String(patch.brand);
     if (patch.category !== undefined) fieldsToUpdate.category = String(patch.category);
@@ -363,8 +371,11 @@ export async function upsertCatalogProductToSupabase(p: any): Promise<{ ok: bool
 
     const totalStock = Object.values(cleanStock).reduce((acc: number, val: any) => acc + (Number(val) || 0), 0) || Number(p.stockQuantity) || 100;
 
+    const cleanSlug = p.slug && String(p.slug).trim() ? slugify(String(p.slug)) : slugify(String(p.name || id));
+
     const row = {
       id,
+      slug: cleanSlug,
       name: p.name || "Untitled Creation",
       house: p.house || p.brand || "Atelier ReeVibes",
       brand: p.house || p.brand || "Atelier ReeVibes",

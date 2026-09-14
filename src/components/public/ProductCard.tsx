@@ -6,6 +6,7 @@ import { usePortal } from "@/lib/portal-state";
 import { getEligibleCouponsForProduct } from "@/lib/supabase-coupons";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { getProductSlug } from "@/lib/slug";
 
 // These are imported from the _shop layout — consumers must be rendered inside
 // the <QuickAddContext.Provider> and <ShopNotificationContext.Provider> trees.
@@ -240,7 +241,7 @@ export const ProductCard = memo(function ProductCard({
       >
         {/* image — left side on desktop */}
         <div className="relative w-full md:w-44 lg:w-48 h-48 md:h-full shrink-0 overflow-hidden bg-charcoal/5">
-          <Link to="/product/$productId" params={{ productId: p.id }} className="block w-full h-full">
+          <Link to="/product/$productId" params={{ productId: getProductSlug(p) }} className="block w-full h-full">
             <img
               src={gallery[activeImgIdx]}
               alt={p.name}
@@ -290,7 +291,7 @@ export const ProductCard = memo(function ProductCard({
           <div>
             <Link
               to="/product/$productId"
-              params={{ productId: p.id }}
+              params={{ productId: getProductSlug(p) }}
               className="hover:text-accent transition-colors block min-w-0"
               onMouseEnter={() => setIsTitleHovered(true)}
               onMouseLeave={() => setIsTitleHovered(false)}
@@ -452,7 +453,7 @@ export const ProductCard = memo(function ProductCard({
     >
       {/* image */}
       <div className="relative aspect-[4/5] shrink-0 overflow-hidden bg-charcoal/5">
-        <Link to="/product/$productId" params={{ productId: p.id }} className="block w-full h-full">
+        <Link to="/product/$productId" params={{ productId: getProductSlug(p) }} className="block w-full h-full">
           <img
             src={gallery[activeImgIdx]}
             alt={p.name}
@@ -563,7 +564,7 @@ export const ProductCard = memo(function ProductCard({
             )}
             <Link
               to="/product/$productId"
-              params={{ productId: p.id }}
+              params={{ productId: getProductSlug(p) }}
               className="hover:text-accent transition-colors block min-w-0"
               onMouseEnter={() => setIsTitleHovered(true)}
               onMouseLeave={() => setIsTitleHovered(false)}

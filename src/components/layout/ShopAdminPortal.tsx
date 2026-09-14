@@ -23,6 +23,7 @@ import * as XLSX from "xlsx";
 import { AdminCard, AdminButton, StatusChip } from "./AdminCommon";
 import { ImageFocalAdjuster } from "@/components/admin/ImageFocalAdjuster";
 import { PRODUCTS } from "@/lib/data";
+import { getProductSlug } from "@/lib/slug";
 import { sortCustomerAccountsById } from "@/lib/supabase-customers";
 import {
   fetchRazorpayWebhookEvents,
@@ -2308,7 +2309,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                 {inStock ? "In Stock" : "Unavailable"}
                               </span>
                               <span className="font-serif font-bold text-accent">{p?.price || "—"}</span>
-                              <Link to="/product/$productId" params={{ productId }} className="text-[10px] uppercase font-bold text-accent border border-accent/30 hover:border-accent px-3 py-1 rounded-full">
+                              <Link to="/product/$productId" params={{ productId: getProductSlug(p || { id: productId }) }} className="text-[10px] uppercase font-bold text-accent border border-accent/30 hover:border-accent px-3 py-1 rounded-full">
                                 View Product
                               </Link>
                             </div>
@@ -2351,7 +2352,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                               <span className="font-serif text-muted-foreground">{item.price}</span>
                               <span className="font-serif font-bold text-accent">₹{totalAmount.toLocaleString()}</span>
                               {item.productId ? (
-                                <Link to="/product/$productId" params={{ productId: item.productId }} className="text-[10px] uppercase font-bold text-accent border border-accent/30 hover:border-accent px-3 py-1 rounded-full">
+                                <Link to="/product/$productId" params={{ productId: getProductSlug({ id: item.productId, name: item.name }) }} className="text-[10px] uppercase font-bold text-accent border border-accent/30 hover:border-accent px-3 py-1 rounded-full">
                                   View Product
                                 </Link>
                               ) : null}
@@ -2402,7 +2403,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                   <div className="flex items-center gap-4">
                                     <span className="font-serif font-bold text-accent">₹{(priceVal * item.qty).toLocaleString()}</span>
                                     {item.productId ? (
-                                      <Link to="/product/$productId" params={{ productId: item.productId }} className="text-[9px] uppercase font-bold text-accent/80 hover:text-accent">
+                                      <Link to="/product/$productId" params={{ productId: getProductSlug({ id: item.productId, name: item.name }) }} className="text-[9px] uppercase font-bold text-accent/80 hover:text-accent">
                                         View
                                       </Link>
                                     ) : null}

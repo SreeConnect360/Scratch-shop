@@ -17,6 +17,9 @@ public class VendorProduct {
     private String name;
 
     @Column(columnDefinition = "TEXT")
+    private String slug;
+
+    @Column(columnDefinition = "TEXT")
     private String house;
 
     @Column(columnDefinition = "TEXT")

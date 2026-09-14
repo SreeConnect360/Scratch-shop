@@ -14,6 +14,7 @@ import { motion, useSpring, AnimatePresence } from "framer-motion";
 import MagneticButton from "@/components/ui/MagneticButton";
 import { cn, prefersReducedMotion } from "@/lib/utils";
 import { ProductCard } from "@/components/public/ProductCard";
+import { getProductSlug } from "@/lib/slug";
 import gsap from "gsap";
 // ESM entry (not dist/ UMD — that build references `self` and crashes Node SSR);
 // ssr.noExternal:["gsap"] in vite.config bundles it for the server build.
@@ -285,7 +286,7 @@ function ReviewsAutoScrollCarousel({
                   {prod && (
                     <Link
                       to="/product/$productId"
-                      params={{ productId: prod.id }}
+                      params={{ productId: getProductSlug(prod) }}
                       className="text-[11px] text-muted-foreground hover:text-accent truncate block max-w-[190px] transition-colors"
                       title={prod.name}
                     >
@@ -299,7 +300,7 @@ function ReviewsAutoScrollCarousel({
               {prod && (
                 <Link
                   to="/product/$productId"
-                  params={{ productId: prod.id }}
+                  params={{ productId: getProductSlug(prod) }}
                   className="shrink-0 group/thumb relative block self-center"
                   title={`View ${prod.name}`}
                   onClick={(e) => {

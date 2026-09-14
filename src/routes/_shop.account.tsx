@@ -3,6 +3,7 @@ import { usePortal, useCartTotal } from "@/lib/portal-state";
 import { BACKEND_URL } from "@/lib/config";
 import { FadeUp } from "@/components/motion/Reveal";
 import { PRODUCTS } from "@/lib/data";
+import { getProductSlug } from "@/lib/slug";
 import { useState, useEffect, useMemo } from "react";
 import { z } from "zod";
 import { MapPin, Navigation, Tag, Heart, ShoppingBag, ListOrdered, User, Save, Trash2, Plus, Check, RotateCcw, Wallet as WalletIcon, Settings as SettingsIcon, ShieldCheck, Star, X, ArrowLeft, ArrowRight, AlertTriangle, LogOut, Search, ChevronDown, CheckCircle2, RefreshCw, KeyRound, Lock } from "lucide-react";
@@ -1837,7 +1838,7 @@ function ShopDashboard() {
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  navigate({ to: "/product/$productId", params: { productId: firstItem?.productId || "vnd-1" } });
+                                  navigate({ to: "/product/$productId", params: { productId: getProductSlug({ id: firstItem?.productId, name: firstItem?.name }) || "vnd-1" } });
                                 }}
                                 className="font-serif font-bold text-sm sm:text-base text-foreground hover:text-accent transition-colors truncate block text-left cursor-pointer"
                               >
@@ -2145,7 +2146,7 @@ function ShopDashboard() {
                         <div className="min-w-0">
                           <Link
                             to="/product/$productId"
-                            params={{ productId: item.productId || item.id || "vnd-1" }}
+                            params={{ productId: getProductSlug({ id: item.productId || item.id, name: item.name }) || "vnd-1" }}
                             className="font-serif font-bold text-sm text-foreground hover:text-accent truncate block"
                           >
                             {item.name || "Purchased Piece"}

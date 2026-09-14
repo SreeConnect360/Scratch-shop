@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useMemo } from "react";
 import { usePortal } from "@/lib/portal-state";
 import { BACKEND_URL } from "@/lib/config";
+import { getProductSlug } from "@/lib/slug";
 import { z } from "zod";
 import {
   Trash2,
@@ -1207,7 +1208,7 @@ export function ShopCart() {
                           </div>
                         )}
                         <h3 className="font-serif text-base sm:text-lg text-foreground hover:text-accent font-semibold leading-snug line-clamp-2">
-                          <Link to="/product/$productId" params={{ productId: item.productId }}>
+                          <Link to="/product/$productId" params={{ productId: getProductSlug({ id: item.productId, name: item.name }) }}>
                             {item.name}
                           </Link>
                         </h3>

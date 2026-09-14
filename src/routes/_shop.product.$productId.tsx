@@ -40,6 +40,7 @@ import { ProductCard } from "@/components/public/ProductCard";
 import { parseProductInfoMarkup, type ProductSection, PRODUCTS, type Product } from "@/lib/data";
 import { getEligibleCouponsForProduct } from "@/lib/supabase-coupons";
 import { fetchSingleProductFromSupabase } from "@/lib/supabase-catalog";
+import { slugify, getProductSlug, matchesProductIdentifier } from "@/lib/slug";
 
 function CouponExpiryBadge({ expiryDate }: { expiryDate?: string }) {
   const [timeLeft, setTimeLeft] = useState<{ text: string; isLive: boolean }>({ text: "", isLive: false });
@@ -243,16 +244,10 @@ function ProductDetail() {
 
   const isDark = theme === "dark";
 
-  // Product Lookup
+  // Product Lookup with clean slug support and backward compatibility
   const products = state.products || [];
   const contextProduct = useMemo(() => {
-    return products.find(
-      (p) =>
-        p.id === productId ||
-        p.id.replace("-catalog", "") === productId ||
-        (p.name && p.name.toLowerCase().replace(/[^a-z0-9]+/g, "-") === productId) ||
-        (p.sku && p.sku.toLowerCase() === productId.toLowerCase())
-    );
+    return products.find((p) => matchesProductIdentifier(p, productId));
   }, [products, productId]);
 
   // Fast direct Supabase fetch fallback for direct link / new tab visits
@@ -304,6 +299,15 @@ function ProductDetail() {
     if (product) {
       document.title = `${product.name} — ReeVibes`;
       recordProductView(product.id);
+
+      // Canonical clean URL auto-sync: smoothly rewrite address bar if accessed via legacy ID or unencoded URL
+      if (typeof window !== "undefined") {
+        const canonicalSlug = getProductSlug(product);
+        if (canonicalSlug && productId !== canonicalSlug) {
+          const newUrl = `/product/${canonicalSlug}${window.location.search}${window.location.hash}`;
+          window.history.replaceState(window.history.state, "", newUrl);
+        }
+      }
 
       // Track personalized recently viewed list
       if (typeof window !== "undefined" && product.id) {
@@ -637,9 +641,10 @@ function ProductDetail() {
   };
 
   const handleShare = async () => {
+    const canonicalSlug = getProductSlug(product) || product.id;
     const shareUrl = typeof window !== "undefined"
-      ? `${window.location.origin}/product/${product.id}`
-      : `https://reevibes.com/product/${product.id}`;
+      ? `${window.location.origin}/product/${canonicalSlug}`
+      : `https://reevibes.com/product/${canonicalSlug}`;
     
     // Auto copy link to clipboard
     try {
@@ -2053,7 +2058,7 @@ function ProductDetail() {
               <div className="grid grid-cols-4 gap-3 py-1">
                 {/* WhatsApp */}
                 <a
-                  href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`Check out ${product.name} on ReeVibes: https://reevibes.com/product/${product.id}`)}`}
+                  href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`Check out ${product.name} on ReeVibes: ${typeof window !== "undefined" ? window.location.origin : "https://reevibes.com"}/product/${getProductSlug(product) || product.id}`)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 transition-all border border-emerald-500/20 hover:scale-105 cursor-pointer group text-center"
@@ -2066,7 +2071,7 @@ function ProductDetail() {
 
                 {/* Twitter / X */}
                 <a
-                  href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Check out ${product.name} on ReeVibes Atelier!`)}&url=${encodeURIComponent(`https://reevibes.com/product/${product.id}`)}`}
+                  href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Check out ${product.name} on ReeVibes Atelier!`)}&url=${encodeURIComponent(`${typeof window !== "undefined" ? window.location.origin : "https://reevibes.com"}/product/${getProductSlug(product) || product.id}`)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-sky-500/10 hover:bg-sky-500/20 text-sky-500 transition-all border border-sky-500/20 hover:scale-105 cursor-pointer group text-center"
@@ -2079,7 +2084,7 @@ function ProductDetail() {
 
                 {/* Facebook */}
                 <a
-                  href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`https://reevibes.com/product/${product.id}`)}`}
+                  href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`${typeof window !== "undefined" ? window.location.origin : "https://reevibes.com"}/product/${getProductSlug(product) || product.id}`)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-blue-600/10 hover:bg-blue-600/20 text-blue-600 transition-all border border-blue-600/20 hover:scale-105 cursor-pointer group text-center"
@@ -2092,7 +2097,7 @@ function ProductDetail() {
 
                 {/* Email */}
                 <a
-                  href={`mailto:?subject=${encodeURIComponent(`ReeVibes: ${product.name}`)}&body=${encodeURIComponent(`I thought you'd love this product on ReeVibes Atelier!\n\n${product.name}\nhttps://reevibes.com/product/${product.id}`)}`}
+                  href={`mailto:?subject=${encodeURIComponent(`ReeVibes: ${product.name}`)}&body=${encodeURIComponent(`I thought you'd love this product on ReeVibes Atelier!\n\n${product.name}\n${typeof window !== "undefined" ? window.location.origin : "https://reevibes.com"}/product/${getProductSlug(product) || product.id}`)}`}
                   className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 transition-all border border-amber-500/20 hover:scale-105 cursor-pointer group text-center"
                 >
                   <div className="w-10 h-10 rounded-full bg-[#D4AF37] text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
@@ -2111,14 +2116,14 @@ function ProductDetail() {
                   <input
                     type="text"
                     readOnly
-                    value={`https://reevibes.com/product/${product.id}`}
+                    value={`${typeof window !== "undefined" ? window.location.origin : "https://reevibes.com"}/product/${getProductSlug(product) || product.id}`}
                     className="flex-1 bg-transparent px-3 text-xs font-mono text-foreground outline-none select-all truncate"
                   />
                   <button
                     type="button"
                     onClick={async () => {
                       try {
-                        await navigator.clipboard.writeText(`https://reevibes.com/product/${product.id}`);
+                        await navigator.clipboard.writeText(`${typeof window !== "undefined" ? window.location.origin : "https://reevibes.com"}/product/${getProductSlug(product) || product.id}`);
                         setIsCopied(true);
                         setTimeout(() => setIsCopied(false), 3000);
                         toast.success("Link copied to clipboard!");

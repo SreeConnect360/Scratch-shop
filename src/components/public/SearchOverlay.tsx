@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, X, ArrowRight } from "lucide-react";
 import { Link } from "@tanstack/react-router";
+import { getProductSlug } from "@/lib/slug";
 
 interface SearchOverlayProps {
   isOpen: boolean;
@@ -106,7 +107,7 @@ export default function SearchOverlay({ isOpen, onClose, products }: SearchOverl
                   <li key={p.id}>
                     <Link
                       to="/product/$productId"
-                      params={{ productId: p.id }}
+                      params={{ productId: getProductSlug(p) }}
                       onClick={onClose}
                       className="group flex w-full items-center gap-4 rounded-2xl px-3 py-2.5 text-left transition-colors hover:bg-gold/10"
                     >

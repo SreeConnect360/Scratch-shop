@@ -11,6 +11,7 @@ import {
   PLATFORM_USERS, CONTESTANT_APPLICATIONS, ABUSE_REPORTS, PRODUCTS,
   type PlatformUser, type ContestantApplication, type AbuseReport, type Role, type Product,
 } from "./data";
+import { slugify, getProductSlug } from "./slug";
 import {
   fetchAdminCatalogFromSupabase,
   patchCatalogProductInSupabase,
@@ -3318,8 +3319,10 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     setAdminMode: (mode) => setState(s => ({ ...s, adminMode: mode })),
     createProduct: (p) => {
       const id = (p as any).id || `prd-${Date.now()}`;
+      const slug = (p as any).slug ? slugify((p as any).slug) : slugify(p.name || id);
       const newProduct: Product = {
         id,
+        slug,
         status: p.status || "PUBLISHED",
         visibility: p.visibility || "VISIBLE",
         ...p
@@ -3332,7 +3335,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       notifyBroadcastSync();
 
       // 1. Direct Supabase Persistence to admin_product_catalog (Instant multi-device truth)
-      upsertCatalogProductToSupabase({ ...p, id }).then((res) => {
+      upsertCatalogProductToSupabase({ ...p, id, slug }).then((res) => {
         if (res.ok) {
           toast.success("Product saved to Supabase catalog!");
           fetchBackendState(true);
@@ -3346,7 +3349,8 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         status: p.status || "PUBLISHED",
         visibility: p.visibility || "VISIBLE",
         ...p,
-        id
+        id,
+        slug
       };
       if (cleaned.price !== undefined && cleaned.price !== null) {
         cleaned.price = cleaned.price.toString().replace(/[^0-9.]/g, "");
@@ -3373,13 +3377,14 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     },
     updateProduct: (id, patch) => {
       const existing = (state.products || []).find(p => p.id === id);
-      const fullPayload: any = { ...(existing || {}), ...patch, id };
+      const computedSlug = patch.slug ? slugify(patch.slug) : (patch.name ? slugify(patch.name) : (existing?.slug || (existing?.name ? slugify(existing.name) : undefined)));
+      const fullPayload: any = { ...(existing || {}), ...patch, id, ...(computedSlug ? { slug: computedSlug } : {}) };
 
       // Instant optimistic update
       setState(s => {
         const next = {
           ...s,
-          products: (s.products || []).map(p => p.id === id ? { ...(p || {}), ...patch, id } : p)
+          products: (s.products || []).map(p => p.id === id ? { ...(p || {}), ...patch, id, ...(computedSlug ? { slug: computedSlug } : {}) } : p)
         };
         save(next);
         return next;
@@ -3389,7 +3394,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 
       if (isPartial) {
         // Selective PATCH to Supabase - updates ONLY status/visibility without touching any other fields
-        patchCatalogProductInSupabase(id, patch).then((res) => {
+        patchCatalogProductInSupabase(id, { ...patch, ...(computedSlug ? { slug: computedSlug } : {}) }).then((res) => {
           if (!res.ok) {
             console.error("Supabase catalog patch error:", res.error);
           }
