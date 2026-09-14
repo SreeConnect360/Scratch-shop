@@ -453,6 +453,7 @@ export const DEFAULT_HOMEPAGE_LAYOUT = {
     enabled: false,
     text: "Summer Sale Live — Flat 20% Off on First Order",
     linkUrl: "/categories",
+    openIn: "sameTab",
     backgroundColor: "#7c2d12",
     countdownActive: false,
     countdownEndsAt: "2026-07-31T23:59:59"
@@ -478,7 +479,10 @@ export const DEFAULT_HOMEPAGE_LAYOUT = {
         redirectUrl: "https://reevibes.com/categories?bucketId=bkt2",
         scheduleEnd: "",
         desktopImage: "https://img.magnific.com/free-photo/young-handsome-hipster-man-posing-european-street-sunny-warm-toned-colors-casual-trendy-clothes-traveling-mood_291049-1490.jpg?semt=ais_hybrid&w=740&q=80",
-        scheduleStart: ""
+        scheduleStart: "",
+        focalX: 50,
+        focalY: 50,
+        scale: 1.0
       },
       {
         id: "h2",
@@ -493,17 +497,22 @@ export const DEFAULT_HOMEPAGE_LAYOUT = {
         redirectUrl: "/categories",
         scheduleEnd: "",
         desktopImage: "https://images.unsplash.com/photo-1496360166961-10a51d5f367a?auto=format&fit=crop&w=1200&h=600&q=80",
-        scheduleStart: ""
+        scheduleStart: "",
+        focalX: 50,
+        focalY: 50,
+        scale: 1.0
       }
     ]
   },
   categories: {
     enabled: true,
+    title: "Shop by Category",
+    subtitle: "Curated Departments",
     items: [
-      { id: "cat1", name: "Women", image: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=400&h=500&q=80", redirectUrl: "/categories", sortOrder: 1 },
-      { id: "cat2", name: "Men", image: "https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?auto=format&fit=crop&w=400&h=500&q=80", redirectUrl: "/categories", sortOrder: 2 },
-      { id: "cat3", name: "New Arrivals", image: "https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=400&h=500&q=80", redirectUrl: "/categories", sortOrder: 3 },
-      { id: "cat4", name: "Trending", image: "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=400&h=500&q=80", redirectUrl: "/categories", sortOrder: 4 }
+      { id: "cat1", name: "Women", image: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=400&h=500&q=80", redirectUrl: "/categories", sortOrder: 1, focalX: 50, focalY: 50, scale: 1.0 },
+      { id: "cat2", name: "Men", image: "https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?auto=format&fit=crop&w=400&h=500&q=80", redirectUrl: "/categories", sortOrder: 2, focalX: 50, focalY: 50, scale: 1.0 },
+      { id: "cat3", name: "New Arrivals", image: "https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=400&h=500&q=80", redirectUrl: "/categories", sortOrder: 3, focalX: 50, focalY: 50, scale: 1.0 },
+      { id: "cat4", name: "Trending", image: "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=400&h=500&q=80", redirectUrl: "/categories", sortOrder: 4, focalX: 50, focalY: 50, scale: 1.0 }
     ]
   },
   flashSale: {
@@ -533,12 +542,19 @@ export const DEFAULT_HOMEPAGE_LAYOUT = {
     image: "https://images.unsplash.com/photo-1469334031218-e382a71b716b?auto=format&fit=crop&w=1200&h=600&q=80",
     heading: "Summer Essentials 2026",
     ctaText: "Shop the Campaign",
-    redirectUrl: "/categories"
+    redirectUrl: "/categories",
+    focalX: 50,
+    focalY: 50,
+    scale: 1.0
   },
   collections: {
     enabled: true,
+    title: "Premium Collection",
     collectionId: "Premium Collection",
-    coverImage: "https://images.unsplash.com/photo-1485230895905-ec40ba36b9bc?auto=format&fit=crop&w=1200&h=650&q=80"
+    coverImage: "https://images.unsplash.com/photo-1485230895905-ec40ba36b9bc?auto=format&fit=crop&w=1200&h=650&q=80",
+    focalX: 50,
+    focalY: 50,
+    scale: 1.0
   },
   liveFeed: {
     enabled: true,

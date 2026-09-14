@@ -461,18 +461,41 @@ function ShopHome() {
   // Lookbook Tooltip Product State
   const [lookbookSelectedProduct, setLookbookSelectedProduct] = useState<any | null>(null);
 
-  // Recently Viewed State
+  // Recently Viewed State - Personalized per user
   const [recentlyViewedIds, setRecentlyViewedIds] = useState<string[]>([]);
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    if (typeof window === "undefined") return;
+    const loadRecentViews = () => {
       try {
-        const stored = localStorage.getItem("reevibes:recently_viewed");
+        const userKey = state.user?.id
+          ? `reevibes:recently_viewed:${state.user.id}`
+          : "reevibes:recently_viewed:guest";
+        let stored = localStorage.getItem(userKey);
+        if (!stored) {
+          stored = localStorage.getItem("reevibes:recently_viewed");
+        }
         if (stored) {
-          setRecentlyViewedIds(JSON.parse(stored).slice(0, 4));
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            setRecentlyViewedIds(parsed.slice(0, 5));
+          }
         }
       } catch { /* ignore */ }
-    }
-  }, []);
+    };
+
+    loadRecentViews();
+
+    const handleUpdate = () => loadRecentViews();
+    window.addEventListener("reevibes:recently_viewed_updated", handleUpdate);
+    window.addEventListener("storage", handleUpdate);
+    window.addEventListener("focus", handleUpdate);
+
+    return () => {
+      window.removeEventListener("reevibes:recently_viewed_updated", handleUpdate);
+      window.removeEventListener("storage", handleUpdate);
+      window.removeEventListener("focus", handleUpdate);
+    };
+  }, [state.user?.id]);
 
   // Track active section for left-side navigation
   const [activeSection, setActiveSection] = useState("hero");
@@ -682,9 +705,13 @@ function ShopHome() {
                           src={currentBanner.desktopImage}
                           alt={currentBanner.title || "Banner"}
                           initial={{ scale: 1 }}
-                          animate={{ scale: 1.08 }}
+                          animate={{ scale: (currentBanner.scale && currentBanner.scale > 1) ? currentBanner.scale * 1.05 : 1.08 }}
                           transition={{ duration: 6.2, ease: "linear" }}
                           className="h-full w-full object-cover"
+                          style={{
+                            objectPosition: `${currentBanner.focalX ?? 50}% ${currentBanner.focalY ?? 50}%`,
+                            transformOrigin: `${currentBanner.focalX ?? 50}% ${currentBanner.focalY ?? 50}%`,
+                          }}
                         />
                       </picture>
                     )}
@@ -825,16 +852,16 @@ function ShopHome() {
               >
                 <p className="mb-3 flex items-center justify-center gap-3 text-[11px] tracking-[0.3em] uppercase text-gold">
                   <span className="h-px w-8 bg-gold/50" aria-hidden="true" />
-                  Curated Departments
+                  {catData.subtitle || "Curated Departments"}
                   <span className="h-px w-8 bg-gold/50" aria-hidden="true" />
                 </p>
-                <h2 id="categories-title" className="text-3xl text-ink sm:text-4xl">
-                  Shop by Category
+                <h2 id="categories-title" className="text-3xl text-ink sm:text-4xl font-serif">
+                  {catData.title || "Shop by Category"}
                 </h2>
               </motion.div>
 
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                {catData.items.map((cat: any, i: number) => (
+                {(catData.items || []).map((cat: any, i: number) => (
                   <motion.div
                     key={cat.id}
                     initial={{ opacity: 0, y: 32 }}
@@ -853,14 +880,19 @@ function ShopHome() {
                       <div className="relative h-full w-full overflow-hidden">
                         <img
                           src={cat.image}
-                          alt=""
+                          alt={cat.name || "Category"}
                           loading="lazy"
                           className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
+                          style={{
+                            objectPosition: `${cat.focalX ?? 50}% ${cat.focalY ?? 50}%`,
+                            transform: (cat.scale && cat.scale > 1) ? `scale(${cat.scale})` : undefined,
+                            transformOrigin: `${cat.focalX ?? 50}% ${cat.focalY ?? 50}%`,
+                          }}
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
                         <div className="absolute inset-x-0 bottom-0 flex items-end justify-between p-3.5">
                           <span>
-                            <span className="block text-[15px] text-white">
+                            <span className="block text-[15px] text-white font-medium">
                               {cat.name}
                             </span>
                           </span>
@@ -963,7 +995,16 @@ function ShopHome() {
           <section key={sectionId} className="max-w-7xl mx-auto px-3 sm:px-5">
             <FadeUp>
               <div className="relative aspect-[16/10] lg:aspect-[21/9] min-h-[220px] sm:min-h-[300px] overflow-hidden bg-zinc-950 group rounded-3xl border border-border-subtle">
-                <img src={camp.image} className="absolute inset-0 w-full h-full object-cover opacity-70 transition-transform duration-700 group-hover:scale-105" alt="" />
+                <img
+                  src={camp.image}
+                  className="absolute inset-0 w-full h-full object-cover opacity-70 transition-transform duration-700 group-hover:scale-105"
+                  alt={camp.heading || "Campaign"}
+                  style={{
+                    objectPosition: `${camp.focalX ?? 50}% ${camp.focalY ?? 50}%`,
+                    transform: (camp.scale && camp.scale > 1) ? `scale(${camp.scale})` : undefined,
+                    transformOrigin: `${camp.focalX ?? 50}% ${camp.focalY ?? 50}%`,
+                  }}
+                />
                 <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/50 to-transparent" />
                 <div className="absolute inset-0 p-8 md:p-12 flex flex-col justify-center space-y-4 max-w-xl">
                   <span className="text-[10px] uppercase tracking-[0.2em] text-accent font-bold">Editorial Fashion Campaign</span>
@@ -983,13 +1024,23 @@ function ShopHome() {
       case "collections":
         const colData = layout.collections;
         const colProducts = products.slice(0, 3); // Fallback subset
+        const collectionTitle = colData.title || colData.collectionId || "Premium Collection";
         return (
           <section key={sectionId} className="max-w-7xl mx-auto px-3 sm:px-5 space-y-8">
             <FadeUp>
               <div className="relative aspect-[16/10] lg:aspect-[3/1] min-h-[160px] sm:min-h-[220px] rounded-3xl overflow-hidden bg-zinc-950 border border-white/10 shadow-xl">
-                <img src={colData.coverImage} className="absolute inset-0 w-full h-full object-cover opacity-60" alt="" />
+                <img
+                  src={colData.coverImage}
+                  className="absolute inset-0 w-full h-full object-cover opacity-60"
+                  alt={collectionTitle}
+                  style={{
+                    objectPosition: `${colData.focalX ?? 50}% ${colData.focalY ?? 50}%`,
+                    transform: (colData.scale && colData.scale > 1) ? `scale(${colData.scale})` : undefined,
+                    transformOrigin: `${colData.focalX ?? 50}% ${colData.focalY ?? 50}%`,
+                  }}
+                />
                 <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px] flex items-center justify-center">
-                  <h2 className="font-serif text-3xl md:text-5xl italic tracking-widest text-white uppercase font-bold">{colData.collectionId}</h2>
+                  <h2 className="font-serif text-3xl md:text-5xl italic tracking-widest text-white uppercase font-bold">{collectionTitle}</h2>
                 </div>
               </div>
             </FadeUp>
@@ -1149,23 +1200,34 @@ function ShopHome() {
         return null;
 
       case "recentlyViewed":
-        const recentProducts = products.filter(p => recentlyViewedIds.includes(p.id));
+        const recentProducts = recentlyViewedIds
+          .map((id) => products.find((p) => p.id === id))
+          .filter((p): p is (typeof products)[0] => Boolean(p))
+          .slice(0, 5);
         if (recentProducts.length === 0) return null;
 
         return (
-          <section key={sectionId} className="max-w-7xl mx-auto px-3 sm:px-5 space-y-6">
-            <div className="border-b border-white/10 pb-2">
-              <h3 className="font-serif text-lg tracking-wider">Recently Viewed</h3>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-              {recentProducts.map(p => (
-                <div key={p.id} className="space-y-2">
-                  <Link to="/product/$productId" params={{ productId: p.id }}>
-                    <img src={p.image} className="aspect-[3/4] object-cover rounded-2xl w-full" alt="" />
-                  </Link>
-                  <div className="text-xs font-semibold truncate">{p.name}</div>
-                  <div className="text-[10px] text-accent font-bold">{p.price}</div>
+          <section key={sectionId} className="max-w-7xl mx-auto px-3 sm:px-5 space-y-8">
+            <FadeUp>
+              <div className="flex justify-between items-end border-b border-border-subtle pb-4">
+                <div>
+                  <p className="editorial-eyebrow text-accent">Personalized For You</p>
+                  <h2 className="font-serif text-3xl mt-1">Recently Viewed</h2>
                 </div>
+                <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-mono">
+                  {recentProducts.length} {recentProducts.length === 1 ? "Item" : "Items"} Viewed
+                </span>
+              </div>
+            </FadeUp>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 md:gap-5 items-start">
+              {recentProducts.map((p) => (
+                <ProductCard
+                  key={p.id}
+                  p={p}
+                  toggleShopWishlist={toggleShopWishlist}
+                  addToShopCart={addToShopCart}
+                  wishlist={state.shopWishlist[state.user?.id || ""]}
+                />
               ))}
             </div>
           </section>
@@ -1558,11 +1620,12 @@ function RotatableBanner({ banner, sectionId }: { banner: any; sectionId: string
               />
             ) : (
               <div
-                className="absolute inset-0 w-full h-full bg-center bg-cover transition-transform duration-700 group-hover:scale-[1.05]"
+                className="absolute inset-0 w-full h-full bg-cover transition-transform duration-700 group-hover:scale-[1.05]"
                 style={{
                   backgroundImage: `url(${currentSlide.desktopImage})`,
+                  backgroundPosition: `${currentSlide.focalX ?? 50}% ${currentSlide.focalY ?? 50}%`,
                   transform: `scale(${currentSlide.scale || 1.0}) translate(${currentSlide.xOffset || 0}%, ${currentSlide.yOffset || 0}%)`,
-                  transformOrigin: "center center"
+                  transformOrigin: `${currentSlide.focalX ?? 50}% ${currentSlide.focalY ?? 50}%`
                 }}
               />
             )}

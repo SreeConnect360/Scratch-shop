@@ -439,9 +439,20 @@ function ShopLayout() {
             style={{ backgroundColor: layout.announcement.backgroundColor }}
             className="w-full text-center py-2.5 text-[10px] font-semibold tracking-widest uppercase text-white animate-in slide-in-from-top-2 duration-300 sticky top-0 z-50"
           >
-            <Link to={layout.announcement.linkUrl} className="hover:underline">
-              {layout.announcement.text}
-            </Link>
+            {layout.announcement.openIn === "newTab" || (layout.announcement.linkUrl && layout.announcement.linkUrl.startsWith("http")) ? (
+              <a
+                href={layout.announcement.linkUrl}
+                target={layout.announcement.openIn === "newTab" ? "_blank" : undefined}
+                rel={layout.announcement.openIn === "newTab" ? "noopener noreferrer" : undefined}
+                className="hover:underline"
+              >
+                {layout.announcement.text}
+              </a>
+            ) : (
+              <Link to={layout.announcement.linkUrl} className="hover:underline">
+                {layout.announcement.text}
+              </Link>
+            )}
             {layout.announcement.countdownActive && (
               <LiveCountdown
                 endsAt={layout.announcement.countdownEndsAt}

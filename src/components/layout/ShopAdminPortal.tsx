@@ -20,6 +20,7 @@ import {
 } from "@/lib/supabase-overview";
 import * as XLSX from "xlsx";
 import { AdminCard, AdminButton, StatusChip } from "./AdminCommon";
+import { ImageFocalAdjuster } from "@/components/admin/ImageFocalAdjuster";
 import { PRODUCTS } from "@/lib/data";
 import { sortCustomerAccountsById } from "@/lib/supabase-customers";
 import {
@@ -5390,6 +5391,20 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                           />
                         </div>
                         <div className="space-y-1">
+                          <label className="text-muted-foreground font-semibold">Open Link In</label>
+                          <select
+                            className="w-full bg-surface border border-border-subtle p-2 text-xs outline-none text-foreground rounded cursor-pointer"
+                            value={draftLayout.announcement.openIn || "sameTab"}
+                            onChange={(e) => updateDraft({
+                              ...draftLayout,
+                              announcement: { ...draftLayout.announcement, openIn: e.target.value }
+                            })}
+                          >
+                            <option value="sameTab">Open in Current Tab</option>
+                            <option value="newTab">Open in New Tab</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1">
                           <label className="text-muted-foreground font-semibold">Background Theme Color</label>
                           <div className="flex gap-2 items-center">
                             <input
@@ -5777,24 +5792,37 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                       />
                                     </div>
 
-                                    {/* Visual preview inside slide panel */}
-                                    <div className="col-span-2 flex gap-3 mt-2 p-2 bg-zinc-950/40 border border-white/5 rounded">
-                                      {b.desktopImage && (
-                                        <div className="flex-1 space-y-1">
-                                          <span className="text-[9px] text-muted-foreground">Desktop Preview:</span>
-                                          <img src={b.desktopImage} className="w-full h-20 object-cover rounded border border-white/10" alt="" />
-                                        </div>
-                                      )}
+                                    {/* Visual preview and focal adjuster inside hero slide panel */}
+                                    {b.desktopImage && (
+                                      <div className="col-span-2 mt-2">
+                                        <ImageFocalAdjuster
+                                          imageUrl={b.desktopImage}
+                                          focalX={b.focalX ?? 50}
+                                          focalY={b.focalY ?? 50}
+                                          scale={b.scale ?? 1.0}
+                                          aspectRatioClass="aspect-[16/10] md:aspect-[21/9]"
+                                          label={`Hero Frame #${bIdx + 1} Image Focal Point & Adjustment`}
+                                          onChange={({ focalX, focalY, scale }) => {
+                                            const updated = draftLayout.hero.banners.map((x: any) =>
+                                              x.id === b.id ? { ...x, focalX, focalY, scale } : x
+                                            );
+                                            updateDraft({ ...draftLayout, hero: { ...draftLayout.hero, banners: updated } });
+                                          }}
+                                        />
+                                      </div>
+                                    )}
+
+                                    <div className="col-span-2 flex gap-3 mt-1 p-2 bg-zinc-950/40 border border-white/5 rounded">
                                       {b.mobileImage && (
                                         <div className="flex-1 space-y-1">
-                                          <span className="text-[9px] text-muted-foreground">Mobile Preview:</span>
-                                          <img src={b.mobileImage} className="w-full h-20 object-cover rounded border border-white/10" alt="" />
+                                          <span className="text-[9px] text-muted-foreground">Mobile View:</span>
+                                          <img src={b.mobileImage} className="w-full h-16 object-cover rounded border border-white/10" alt="" />
                                         </div>
                                       )}
                                       {b.videoUrl && (
                                         <div className="flex-1 space-y-1">
                                           <span className="text-[9px] text-muted-foreground">Video Preview:</span>
-                                          <div className="w-full h-20 bg-zinc-900 border border-white/10 rounded flex items-center justify-center text-[10px] text-accent font-semibold truncate px-1">
+                                          <div className="w-full h-16 bg-zinc-900 border border-white/10 rounded flex items-center justify-center text-[10px] text-accent font-semibold truncate px-1">
                                             {b.videoUrl.split("/").pop()}
                                           </div>
                                         </div>
@@ -5812,26 +5840,144 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                     {/* Shop By Category Editor */}
                     {activeSectionId === "categories" && (
                       <div className="space-y-4">
-                        <label className="text-muted-foreground font-semibold">Category Card Listings</label>
-                        <div className="space-y-3">
-                          {draftLayout.categories.items.map((cat: any) => (
-                            <div key={cat.id} className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-2">
-                              <div className="font-bold font-mono text-[10px] text-accent">{cat.name} Category</div>
-                              <input
-                                placeholder="Redirect Link"
-                                className="w-full bg-surface border border-border-subtle p-2 text-xs outline-none font-mono"
-                                value={cat.redirectUrl}
-                                onChange={(e) => {
-                                  const updated = draftLayout.categories.items.map((x: any) => x.id === cat.id ? { ...x, redirectUrl: e.target.value } : x);
-                                  updateDraft({ ...draftLayout, categories: { ...draftLayout.categories, items: updated } });
-                                }}
-                              />
-                              <input
-                                placeholder="Image URL"
-                                className="w-full bg-surface border border-border-subtle p-2 text-xs outline-none font-mono"
-                                value={cat.image}
-                                onChange={(e) => {
-                                  const updated = draftLayout.categories.items.map((x: any) => x.id === cat.id ? { ...x, image: e.target.value } : x);
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-white/5 border border-white/10 rounded-xl">
+                          <div className="space-y-1">
+                            <label className="text-muted-foreground font-semibold">Section Heading Title</label>
+                            <input
+                              type="text"
+                              className="w-full bg-surface border border-border-subtle p-2 text-xs outline-none text-foreground font-serif"
+                              placeholder="Shop by Category"
+                              value={draftLayout.categories.title ?? "Shop by Category"}
+                              onChange={(e) => updateDraft({
+                                ...draftLayout,
+                                categories: { ...draftLayout.categories, title: e.target.value }
+                              })}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-muted-foreground font-semibold">Section Eyebrow Subtitle</label>
+                            <input
+                              type="text"
+                              className="w-full bg-surface border border-border-subtle p-2 text-xs outline-none text-foreground uppercase tracking-widest text-[10px]"
+                              placeholder="Curated Departments"
+                              value={draftLayout.categories.subtitle ?? "Curated Departments"}
+                              onChange={(e) => updateDraft({
+                                ...draftLayout,
+                                categories: { ...draftLayout.categories, subtitle: e.target.value }
+                              })}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex justify-between items-center pt-2">
+                          <label className="text-muted-foreground font-semibold">
+                            Category Cards ({draftLayout.categories?.items?.length || 0})
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newId = `cat-${Date.now()}`;
+                              const newItem = {
+                                id: newId,
+                                name: "New Category",
+                                image: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=400&h=500&q=80",
+                                redirectUrl: "/categories",
+                                sortOrder: (draftLayout.categories?.items?.length || 0) + 1,
+                                focalX: 50,
+                                focalY: 50,
+                                scale: 1.0,
+                              };
+                              const updated = [...(draftLayout.categories?.items || []), newItem];
+                              updateDraft({ ...draftLayout, categories: { ...draftLayout.categories, items: updated } });
+                            }}
+                            className="bg-accent/20 text-accent hover:bg-accent hover:text-white px-3 py-1 rounded-full text-[10px] uppercase font-bold tracking-wider cursor-pointer transition-colors"
+                          >
+                            + Add Category Card
+                          </button>
+                        </div>
+
+                        <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1 divide-y divide-white/5 scrollbar-thin">
+                          {(draftLayout.categories?.items || []).map((cat: any, cIdx: number) => (
+                            <div key={cat.id} className="pt-4 first:pt-0 space-y-3 bg-white/5 p-3 rounded-xl border border-white/10">
+                              <div className="flex justify-between items-center">
+                                <span className="font-bold font-mono text-xs text-accent">
+                                  #{cIdx + 1} — {cat.name || "Untitled Category"}
+                                </span>
+                                {(draftLayout.categories?.items || []).length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const updated = draftLayout.categories.items.filter((x: any) => x.id !== cat.id);
+                                      updateDraft({ ...draftLayout, categories: { ...draftLayout.categories, items: updated } });
+                                    }}
+                                    className="text-rose-400 hover:text-rose-500 text-[10px] uppercase font-semibold cursor-pointer"
+                                  >
+                                    Remove
+                                  </button>
+                                )}
+                              </div>
+
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <div className="space-y-1">
+                                  <label className="text-[10px] text-muted-foreground font-semibold">Category Title</label>
+                                  <input
+                                    type="text"
+                                    placeholder="e.g. Women, Men, Trending"
+                                    className="w-full bg-surface border border-border-subtle p-2 text-xs outline-none text-foreground"
+                                    value={cat.name ?? ""}
+                                    onChange={(e) => {
+                                      const updated = draftLayout.categories.items.map((x: any) =>
+                                        x.id === cat.id ? { ...x, name: e.target.value } : x
+                                      );
+                                      updateDraft({ ...draftLayout, categories: { ...draftLayout.categories, items: updated } });
+                                    }}
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="text-[10px] text-muted-foreground font-semibold">Redirect Link</label>
+                                  <input
+                                    type="text"
+                                    placeholder="/categories"
+                                    className="w-full bg-surface border border-border-subtle p-2 text-xs outline-none font-mono text-foreground"
+                                    value={cat.redirectUrl ?? ""}
+                                    onChange={(e) => {
+                                      const updated = draftLayout.categories.items.map((x: any) =>
+                                        x.id === cat.id ? { ...x, redirectUrl: e.target.value } : x
+                                      );
+                                      updateDraft({ ...draftLayout, categories: { ...draftLayout.categories, items: updated } });
+                                    }}
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="space-y-1">
+                                <label className="text-[10px] text-muted-foreground font-semibold">Image URL</label>
+                                <input
+                                  type="text"
+                                  placeholder="https://images.unsplash.com/..."
+                                  className="w-full bg-surface border border-border-subtle p-2 text-xs outline-none font-mono text-foreground"
+                                  value={cat.image ?? ""}
+                                  onChange={(e) => {
+                                    const updated = draftLayout.categories.items.map((x: any) =>
+                                      x.id === cat.id ? { ...x, image: e.target.value } : x
+                                    );
+                                    updateDraft({ ...draftLayout, categories: { ...draftLayout.categories, items: updated } });
+                                  }}
+                                />
+                              </div>
+
+                              {/* Interactive Image Move & Adjustment Preview */}
+                              <ImageFocalAdjuster
+                                imageUrl={cat.image || ""}
+                                focalX={cat.focalX ?? 50}
+                                focalY={cat.focalY ?? 50}
+                                scale={cat.scale ?? 1.0}
+                                aspectRatioClass="aspect-[3/4]"
+                                label={`"${cat.name || 'Category'}" Card Image Adjustment`}
+                                onChange={({ focalX, focalY, scale }) => {
+                                  const updated = draftLayout.categories.items.map((x: any) =>
+                                    x.id === cat.id ? { ...x, focalX, focalY, scale } : x
+                                  );
                                   updateDraft({ ...draftLayout, categories: { ...draftLayout.categories, items: updated } });
                                 }}
                               />
@@ -5996,7 +6142,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
 
                     {/* Editorial Fashion Campaign Editor */}
                     {activeSectionId === "campaign" && (
-                      <>
+                      <div className="space-y-4">
                         <div className="space-y-1">
                           <label className="text-muted-foreground font-semibold">Campaign Headline</label>
                           <input
@@ -6009,29 +6155,31 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             })}
                           />
                         </div>
-                        <div className="space-y-1">
-                          <label className="text-muted-foreground font-semibold">CTA Button Label</label>
-                          <input
-                            type="text"
-                            className="w-full bg-surface border border-border-subtle p-2 outline-none text-foreground"
-                            value={draftLayout.campaign.ctaText || "Shop Campaign"}
-                            onChange={(e) => updateDraft({
-                              ...draftLayout,
-                              campaign: { ...draftLayout.campaign, ctaText: e.target.value }
-                            })}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-muted-foreground font-semibold">Redirect Link</label>
-                          <input
-                            type="text"
-                            className="w-full bg-surface border border-border-subtle p-2 outline-none text-foreground font-mono"
-                            value={draftLayout.campaign.redirectUrl}
-                            onChange={(e) => updateDraft({
-                              ...draftLayout,
-                              campaign: { ...draftLayout.campaign, redirectUrl: e.target.value }
-                            })}
-                          />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <label className="text-muted-foreground font-semibold">CTA Button Label</label>
+                            <input
+                              type="text"
+                              className="w-full bg-surface border border-border-subtle p-2 outline-none text-foreground"
+                              value={draftLayout.campaign.ctaText || "Shop Campaign"}
+                              onChange={(e) => updateDraft({
+                                ...draftLayout,
+                                campaign: { ...draftLayout.campaign, ctaText: e.target.value }
+                              })}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-muted-foreground font-semibold">Redirect Link</label>
+                            <input
+                              type="text"
+                              className="w-full bg-surface border border-border-subtle p-2 outline-none text-foreground font-mono"
+                              value={draftLayout.campaign.redirectUrl}
+                              onChange={(e) => updateDraft({
+                                ...draftLayout,
+                                campaign: { ...draftLayout.campaign, redirectUrl: e.target.value }
+                              })}
+                            />
+                          </div>
                         </div>
                         <div className="space-y-1">
                           <label className="text-muted-foreground font-semibold">Campaign Large Image URL</label>
@@ -6045,29 +6193,65 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             })}
                           />
                         </div>
-                      </>
+                        {/* Interactive Campaign Image Move & Adjustment Preview */}
+                        <ImageFocalAdjuster
+                          imageUrl={draftLayout.campaign.image || ""}
+                          focalX={draftLayout.campaign.focalX ?? 50}
+                          focalY={draftLayout.campaign.focalY ?? 50}
+                          scale={draftLayout.campaign.scale ?? 1.0}
+                          aspectRatioClass="aspect-[16/10] lg:aspect-[21/9]"
+                          label="Campaign Banner Image Move & Position Adjustment"
+                          onChange={({ focalX, focalY, scale }) => {
+                            updateDraft({
+                              ...draftLayout,
+                              campaign: { ...draftLayout.campaign, focalX, focalY, scale }
+                            });
+                          }}
+                        />
+                      </div>
                     )}
 
                     {/* Featured Collection Editor */}
                     {activeSectionId === "collections" && (
-                      <>
+                      <div className="space-y-4">
                         <div className="space-y-1">
-                          <label className="text-muted-foreground font-semibold">Collection Label</label>
-                          <select
-                            className="w-full bg-surface border border-border-subtle p-2 outline-none text-foreground text-xs"
-                            value={draftLayout.collections.collectionId}
+                          <label className="text-muted-foreground font-semibold">Collection Title / Header</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Premium Collection, Modern Streetwear"
+                            className="w-full bg-surface border border-border-subtle p-2 outline-none text-foreground font-serif text-sm font-semibold"
+                            value={draftLayout.collections.title ?? draftLayout.collections.collectionId ?? "Premium Collection"}
                             onChange={(e) => updateDraft({
                               ...draftLayout,
-                              collections: { ...draftLayout.collections, collectionId: e.target.value }
+                              collections: {
+                                ...draftLayout.collections,
+                                title: e.target.value,
+                                collectionId: e.target.value
+                              }
                             })}
-                          >
-                            <option value="Premium Collection">Premium Collection</option>
-                            <option value="Office Wear">Office Wear</option>
-                            <option value="Party Wear">Party Wear</option>
-                            <option value="Casual Wear">Casual Wear</option>
-                            <option value="Luxury Collection">Luxury Collection</option>
-                          </select>
+                          />
+                          <div className="flex flex-wrap gap-1.5 pt-1">
+                            <span className="text-[10px] text-muted-foreground py-0.5">Quick Presets:</span>
+                            {["Premium Collection", "Office Wear", "Party Wear", "Casual Wear", "Luxury Collection"].map((name) => (
+                              <button
+                                key={name}
+                                type="button"
+                                onClick={() => updateDraft({
+                                  ...draftLayout,
+                                  collections: {
+                                    ...draftLayout.collections,
+                                    title: name,
+                                    collectionId: name
+                                  }
+                                })}
+                                className="text-[9px] px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-muted-foreground hover:text-foreground border border-white/5 cursor-pointer"
+                              >
+                                {name}
+                              </button>
+                            ))}
+                          </div>
                         </div>
+
                         <div className="space-y-1">
                           <label className="text-muted-foreground font-semibold">Featured Cover Image URL</label>
                           <input
@@ -6080,7 +6264,23 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             })}
                           />
                         </div>
-                      </>
+
+                        {/* Interactive Collection Cover Move & Adjustment Preview */}
+                        <ImageFocalAdjuster
+                          imageUrl={draftLayout.collections.coverImage || ""}
+                          focalX={draftLayout.collections.focalX ?? 50}
+                          focalY={draftLayout.collections.focalY ?? 50}
+                          scale={draftLayout.collections.scale ?? 1.0}
+                          aspectRatioClass="aspect-[16/10] lg:aspect-[3/1]"
+                          label="Featured Collection Cover Image Move & Position Adjustment"
+                          onChange={({ focalX, focalY, scale }) => {
+                            updateDraft({
+                              ...draftLayout,
+                              collections: { ...draftLayout.collections, focalX, focalY, scale }
+                            });
+                          }}
+                        />
+                      </div>
                     )}
 
                     {/* Live Purchase Feed Editor */}
@@ -6735,17 +6935,30 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                         />
                                       </div>
 
-                                      {/* Visual Preview thumbnails inside custom banner slide panel */}
-                                      <div className="col-span-2 flex gap-3 mt-2 p-2 bg-zinc-950/40 border border-white/5 rounded">
-                                        {b.desktopImage && (
-                                          <div className="flex-1 space-y-1">
-                                            <span className="text-[9px] text-muted-foreground">Desktop Preview:</span>
-                                            <img src={b.desktopImage} className="w-full h-16 object-cover rounded border border-white/10" alt="" />
-                                          </div>
-                                        )}
+                                      {/* Visual preview and focal adjuster inside slide panel */}
+                                      {b.desktopImage && (
+                                        <div className="col-span-2 mt-2">
+                                          <ImageFocalAdjuster
+                                            imageUrl={b.desktopImage}
+                                            focalX={b.focalX ?? 50}
+                                            focalY={b.focalY ?? 50}
+                                            scale={b.scale ?? 1.0}
+                                            aspectRatioClass="aspect-[16/10] md:aspect-[21/9]"
+                                            label={`Frame #${bIdx + 1} Image Focal Point & Adjustment`}
+                                            onChange={({ focalX, focalY, scale }) => {
+                                              const updated = slides.map((x: any) =>
+                                                x.id === b.id ? { ...x, focalX, focalY, scale } : x
+                                              );
+                                              updateDraft({ ...draftLayout, [activeSectionId]: { ...secData, banners: updated } });
+                                            }}
+                                          />
+                                        </div>
+                                      )}
+
+                                      <div className="col-span-2 flex gap-3 mt-1 p-2 bg-zinc-950/40 border border-white/5 rounded">
                                         {b.mobileImage && (
                                           <div className="flex-1 space-y-1">
-                                            <span className="text-[9px] text-muted-foreground">Mobile Preview:</span>
+                                            <span className="text-[9px] text-muted-foreground">Mobile View:</span>
                                             <img src={b.mobileImage} className="w-full h-16 object-cover rounded border border-white/10" alt="" />
                                           </div>
                                         )}

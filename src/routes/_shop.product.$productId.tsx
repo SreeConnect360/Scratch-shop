@@ -304,8 +304,33 @@ function ProductDetail() {
     if (product) {
       document.title = `${product.name} — ReeVibes`;
       recordProductView(product.id);
+
+      // Track personalized recently viewed list
+      if (typeof window !== "undefined" && product.id) {
+        try {
+          const userKey = state.user?.id
+            ? `reevibes:recently_viewed:${state.user.id}`
+            : "reevibes:recently_viewed:guest";
+          const rawUser = localStorage.getItem(userKey);
+          const userIds: string[] = rawUser ? JSON.parse(rawUser) : [];
+          const nextUser = [product.id, ...userIds.filter((id) => id !== product.id)].slice(0, 15);
+          localStorage.setItem(userKey, JSON.stringify(nextUser));
+
+          // Also maintain global key for cross-session fallback
+          const rawGlobal = localStorage.getItem("reevibes:recently_viewed");
+          const globalIds: string[] = rawGlobal ? JSON.parse(rawGlobal) : [];
+          const nextGlobal = [product.id, ...globalIds.filter((id) => id !== product.id)].slice(0, 15);
+          localStorage.setItem("reevibes:recently_viewed", JSON.stringify(nextGlobal));
+
+          window.dispatchEvent(
+            new CustomEvent("reevibes:recently_viewed_updated", { detail: { productId: product.id } })
+          );
+        } catch {
+          // ignore
+        }
+      }
     }
-  }, [product?.id]);
+  }, [product?.id, state.user?.id]);
 
   // Gallery of photos
   const mediaGallery = useMemo(() => {
