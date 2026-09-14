@@ -382,6 +382,45 @@ function ProductDetail() {
 
   const hasOrderedProduct = Boolean(verifiedOrderForProduct);
 
+  // Related products calculation with robust multi-layer fallback (Hook must be called before early returns)
+  const relatedProducts = useMemo(() => {
+    const catalogSource = (products && products.length > 0) ? products : (PRODUCTS || []);
+    if (!catalogSource || catalogSource.length === 0) return [];
+    
+    // 1. Same category, type, gender, or house/brand matches
+    let matches = catalogSource.filter((p) =>
+      p.id !== product?.id &&
+      (!p.status || p.status === "PUBLISHED" || p.status === "published") &&
+      (
+        (p.category && product?.category && p.category.toLowerCase() === product?.category.toLowerCase()) ||
+        (p.type && product?.type && p.type.toLowerCase() === product?.type.toLowerCase()) ||
+        (p.gender && product?.gender && p.gender.toLowerCase() === product?.gender.toLowerCase()) ||
+        (p.house && product?.house && p.house.toLowerCase() === product?.house.toLowerCase())
+      )
+    );
+
+    // 2. If fewer than 4 matches, fill with other published products from catalogSource
+    if (matches.length < 4) {
+      const remaining = catalogSource.filter((p) =>
+        p.id !== product?.id &&
+        (!p.status || p.status === "PUBLISHED" || p.status === "published") &&
+        !matches.some((m) => m.id === p.id)
+      );
+      matches = [...matches, ...remaining];
+    }
+
+    // 3. If still fewer than 4, fill from baseline PRODUCTS
+    if (matches.length < 4 && PRODUCTS && PRODUCTS.length > 0) {
+      const baseline = PRODUCTS.filter((p) =>
+        p.id !== product?.id &&
+        !matches.some((m) => m.id === p.id)
+      );
+      matches = [...matches, ...baseline];
+    }
+
+    return matches.slice(0, 4);
+  }, [products, product?.id, product?.category, product?.type, product?.gender, product?.house]);
+
   if (isStillLoading) {
     return (
       <div className={cn("min-h-[85vh] flex flex-col items-center justify-center p-6 text-center space-y-6 transition-colors duration-300", isDark ? "bg-[#0A0A0A] text-white" : "bg-[#F9FAFB] text-slate-900")}>
@@ -708,45 +747,6 @@ function ProductDetail() {
       setDeliveryEstimation("Please enter a valid 6-digit Pincode.");
     }
   };
-
-  // Related products calculation with robust multi-layer fallback
-  const relatedProducts = useMemo(() => {
-    const catalogSource = (products && products.length > 0) ? products : (PRODUCTS || []);
-    if (!catalogSource || catalogSource.length === 0) return [];
-    
-    // 1. Same category, type, gender, or house/brand matches
-    let matches = catalogSource.filter((p) =>
-      p.id !== product?.id &&
-      (!p.status || p.status === "PUBLISHED" || p.status === "published") &&
-      (
-        (p.category && product?.category && p.category.toLowerCase() === product?.category.toLowerCase()) ||
-        (p.type && product?.type && p.type.toLowerCase() === product?.type.toLowerCase()) ||
-        (p.gender && product?.gender && p.gender.toLowerCase() === product?.gender.toLowerCase()) ||
-        (p.house && product?.house && p.house.toLowerCase() === product?.house.toLowerCase())
-      )
-    );
-
-    // 2. If fewer than 4 matches, fill with other published products from catalogSource
-    if (matches.length < 4) {
-      const remaining = catalogSource.filter((p) =>
-        p.id !== product?.id &&
-        (!p.status || p.status === "PUBLISHED" || p.status === "published") &&
-        !matches.some((m) => m.id === p.id)
-      );
-      matches = [...matches, ...remaining];
-    }
-
-    // 3. If still fewer than 4, fill from baseline PRODUCTS
-    if (matches.length < 4 && PRODUCTS && PRODUCTS.length > 0) {
-      const baseline = PRODUCTS.filter((p) =>
-        p.id !== product?.id &&
-        !matches.some((m) => m.id === p.id)
-      );
-      matches = [...matches, ...baseline];
-    }
-
-    return matches.slice(0, 4);
-  }, [products, product?.id, product?.category, product?.type, product?.gender, product?.house]);
 
   return (
     <div className={cn("min-h-screen pb-28 pt-2 sm:pt-6 transition-colors duration-300", isDark ? "bg-[#0A0A0A] text-white" : "bg-[#F9FAFB] text-slate-900")}>
