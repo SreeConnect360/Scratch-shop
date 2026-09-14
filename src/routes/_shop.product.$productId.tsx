@@ -285,7 +285,9 @@ function ProductDetail() {
 
   const [activeMediaIdx, setActiveMediaIdx] = useState(0);
   const [viewerOpen, setViewerOpen] = useState(false);
-  const [zoomScale, setZoomScale] = useState(1);
+  const [isZoomed, setIsZoomed] = useState(false);
+  const [zoomOrigin, setZoomOrigin] = useState<{ x: number; y: number }>({ x: 50, y: 50 });
+  const [couponsExpanded, setCouponsExpanded] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
 
@@ -756,46 +758,84 @@ function ProductDetail() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/95 backdrop-blur-2xl flex flex-col items-center justify-between p-4 sm:p-6"
+            className="fixed inset-0 z-50 bg-black/95 backdrop-blur-2xl flex flex-col items-center justify-between p-4 sm:p-6 select-none"
           >
             {/* Top Toolbar */}
             <div className="w-full flex items-center justify-between z-10 text-white">
-              <span className="text-xs uppercase tracking-widest font-semibold text-[#D4AF37]">
-                {activeMediaIdx + 1} / {mediaGallery.length}
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs uppercase tracking-widest font-semibold text-[#D4AF37]">
+                  {activeMediaIdx + 1} / {mediaGallery.length}
+                </span>
+                <span className="text-[11px] text-white/60 hidden sm:inline-block">
+                  {isZoomed ? "Click image to zoom out • Hover across image to pan" : "Click image to zoom in"}
+                </span>
+              </div>
               <button
                 onClick={() => {
                   setViewerOpen(false);
-                  setZoomScale(1);
+                  setIsZoomed(false);
+                  setZoomOrigin({ x: 50, y: 50 });
                 }}
                 className="p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all backdrop-blur-md cursor-pointer"
+                title="Close"
               >
                 <X className="w-6 h-6" />
               </button>
             </div>
 
-            {/* Main Fullscreen Image with Pinch & Drag */}
-            <div className="relative w-full flex-1 flex items-center justify-center overflow-hidden my-4">
-              <motion.img
-                key={activeMediaIdx}
-                src={mediaGallery[activeMediaIdx]}
-                alt={product.name}
-                animate={{ scale: zoomScale }}
-                transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                className="max-h-[82vh] max-w-full object-contain cursor-zoom-in rounded-lg"
-                onClick={() => setZoomScale((prev) => (prev === 1 ? 2.2 : 1))}
-              />
+            {/* Main Fullscreen Image with Click-to-Zoom at Point & Mouse Hover Direction Pan */}
+            <div className="relative w-full flex-1 flex items-center justify-center overflow-hidden my-3">
+              <div
+                className={cn(
+                  "relative max-h-[82vh] max-w-full overflow-hidden rounded-xl transition-all duration-200",
+                  isZoomed ? "cursor-zoom-out" : "cursor-zoom-in"
+                )}
+                onClick={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  if (!isZoomed) {
+                    const clickX = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+                    const clickY = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+                    setZoomOrigin({ x: clickX, y: clickY });
+                    setIsZoomed(true);
+                  } else {
+                    setIsZoomed(false);
+                  }
+                }}
+                onMouseMove={(e) => {
+                  if (!isZoomed) return;
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+                  const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+                  setZoomOrigin({ x, y });
+                }}
+              >
+                <img
+                  key={activeMediaIdx}
+                  src={mediaGallery[activeMediaIdx]}
+                  alt={product.name}
+                  style={{
+                    transformOrigin: `${zoomOrigin.x}% ${zoomOrigin.y}%`,
+                    transform: isZoomed ? "scale(2.6)" : "scale(1)",
+                    transition: isZoomed
+                      ? "transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), transform-origin 0.08s ease-out"
+                      : "transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), transform-origin 0.35s ease-out"
+                  }}
+                  className="max-h-[82vh] max-w-full object-contain rounded-xl select-none pointer-events-none"
+                  draggable={false}
+                />
+              </div>
 
               {/* Lightbox Navigation Arrows (Only if mediaGallery.length > 1) */}
-              {mediaGallery.length > 1 && (
+              {mediaGallery.length > 1 && !isZoomed && (
                 <>
                   <button
                     type="button"
                     onClick={() => {
                       setActiveMediaIdx((prev) => (prev - 1 + mediaGallery.length) % mediaGallery.length);
-                      setZoomScale(1);
+                      setIsZoomed(false);
+                      setZoomOrigin({ x: 50, y: 50 });
                     }}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-md border border-white/20 transition-all cursor-pointer z-20"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-md border border-white/20 transition-all cursor-pointer z-20 shadow-xl"
                     title="Previous Image"
                   >
                     <ChevronLeft className="w-6 h-6" />
@@ -804,9 +844,10 @@ function ProductDetail() {
                     type="button"
                     onClick={() => {
                       setActiveMediaIdx((prev) => (prev + 1) % mediaGallery.length);
-                      setZoomScale(1);
+                      setIsZoomed(false);
+                      setZoomOrigin({ x: 50, y: 50 });
                     }}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-md border border-white/20 transition-all cursor-pointer z-20"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-md border border-white/20 transition-all cursor-pointer z-20 shadow-xl"
                     title="Next Image"
                   >
                     <ChevronRight className="w-6 h-6" />
@@ -817,17 +858,18 @@ function ProductDetail() {
 
             {/* Thumbnails Row in Lightbox */}
             {mediaGallery.length > 1 && (
-              <div className="flex items-center gap-2 overflow-x-auto max-w-full pb-2 z-10 scrollbar-none">
+              <div className="flex items-center gap-2 overflow-x-auto max-w-full pb-2 z-10 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                 {mediaGallery.map((img: string, idx: number) => (
                   <button
                     key={idx}
                     onClick={() => {
                       setActiveMediaIdx(idx);
-                      setZoomScale(1);
+                      setIsZoomed(false);
+                      setZoomOrigin({ x: 50, y: 50 });
                     }}
                     className={cn(
                       "w-12 h-16 rounded-md overflow-hidden border-2 transition-all shrink-0 cursor-pointer",
-                      activeMediaIdx === idx ? "border-[#D4AF37] scale-105" : "border-white/20 opacity-60"
+                      activeMediaIdx === idx ? "border-[#D4AF37] scale-105" : "border-white/20 opacity-60 hover:opacity-100"
                     )}
                   >
                     <img src={img} className="w-full h-full object-cover" alt="" />
@@ -1076,110 +1118,161 @@ function ProductDetail() {
               )}
             </div>
 
-            {/* ─── ELIGIBLE COUPON OFFERS & CASHBACK CARD ─── */}
+            {/* ─── ELIGIBLE COUPON OFFERS & CASHBACK CARD (COLLAPSIBLE ACCORDION) ─── */}
             {eligibleCoupons.length > 0 && (
-              <div className="flex flex-col gap-2.5 p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-background to-amber-500/5 border border-[#D4AF37]/30 shadow-[0_4px_20px_-4px_rgba(212,175,55,0.15)]">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-[#D4AF37] uppercase tracking-wider">
-                    <Ticket className="w-4 h-4" /> Available Offers & Coupons
-                  </div>
-                  <span className="text-[10px] font-semibold text-muted-foreground">
-                    {eligibleCoupons.length} offer{eligibleCoupons.length > 1 ? "s" : ""} available
-                  </span>
-                </div>
-
-                <div className="space-y-2">
-                  {eligibleCoupons.map((coupon) => {
-                    const isApplied = appliedCoupon?.code === coupon.code;
-                    const isCashback = coupon.type === "wallet";
-
-                    return (
-                      <div
-                        key={coupon.code}
-                        className={cn(
-                          "flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-xl border transition-all",
-                          isApplied
-                            ? "bg-[#D4AF37]/15 border-[#D4AF37] shadow-[0_0_15px_rgba(212,175,55,0.2)]"
-                            : "bg-white/5 border-white/10 hover:border-[#D4AF37]/40"
+              <div className="flex flex-col rounded-2xl bg-gradient-to-r from-amber-500/10 via-background to-amber-500/5 border border-[#D4AF37]/30 shadow-[0_4px_20px_-4px_rgba(212,175,55,0.15)] overflow-hidden transition-all">
+                {/* Collapsible Header with Arrow Icon */}
+                <button
+                  type="button"
+                  onClick={() => setCouponsExpanded((prev) => !prev)}
+                  className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left cursor-pointer hover:bg-white/[0.03] transition-colors select-none"
+                  aria-expanded={couponsExpanded}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-full bg-[#D4AF37]/15 border border-[#D4AF37]/30 flex items-center justify-center text-[#D4AF37] shrink-0">
+                      <Ticket className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-bold text-[#D4AF37] uppercase tracking-wider">
+                          Available Offers & Coupons
+                        </span>
+                        {appliedCoupon && (
+                          <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 px-2 py-0.5 rounded-full font-mono font-bold">
+                            Applied: {appliedCoupon.code}
+                          </span>
                         )}
-                      >
-                        <div className="space-y-1 flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2 flex-wrap">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-mono font-extrabold text-sm tracking-wider text-accent bg-accent/15 px-2 py-0.5 rounded border border-accent/30">
-                                {coupon.code}
-                              </span>
-                              <span className="text-xs font-bold text-foreground">
-                                {coupon.type === "percentage"
-                                  ? `${coupon.discount}% OFF`
-                                  : coupon.type === "fixed"
-                                  ? `₹${coupon.discount.toLocaleString()} FLAT OFF`
-                                  : `₹${coupon.discount.toLocaleString()} Wallet Cashback`}
-                              </span>
-                              {coupon.productType && (
-                                <span className="text-[9px] bg-purple-500/15 text-purple-300 border border-purple-500/30 px-1.5 py-0.2 rounded font-medium">
-                                  {coupon.productType}
-                                </span>
-                              )}
-                              {coupon.brand && (
-                                <span className="text-[9px] bg-blue-500/15 text-blue-300 border border-blue-500/30 px-1.5 py-0.2 rounded font-medium">
-                                  {coupon.brand}
-                                </span>
-                              )}
-                            </div>
-                            <CouponExpiryBadge expiryDate={coupon.expiryDate} />
-                          </div>
-                          <p className="text-[11px] text-muted-foreground">
-                            {isCashback
-                              ? `Receive ₹${coupon.discount.toLocaleString()} cashback directly in your ReeVibes wallet when this piece is delivered.`
-                              : coupon.productType && coupon.brand
-                              ? `Exclusive offer valid on ${coupon.brand} ${coupon.productType}.`
-                              : coupon.productType
-                              ? `Applicable on all ${coupon.productType}.`
-                              : coupon.brand
-                              ? `Exclusive brand coupon for ${coupon.brand}.`
-                              : "Storewide offer applicable on this item."}
-                          </p>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground truncate">
+                        {appliedCoupon
+                          ? "1 coupon currently applied to this item"
+                          : `${eligibleCoupons.length} offer${eligibleCoupons.length > 1 ? "s" : ""} available for this product`}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0 ml-2">
+                    <span className="text-[10px] font-semibold text-muted-foreground hidden sm:inline-block">
+                      {couponsExpanded ? "Collapse" : "View"}
+                    </span>
+                    <div
+                      className={cn(
+                        "w-7 h-7 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-[#D4AF37] transition-transform duration-300",
+                        couponsExpanded && "rotate-180"
+                      )}
+                    >
+                      <ChevronDown className="w-4 h-4" />
+                    </div>
+                  </div>
+                </button>
+
+                {/* Collapsible Offers Drawer */}
+                <AnimatePresence initial={false}>
+                  {couponsExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25, ease: "easeInOut" }}
+                      className="overflow-hidden"
+                    >
+                      <div className="px-3.5 pb-3.5 sm:px-4 sm:pb-4 space-y-2 pt-1 border-t border-[#D4AF37]/15">
+                        <div className="space-y-2">
+                          {eligibleCoupons.map((coupon) => {
+                            const isApplied = appliedCoupon?.code === coupon.code;
+                            const isCashback = coupon.type === "wallet";
+
+                            return (
+                              <div
+                                key={coupon.code}
+                                className={cn(
+                                  "flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-xl border transition-all",
+                                  isApplied
+                                    ? "bg-[#D4AF37]/15 border-[#D4AF37] shadow-[0_0_15px_rgba(212,175,55,0.2)]"
+                                    : "bg-white/5 border-white/10 hover:border-[#D4AF37]/40"
+                                )}
+                              >
+                                <div className="space-y-1 flex-1 min-w-0">
+                                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="font-mono font-extrabold text-sm tracking-wider text-accent bg-accent/15 px-2 py-0.5 rounded border border-accent/30">
+                                        {coupon.code}
+                                      </span>
+                                      <span className="text-xs font-bold text-foreground">
+                                        {coupon.type === "percentage"
+                                          ? `${coupon.discount}% OFF`
+                                          : coupon.type === "fixed"
+                                          ? `₹${coupon.discount.toLocaleString()} FLAT OFF`
+                                          : `₹${coupon.discount.toLocaleString()} Wallet Cashback`}
+                                      </span>
+                                      {coupon.productType && (
+                                        <span className="text-[9px] bg-purple-500/15 text-purple-300 border border-purple-500/30 px-1.5 py-0.2 rounded font-medium">
+                                          {coupon.productType}
+                                        </span>
+                                      )}
+                                      {coupon.brand && (
+                                        <span className="text-[9px] bg-blue-500/15 text-blue-300 border border-blue-500/30 px-1.5 py-0.2 rounded font-medium">
+                                          {coupon.brand}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <CouponExpiryBadge expiryDate={coupon.expiryDate} />
+                                  </div>
+                                  <p className="text-[11px] text-muted-foreground">
+                                    {isCashback
+                                      ? `Receive ₹${coupon.discount.toLocaleString()} cashback directly in your ReeVibes wallet when this piece is delivered.`
+                                      : coupon.productType && coupon.brand
+                                      ? `Exclusive offer valid on ${coupon.brand} ${coupon.productType}.`
+                                      : coupon.productType
+                                      ? `Applicable on all ${coupon.productType}.`
+                                      : coupon.brand
+                                      ? `Exclusive brand coupon for ${coupon.brand}.`
+                                      : "Storewide offer applicable on this item."}
+                                  </p>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (isApplied) {
+                                      setAppliedCoupon(null);
+                                      toast.info(`Coupon ${coupon.code} removed.`);
+                                    } else {
+                                      setAppliedCoupon(coupon);
+                                      if (isCashback) {
+                                        toast.success(`🎉 Cashback offer applied! You will receive ₹${coupon.discount.toLocaleString()} in your ReeVibes wallet upon delivery.`);
+                                      } else {
+                                        toast.success(`🎉 Coupon ${coupon.code} applied! Price reduced.`);
+                                      }
+                                    }
+                                  }}
+                                  className={cn(
+                                    "self-start sm:self-auto text-xs font-bold uppercase tracking-wider px-4 py-2 rounded-full cursor-pointer transition-all shrink-0",
+                                    isApplied
+                                      ? "bg-[#D4AF37] text-black hover:bg-[#D4AF37]/90 shadow-md font-extrabold"
+                                      : "bg-white/10 text-foreground hover:bg-white/20 border border-white/10"
+                                  )}
+                                >
+                                  {isApplied ? "Applied ✓" : "Apply Coupon"}
+                                </button>
+                              </div>
+                            );
+                          })}
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (isApplied) {
-                              setAppliedCoupon(null);
-                              toast.info(`Coupon ${coupon.code} removed.`);
-                            } else {
-                              setAppliedCoupon(coupon);
-                              if (isCashback) {
-                                toast.success(`🎉 Cashback offer applied! You will receive ₹${coupon.discount.toLocaleString()} in your ReeVibes wallet upon delivery.`);
-                              } else {
-                                toast.success(`🎉 Coupon ${coupon.code} applied! Price reduced.`);
-                              }
-                            }
-                          }}
-                          className={cn(
-                            "self-start sm:self-auto text-xs font-bold uppercase tracking-wider px-4 py-2 rounded-full cursor-pointer transition-all shrink-0",
-                            isApplied
-                              ? "bg-[#D4AF37] text-black hover:bg-[#D4AF37]/90 shadow-md font-extrabold"
-                              : "bg-white/10 text-foreground hover:bg-white/20 border border-white/10"
-                          )}
-                        >
-                          {isApplied ? "Applied ✓" : "Apply Coupon"}
-                        </button>
+                        {/* Live Applied Cashback Banner */}
+                        {appliedCoupon && appliedCoupon.type === "wallet" && (
+                          <div className="flex items-center gap-2 mt-2 p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-semibold">
+                            <Wallet className="w-4 h-4 shrink-0 text-emerald-400" />
+                            <span>
+                              ReeVibes Wallet Cashback: <strong>₹{appliedCoupon.discount.toLocaleString()}</strong> will be credited to your account upon successful delivery.
+                            </span>
+                          </div>
+                        )}
                       </div>
-                    );
-                  })}
-                </div>
-
-                {/* Live Applied Cashback Banner */}
-                {appliedCoupon && appliedCoupon.type === "wallet" && (
-                  <div className="flex items-center gap-2 mt-1 p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-semibold">
-                    <Wallet className="w-4 h-4 shrink-0 text-emerald-400" />
-                    <span>
-                      ReeVibes Wallet Cashback: <strong>₹{appliedCoupon.discount.toLocaleString()}</strong> will be credited to your account upon successful delivery.
-                    </span>
-                  </div>
-                )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             )}
 
