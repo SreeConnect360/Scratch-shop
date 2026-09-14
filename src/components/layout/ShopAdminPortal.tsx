@@ -182,7 +182,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
         }
       });
     });
-    return Array.from(orderMap.values());
+    return Array.from(orderMap.values()).filter(o => (o.status || "").toLowerCase() !== "cancelled");
   }, [state.orders, state.users]);
   const filteredOrders = useMemo(() => {
     let list = [...ordersList];
@@ -7707,7 +7707,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                 <CheckSquare className="w-3.5 h-3.5" />
                 Delivered Orders
                 <span className="bg-white/20 px-1.5 py-0.2 rounded-full text-[10px]">
-                  {ordersList.filter(o => ["delivered", "cancelled", "returned", "refunded", "rejected"].includes(o.status?.toLowerCase() || "")).length}
+                  {ordersList.filter(o => ["delivered", "returned", "refunded", "rejected"].includes(o.status?.toLowerCase() || "")).length}
                 </span>
               </button>
             </div>
@@ -7946,7 +7946,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                   <tbody className="divide-y divide-border-subtle text-sm">
                     {(() => {
                       const list = ordersList.filter(o =>
-                        ["delivered", "cancelled", "returned", "refunded", "rejected"].includes(o.status?.toLowerCase() || "")
+                        ["delivered", "returned", "refunded", "rejected"].includes(o.status?.toLowerCase() || "")
                       );
                       if (list.length === 0) {
                         return (

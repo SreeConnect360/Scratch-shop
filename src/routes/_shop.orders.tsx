@@ -370,7 +370,7 @@ function ShopOrdersPage() {
                           <span className="font-mono text-sm sm:text-base font-bold text-accent">₹{order.total.toLocaleString()}</span>
                         </div>
                         <div className="flex items-center gap-1.5 mt-1 flex-wrap justify-end">
-                          {!["delivered", "cancelled", "returned", "refunded", "rejected"].includes((order.status || "").toLowerCase()) && (
+                          {["processing", "pending", "pending approval", "order placed"].includes((order.status || "").toLowerCase()) && (
                             <button
                               type="button"
                               onClick={(e) => {
@@ -394,22 +394,24 @@ function ShopOrdersPage() {
                             <Package className="w-3 h-3 text-accent" />
                             <span>Track & Details</span>
                           </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setReviewFormItem({
-                                productId: firstItem?.productId || (firstItem as any)?.id || "vnd-1",
-                                orderId: order.id,
-                                productName: firstItem?.name || "Apparel",
-                                productImage: firstItem?.image || ""
-                              });
-                            }}
-                            className="text-[10px] uppercase font-bold px-3 py-1 rounded-full border border-accent/40 bg-accent/10 text-accent hover:bg-accent hover:text-white cursor-pointer transition-colors flex items-center gap-1 shadow-sm"
-                          >
-                            <Star className="w-3 h-3 fill-current" />
-                            <span>Review</span>
-                          </button>
+                          {(order.status || "").toLowerCase().includes("delivered") && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setReviewFormItem({
+                                  productId: firstItem?.productId || (firstItem as any)?.id || "vnd-1",
+                                  orderId: order.id,
+                                  productName: firstItem?.name || "Apparel",
+                                  productImage: firstItem?.image || ""
+                                });
+                              }}
+                              className="text-[10px] uppercase font-bold px-3 py-1 rounded-full border border-accent/40 bg-accent/10 text-accent hover:bg-accent hover:text-white cursor-pointer transition-colors flex items-center gap-1 shadow-sm"
+                            >
+                              <Star className="w-3 h-3 fill-current" />
+                              <span>Review</span>
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -584,12 +586,12 @@ function ShopOrdersPage() {
               </div>
             )}
 
-            {/* Order Active Cancellation Action Bar */}
-            {!["delivered", "cancelled", "returned", "refunded", "rejected"].includes((selectedOrderDetails.status || "").toLowerCase()) && (
+            {/* Order Active Cancellation Action Bar - Only available before admin acceptance */}
+            {["processing", "pending", "pending approval", "order placed"].includes((selectedOrderDetails.status || "").toLowerCase()) && (
               <div className="p-3.5 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
                 <div>
                   <span className="font-bold text-foreground">Need to cancel this order?</span>
-                  <p className="text-[11px] text-muted-foreground">You can cancel anytime before delivery. Size inventory will be immediately restored.</p>
+                  <p className="text-[11px] text-muted-foreground">You can cancel before your order is accepted by the atelier team. ReeVibes wallet payments are refunded immediately.</p>
                 </div>
                 <button
                   type="button"
@@ -888,54 +890,58 @@ function ShopOrdersPage() {
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setReviewFormItem({
-                              productId: item.productId || (item as any)?.id || "vnd-1",
-                              orderId: selectedOrderDetails.id,
-                              productName: item.name,
-                              productImage: item.image
-                            });
-                            setSelectedOrderDetails(null);
-                          }}
-                          className="text-[9px] uppercase font-bold px-3 py-1 rounded-full border border-accent/40 bg-accent/10 text-accent hover:bg-accent hover:text-white cursor-pointer transition-colors flex items-center gap-1"
-                        >
-                          <Star className="w-2.5 h-2.5 fill-current" />
-                          <span>Rate Product</span>
-                        </button>
-
-                        {returnEligibility.eligible ? (
+                        {orderStatus.includes("delivered") && (
                           <button
+                            type="button"
                             onClick={() => {
-                              setReturnFormItem({
+                              setReviewFormItem({
+                                productId: item.productId || (item as any)?.id || "vnd-1",
                                 orderId: selectedOrderDetails.id,
-                                productId: item.productId || item.id,
                                 productName: item.name,
-                                price: String(item.price),
-                                selectedSize: item.selectedSize || "M",
-                                qty: item.qty || 1,
-                                image: item.image,
-                                paymentMethod: selectedOrderDetails.paymentMethod || "Razorpay Gateway",
-                                razorpayAmountPaid: selectedOrderDetails.razorpayAmountPaid,
-                                walletAmountUsed: selectedOrderDetails.walletAmountUsed,
-                                total: selectedOrderDetails.total,
-                                deliveryDate: selectedOrderDetails.deliveryDate
+                                productImage: item.image
                               });
                               setSelectedOrderDetails(null);
                             }}
-                            className="text-[9px] uppercase font-bold px-3 py-1 rounded-full border border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-500 hover:text-white cursor-pointer transition-colors flex items-center gap-1 shadow-sm"
+                            className="text-[9px] uppercase font-bold px-3 py-1 rounded-full border border-accent/40 bg-accent/10 text-accent hover:bg-accent hover:text-white cursor-pointer transition-colors flex items-center gap-1"
                           >
-                            <RotateCcw className="w-2.5 h-2.5" />
-                            <span>Return Product ({returnEligibility.daysLeft}d left)</span>
+                            <Star className="w-2.5 h-2.5 fill-current" />
+                            <span>Rate Product</span>
                           </button>
-                        ) : (
-                          <span
-                            title={returnEligibility.reason}
-                            className="text-[9px] uppercase font-bold px-2.5 py-1 rounded-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-muted-foreground opacity-60 cursor-not-allowed"
-                          >
-                            {orderStatus.includes("delivered") ? "7-Day Window Expired" : "Return Available After Delivery"}
-                          </span>
+                        )}
+
+                        {orderStatus.includes("delivered") && (
+                          returnEligibility.eligible ? (
+                            <button
+                              onClick={() => {
+                                setReturnFormItem({
+                                  orderId: selectedOrderDetails.id,
+                                  productId: item.productId || item.id,
+                                  productName: item.name,
+                                  price: String(item.price),
+                                  selectedSize: item.selectedSize || "M",
+                                  qty: item.qty || 1,
+                                  image: item.image,
+                                  paymentMethod: selectedOrderDetails.paymentMethod || "Razorpay Gateway",
+                                  razorpayAmountPaid: selectedOrderDetails.razorpayAmountPaid,
+                                  walletAmountUsed: selectedOrderDetails.walletAmountUsed,
+                                  total: selectedOrderDetails.total,
+                                  deliveryDate: selectedOrderDetails.deliveryDate
+                                });
+                                setSelectedOrderDetails(null);
+                              }}
+                              className="text-[9px] uppercase font-bold px-3 py-1 rounded-full border border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-500 hover:text-white cursor-pointer transition-colors flex items-center gap-1 shadow-sm"
+                            >
+                              <RotateCcw className="w-2.5 h-2.5" />
+                              <span>Return Product ({returnEligibility.daysLeft}d left)</span>
+                            </button>
+                          ) : (
+                            <span
+                              title={returnEligibility.reason}
+                              className="text-[9px] uppercase font-bold px-2.5 py-1 rounded-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-muted-foreground opacity-60 cursor-not-allowed"
+                            >
+                              7-Day Window Expired
+                            </span>
+                          )
                         )}
                       </div>
                     </div>

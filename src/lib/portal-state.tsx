@@ -1963,7 +1963,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         const nextUsers = s.users.map(u => u.id === id ? { ...u, ...patch } : u);
         const isSelf = s.user?.id === id;
         const updatedMatch = nextUsers.find(u => u.id === id);
-        return {
+        const next = {
           ...s,
           users: nextUsers,
           user: isSelf && updatedMatch ? {
@@ -1980,7 +1980,10 @@ export function PortalProvider({ children }: { children: ReactNode }) {
             roles: updatedMatch.roles,
           } : s.user,
         };
+        save(next);
+        return next;
       });
+      notifyBroadcastSync();
 
       patchCustomerAccountInSupabase(id, patch as any).catch(err => console.error("Failed to sync customer details update to Supabase:", err));
       fetch(`${BACKEND_URL}/api/customers/${id}`, {
@@ -2250,6 +2253,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         if (res.ok) fetchBackendState(true);
       }).catch(err => console.error("Failed to sync new order to backend:", err));
 
+      let nextRemainingCart: CartItem[] = [];
       setState(s => {
         const list = s.orders[userId] ?? [];
         const nextCoupons = order.appliedCoupon
@@ -2260,8 +2264,16 @@ export function PortalProvider({ children }: { children: ReactNode }) {
             )
           : s.coupons;
 
-        const orderItemKeys = new Set((order.items || []).map(item => `${item.productId}-${item.selectedSize || "M"}`));
-        const nextShopCart = (s.shopCart || []).filter(item => !orderItemKeys.has(`${item.productId}-${item.selectedSize || "M"}`));
+        const getCartItemKey = (item: CartItem) => {
+          const breakdownStr = item.sizeBreakdown && Object.keys(item.sizeBreakdown).length > 0 
+            ? JSON.stringify(item.sizeBreakdown) 
+            : "";
+          return `${item.productId}-${item.selectedSize || "M"}-${breakdownStr}`;
+        };
+
+        const orderItemKeys = new Set((order.items || []).map(getCartItemKey));
+        const nextShopCart = (s.shopCart || []).filter(item => !orderItemKeys.has(getCartItemKey(item)));
+        nextRemainingCart = nextShopCart;
 
         const nextProducts = (s.products || []).map(p => {
           const orderItem = order.items.find(item => String(item.productId) === String(p.id));
@@ -2334,7 +2346,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           products: nextProducts,
           coupons: nextCoupons,
           wallets: nextWallets,
-          cart: [],
+          cart: nextShopCart,
           shopCart: nextShopCart,
           notifications: [newNotif, ...s.notifications],
           userNotifications: nextUserNotifs
@@ -2348,16 +2360,16 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       notifyBroadcastSync();
       syncOrderToSupabase(newOrder, userId, nextUserOrders).catch(err => console.error("Failed to sync order to Supabase:", err));
       deductProductStockInSupabase(order.items).catch(err => console.error("Failed to deduct product stock in Supabase:", err));
-      syncUserCartToSupabase(userId, []).catch(err => console.error("Failed to clear Supabase cart on order:", err));
+      syncUserCartToSupabase(userId, nextRemainingCart).catch(err => console.error("Failed to sync remaining cart to Supabase:", err));
       patchCustomerAccountInSupabase(userId, {
         orders: nextUserOrders,
-        cart: [],
+        cart: nextRemainingCart,
         walletBalance: finalBal
       }).catch(err => console.error("Failed to sync new order to Supabase customer_accounts:", err));
       fetch(`${BACKEND_URL}/api/customers/${userId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ walletBalance: finalBal, cart: "[]" })
+        body: JSON.stringify({ walletBalance: finalBal, cart: JSON.stringify(nextRemainingCart) })
       }).catch(() => null);
       return orderId;
     },
@@ -2655,15 +2667,37 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         if (orderToCancel && orderToCancel.items) {
           await restoreProductStockInSupabase(orderToCancel.items).catch(err => console.error("Error restoring stock on cancelOrder:", err));
         }
+
+        // Check if payment was made using ReeVibes wallet
+        const walletUsed = Number(orderToCancel?.walletAmountUsed || 0);
+        const isWalletMethod = orderToCancel?.paymentMethod === "ReeVibes Wallet" || (orderToCancel?.paymentMethod || "").toLowerCase().includes("wallet");
+        const refundAmount = walletUsed > 0 ? walletUsed : (isWalletMethod ? Number(orderToCancel?.total || 0) : 0);
+
+        let newWalletBal: number | null = null;
+        if (refundAmount > 0) {
+          newWalletBal = await creditCustomerWalletInSupabase(userId, refundAmount).catch(err => {
+            console.error("Failed to credit wallet on cancelOrder:", err);
+            return null;
+          });
+          if (newWalletBal !== null) {
+            fetch(`${BACKEND_URL}/api/customers/${userId}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ walletBalance: newWalletBal })
+            }).catch(() => null);
+          }
+        }
+
         await updateOrderInSupabase(orderId, {
           status: "Cancelled",
+          payment_status: refundAmount > 0 ? "Refunded" : (orderToCancel?.paymentStatus || "Paid"),
           cancel_reason: reason || "User Cancellation",
           cancel_note: note || "",
           statusHistoryJson: [{
             timestamp: new Date().toISOString(),
             previousStatus: orderToCancel?.status || "Processing",
             newStatus: "Cancelled",
-            comments: reason ? `${reason}${note ? ": " + note : ""}` : "Cancelled by customer",
+            comments: reason ? `${reason}${note ? ": " + note : ""}` : (refundAmount > 0 ? `Cancelled by customer. ₹${refundAmount.toLocaleString()} refunded to ReeVibes wallet.` : "Cancelled by customer"),
             source: "User Order Tracker"
           }]
         }).catch(() => null);
@@ -2690,27 +2724,42 @@ export function PortalProvider({ children }: { children: ReactNode }) {
                 ...(updatedOrder || {}),
                 items,
                 status: "Cancelled",
+                paymentStatus: refundAmount > 0 ? "Refunded" : o.paymentStatus,
                 cancelReason: reason || o.cancelReason,
                 cancelNote: note || o.cancelNote,
               };
             }
             return o;
           });
+
+          const curBal = s.wallets[userId] ?? 0;
+          const nextBal = newWalletBal ?? (curBal + refundAmount);
+          const nextWallets = refundAmount > 0 ? { ...s.wallets, [userId]: nextBal } : s.wallets;
+          const nextUsers = (s.users || []).map(u => u.id === userId && refundAmount > 0 ? { ...u, walletBalance: nextBal } : u);
+          const nextUser = s.user && s.user.id === userId && refundAmount > 0 ? { ...s.user, walletBalance: nextBal } : s.user;
+
           const newNotif: Notif = {
             id: `n-${Date.now()}`,
             icon: "order",
             title: "Order Cancelled",
-            body: `Order ${orderId} has been successfully cancelled and stock restored.`,
+            body: refundAmount > 0
+              ? `Order ${orderId} cancelled. ₹${refundAmount.toLocaleString()} refunded back to your ReeVibes wallet immediately.`
+              : `Order ${orderId} has been successfully cancelled and stock restored.`,
             time: "now",
             unread: true
           };
           const existingUserNotifs = s.userNotifications[userId] || [];
-          return {
+          const nextState = {
             ...s,
+            wallets: nextWallets,
+            user: nextUser,
+            users: nextUsers,
             orders: { ...s.orders, [userId]: next },
             notifications: [newNotif, ...s.notifications],
             userNotifications: { ...s.userNotifications, [userId]: [newNotif, ...existingUserNotifs] }
           };
+          save(nextState);
+          return nextState;
         });
         notifyBroadcastSync();
         return updatedOrder || { success: true };

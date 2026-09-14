@@ -3,7 +3,7 @@
     "shiprocket": {
       "command": "node",
       "args": [
-        "./tools/shiprocket-mcp/dist/main.js"
+        "e:/ReeVibes/ReeVibes/tools/shiprocket-mcp/dist/main.js"
       ],
       "env": {
         "SELLER_EMAIL": "sreesrinivas000@gmail.com",

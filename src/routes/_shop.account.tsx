@@ -10,6 +10,34 @@ import { StatusChip } from "@/components/layout/AdminLayout";
 import { toast } from "sonner";
 import { useShopNotification } from "./_shop";
 import { getCurrentLocation, reverseGeocodeCoordinates, fetchPincodeDetails, parseAddressComponents } from "@/lib/locationService";
+import { isCouponValid } from "@/lib/supabase-coupons";
+
+const formatCouponExpiry = (expiryDate?: string) => {
+  if (!expiryDate || expiryDate === "unlimited") return "No Expiration";
+  const target = new Date(expiryDate).getTime();
+  if (isNaN(target)) return `Expires ${expiryDate}`;
+  const now = Date.now();
+  const diffMs = target - now;
+  if (diffMs <= 0) return "Expired";
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffHrs = Math.floor(diffSec / 3600);
+  const diffDays = Math.floor(diffHrs / 24);
+
+  if (diffDays > 30) {
+    const months = Math.floor(diffDays / 30);
+    return `${months} month${months > 1 ? "s" : ""} left`;
+  }
+  if (diffDays > 2) {
+    return `${diffDays} days left`;
+  }
+  if (diffHrs > 0) {
+    const remMins = Math.floor((diffSec % 3600) / 60);
+    return `${diffHrs} hrs ${remMins}m left`;
+  }
+  const mins = Math.floor(diffSec / 60);
+  const secs = diffSec % 60;
+  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")} left`;
+};
 
 const accountSearchSchema = z.object({
   tab: z.enum(["dashboard", "profile", "addresses", "coupons", "wishlist", "orders", "returns", "wallet", "settings", "ai-analytics"]).catch("profile"),
@@ -143,7 +171,13 @@ function ShopDashboard() {
   const [isEditing, setIsEditing] = useState(false);
   const [showSaveSuccessPopup, setShowSaveSuccessPopup] = useState(false);
   const [editingAddrIndex, setEditingAddrIndex] = useState<number | null>(null);
+  const [addressToDeleteIdx, setAddressToDeleteIdx] = useState<number | null>(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  // Filter only active, non-expired coupons within usage limits
+  const activeCoupons = useMemo(() => {
+    return (state.coupons || []).filter(c => isCouponValid(c));
+  }, [state.coupons]);
 
   // Geolocation state
   const [isLocating, setIsLocating] = useState(false);
@@ -708,7 +742,7 @@ function ShopDashboard() {
           { id: "profile", label: "Profile", icon: User, subtitle: "Dossier & Settings" },
           { id: "orders", label: "My Orders", icon: ListOrdered, count: userOrders.length, subtitle: "Track & History" },
           { id: "addresses", label: "Address", icon: MapPin, count: userAddresses.length, subtitle: "Destinations" },
-          { id: "coupons", label: "Maison Coupons", icon: Tag, count: state.coupons.length, subtitle: "Coupons & Wallet" },
+          { id: "coupons", label: "Maison Coupons", icon: Tag, count: activeCoupons.length, subtitle: "Coupons & Wallet" },
         ].map((t) => {
           const isActive = t.id === "profile" ? (activeTab === "profile" || activeTab === "dashboard") : activeTab === t.id;
           return (
@@ -764,7 +798,7 @@ function ShopDashboard() {
               {[
                 { id: "profile", label: "Profile", icon: User },
                 { id: "orders", label: "My Orders", icon: ListOrdered, count: userOrders.length },
-                { id: "coupons", label: "Maison Coupons", icon: Tag, count: state.coupons.length },
+                { id: "coupons", label: "Maison Coupons", icon: Tag, count: activeCoupons.length },
                 { id: "addresses", label: "Address", icon: MapPin, count: userAddresses.length },
               ].map((t) => {
                 const isActive = t.id === "profile" ? (activeTab === "profile" || activeTab === "dashboard") : activeTab === t.id;
@@ -1329,7 +1363,48 @@ function ShopDashboard() {
                 </div>
               )}
 
-              {/* Delete Account Confirmation Modal */}
+              {/* Address Deletion Confirmation Modal */}
+              {addressToDeleteIdx !== null && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+                  <div className="liquid-glass bg-white dark:bg-zinc-950 border border-rose-500/30 max-w-md w-full p-6 sm:p-8 space-y-5 shadow-2xl animate-in zoom-in-95 duration-200 rounded-3xl text-foreground">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-rose-500/15 border border-rose-500/30 flex items-center justify-center shrink-0 text-rose-500">
+                        <Trash2 className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="font-serif text-lg font-bold">Delete Shipping Address</h3>
+                        <p className="text-xs text-muted-foreground">Are you sure you want to remove this destination?</p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      This shipping address will be permanently removed from your profile and will no longer appear in your checkout destinations. This action updates both your Supabase profile and Admin Customer Directory.
+                    </p>
+                    <div className="flex gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setAddressToDeleteIdx(null)}
+                        className="flex-1 py-2.5 rounded-full border border-black/15 dark:border-white/10 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground hover:border-black/30 dark:hover:border-white/20 transition-all cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (user && addressToDeleteIdx !== null) {
+                            removeAddress(user.id, addressToDeleteIdx);
+                            setAddressToDeleteIdx(null);
+                            toast.success("Shipping address deleted successfully!");
+                          }
+                        }}
+                        className="flex-1 py-2.5 rounded-full bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold uppercase tracking-wider transition-all shadow-md cursor-pointer"
+                      >
+                        Confirm Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {showDeleteAccountModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
                   <div className="liquid-glass bg-white dark:bg-zinc-950 border border-rose-500/30 max-w-md w-full p-6 sm:p-8 space-y-6 shadow-2xl animate-in zoom-in-95 duration-200 rounded-3xl relative text-foreground">
@@ -1682,7 +1757,12 @@ function ShopDashboard() {
                               Mark as Major
                             </button>
                           )}
-                          <button onClick={() => removeAddress(user.id, idx)} className="text-rose-400 hover:text-rose-500 p-2 cursor-pointer">
+                          <button
+                            type="button"
+                            onClick={() => setAddressToDeleteIdx(idx)}
+                            className="text-rose-400 hover:text-rose-500 p-2 cursor-pointer transition-colors"
+                            title="Delete address"
+                          >
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
@@ -1871,30 +1951,53 @@ function ShopDashboard() {
                 </div>
 
                 <div className="grid sm:grid-cols-2 gap-4">
-                  {state.coupons.map((c) => (
-                    <div key={c.code} className="border border-dashed border-accent/40 bg-white/60 dark:bg-white/5 p-5 flex flex-col justify-between rounded-2xl shadow-sm dark:shadow-none space-y-3">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <div className="font-mono text-lg font-bold tracking-widest text-accent">{c.code}</div>
-                          <div className="text-xs font-semibold text-foreground mt-0.5">{c.discount}% Discount on all curation orders</div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            navigator.clipboard.writeText(c.code);
-                            toast.success(`Coupon code ${c.code} copied to clipboard!`);
-                          }}
-                          className="text-[10px] uppercase font-bold tracking-wider px-3 py-1 rounded-full border border-accent/30 text-accent hover:bg-accent hover:text-white transition-all cursor-pointer"
-                        >
-                          Copy Code
-                        </button>
-                      </div>
-                      <div className="flex justify-between items-center text-[10px] text-muted-foreground uppercase tracking-wider pt-2 border-t border-black/5 dark:border-white/5">
-                        <span>Status: <strong className="text-emerald-500 font-bold">Active</strong></span>
-                        <span>Expires: {c.expiryDate}</span>
-                      </div>
+                  {activeCoupons.length === 0 ? (
+                    <div className="sm:col-span-2 p-8 text-center bg-white/40 dark:bg-white/5 rounded-2xl border border-dashed border-black/10 dark:border-white/10 text-muted-foreground text-xs">
+                      No active store promotional coupons currently available. Check back soon for exclusive maison privileges.
                     </div>
-                  ))}
+                  ) : (
+                    activeCoupons.map((c) => {
+                      const discountText = c.type === "percentage"
+                        ? `${c.discount}% Discount`
+                        : c.type === "fixed"
+                        ? `₹${c.discount.toLocaleString()} FLAT OFF`
+                        : `₹${c.discount.toLocaleString()} Cashback`;
+
+                      const targetingText = c.brand && c.productType
+                        ? `Valid on ${c.brand} ${c.productType} collection`
+                        : c.brand
+                        ? `Valid on all ${c.brand} items`
+                        : c.productType
+                        ? `Valid on all ${c.productType} items`
+                        : `Storewide - Valid on all catalog items`;
+
+                      return (
+                        <div key={c.code} className="border border-dashed border-accent/40 bg-white/60 dark:bg-white/5 p-5 flex flex-col justify-between rounded-2xl shadow-sm dark:shadow-none space-y-3">
+                          <div className="flex justify-between items-start gap-2">
+                            <div>
+                              <div className="font-mono text-lg font-bold tracking-widest text-accent">{c.code}</div>
+                              <div className="text-xs font-semibold text-foreground mt-0.5">{discountText}</div>
+                              <div className="text-[11px] text-muted-foreground mt-0.5">{targetingText}</div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(c.code);
+                                toast.success(`Coupon code ${c.code} copied to clipboard!`);
+                              }}
+                              className="text-[10px] uppercase font-bold tracking-wider px-3 py-1 rounded-full border border-accent/30 text-accent hover:bg-accent hover:text-white transition-all cursor-pointer shrink-0"
+                            >
+                              Copy Code
+                            </button>
+                          </div>
+                          <div className="flex justify-between items-center text-[10px] text-muted-foreground uppercase tracking-wider pt-2 border-t border-black/5 dark:border-white/5">
+                            <span>Status: <strong className="text-emerald-500 font-bold">Active</strong></span>
+                            <span className="font-mono text-accent font-semibold">{formatCouponExpiry(c.expiryDate)}</span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </div>
             </div>

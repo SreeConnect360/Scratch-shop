@@ -33,12 +33,72 @@ import {
   Mail,
   MessageCircle,
   Ticket,
-  Tag
+  Tag,
+  Clock
 } from "lucide-react";
 import { ProductCard } from "@/components/public/ProductCard";
 import { parseProductInfoMarkup, type ProductSection, PRODUCTS, type Product } from "@/lib/data";
 import { getEligibleCouponsForProduct } from "@/lib/supabase-coupons";
 import { fetchSingleProductFromSupabase } from "@/lib/supabase-catalog";
+
+function CouponExpiryBadge({ expiryDate }: { expiryDate?: string }) {
+  const [timeLeft, setTimeLeft] = useState<{ text: string; isLive: boolean }>({ text: "", isLive: false });
+
+  useEffect(() => {
+    if (!expiryDate || expiryDate === "unlimited") {
+      setTimeLeft({ text: "No Expiration", isLive: false });
+      return;
+    }
+
+    const calc = () => {
+      const target = new Date(expiryDate).getTime();
+      if (isNaN(target)) return { text: `Exp: ${expiryDate}`, isLive: false };
+      const now = Date.now();
+      const diffMs = target - now;
+      if (diffMs <= 0) return { text: "Expired", isLive: false };
+
+      const totalSec = Math.floor(diffMs / 1000);
+      const days = Math.floor(totalSec / 86400);
+      const hours = Math.floor((totalSec % 86400) / 3600);
+      const minutes = Math.floor((totalSec % 3600) / 60);
+      const seconds = totalSec % 60;
+
+      if (days > 30) {
+        const months = Math.floor(days / 30);
+        return { text: `${months} month${months > 1 ? "s" : ""} left`, isLive: false };
+      }
+      if (days > 2) {
+        return { text: `${days} days left`, isLive: false };
+      }
+      const totalHours = Math.floor(totalSec / 3600);
+      const hStr = String(totalHours).padStart(2, "0");
+      const mStr = String(minutes).padStart(2, "0");
+      const sStr = String(seconds).padStart(2, "0");
+      return { text: `${hStr}:${mStr}:${sStr}`, isLive: true };
+    };
+
+    const initial = calc();
+    setTimeLeft(initial);
+
+    if (initial.isLive) {
+      const timer = setInterval(() => {
+        const next = calc();
+        setTimeLeft(next);
+        if (!next.isLive) clearInterval(timer);
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [expiryDate]);
+
+  if (!timeLeft.text) return null;
+
+  return (
+    <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold text-amber-500 dark:text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-full shrink-0">
+      <Clock className="w-3 h-3 text-amber-500 dark:text-amber-400 shrink-0" />
+      <span>{timeLeft.isLive ? `Ends in ${timeLeft.text}` : timeLeft.text}</span>
+    </span>
+  );
+}
 
 export const Route = createFileRoute("/_shop/product/$productId")({
   component: ProductDetail,
@@ -1043,28 +1103,31 @@ function ProductDetail() {
                             : "bg-white/5 border-white/10 hover:border-[#D4AF37]/40"
                         )}
                       >
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-mono font-extrabold text-sm tracking-wider text-accent bg-accent/15 px-2 py-0.5 rounded border border-accent/30">
-                              {coupon.code}
-                            </span>
-                            <span className="text-xs font-bold text-foreground">
-                              {coupon.type === "percentage"
-                                ? `${coupon.discount}% OFF`
-                                : coupon.type === "fixed"
-                                ? `₹${coupon.discount.toLocaleString()} FLAT OFF`
-                                : `₹${coupon.discount.toLocaleString()} Wallet Cashback`}
-                            </span>
-                            {coupon.productType && (
-                              <span className="text-[9px] bg-purple-500/15 text-purple-300 border border-purple-500/30 px-1.5 py-0.2 rounded font-medium">
-                                {coupon.productType}
+                        <div className="space-y-1 flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-mono font-extrabold text-sm tracking-wider text-accent bg-accent/15 px-2 py-0.5 rounded border border-accent/30">
+                                {coupon.code}
                               </span>
-                            )}
-                            {coupon.brand && (
-                              <span className="text-[9px] bg-blue-500/15 text-blue-300 border border-blue-500/30 px-1.5 py-0.2 rounded font-medium">
-                                {coupon.brand}
+                              <span className="text-xs font-bold text-foreground">
+                                {coupon.type === "percentage"
+                                  ? `${coupon.discount}% OFF`
+                                  : coupon.type === "fixed"
+                                  ? `₹${coupon.discount.toLocaleString()} FLAT OFF`
+                                  : `₹${coupon.discount.toLocaleString()} Wallet Cashback`}
                               </span>
-                            )}
+                              {coupon.productType && (
+                                <span className="text-[9px] bg-purple-500/15 text-purple-300 border border-purple-500/30 px-1.5 py-0.2 rounded font-medium">
+                                  {coupon.productType}
+                                </span>
+                              )}
+                              {coupon.brand && (
+                                <span className="text-[9px] bg-blue-500/15 text-blue-300 border border-blue-500/30 px-1.5 py-0.2 rounded font-medium">
+                                  {coupon.brand}
+                                </span>
+                              )}
+                            </div>
+                            <CouponExpiryBadge expiryDate={coupon.expiryDate} />
                           </div>
                           <p className="text-[11px] text-muted-foreground">
                             {isCashback

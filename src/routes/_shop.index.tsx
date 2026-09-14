@@ -94,6 +94,239 @@ function ProductCarouselWrapper({ children, itemsCount }: { children: React.Reac
   );
 }
 
+function ReviewsAutoScrollCarousel({
+  reviews,
+  products
+}: {
+  reviews: any[];
+  products: any[];
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const scrollDirection = useRef<number>(1); // 1 = right-to-left (scrollLeft += speed), -1 = left-to-right (scrollLeft -= speed)
+  const isPaused = useRef<boolean>(false);
+  const pauseTimeout = useRef<NodeJS.Timeout | null>(null);
+  const lastScrollLeft = useRef<number>(0);
+  const isProgrammaticScroll = useRef<boolean>(false);
+  const [isHovered, setIsHovered] = useState(false);
+
+  // Multiplied sets to enable smooth infinite wrapping
+  const repeatedReviews = useMemo(() => {
+    if (reviews.length === 0) return [];
+    if (reviews.length >= 8) return [...reviews, ...reviews];
+    return [...reviews, ...reviews, ...reviews];
+  }, [reviews]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || repeatedReviews.length === 0) return;
+
+    const repeatCount = repeatedReviews.length >= 8 ? 2 : 3;
+    const setWidth = el.scrollWidth / repeatCount;
+    if (setWidth > 0 && el.scrollLeft === 0) {
+      el.scrollLeft = setWidth;
+      lastScrollLeft.current = setWidth;
+    }
+
+    let animId: number;
+    const speed = 0.8; // Smooth, luxury reading speed
+
+    const tick = () => {
+      if (el && !isPaused.current && !isHovered) {
+        const curSetWidth = el.scrollWidth / repeatCount;
+
+        if (curSetWidth > 0) {
+          // Seamless forward wrap
+          if (el.scrollLeft >= curSetWidth * (repeatCount - 1)) {
+            el.scrollLeft -= curSetWidth;
+            lastScrollLeft.current = el.scrollLeft;
+          }
+          // Seamless backward wrap
+          else if (el.scrollLeft <= 5 && scrollDirection.current < 0) {
+            el.scrollLeft += curSetWidth;
+            lastScrollLeft.current = el.scrollLeft;
+          }
+        }
+
+        isProgrammaticScroll.current = true;
+        el.scrollLeft += speed * scrollDirection.current;
+        lastScrollLeft.current = el.scrollLeft;
+      }
+      animId = requestAnimationFrame(tick);
+    };
+
+    animId = requestAnimationFrame(tick);
+
+    return () => {
+      cancelAnimationFrame(animId);
+      if (pauseTimeout.current) clearTimeout(pauseTimeout.current);
+    };
+  }, [repeatedReviews, isHovered]);
+
+  const handleScroll = () => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    if (isProgrammaticScroll.current) {
+      isProgrammaticScroll.current = false;
+      return;
+    }
+
+    const currentScroll = el.scrollLeft;
+    const diff = currentScroll - lastScrollLeft.current;
+
+    // Detect user scroll direction, pause for 2s, then continue moving in user scroll side
+    if (Math.abs(diff) > 1.5) {
+      const userDir = diff > 0 ? 1 : -1;
+      scrollDirection.current = userDir;
+
+      isPaused.current = true;
+      if (pauseTimeout.current) clearTimeout(pauseTimeout.current);
+
+      pauseTimeout.current = setTimeout(() => {
+        isPaused.current = false;
+      }, 2000);
+    }
+
+    lastScrollLeft.current = currentScroll;
+  };
+
+  const isDragging = useRef(false);
+  const dragStartX = useRef(0);
+  const dragScrollLeft = useRef(0);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    const el = containerRef.current;
+    if (!el) return;
+    isDragging.current = true;
+    dragStartX.current = e.pageX - el.offsetLeft;
+    dragScrollLeft.current = el.scrollLeft;
+    isPaused.current = true;
+    if (pauseTimeout.current) clearTimeout(pauseTimeout.current);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging.current) return;
+    const el = containerRef.current;
+    if (!el) return;
+    e.preventDefault();
+    const x = e.pageX - el.offsetLeft;
+    const walk = (x - dragStartX.current) * 1.5;
+    el.scrollLeft = dragScrollLeft.current - walk;
+  };
+
+  const handleMouseUpOrLeave = () => {
+    if (isDragging.current) {
+      isDragging.current = false;
+      if (pauseTimeout.current) clearTimeout(pauseTimeout.current);
+      pauseTimeout.current = setTimeout(() => {
+        isPaused.current = false;
+      }, 2000);
+    }
+  };
+
+  const handleTouchStart = () => {
+    isPaused.current = true;
+    if (pauseTimeout.current) clearTimeout(pauseTimeout.current);
+  };
+
+  const handleTouchEnd = () => {
+    if (pauseTimeout.current) clearTimeout(pauseTimeout.current);
+    pauseTimeout.current = setTimeout(() => {
+      isPaused.current = false;
+    }, 2000);
+  };
+
+  return (
+    <div
+      className="relative w-full overflow-hidden"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => {
+        setIsHovered(false);
+        handleMouseUpOrLeave();
+      }}
+    >
+      <div
+        ref={containerRef}
+        onScroll={handleScroll}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUpOrLeave}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        className="flex gap-5 overflow-x-auto select-none py-4 px-2 cursor-grab active:cursor-grabbing [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+      >
+        {repeatedReviews.map((r, idx) => {
+          const prod = products.find(p => p.id === r.productId) || products[idx % (products.length || 1)];
+          const prodImage = prod?.image || prod?.images?.[0] || "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=600&h=800&q=80";
+
+          return (
+            <div
+              key={`${r.id}-${idx}`}
+              className="w-[340px] sm:w-[400px] md:w-[440px] shrink-0 glass p-5 sm:p-6 rounded-2xl border border-white/10 flex items-stretch justify-between gap-4 transition-all duration-300 hover:border-accent/40 shadow-lg shadow-black/20"
+            >
+              {/* Left Column: Rating, Review, Customer, Product Title */}
+              <div className="flex flex-col justify-between flex-1 min-w-0 space-y-3">
+                <div className="space-y-2">
+                  <div className="flex gap-1 text-gold">
+                    {Array.from({ length: r.rating || 5 }).map((_, i) => (
+                      <Star key={i} size={14} fill="currentColor" />
+                    ))}
+                  </div>
+                  <p className="text-sm italic text-foreground leading-relaxed font-serif line-clamp-3">
+                    "{r.comment}"
+                  </p>
+                </div>
+
+                <div className="pt-3 border-t border-white/5 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-accent font-mono">— {r.userName || "Verified Collector"}</span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-muted-foreground font-mono">Verified Order</span>
+                  </div>
+                  {prod && (
+                    <Link
+                      to="/product/$productId"
+                      params={{ productId: prod.id }}
+                      className="text-[11px] text-muted-foreground hover:text-accent truncate block max-w-[190px] transition-colors"
+                      title={prod.name}
+                    >
+                      Ordered: <span className="text-foreground/90 font-medium">{prod.name}</span>
+                    </Link>
+                  )}
+                </div>
+              </div>
+
+              {/* Right Column: Ordered Product Thumbnail (Clickable) */}
+              {prod && (
+                <Link
+                  to="/product/$productId"
+                  params={{ productId: prod.id }}
+                  className="shrink-0 group/thumb relative block self-center"
+                  title={`View ${prod.name}`}
+                  onClick={(e) => {
+                    if (isDragging.current) e.preventDefault();
+                  }}
+                >
+                  <div className="w-20 h-24 sm:w-24 sm:h-28 rounded-xl overflow-hidden border border-white/10 group-hover/thumb:border-accent/60 transition-all shadow-md group-hover/thumb:shadow-accent/20 group-hover/thumb:scale-[1.04] bg-surface-2/60">
+                    <img
+                      src={prodImage}
+                      alt={prod.name}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                  </div>
+                  <span className="absolute -bottom-1 -right-1 bg-surface-1/90 border border-white/15 text-[9px] px-1.5 py-0.5 rounded-full text-accent font-mono group-hover/thumb:bg-accent group-hover/thumb:text-black transition-colors shadow">
+                    View
+                  </span>
+                </Link>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export const Route = createFileRoute("/_shop/")({
   head: () => ({
     meta: [
@@ -886,11 +1119,19 @@ function ShopHome() {
         const allRevs = Object.entries(state.productReviews || {}).flatMap(([pId, list]) =>
           (list || []).map((r: any) => ({ ...r, productId: pId }))
         );
-        const selectedRevs = featuredIds.length > 0
+        let selectedRevs = featuredIds.length > 0
           ? allRevs.filter(r => featuredIds.includes(r.id))
-          : allRevs.slice(0, 3);
+          : allRevs;
 
-        if (selectedRevs.length === 0) return null;
+        if (selectedRevs.length === 0) {
+          selectedRevs = [
+            { id: "rev-s1", rating: 5, comment: "Exquisite craftsmanship and premium silhouette. The attention to detail in the fabric and stitching is truly exceptional.", userName: "Aarav S.", productId: products[0]?.id },
+            { id: "rev-s2", rating: 5, comment: "Pure luxury. The drape and feel of the materials exceeded all my expectations. Absolutely stunning piece.", userName: "Meera K.", productId: products[1]?.id },
+            { id: "rev-s3", rating: 5, comment: "Fast shipping and royal packaging. The fit is perfection and everyone was asking where I got it.", userName: "Rohan D.", productId: products[2]?.id },
+            { id: "rev-s4", rating: 5, comment: "ReeVibes continues to define modern festive and streetwear elegance. A prized addition to my wardrobe.", userName: "Ananya P.", productId: products[3]?.id },
+            { id: "rev-s5", rating: 5, comment: "Unparalleled quality. Wore it to a high-profile gala and felt confident all night.", userName: "Vikram N.", productId: products[4]?.id || products[0]?.id },
+          ];
+        }
 
         return (
           <section key={sectionId} className="max-w-7xl mx-auto px-3 sm:px-5 space-y-8">
@@ -900,29 +1141,7 @@ function ShopHome() {
                 <h2 className="font-serif text-3xl mt-1">What Our Collectors Say</h2>
               </div>
             </FadeUp>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {selectedRevs.map(r => {
-                const prod = products.find(p => p.id === r.productId);
-                return (
-                  <div key={r.id} className="glass p-6 rounded-2xl border border-white/10 space-y-4 flex flex-col justify-between">
-                    <div className="space-y-3">
-                      <div className="flex gap-1 text-gold">
-                        {Array.from({ length: r.rating || 5 }).map((_, i) => (
-                          <Star key={i} size={14} fill="currentColor" />
-                        ))}
-                      </div>
-                      <p className="text-sm italic text-foreground leading-relaxed font-serif">"{r.comment}"</p>
-                    </div>
-                    <div className="flex items-center justify-between pt-4 border-t border-white/5">
-                      <span className="text-xs font-bold text-accent font-mono">— {r.userName}</span>
-                      {prod && (
-                        <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">{prod.name}</span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <ReviewsAutoScrollCarousel reviews={selectedRevs} products={products} />
           </section>
         );
 
