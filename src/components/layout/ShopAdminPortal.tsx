@@ -9,7 +9,7 @@ import {
   Settings, History, ListFilter, Tag, BarChart2, Undo, CheckSquare,
   Square, ArrowUpDown, Layers3, Download, Upload, ArrowLeft, ArrowRight,
   FileSpreadsheet, FileText, ShieldCheck, Banknote, CreditCard, Wallet, User, XCircle,
-  Activity, AlertTriangle, CheckCircle2, Copy, ExternalLink, Terminal, Package, Clock
+  Activity, AlertTriangle, CheckCircle2, Copy, ExternalLink, Terminal, Package, Clock, Bell
 } from "lucide-react";
 import {
   type TimeframeFilter,
@@ -300,6 +300,174 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
   const [orderSubTab, setOrderSubTab] = useState<"ordered" | "delivering" | "delivered">("ordered");
   const [reviewsFilter, setReviewsFilter] = useState<"all" | "approved" | "hidden">("all");
   const [reviewsSearch, setReviewsSearch] = useState<string>("");
+
+  // Customers Directory Search, Filter, and Sorting State
+  const [customerSearchQuery, setCustomerSearchQuery] = useState("");
+  const [customerSortBy, setCustomerSortBy] = useState<string>("created-desc");
+  const [customerGenderFilter, setCustomerGenderFilter] = useState<string>("all");
+  const [customerStatusFilter, setCustomerStatusFilter] = useState<string>("all");
+  const [customerAgeFilter, setCustomerAgeFilter] = useState<string>("all");
+
+  // Credit Wallet Modal State
+  const [creditModalCustomer, setCreditModalCustomer] = useState<any | null>(null);
+  const [creditAmountInput, setCreditAmountInput] = useState<string>("");
+  const [creditMessageInput, setCreditMessageInput] = useState<string>("");
+  const [isSubmittingCredit, setIsSubmittingCredit] = useState<boolean>(false);
+
+  const filteredAndSortedCustomers = useMemo(() => {
+    let list = [...(state.users || [])];
+
+    // 1. Search Query Filter (Name, Email, Phone, ID, Gender, Country, Age, Addresses)
+    if (customerSearchQuery.trim()) {
+      const q = customerSearchQuery.trim().toLowerCase();
+      list = list.filter((c: any) => {
+        const name = `${c.firstName || ""} ${c.lastName || ""}`.toLowerCase();
+        const email = (c.email || "").toLowerCase();
+        const phone = (c.phone || "").toLowerCase();
+        const id = (c.id || "").toLowerCase();
+        const gender = (c.gender || "").toLowerCase();
+        const country = (c.country || "").toLowerCase();
+        const ageStr = String(c.age || "");
+
+        // Search addresses
+        const rawAddrs = state.addresses[c.id] || c.addresses || [];
+        const matchAddress = rawAddrs.some((a: any) => {
+          if (typeof a === "string") {
+            return a.toLowerCase().includes(q);
+          }
+          if (typeof a === "object" && a !== null) {
+            const combined = [
+              a.street_address,
+              a.street,
+              a.address,
+              a.city,
+              a.state,
+              a.zip_code,
+              a.zip,
+              a.pincode,
+              a.country,
+              a.full_name,
+              a.name,
+              a.phone
+            ].filter(Boolean).join(" ").toLowerCase();
+            return combined.includes(q);
+          }
+          return false;
+        });
+
+        return (
+          id.includes(q) ||
+          name.includes(q) ||
+          email.includes(q) ||
+          phone.includes(q) ||
+          gender.includes(q) ||
+          country.includes(q) ||
+          ageStr.includes(q) ||
+          matchAddress
+        );
+      });
+    }
+
+    // 2. Gender Filter
+    if (customerGenderFilter !== "all") {
+      list = list.filter((c: any) => {
+        const g = (c.gender || "").toLowerCase();
+        if (customerGenderFilter === "Male") return g === "male";
+        if (customerGenderFilter === "Female") return g === "female";
+        if (customerGenderFilter === "Other") return g !== "male" && g !== "female" && g !== "";
+        return true;
+      });
+    }
+
+    // 3. Status Filter
+    if (customerStatusFilter !== "all") {
+      list = list.filter((c: any) => (c.status || "Active") === customerStatusFilter);
+    }
+
+    // 4. Age Filter
+    if (customerAgeFilter !== "all") {
+      list = list.filter((c: any) => {
+        const age = Number(c.age) || 0;
+        if (customerAgeFilter === "under25") return age > 0 && age < 25;
+        if (customerAgeFilter === "25-35") return age >= 25 && age <= 35;
+        if (customerAgeFilter === "36-50") return age >= 36 && age <= 50;
+        if (customerAgeFilter === "above50") return age > 50;
+        return true;
+      });
+    }
+
+    // 5. Sorting
+    list.sort((a: any, b: any) => {
+      switch (customerSortBy) {
+        case "created-desc": {
+          const timeA = new Date(a.createdAt || a.registeredAt || 0).getTime() || 0;
+          const timeB = new Date(b.createdAt || b.registeredAt || 0).getTime() || 0;
+          if (timeB !== timeA) return timeB - timeA;
+          return (b.id || "").localeCompare(a.id || "");
+        }
+        case "created-asc": {
+          const timeA = new Date(a.createdAt || a.registeredAt || 0).getTime() || 0;
+          const timeB = new Date(b.createdAt || b.registeredAt || 0).getTime() || 0;
+          if (timeA !== timeB) return timeA - timeB;
+          return (a.id || "").localeCompare(b.id || "");
+        }
+        case "name-asc": {
+          const nameA = `${a.firstName || ""} ${a.lastName || ""}`.trim().toLowerCase();
+          const nameB = `${b.firstName || ""} ${b.lastName || ""}`.trim().toLowerCase();
+          return nameA.localeCompare(nameB);
+        }
+        case "name-desc": {
+          const nameA = `${a.firstName || ""} ${a.lastName || ""}`.trim().toLowerCase();
+          const nameB = `${b.firstName || ""} ${b.lastName || ""}`.trim().toLowerCase();
+          return nameB.localeCompare(nameA);
+        }
+        case "wallet-desc": {
+          const balA = state.wallets[a.id] ?? a.walletBalance ?? 0;
+          const balB = state.wallets[b.id] ?? b.walletBalance ?? 0;
+          return balB - balA;
+        }
+        case "wallet-asc": {
+          const balA = state.wallets[a.id] ?? a.walletBalance ?? 0;
+          const balB = state.wallets[b.id] ?? b.walletBalance ?? 0;
+          return balA - balB;
+        }
+        case "orders-desc": {
+          const ordA = state.orders[a.id]?.length ?? (a.orders || []).length ?? 0;
+          const ordB = state.orders[b.id]?.length ?? (b.orders || []).length ?? 0;
+          return ordB - ordA;
+        }
+        case "orders-asc": {
+          const ordA = state.orders[a.id]?.length ?? (a.orders || []).length ?? 0;
+          const ordB = state.orders[b.id]?.length ?? (b.orders || []).length ?? 0;
+          return ordA - ordB;
+        }
+        case "age-asc": {
+          const ageA = Number(a.age) || 0;
+          const ageB = Number(b.age) || 0;
+          return ageA - ageB;
+        }
+        case "age-desc": {
+          const ageA = Number(a.age) || 0;
+          const ageB = Number(b.age) || 0;
+          return ageB - ageA;
+        }
+        default:
+          return (a.id || "").localeCompare(b.id || "");
+      }
+    });
+
+    return list;
+  }, [
+    state.users,
+    state.addresses,
+    state.wallets,
+    state.orders,
+    customerSearchQuery,
+    customerGenderFilter,
+    customerStatusFilter,
+    customerAgeFilter,
+    customerSortBy
+  ]);
 
   useEffect(() => {
     if (selectedOrderDetails) {
@@ -682,12 +850,13 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
   const [newImageUrl, setNewImageUrl] = useState("");
 
   const handleExportCustomersExcel = () => {
-    if (!customersList || customersList.length === 0) {
+    const targetList = filteredAndSortedCustomers && filteredAndSortedCustomers.length > 0 ? filteredAndSortedCustomers : customersList;
+    if (!targetList || targetList.length === 0) {
       toast.error("No customers available to export.");
       return;
     }
 
-    const data = customersList.map((c) => {
+    const data = targetList.map((c) => {
       const rawAddrs = state.addresses[c.id] || (c as any).addresses || [];
       const formattedAddrs = rawAddrs.map((addrItem: any) => {
         if (typeof addrItem === "string") {
@@ -2020,20 +2189,10 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  onClick={async () => {
-                    const amtStr = prompt(`Enter wallet credit amount (₹) to add for ${selectedCustomerDetails.firstName || "Customer"}:`);
-                    if (amtStr) {
-                      const num = Number(amtStr.replace(/[^0-9.]/g, ""));
-                      if (!isNaN(num) && num > 0) {
-                        await addWalletCredit(selectedCustomerDetails.id, num);
-                        const prevBal = state.wallets[selectedCustomerDetails.id] ?? selectedCustomerDetails.walletBalance ?? 0;
-                        const nextBal = prevBal + num;
-                        setSelectedCustomerDetails((prev: any) => ({ ...prev, walletBalance: nextBal }));
-                        toast.success(`₹${num.toLocaleString()} credited to ${selectedCustomerDetails.firstName || "Customer"}'s wallet!`);
-                      } else {
-                        toast.error("Invalid amount entered.");
-                      }
-                    }
+                  onClick={() => {
+                    setCreditModalCustomer(selectedCustomerDetails);
+                    setCreditAmountInput("");
+                    setCreditMessageInput("");
                   }}
                   className="editorial-label bg-accent/20 hover:bg-accent/30 text-accent border border-accent/40 px-3 py-1.5 rounded-full text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
                 >
@@ -2067,6 +2226,215 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                 )}
               </div>
               <AdminButton variant="outline" onClick={() => setSelectedCustomerDetails(null)}>Close dossier</AdminButton>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dedicated Credit Wallet Popup Modal */}
+      {creditModalCustomer && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="liquid-glass bg-background/95 border border-accent/30 max-w-lg w-full p-6 sm:p-7 space-y-5 shadow-2xl rounded-3xl animate-in zoom-in-95 duration-200 text-foreground">
+            {/* Header */}
+            <div className="flex justify-between items-start border-b border-black/10 dark:border-white/10 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-accent/15 border border-accent/30 flex items-center justify-center text-accent">
+                  <IndianRupee className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-serif text-xl font-bold">Credit ReeVibes Wallet</h3>
+                  <p className="text-xs text-muted-foreground">Add funds & trigger an instant in-app account notification</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isSubmittingCredit) {
+                    setCreditModalCustomer(null);
+                  }
+                }}
+                className="text-muted-foreground hover:text-foreground p-1 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Target User Info Card */}
+            <div className="flex items-center justify-between p-3.5 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10">
+              <div className="flex items-center gap-3 min-w-0">
+                <img
+                  src={creditModalCustomer.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent((creditModalCustomer.firstName || "") + (creditModalCustomer.lastName || ""))}`}
+                  alt=""
+                  className="w-10 h-10 rounded-full border border-white/20 object-cover shrink-0"
+                />
+                <div className="min-w-0">
+                  <div className="font-semibold text-sm text-foreground truncate">
+                    {creditModalCustomer.firstName} {creditModalCustomer.lastName}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground font-mono flex items-center gap-2 truncate">
+                    <span className="text-accent">{creditModalCustomer.id}</span>
+                    <span>•</span>
+                    <span className="truncate">{creditModalCustomer.email}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="text-right shrink-0 ml-3">
+                <span className="text-[10px] text-muted-foreground block uppercase font-bold tracking-wider">Current Balance</span>
+                <span className="font-serif font-bold text-accent text-sm">
+                  ₹{(state.wallets[creditModalCustomer.id] ?? creditModalCustomer.walletBalance ?? 0).toLocaleString()}
+                </span>
+              </div>
+            </div>
+
+            {/* Credit Amount Input */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">
+                Amount to Credit (₹) <span className="text-rose-500">*</span>
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-muted-foreground font-bold font-serif text-lg">
+                  ₹
+                </div>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  placeholder="e.g. 500"
+                  value={creditAmountInput}
+                  onChange={(e) => setCreditAmountInput(e.target.value)}
+                  className="w-full pl-8 pr-4 py-2.5 rounded-xl border border-black/15 dark:border-white/15 bg-surface text-foreground font-serif text-lg font-bold focus:outline-none focus:border-accent"
+                />
+              </div>
+
+              {/* Quick Presets */}
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {[100, 250, 500, 1000, 2000, 5000].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setCreditAmountInput(String(preset))}
+                    className={`px-2.5 py-1 text-[11px] rounded-lg border font-mono font-semibold transition-colors cursor-pointer ${
+                      creditAmountInput === String(preset)
+                        ? "bg-accent text-black border-accent font-bold shadow-sm"
+                        : "bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 hover:border-accent/40 text-foreground/80"
+                    }`}
+                  >
+                    +₹{preset.toLocaleString()}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom Notification Message */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Notification Message to User
+                </label>
+                <span className="text-[10px] text-muted-foreground italic">Optional</span>
+              </div>
+              <textarea
+                rows={3}
+                placeholder="e.g. Complimentary festive shopping credits from ReeVibes Atelier!"
+                value={creditMessageInput}
+                onChange={(e) => setCreditMessageInput(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-black/15 dark:border-white/15 bg-surface text-foreground text-xs leading-relaxed focus:outline-none focus:border-accent placeholder:text-muted-foreground/60 resize-none"
+              />
+              <p className="text-[11px] text-muted-foreground leading-normal">
+                {creditMessageInput.trim() ? (
+                  <span className="text-accent flex items-center gap-1 font-medium">
+                    ✓ Custom message will be delivered to the user's notification inbox.
+                  </span>
+                ) : (
+                  <span>
+                    If left blank, default notification will be sent:{" "}
+                    <em className="text-foreground/90 font-medium">
+                      "ReeVibes Wallet: ₹{Number(creditAmountInput) > 0 ? Number(creditAmountInput).toLocaleString() : "X"} has been credited to your wallet."
+                    </em>
+                  </span>
+                )}
+              </p>
+            </div>
+
+            {/* Live In-App Notification Preview */}
+            <div className="rounded-2xl p-3.5 bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 space-y-2">
+              <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground flex items-center gap-1.5">
+                <Bell className="w-3 h-3 text-accent" /> Customer Notification Preview
+              </span>
+              <div className="p-3 rounded-xl bg-surface border border-accent/20 flex items-start gap-3 text-xs shadow-inner">
+                <div className="w-7 h-7 rounded-full bg-accent/15 flex items-center justify-center text-accent shrink-0 mt-0.5">
+                  <Wallet className="w-3.5 h-3.5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-foreground text-xs">Wallet Credited</div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5 leading-snug break-words">
+                    {creditMessageInput.trim() || `ReeVibes Wallet: ₹${Number(creditAmountInput) > 0 ? Number(creditAmountInput).toLocaleString() : "0"} has been credited to your wallet.`}
+                  </div>
+                  <div className="text-[9px] text-accent mt-1">Just now • Unread</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-end gap-3 pt-2 border-t border-black/10 dark:border-white/10">
+              <AdminButton
+                variant="outline"
+                onClick={() => {
+                  if (!isSubmittingCredit) {
+                    setCreditModalCustomer(null);
+                  }
+                }}
+                disabled={isSubmittingCredit}
+              >
+                Cancel
+              </AdminButton>
+              <button
+                type="button"
+                disabled={isSubmittingCredit || !creditAmountInput || isNaN(Number(creditAmountInput)) || Number(creditAmountInput) <= 0}
+                onClick={async () => {
+                  const num = Number(creditAmountInput);
+                  if (isNaN(num) || num <= 0) {
+                    toast.error("Please enter a valid credit amount greater than 0.");
+                    return;
+                  }
+                  setIsSubmittingCredit(true);
+                  try {
+                    const targetUserId = creditModalCustomer.id;
+                    const msg = creditMessageInput.trim();
+                    await addWalletCredit(targetUserId, num, msg);
+
+                    // Update local state if customer dossier is open
+                    if (selectedCustomerDetails && selectedCustomerDetails.id === targetUserId) {
+                      const prev = state.wallets[targetUserId] ?? selectedCustomerDetails.walletBalance ?? 0;
+                      setSelectedCustomerDetails((prevObj: any) => ({
+                        ...prevObj,
+                        walletBalance: prev + num
+                      }));
+                    }
+
+                    toast.success(`₹${num.toLocaleString()} credited to ${creditModalCustomer.firstName || "Customer"}'s wallet with notification!`);
+                    setCreditModalCustomer(null);
+                    setCreditAmountInput("");
+                    setCreditMessageInput("");
+                  } catch (err) {
+                    console.error(err);
+                    toast.error("Failed to credit wallet. Please try again.");
+                  } finally {
+                    setIsSubmittingCredit(false);
+                  }
+                }}
+                className="editorial-label bg-accent hover:bg-accent/90 text-black px-5 py-2.5 rounded-full text-xs font-bold transition-all shadow-md inline-flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSubmittingCredit ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Crediting Wallet...
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-3.5 h-3.5" /> Confirm & Credit Wallet
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -8888,6 +9256,128 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
               </button>
             </div>
           </div>
+          {/* Search, Filter & Sort Controls */}
+          <div className="space-y-3 pt-2">
+            {/* Search Input Bar */}
+            <div className="relative w-full">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-muted-foreground">
+                <Search className="w-4 h-4" />
+              </div>
+              <input
+                type="text"
+                placeholder="Search customers by name, email, phone, user ID, address, city, state, pincode..."
+                value={customerSearchQuery}
+                onChange={(e) => setCustomerSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-10 py-2.5 rounded-2xl border border-black/10 dark:border-white/10 bg-surface text-foreground text-xs focus:outline-none focus:border-accent shadow-sm"
+              />
+              {customerSearchQuery && (
+                <button
+                  onClick={() => setCustomerSearchQuery("")}
+                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-muted-foreground hover:text-foreground cursor-pointer"
+                  title="Clear Search"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Filter & Sort Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="flex flex-wrap items-center gap-2.5">
+                {/* Sort By Dropdown */}
+                <div className="flex items-center gap-1.5 bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 px-3 py-1.5 rounded-xl">
+                  <ArrowUpDown className="w-3.5 h-3.5 text-accent" />
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Sort:</span>
+                  <select
+                    value={customerSortBy}
+                    onChange={(e) => setCustomerSortBy(e.target.value)}
+                    className="bg-transparent text-foreground text-xs font-medium focus:outline-none cursor-pointer pr-2"
+                  >
+                    <option value="created-desc" className="bg-background text-foreground">📅 Date Created: Newest First</option>
+                    <option value="created-asc" className="bg-background text-foreground">📅 Date Created: Oldest First</option>
+                    <option value="name-asc" className="bg-background text-foreground">🔤 Name: A → Z</option>
+                    <option value="name-desc" className="bg-background text-foreground">🔤 Name: Z → A</option>
+                    <option value="wallet-desc" className="bg-background text-foreground">💰 Wallet: Highest Balance</option>
+                    <option value="wallet-asc" className="bg-background text-foreground">💰 Wallet: Lowest Balance</option>
+                    <option value="orders-desc" className="bg-background text-foreground">📦 Orders: Most Orders</option>
+                    <option value="orders-asc" className="bg-background text-foreground">📦 Orders: Fewest Orders</option>
+                    <option value="age-asc" className="bg-background text-foreground">🎂 Age: Youngest First</option>
+                    <option value="age-desc" className="bg-background text-foreground">🎂 Age: Oldest First</option>
+                  </select>
+                </div>
+
+                {/* Gender Filter */}
+                <div className="flex items-center gap-1.5 bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 px-3 py-1.5 rounded-xl">
+                  <Users className="w-3.5 h-3.5 text-accent" />
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Gender:</span>
+                  <select
+                    value={customerGenderFilter}
+                    onChange={(e) => setCustomerGenderFilter(e.target.value)}
+                    className="bg-transparent text-foreground text-xs font-medium focus:outline-none cursor-pointer pr-2"
+                  >
+                    <option value="all" className="bg-background text-foreground">All Genders</option>
+                    <option value="Male" className="bg-background text-foreground">Male</option>
+                    <option value="Female" className="bg-background text-foreground">Female</option>
+                    <option value="Other" className="bg-background text-foreground">Other</option>
+                  </select>
+                </div>
+
+                {/* Age Filter */}
+                <div className="flex items-center gap-1.5 bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 px-3 py-1.5 rounded-xl">
+                  <User className="w-3.5 h-3.5 text-accent" />
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Age:</span>
+                  <select
+                    value={customerAgeFilter}
+                    onChange={(e) => setCustomerAgeFilter(e.target.value)}
+                    className="bg-transparent text-foreground text-xs font-medium focus:outline-none cursor-pointer pr-2"
+                  >
+                    <option value="all" className="bg-background text-foreground">All Ages</option>
+                    <option value="under25" className="bg-background text-foreground">Under 25</option>
+                    <option value="25-35" className="bg-background text-foreground">25 – 35 yrs</option>
+                    <option value="36-50" className="bg-background text-foreground">36 – 50 yrs</option>
+                    <option value="above50" className="bg-background text-foreground">50+ yrs</option>
+                  </select>
+                </div>
+
+                {/* Status Filter */}
+                <div className="flex items-center gap-1.5 bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 px-3 py-1.5 rounded-xl">
+                  <ShieldCheck className="w-3.5 h-3.5 text-accent" />
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Status:</span>
+                  <select
+                    value={customerStatusFilter}
+                    onChange={(e) => setCustomerStatusFilter(e.target.value)}
+                    className="bg-transparent text-foreground text-xs font-medium focus:outline-none cursor-pointer pr-2"
+                  >
+                    <option value="all" className="bg-background text-foreground">All Status</option>
+                    <option value="Active" className="bg-background text-foreground">Active</option>
+                    <option value="Suspended" className="bg-background text-foreground">Suspended</option>
+                  </select>
+                </div>
+
+                {/* Reset Button if active */}
+                {(customerSearchQuery || customerGenderFilter !== "all" || customerStatusFilter !== "all" || customerAgeFilter !== "all" || customerSortBy !== "created-desc") && (
+                  <button
+                    onClick={() => {
+                      setCustomerSearchQuery("");
+                      setCustomerGenderFilter("all");
+                      setCustomerStatusFilter("all");
+                      setCustomerAgeFilter("all");
+                      setCustomerSortBy("created-desc");
+                    }}
+                    className="text-xs text-rose-400 hover:text-rose-300 underline font-semibold flex items-center gap-1 cursor-pointer ml-1"
+                  >
+                    <Undo className="w-3 h-3" /> Reset
+                  </button>
+                )}
+              </div>
+
+              {/* Count Badge */}
+              <div className="text-xs text-muted-foreground font-mono">
+                Showing <strong className="text-accent font-bold">{filteredAndSortedCustomers.length}</strong> of {customersList.length} members
+              </div>
+            </div>
+          </div>
+
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -8899,18 +9389,37 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                   <th className="pb-3">Wallet</th>
                   <th className="pb-3 text-center">Cart & Wishlist</th>
                   <th className="pb-3 text-center">Orders</th>
-                  <th className="pb-3 text-right">Status</th>
+                  <th className="pb-3 text-center">Status</th>
+                  <th className="pb-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-subtle text-sm">
-                {customersList.length === 0 ? (
+                {filteredAndSortedCustomers.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-8 text-center text-muted-foreground text-sm">
-                      No registered user accounts found in the Customers Directory.
+                    <td colSpan={9} className="py-12 text-center text-muted-foreground text-sm space-y-2">
+                      <p>
+                        {customersList.length === 0
+                          ? "No registered user accounts found in the Customers Directory."
+                          : "No customers match the active search and filter criteria."}
+                      </p>
+                      {(customerSearchQuery || customerGenderFilter !== "all" || customerStatusFilter !== "all" || customerAgeFilter !== "all") && (
+                        <button
+                          onClick={() => {
+                            setCustomerSearchQuery("");
+                            setCustomerGenderFilter("all");
+                            setCustomerStatusFilter("all");
+                            setCustomerAgeFilter("all");
+                            setCustomerSortBy("created-desc");
+                          }}
+                          className="editorial-label bg-accent/20 hover:bg-accent/30 text-accent border border-accent/40 px-3 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1 cursor-pointer"
+                        >
+                          <Undo className="w-3 h-3" /> Reset All Filters
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ) : (
-                  customersList.map(c => {
+                  filteredAndSortedCustomers.map(c => {
                     const bal = state.wallets[c.id] ?? c.walletBalance ?? 0;
                     const orderCount = state.orders[c.id]?.length ?? (c as any).orders?.length ?? 0;
                     const cartCount = (c.cart || []).length;
@@ -8921,7 +9430,8 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                         <td className="py-4">
                           <button
                             onClick={() => { setSelectedCustomerDetails(c); setDossierTab("details"); }}
-                            className="font-mono text-xs text-accent hover:underline text-left cursor-pointer font-bold"
+                            className="font-mono text-xs text-accent hover:underline text-left cursor-pointer font-bold block"
+                            title="Click to view customer dossier"
                           >
                             {c.id}
                           </button>
@@ -8931,7 +9441,7 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             <img
                               src={c.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent((c.firstName || "") + (c.lastName || ""))}`}
                               alt=""
-                              className="w-7 h-7 rounded-full bg-surface border border-white/10 shrink-0"
+                              className="w-7 h-7 rounded-full bg-surface border border-white/10 shrink-0 object-cover"
                             />
                             <div>
                               <div className="font-semibold text-foreground">{c.firstName} {c.lastName}</div>
@@ -8947,8 +9457,24 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                           <div>{c.gender || "—"} {c.age ? `· ${c.age} yrs` : ""}</div>
                           <div className="text-[10px] text-muted-foreground">{c.country || "India"}</div>
                         </td>
-                        <td className="py-4 font-serif font-bold text-accent">
-                          ₹{bal.toLocaleString()}
+                        <td className="py-4">
+                          <div className="flex items-center gap-2">
+                            <span className="font-serif font-bold text-accent text-sm">
+                              ₹{bal.toLocaleString()}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCreditModalCustomer(c);
+                                setCreditAmountInput("");
+                                setCreditMessageInput("");
+                              }}
+                              className="p-1 rounded-md hover:bg-accent/20 text-accent transition-colors cursor-pointer"
+                              title="Quick Credit Wallet"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </td>
                         <td className="py-4 text-center">
                           <div className="inline-flex items-center gap-2 text-xs font-mono">
@@ -8965,8 +9491,32 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             {orderCount}
                           </span>
                         </td>
-                        <td className="py-4 text-right">
+                        <td className="py-4 text-center">
                           <StatusChip status={c.status || "Active"} tone={c.status === "Active" ? "success" : "danger"} />
+                        </td>
+                        <td className="py-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCreditModalCustomer(c);
+                                setCreditAmountInput("");
+                                setCreditMessageInput("");
+                              }}
+                              className="editorial-label bg-accent/15 hover:bg-accent/30 text-accent border border-accent/30 px-2.5 py-1 rounded-full text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer transition-colors shadow-sm"
+                              title="Credit ReeVibes Wallet"
+                            >
+                              <IndianRupee className="w-3 h-3" /> Credit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setSelectedCustomerDetails(c); setDossierTab("details"); }}
+                              className="editorial-label bg-white/5 hover:bg-white/15 text-foreground/80 hover:text-foreground border border-white/10 px-2 py-1 rounded-full text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors"
+                              title="View Customer Dossier"
+                            >
+                              <Eye className="w-3 h-3 text-muted-foreground" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );

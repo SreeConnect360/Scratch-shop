@@ -20,6 +20,7 @@ export interface CustomerAccount {
   ratings: any[];
   status: "Active" | "Suspended" | "Pending";
   roles: string[];
+  notifications?: any[];
   lastLogin?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -63,6 +64,7 @@ export function mapSupabaseRowToCustomerAccount(row: any): CustomerAccount {
   let parsedOrders = safeParseJson<any[]>(row.orders, []);
   let parsedReviews = safeParseJson<any[]>(row.reviews, []);
   let parsedRatings = safeParseJson<any[]>(row.ratings, []);
+  let parsedNotifications = safeParseJson<any[]>(row.notifications, []);
 
   // Handle double-encoded JSON if strings are nested
   if (Array.isArray(parsedAddresses) && typeof parsedAddresses[0] === "string") {
@@ -92,6 +94,7 @@ export function mapSupabaseRowToCustomerAccount(row: any): CustomerAccount {
     orders: Array.isArray(parsedOrders) ? parsedOrders : [],
     reviews: Array.isArray(parsedReviews) ? parsedReviews : [],
     ratings: Array.isArray(parsedRatings) ? parsedRatings : [],
+    notifications: Array.isArray(parsedNotifications) ? parsedNotifications : [],
     status: (row.status as any) || "Active",
     roles: row.roles ? (typeof row.roles === "string" ? row.roles.split(",").map((r: string) => r.trim()) : row.roles) : ["General"],
     lastLogin: row.last_login ? new Date(row.last_login).toLocaleString() : undefined,
@@ -123,6 +126,7 @@ export function mapCustomerAccountToSupabaseRow(account: Partial<CustomerAccount
   if (account.orders !== undefined) row.orders = account.orders;
   if (account.reviews !== undefined) row.reviews = account.reviews;
   if (account.ratings !== undefined) row.ratings = account.ratings;
+  if (account.notifications !== undefined) row.notifications = account.notifications;
   if (account.status !== undefined) row.status = account.status;
   if (account.roles !== undefined) {
     row.roles = Array.isArray(account.roles) ? account.roles.join(",") : account.roles;
@@ -614,7 +618,7 @@ export async function fetchUserWishlistFromSupabase(userId: string): Promise<str
 /**
  * Credits wallet balance for a user in Supabase customer_accounts table.
  */
-export async function creditCustomerWalletInSupabase(userId: string, addedAmount: number): Promise<number | null> {
+export async function creditCustomerWalletInSupabase(userId: string, addedAmount: number, notification?: any): Promise<number | null> {
   if (!userId || addedAmount <= 0) return null;
   try {
     // 1. Fetch current account to get fresh balance
@@ -622,8 +626,14 @@ export async function creditCustomerWalletInSupabase(userId: string, addedAmount
     const prevBal = current ? (current.walletBalance || 0) : 0;
     const nextBal = prevBal + addedAmount;
 
-    // 2. Patch customer_accounts
-    const success = await patchCustomerAccountInSupabase(userId, { walletBalance: nextBal });
+    // 2. Patch customer_accounts (balance and notification)
+    const patchPayload: Record<string, any> = { walletBalance: nextBal };
+    if (notification) {
+      const existingNotifs = Array.isArray(current?.notifications) ? current.notifications : [];
+      patchPayload.notifications = [notification, ...existingNotifs];
+    }
+
+    const success = await patchCustomerAccountInSupabase(userId, patchPayload);
     if (success) {
       return nextBal;
     }

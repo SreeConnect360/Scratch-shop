@@ -867,7 +867,7 @@ type Ctx = {
   updateReturnDetails: (returnId: string, patch: Partial<ReturnRequest>) => void;
   suspendCustomer: (id: string) => void;
   reactivateCustomer: (id: string) => void;
-  addWalletCredit: (userId: string, amount: number) => Promise<void>;
+  addWalletCredit: (userId: string, amount: number, customMessage?: string) => Promise<void>;
   moderateReview: (productId: string, reviewId: string, action: "approve" | "hide") => void;
   deleteReview: (productId: string, reviewId: string) => void;
   addReview: (productId: string, r: Omit<ProductReview, "id" | "status" | "date"> & { userId?: string; userEmail?: string; orderId?: string; productName?: string; productImage?: string }) => void;
@@ -1107,6 +1107,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       let extraAddresses: Record<string, any[]> = {};
       let extraWishlists: Record<string, string[]> = {};
       let extraWallets: Record<string, number> = {};
+      let extraUserNotifs: Record<string, Notif[]> = {};
 
       if (supabaseCustomers.length > 0) {
         const sortedCustomers = sortCustomerAccountsById(supabaseCustomers);
@@ -1114,6 +1115,9 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           extraAddresses[c.id] = c.addresses || [];
           extraWishlists[c.id] = c.wishlist || [];
           extraWallets[c.id] = c.walletBalance ?? 0;
+          if (Array.isArray(c.notifications) && c.notifications.length > 0) {
+            extraUserNotifs[c.id] = c.notifications;
+          }
 
           return {
             id: c.id,
@@ -1511,6 +1515,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           shopWishlist: nextWishlist,
           wishlist: nextWishlist,
           wallets: { ...s.wallets, ...extraWallets },
+          userNotifications: { ...extraUserNotifs, ...s.userNotifications },
           shopCart: nextShopCart,
           cart: nextShopCart,
           homepageLayout: (isValidLayoutObj(mappedPubLayout) ? mappedPubLayout : null) || (isValidLayoutObj(s.homepageLayout) ? s.homepageLayout : null) || (isValidLayoutObj(mappedDraftLayout) ? mappedDraftLayout : null) || DEFAULT_HOMEPAGE_LAYOUT,
@@ -3557,7 +3562,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       }).catch(err => console.error("Failed to sync customer reactivation to backend:", err));
       notifyBroadcastSync();
     },
-    addWalletCredit: async (userId, amount) => {
+    addWalletCredit: async (userId, amount, customMessage) => {
       const numAmount = Number(amount);
       if (isNaN(numAmount) || numAmount <= 0) return;
 
@@ -3565,23 +3570,27 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       const currentBal = currentAccount?.walletBalance ?? state.wallets[userId] ?? 0;
       const nextBal = currentBal + numAmount;
 
-      // Update Supabase customer_accounts
-      await creditCustomerWalletInSupabase(userId, numAmount).catch(err => console.error("Failed to sync wallet credit to Supabase:", err));
-      fetch(`${BACKEND_URL}/api/customers/${userId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ walletBalance: nextBal })
-      }).catch(() => null);
+      const notifBody = customMessage && customMessage.trim()
+        ? customMessage.trim()
+        : `ReeVibes Wallet: ₹${numAmount.toLocaleString()} has been credited to your wallet.`;
 
       const notifItem: Notif = {
         id: `n-${Date.now()}`,
         icon: "wallet",
         title: "Wallet Credited",
-        body: `₹${numAmount.toLocaleString()} credited to your ReeVibes wallet`,
+        body: notifBody,
         time: "Just now",
         unread: true,
         createdAt: Date.now()
       };
+
+      // Update Supabase customer_accounts (balance and notification)
+      await creditCustomerWalletInSupabase(userId, numAmount, notifItem).catch(err => console.error("Failed to sync wallet credit to Supabase:", err));
+      fetch(`${BACKEND_URL}/api/customers/${userId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ walletBalance: nextBal })
+      }).catch(() => null);
 
       setState(s => {
         const existingUserNotifs = s.userNotifications[userId] || [];
