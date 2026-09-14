@@ -149,14 +149,47 @@ function parseProductInfo(text: string) {
 }
 
 function getProductDisplaySections(product: any): ProductSection[] {
+  let sections: ProductSection[] = [];
   if (product?.productInfo && typeof product.productInfo === "string" && product.productInfo.trim()) {
     const parsed = parseProductInfoMarkup(product.productInfo);
-    if (parsed.length > 0) return parsed;
+    if (parsed.length > 0) sections = parsed;
+  } else if (product?.productSections && Array.isArray(product.productSections) && product.productSections.length > 0) {
+    sections = product.productSections;
   }
-  if (product?.productSections && Array.isArray(product.productSections) && product.productSections.length > 0) {
-    return product.productSections;
+
+  // If material/fabric is explicitly specified, ensure it reflects in the display sections
+  const activeMaterial = product?.material || product?.fabric || product?.fabricMaterial;
+  if (activeMaterial) {
+    if (sections.length === 0) {
+      sections = [
+        {
+          id: "sec-details",
+          title: "Product Details & Craftsmanship",
+          subtitle: "Specifications & Material Highlights",
+          rows: [
+            { label: "Material Composition", value: activeMaterial },
+            { label: "Fabric Type", value: product?.fabric || activeMaterial },
+            { label: "Care Instructions", value: "Dry clean or gentle hand wash recommended" },
+            { label: "Country of Origin", value: "India" },
+            { label: "Manufacturer", value: `${product?.house || "Atelier ReeVibes"} Crafts Ltd.` },
+            { label: "SKU / Reference", value: product?.sku || `SKU-${product?.id}` },
+          ],
+        },
+      ];
+    } else {
+      sections = sections.map((sec) => ({
+        ...sec,
+        rows: (sec.rows || []).map((row) => {
+          if (row.label && /material|fabric/i.test(row.label)) {
+            return { ...row, value: activeMaterial };
+          }
+          return row;
+        }),
+      }));
+    }
   }
-  return [];
+
+  return sections;
 }
 
 function renderKeyValueRow(key: string, value: string) {
@@ -290,6 +323,7 @@ function ProductDetail() {
   const [couponsExpanded, setCouponsExpanded] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
+  const [isDescExpanded, setIsDescExpanded] = useState(false);
 
   // Size details & stocks
   const availableSizes = product?.sizes || ["S", "M", "L", "XL"];
@@ -297,7 +331,7 @@ function ProductDetail() {
 
   const displaySections = useMemo(
     () => getProductDisplaySections(product),
-    [product?.id, product?.productInfo, product?.productSections]
+    [product?.id, product?.productInfo, product?.productSections, product?.material, product?.fabric]
   );
 
   const [openSectionIds, setOpenSectionIds] = useState<string[]>([]);
@@ -525,19 +559,47 @@ function ProductDetail() {
   const currentSizeStock = stockPerSize[selectedSize] ?? 8;
   const totalStock = Object.values(stockPerSize).reduce((acc: number, cur: any) => acc + (Number(cur) || 0), 0);
 
-  // Reviews & Rating overrides
+  // Reviews & Rating overrides with additive calculation
   const reviews = state.productReviews[product.id] || [];
   const approvedReviews = reviews.filter((r) => r.status === "Approved");
 
-  const effectiveRating = product.customRating !== undefined && product.customRating !== null && product.customRating > 0
-    ? Number(product.customRating).toFixed(1)
-    : (approvedReviews.length > 0
-        ? (approvedReviews.reduce((sum, r) => sum + r.rating, 0) / approvedReviews.length).toFixed(1)
-        : null);
+  const hasCustomRating =
+    product.customRating !== undefined &&
+    product.customRating !== null &&
+    String(product.customRating).toLowerCase() !== "none" &&
+    Number(product.customRating) > 0;
 
-  const effectiveReviewCount = product.customReviewCount !== undefined && product.customReviewCount !== null && product.customReviewCount > 0
-    ? Number(product.customReviewCount)
-    : (approvedReviews.length > 0 ? approvedReviews.length : null);
+  const hasCustomReviewCount =
+    product.customReviewCount !== undefined &&
+    product.customReviewCount !== null &&
+    String(product.customReviewCount).toLowerCase() !== "none" &&
+    Number(product.customReviewCount) > 0;
+
+  const realReviewCount = approvedReviews.length;
+  const realReviewSum = approvedReviews.reduce((sum, r) => sum + (Number(r.rating) || 0), 0);
+
+  // 1. Review count is additive: custom review count + genuine approved customer reviews
+  const effectiveReviewCount: number | null =
+    hasCustomReviewCount || realReviewCount > 0
+      ? (hasCustomReviewCount ? Number(product.customReviewCount) : 0) + realReviewCount
+      : null;
+
+  // 2. Rating is weighted addition of custom rating + genuine customer ratings
+  const effectiveRating: string | null = (() => {
+    if (hasCustomRating && realReviewCount > 0) {
+      const customWeight =
+        Number(product.customRating) * (hasCustomReviewCount ? Number(product.customReviewCount) : 1);
+      const totalScore = customWeight + realReviewSum;
+      const totalCount =
+        (hasCustomReviewCount ? Number(product.customReviewCount) : 1) + realReviewCount;
+      return (totalScore / totalCount).toFixed(1);
+    } else if (hasCustomRating) {
+      return Number(product.customRating).toFixed(1);
+    } else if (realReviewCount > 0) {
+      return (realReviewSum / realReviewCount).toFixed(1);
+    }
+    return null;
+  })();
 
   // Actions
   const handleWishlistToggle = () => {
@@ -1062,6 +1124,31 @@ function ProductDetail() {
               {product.name}
             </h1>
 
+            {/* Product Description (Below Title, Expandable if long, admin choice) */}
+            {product.description && product.description.trim() && (
+              <div className="text-xs sm:text-sm text-foreground/80 leading-relaxed font-sans">
+                {(() => {
+                  const desc = product.description.trim();
+                  const isLong = desc.length > 160;
+                  if (!isLong) {
+                    return <p className="whitespace-pre-line">{desc}</p>;
+                  }
+                  return (
+                    <p className="whitespace-pre-line">
+                      {isDescExpanded ? desc : `${desc.slice(0, 150)}... `}
+                      <button
+                        type="button"
+                        onClick={() => setIsDescExpanded(!isDescExpanded)}
+                        className="font-bold text-[#D4AF37] hover:underline cursor-pointer inline-flex items-center gap-0.5 ml-1"
+                      >
+                        {isDescExpanded ? "Show Less" : "More"}
+                      </button>
+                    </p>
+                  );
+                })()}
+              </div>
+            )}
+
             {/* Rating Stars & Customer Reviews (Auto-hidden if empty/unconfigured) */}
             {(effectiveRating || effectiveReviewCount) && (
               <div className="flex items-center gap-2 text-xs sm:text-sm">
@@ -1464,14 +1551,16 @@ function ProductDetail() {
             <div className="h-px w-full bg-border/40" />
 
             {/* Atelier Overview Section */}
-            {(product.overviewTitle || product.description) && (
+            {(product.overviewTitle || product.details || product.overviewDescription || product.description) && (
               <div className="flex flex-col gap-2">
-                <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                <span className="text-xs font-bold uppercase tracking-widest text-[#D4AF37]">
                   {product.overviewTitle || "ATELIER OVERVIEW"}
                 </span>
                 <p className="text-xs sm:text-sm text-foreground/90 leading-relaxed font-sans">
-                  {product.description ||
-                    "A premium quality daily-wear classic cotton t-shirt with breathable fabric. Crafted for elegant drape and luxury everyday comfort."}
+                  {product.details ||
+                    product.overviewDescription ||
+                    product.description ||
+                    "A premium quality daily-wear classic piece with breathable fabric. Crafted for elegant drape and luxury everyday comfort."}
                 </p>
               </div>
             )}

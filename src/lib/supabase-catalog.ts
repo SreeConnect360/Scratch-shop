@@ -133,8 +133,12 @@ export function mapSupabaseRowToProduct(row: any): Product {
     isTrending: Boolean(row.is_trending),
     isBestSeller: Boolean(row.is_best_seller),
     isRecommended: Boolean(row.is_recommended),
-    customRating: row.custom_rating !== undefined ? Number(row.custom_rating) : 4.8,
-    customReviewCount: row.custom_review_count !== undefined ? Number(row.custom_review_count) : 14,
+    customRating: (row.custom_rating !== undefined && row.custom_rating !== null && String(row.custom_rating).trim() !== "" && String(row.custom_rating).toLowerCase() !== "none")
+      ? Number(row.custom_rating)
+      : undefined,
+    customReviewCount: (row.custom_review_count !== undefined && row.custom_review_count !== null && String(row.custom_review_count).trim() !== "" && String(row.custom_review_count).toLowerCase() !== "none")
+      ? Number(row.custom_review_count)
+      : undefined,
     rating: row.rating !== undefined ? Number(row.rating) : 5.0,
     reviewCount: row.review_count !== undefined ? Number(row.review_count) : 0,
     seoTitle: row.seo_title || "",
@@ -398,8 +402,12 @@ export async function upsertCatalogProductToSupabase(p: any): Promise<{ ok: bool
       is_trending: Boolean(p.isTrending),
       is_best_seller: Boolean(p.isBestSeller),
       is_recommended: Boolean(p.isRecommended),
-      custom_rating: p.customRating !== undefined ? Number(p.customRating) : 4.8,
-      custom_review_count: p.customReviewCount !== undefined ? Number(p.customReviewCount) : 14,
+      custom_rating: (p.customRating !== undefined && p.customRating !== null && String(p.customRating).trim() !== "" && String(p.customRating).toLowerCase() !== "none")
+        ? Number(p.customRating)
+        : null,
+      custom_review_count: (p.customReviewCount !== undefined && p.customReviewCount !== null && String(p.customReviewCount).trim() !== "" && String(p.customReviewCount).toLowerCase() !== "none")
+        ? Number(p.customReviewCount)
+        : null,
       rating: p.rating !== undefined ? Number(p.rating) : 5.0,
       review_count: p.reviewCount !== undefined ? Number(p.reviewCount) : 0,
       discount_limit_buyers: p.discountLimitBuyers || null,

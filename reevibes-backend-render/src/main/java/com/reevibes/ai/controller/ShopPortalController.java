@@ -2406,8 +2406,22 @@ public class ShopPortalController {
             if (body.containsKey("isFeatured")) catalogItem.setIsFeatured(safeParseBoolean(body.get("isFeatured")));
             if (body.containsKey("isRecommended")) catalogItem.setIsRecommended(safeParseBoolean(body.get("isRecommended")));
 
-            if (body.containsKey("customRating") && body.get("customRating") != null) catalogItem.setCustomRating(safeParseDouble(body.get("customRating")));
-            if (body.containsKey("customReviewCount") && body.get("customReviewCount") != null) catalogItem.setCustomReviewCount(safeParseInt(body.get("customReviewCount")));
+            if (body.containsKey("customRating")) {
+                Object cr = body.get("customRating");
+                if (cr != null && !"null".equals(String.valueOf(cr)) && !"".equals(String.valueOf(cr)) && !"none".equalsIgnoreCase(String.valueOf(cr))) {
+                    catalogItem.setCustomRating(safeParseDouble(cr));
+                } else {
+                    catalogItem.setCustomRating(null);
+                }
+            }
+            if (body.containsKey("customReviewCount")) {
+                Object crc = body.get("customReviewCount");
+                if (crc != null && !"null".equals(String.valueOf(crc)) && !"".equals(String.valueOf(crc)) && !"none".equalsIgnoreCase(String.valueOf(crc))) {
+                    catalogItem.setCustomReviewCount(safeParseInt(crc));
+                } else {
+                    catalogItem.setCustomReviewCount(null);
+                }
+            }
             if (body.containsKey("rating") && body.get("rating") != null) catalogItem.setRating(safeParseDouble(body.get("rating")));
             if (body.containsKey("reviewCount") && body.get("reviewCount") != null) catalogItem.setReviewCount(safeParseInt(body.get("reviewCount")));
             if (body.containsKey("stockQuantity") && body.get("stockQuantity") != null) catalogItem.setStockQuantity(safeParseInt(body.get("stockQuantity")));
@@ -2508,8 +2522,22 @@ public class ShopPortalController {
         if (body.containsKey("seoDescription")) product.setSeoDescription(safeParseString(body.get("seoDescription")));
         if (body.containsKey("seoKeywords")) product.setSeoKeywords(safeParseString(body.get("seoKeywords")));
 
-        if (body.containsKey("customRating") && body.get("customRating") != null) product.setCustomRating(safeParseDouble(body.get("customRating")));
-        if (body.containsKey("customReviewCount") && body.get("customReviewCount") != null) product.setCustomReviewCount(safeParseInt(body.get("customReviewCount")));
+        if (body.containsKey("customRating")) {
+            Object cr = body.get("customRating");
+            if (cr != null && !"null".equals(String.valueOf(cr)) && !"".equals(String.valueOf(cr)) && !"none".equalsIgnoreCase(String.valueOf(cr))) {
+                product.setCustomRating(safeParseDouble(cr));
+            } else {
+                product.setCustomRating(null);
+            }
+        }
+        if (body.containsKey("customReviewCount")) {
+            Object crc = body.get("customReviewCount");
+            if (crc != null && !"null".equals(String.valueOf(crc)) && !"".equals(String.valueOf(crc)) && !"none".equalsIgnoreCase(String.valueOf(crc))) {
+                product.setCustomReviewCount(safeParseInt(crc));
+            } else {
+                product.setCustomReviewCount(null);
+            }
+        }
         if (body.containsKey("rating") && body.get("rating") != null) product.setRating(safeParseDouble(body.get("rating")));
         if (body.containsKey("reviewCount") && body.get("reviewCount") != null) product.setReviewCount(safeParseInt(body.get("reviewCount")));
         if (body.containsKey("stockQuantity") && body.get("stockQuantity") != null) product.setStockQuantity(safeParseInt(body.get("stockQuantity")));
@@ -2632,8 +2660,22 @@ public class ShopPortalController {
         if (body.containsKey("seoDescription")) product.setSeoDescription(safeParseString(body.get("seoDescription")));
         if (body.containsKey("seoKeywords")) product.setSeoKeywords(safeParseString(body.get("seoKeywords")));
 
-        if (body.containsKey("customRating") && body.get("customRating") != null) product.setCustomRating(safeParseDouble(body.get("customRating")));
-        if (body.containsKey("customReviewCount") && body.get("customReviewCount") != null) product.setCustomReviewCount(safeParseInt(body.get("customReviewCount")));
+        if (body.containsKey("customRating")) {
+            Object cr = body.get("customRating");
+            if (cr != null && !"null".equals(String.valueOf(cr)) && !"".equals(String.valueOf(cr)) && !"none".equalsIgnoreCase(String.valueOf(cr))) {
+                product.setCustomRating(safeParseDouble(cr));
+            } else {
+                product.setCustomRating(null);
+            }
+        }
+        if (body.containsKey("customReviewCount")) {
+            Object crc = body.get("customReviewCount");
+            if (crc != null && !"null".equals(String.valueOf(crc)) && !"".equals(String.valueOf(crc)) && !"none".equalsIgnoreCase(String.valueOf(crc))) {
+                product.setCustomReviewCount(safeParseInt(crc));
+            } else {
+                product.setCustomReviewCount(null);
+            }
+        }
         if (body.containsKey("rating") && body.get("rating") != null) product.setRating(safeParseDouble(body.get("rating")));
         if (body.containsKey("reviewCount") && body.get("reviewCount") != null) product.setReviewCount(safeParseInt(body.get("reviewCount")));
         if (body.containsKey("stockQuantity") && body.get("stockQuantity") != null) product.setStockQuantity(safeParseInt(body.get("stockQuantity")));

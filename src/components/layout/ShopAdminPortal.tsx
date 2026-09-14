@@ -1069,17 +1069,19 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
       sku: p.sku || `SKU-${Math.floor(10000 + Math.random()*90000)}`,
       originalPrice: p.originalPrice || p.price || "",
       description: p.description || "",
-      overviewTitle: p.overviewTitle || "ATELIER OVERVIEW",
-      customRating: p.customRating !== undefined ? p.customRating : 4.8,
-      customReviewCount: p.customReviewCount !== undefined ? p.customReviewCount : 14,
-      material: p.material || "",
+      overviewTitle: p.overviewTitle !== undefined ? p.overviewTitle : "ATELIER OVERVIEW",
+      details: p.details || p.overviewDescription || "",
+      customRating: (p.customRating !== undefined && p.customRating !== null && String(p.customRating).toLowerCase() !== "none") ? p.customRating : null,
+      customReviewCount: (p.customReviewCount !== undefined && p.customReviewCount !== null && String(p.customReviewCount).toLowerCase() !== "none") ? p.customReviewCount : null,
+      material: p.material || p.fabric || p.fabricMaterial || "",
+      fabric: p.fabric || p.material || p.fabricMaterial || "",
+      fabricMaterial: p.material || p.fabric || p.fabricMaterial || "",
       color: p.color || "",
       images: Array.isArray(p.images) ? [...p.images] : (p.image ? [p.image] : []),
       discountLimitBuyers: p.discountLimitBuyers,
       discountExpiryDate: p.discountExpiryDate || "",
       discountBuyersCount: p.discountBuyersCount || 0,
       type: p.type || p.category || "",
-      fabric: p.fabric || "",
       collections: p.collections || "",
       visibility: p.visibility || "VISIBLE",
       seoTitle: p.seoTitle || "",
@@ -6868,11 +6870,15 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                         </div>
 
                         <div className="space-y-1">
-                          <label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Description</label>
+                          <div className="flex items-center justify-between">
+                            <label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Product Description</label>
+                            <span className="text-[9px] text-[#D4AF37] font-medium">Shows directly below title on product detail page</span>
+                          </div>
                           <textarea
                             rows={3}
-                            className="w-full bg-surface border border-black/10 dark:border-white/10 p-2 text-xs text-foreground rounded-lg outline-none focus:border-accent resize-none leading-normal"
-                            value={currentItem.description}
+                            placeholder="Enter product description (leave empty if not needed)..."
+                            className="w-full bg-surface border border-black/10 dark:border-white/10 p-2 text-xs text-foreground rounded-lg outline-none focus:border-accent resize-y leading-normal"
+                            value={currentItem.description || ""}
                             onChange={e => updateImportedProductField("description", e.target.value)}
                           />
                         </div>
@@ -6915,11 +6921,24 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                             <label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Fabric / Material</label>
                             <input
                               type="text"
+                              placeholder="e.g. 100% Organic Cotton, Linen, Silk"
                               className="w-full bg-surface border border-black/10 dark:border-white/10 p-2 text-xs text-foreground rounded-lg outline-none focus:border-accent"
-                              value={currentItem.material || ""}
+                              value={currentItem.material || currentItem.fabric || currentItem.fabricMaterial || ""}
                               onChange={e => {
-                                updateImportedProductField("material", e.target.value);
-                                updateImportedProductField("fabric", e.target.value);
+                                const val = e.target.value;
+                                updateImportedProductField("material", val);
+                                updateImportedProductField("fabric", val);
+                                updateImportedProductField("fabricMaterial", val);
+                                if (currentItem.productInfo && typeof currentItem.productInfo === "string") {
+                                  let updatedInfo = currentItem.productInfo;
+                                  if (/\*Material Composition\s*:[^*]+\*/i.test(updatedInfo)) {
+                                    updatedInfo = updatedInfo.replace(/\*Material Composition\s*:[^*]+\*/gi, `*Material Composition : ${val || "Cotton"}*`);
+                                  }
+                                  if (/\*Fabric Type\s*:[^*]+\*/i.test(updatedInfo)) {
+                                    updatedInfo = updatedInfo.replace(/\*Fabric Type\s*:[^*]+\*/gi, `*Fabric Type : ${val || "Apparel"}*`);
+                                  }
+                                  updateImportedProductField("productInfo", updatedInfo);
+                                }
                               }}
                             />
                           </div>
@@ -6927,46 +6946,96 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
 
                         {/* Ratings & Customer Reviews Controls */}
                         <div className="grid grid-cols-2 gap-3 pt-2 border-t border-black/10 dark:border-white/10">
-                          <div className="space-y-1">
+                          <div className="space-y-1.5">
                             <div className="flex items-center justify-between">
-                              <label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Product Rating (0.0 - 5.0)</label>
-                              <span className="text-xs font-mono font-bold text-amber-400">
-                                {currentItem.customRating !== undefined && currentItem.customRating !== null ? Number(currentItem.customRating).toFixed(1) : "None"}
-                              </span>
+                              <label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Product Rating</label>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const isNone = currentItem.customRating === null || currentItem.customRating === undefined || String(currentItem.customRating).toLowerCase() === "none";
+                                    updateImportedProductField("customRating", isNone ? 4.8 : null);
+                                  }}
+                                  className={cn(
+                                    "text-[9px] font-bold px-2 py-0.5 rounded border transition-colors cursor-pointer",
+                                    currentItem.customRating === null || currentItem.customRating === undefined || String(currentItem.customRating).toLowerCase() === "none"
+                                      ? "bg-amber-500/20 border-amber-500/40 text-amber-400"
+                                      : "bg-surface border-white/10 text-muted-foreground hover:text-foreground"
+                                  )}
+                                >
+                                  {currentItem.customRating === null || currentItem.customRating === undefined || String(currentItem.customRating).toLowerCase() === "none" ? "None (Organic)" : "Set None"}
+                                </button>
+                                <span className="text-xs font-mono font-bold text-amber-400">
+                                  {currentItem.customRating !== undefined && currentItem.customRating !== null && String(currentItem.customRating).toLowerCase() !== "none"
+                                    ? Number(currentItem.customRating).toFixed(1)
+                                    : "None"}
+                                </span>
+                              </div>
                             </div>
-                            <input
-                              type="range"
-                              min="0"
-                              max="5"
-                              step="0.1"
-                              className="w-full accent-amber-400 cursor-pointer h-2 bg-surface rounded-lg"
-                              value={currentItem.customRating ?? 4.8}
-                              onChange={e => updateImportedProductField("customRating", parseFloat(e.target.value))}
-                            />
-                            <div className="flex items-center gap-1 text-amber-400 pt-0.5">
-                              {[...Array(5)].map((_, i) => {
-                                const score = currentItem.customRating ?? 4.8;
-                                const fill = i + 1 <= score ? 1 : (i < score ? 0.5 : 0);
-                                return (
-                                  <Star
-                                    key={i}
-                                    className={cn("w-3.5 h-3.5 text-amber-400", fill > 0 ? "fill-amber-400" : "fill-transparent")}
-                                  />
-                                );
-                              })}
-                            </div>
+                            {currentItem.customRating !== null && currentItem.customRating !== undefined && String(currentItem.customRating).toLowerCase() !== "none" ? (
+                              <>
+                                <input
+                                  type="range"
+                                  min="0.5"
+                                  max="5"
+                                  step="0.1"
+                                  className="w-full accent-amber-400 cursor-pointer h-2 bg-surface rounded-lg"
+                                  value={Number(currentItem.customRating) || 4.8}
+                                  onChange={e => updateImportedProductField("customRating", parseFloat(e.target.value))}
+                                />
+                                <div className="flex items-center gap-1 text-amber-400 pt-0.5">
+                                  {[...Array(5)].map((_, i) => {
+                                    const score = Number(currentItem.customRating) || 4.8;
+                                    const fill = i + 1 <= score ? 1 : (i < score ? 0.5 : 0);
+                                    return (
+                                      <Star
+                                        key={i}
+                                        className={cn("w-3.5 h-3.5 text-amber-400", fill > 0 ? "fill-amber-400" : "fill-transparent")}
+                                      />
+                                    );
+                                  })}
+                                </div>
+                              </>
+                            ) : (
+                              <p className="text-[10px] text-muted-foreground italic pt-1">
+                                Real customer ratings only (no boost applied).
+                              </p>
+                            )}
                           </div>
 
-                          <div className="space-y-1">
-                            <label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Customer Reviews Count</label>
-                            <input
-                              type="number"
-                              min="0"
-                              placeholder="e.g. 14"
-                              className="w-full bg-surface border border-black/10 dark:border-white/10 p-2 text-xs text-foreground rounded-lg outline-none font-mono focus:border-accent"
-                              value={currentItem.customReviewCount ?? ""}
-                              onChange={e => updateImportedProductField("customReviewCount", e.target.value === "" ? undefined : parseInt(e.target.value) || 0)}
-                            />
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Reviews Count</label>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const isNone = currentItem.customReviewCount === null || currentItem.customReviewCount === undefined || String(currentItem.customReviewCount).toLowerCase() === "none";
+                                  updateImportedProductField("customReviewCount", isNone ? 14 : null);
+                                }}
+                                className={cn(
+                                  "text-[9px] font-bold px-2 py-0.5 rounded border transition-colors cursor-pointer",
+                                  currentItem.customReviewCount === null || currentItem.customReviewCount === undefined || String(currentItem.customReviewCount).toLowerCase() === "none"
+                                    ? "bg-amber-500/20 border-amber-500/40 text-amber-400"
+                                    : "bg-surface border-white/10 text-muted-foreground hover:text-foreground"
+                                )}
+                              >
+                                {currentItem.customReviewCount === null || currentItem.customReviewCount === undefined || String(currentItem.customReviewCount).toLowerCase() === "none" ? "None (Organic)" : "Set None"}
+                              </button>
+                            </div>
+                            {currentItem.customReviewCount !== null && currentItem.customReviewCount !== undefined && String(currentItem.customReviewCount).toLowerCase() !== "none" ? (
+                              <input
+                                type="number"
+                                min="0"
+                                placeholder="e.g. 14"
+                                className="w-full bg-surface border border-black/10 dark:border-white/10 p-2 text-xs text-foreground rounded-lg outline-none font-mono focus:border-accent"
+                                value={currentItem.customReviewCount ?? ""}
+                                onChange={e => updateImportedProductField("customReviewCount", e.target.value === "" ? null : parseInt(e.target.value) || 0)}
+                              />
+                            ) : (
+                              <p className="text-[10px] text-muted-foreground italic pt-1">
+                                Organic buyer reviews only (no boost added).
+                              </p>
+                            )}
                           </div>
                         </div>
 
@@ -6978,18 +7047,21 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                               type="text"
                               placeholder="ATELIER OVERVIEW"
                               className="w-full bg-surface border border-black/10 dark:border-white/10 p-2 text-xs text-foreground rounded-lg outline-none focus:border-accent"
-                              value={currentItem.overviewTitle || "ATELIER OVERVIEW"}
+                              value={currentItem.overviewTitle ?? ""}
                               onChange={e => updateImportedProductField("overviewTitle", e.target.value)}
                             />
                           </div>
                           <div className="space-y-1">
-                            <label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Atelier Overview Description</label>
+                            <label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Atelier Overview Description / Story</label>
                             <textarea
                               rows={2}
-                              placeholder="Relaxed fit linen shirt perfect for summer outings and casual styling."
+                              placeholder="Craftsmanship narrative or atelier story for the overview section..."
                               className="w-full bg-surface border border-black/10 dark:border-white/10 p-2.5 text-xs text-foreground rounded-lg outline-none focus:border-accent resize-y leading-normal font-sans"
-                              value={currentItem.description || ""}
-                              onChange={e => updateImportedProductField("description", e.target.value)}
+                              value={currentItem.details ?? currentItem.overviewDescription ?? ""}
+                              onChange={e => {
+                                updateImportedProductField("details", e.target.value);
+                                updateImportedProductField("overviewDescription", e.target.value);
+                              }}
                             />
                           </div>
                         </div>
@@ -7536,22 +7608,39 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                   )}
                 </div>
 
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
                   {filtered.map((p: any) => {
                     const isChecked = selectedProductIds.includes(String(p.id));
-                    // Check if information is fully complete
-                    // Check if information is fully complete (Description, Images, Material/Fabric, Categories, Product Type, Sizes, Pricing, SEO Details)
-                    const isComplete = !!p.name && !!p.description && !!p.category && !!p.gender && 
-                      (!!p.tag || (p.tags && p.tags.length > 0)) && !!p.color && 
-                      (!!p.material || !!p.fabric) && (p.house || p.brand) && !!p.originalPrice && 
-                      !!p.price && p.sizes && p.sizes.length > 0 && 
-                      ((p.images && p.images.length > 0) || !!p.image) && !!p.sku &&
-                      !!p.type && !!p.seoTitle && !!p.seoDescription && !!p.seoKeywords;
+                    const isComplete =
+                      !!p.name &&
+                      !!p.category &&
+                      !!p.gender &&
+                      (!!p.tag || (p.tags && p.tags.length > 0)) &&
+                      (!!p.material || !!p.fabric) &&
+                      (p.house || p.brand) &&
+                      !!p.price &&
+                      p.sizes &&
+                      p.sizes.length > 0 &&
+                      ((p.images && p.images.length > 0) || !!p.image) &&
+                      !!p.sku;
+
+                    const hasRating =
+                      p.customRating !== undefined &&
+                      p.customRating !== null &&
+                      String(p.customRating).toLowerCase() !== "none" &&
+                      Number(p.customRating) > 0;
+
+                    const isPublished = p.status === "PUBLISHED";
+                    const isVisible = p.visibility !== "HIDDEN";
+                    const fabricInfo = p.material || p.fabric || p.fabricMaterial;
 
                     return (
-                      <div key={p.id} className="liquid-glass liquid-glass-card-hover relative flex flex-col group overflow-hidden border border-white/5 rounded-2xl bg-white/[0.02]">
+                      <div
+                        key={p.id}
+                        className="liquid-glass liquid-glass-card-hover relative flex flex-col group overflow-hidden border border-white/10 rounded-2xl bg-white/[0.02] hover:border-accent/40 transition-all duration-300"
+                      >
                         {/* Checkbox Selector */}
-                        <div className="absolute top-3 left-3 z-20">
+                        <div className="absolute top-2.5 left-2.5 z-20">
                           <input
                             type="checkbox"
                             checked={isChecked}
@@ -7562,83 +7651,158 @@ export function ShopAdminPortal({ tab }: { tab: string }) {
                                 setSelectedProductIds(selectedProductIds.filter(id => id !== String(p.id)));
                               }
                             }}
-                            className="rounded border-white/30 text-accent focus:ring-accent w-4 h-4 bg-zinc-950/80 backdrop-blur cursor-pointer"
+                            className="rounded border-white/30 text-accent focus:ring-accent w-4 h-4 bg-zinc-950/85 backdrop-blur cursor-pointer"
                           />
                         </div>
 
-
-
-                        {/* Color dot indicator (Green = live, Blue = complete but not live, Yellow = incomplete) */}
-                        <div className="absolute top-[15px] right-12 z-20 flex items-center">
-                          {(() => {
-                            let dotColorClass = "bg-yellow-500 shadow-yellow-500/80";
-                            let tooltipTitle = "Product information incomplete";
-                            if (p.status === "PUBLISHED") {
-                              dotColorClass = "bg-emerald-500 shadow-emerald-500/80";
-                              tooltipTitle = "Published live";
-                            } else if (isComplete) {
-                              dotColorClass = "bg-blue-500 shadow-blue-500/80";
-                              tooltipTitle = "Product fully complete but unpublished";
-                            }
-                            return (
-                              <div
-                                title={tooltipTitle}
-                                className={`w-2.5 h-2.5 rounded-full border border-white/20 shadow-md animate-pulse ${dotColorClass}`}
-                              />
-                            );
-                          })()}
+                        {/* Top Right: Status dot & Live badge */}
+                        <div className="absolute top-2.5 right-2.5 z-20 flex items-center gap-1.5">
+                          <span
+                            className={cn(
+                              "text-[8px] font-mono font-bold px-2 py-0.5 rounded-full uppercase tracking-wider backdrop-blur-md border shadow-sm",
+                              isPublished
+                                ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                                : "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                            )}
+                          >
+                            {isPublished ? "Live" : "Draft"}
+                          </span>
+                          <div
+                            title={isPublished ? "Published live" : isComplete ? "Complete but unpublished" : "Incomplete"}
+                            className={cn(
+                              "w-2 h-2 rounded-full border border-white/20 shadow-md",
+                              isPublished
+                                ? "bg-emerald-500 shadow-emerald-500/80"
+                                : isComplete
+                                ? "bg-blue-500 shadow-blue-500/80"
+                                : "bg-yellow-500 shadow-yellow-500/80 animate-pulse"
+                            )}
+                          />
                         </div>
 
-                        <div className="aspect-[3/4] overflow-hidden bg-zinc-950 relative">
-                          <img src={p.image} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                          {p.tag && <span className="absolute bottom-3 left-3 bg-accent/95 text-white text-[9px] uppercase tracking-widest px-2.5 py-0.5">{p.tag}</span>}
+                        {/* Compact Image Container */}
+                        <div className="aspect-[4/5] overflow-hidden bg-zinc-950 relative">
+                          <img
+                            src={p.image}
+                            alt={p.name}
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                          />
+                          {p.tag && (
+                            <span className="absolute bottom-2 left-2 bg-accent/95 text-white text-[8px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-sm backdrop-blur-sm">
+                              {p.tag}
+                            </span>
+                          )}
+                          {p.discount > 0 && (
+                            <span className="absolute bottom-2 right-2 bg-rose-600/95 text-white text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded-sm">
+                              {p.discount}% OFF
+                            </span>
+                          )}
                         </div>
-                        <div className="p-4 flex-1 flex flex-col justify-between space-y-4">
-                          <div>
-                            <div className="flex justify-between items-center text-[10px] text-muted-foreground">
-                              <span>{p.house || p.brand} · {p.category}</span>
-                              <span className="text-accent uppercase font-mono tracking-wider">{p.type || "Product"}</span>
+
+                        {/* Compact Product Details Body */}
+                        <div className="p-3 flex-1 flex flex-col justify-between space-y-2.5 text-xs">
+                          <div className="space-y-1">
+                            <div className="flex justify-between items-center text-[10px] text-muted-foreground gap-1">
+                              <span className="truncate font-semibold">{p.house || p.brand} · {p.category}</span>
+                              <span className="text-accent uppercase font-mono text-[9px] shrink-0">{p.type || "Product"}</span>
                             </div>
-                            <h4 className="font-serif text-base mt-1 text-white font-bold line-clamp-1">{p.name}</h4>
-                            <div className="flex items-center gap-2 mt-2">
-                              <span className="text-accent text-sm font-semibold">{p.price}</span>
+                            <h4
+                              className="font-serif text-sm text-foreground font-bold line-clamp-1 group-hover:text-accent transition-colors"
+                              title={p.name}
+                            >
+                              {p.name}
+                            </h4>
+
+                            {/* Price Line */}
+                            <div className="flex items-center gap-2 pt-0.5">
+                              <span className="text-accent text-sm font-bold">{p.price}</span>
                               {p.originalPrice && p.originalPrice !== p.price && (
-                                <span className="line-through text-muted-foreground text-xs">{p.originalPrice}</span>
+                                <span className="line-through text-muted-foreground text-[11px]">{p.originalPrice}</span>
+                              )}
+                            </div>
+
+                            {/* Compact Info Badges: Fabric & Rating */}
+                            <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                              {fabricInfo && (
+                                <span
+                                  className="text-[9px] text-muted-foreground bg-white/5 border border-white/10 px-1.5 py-0.5 rounded max-w-[120px] truncate"
+                                  title={`Fabric/Material: ${fabricInfo}`}
+                                >
+                                  {fabricInfo}
+                                </span>
+                              )}
+                              {hasRating ? (
+                                <span className="text-[9px] text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded font-mono font-bold flex items-center gap-0.5">
+                                  <Star className="w-2.5 h-2.5 fill-current" />
+                                  {Number(p.customRating).toFixed(1)}
+                                  {p.customReviewCount ? ` (${p.customReviewCount})` : ""}
+                                </span>
+                              ) : (
+                                <span className="text-[9px] text-muted-foreground bg-white/5 border border-white/10 px-1.5 py-0.5 rounded">
+                                  ★ Organic
+                                </span>
+                              )}
+                              {p.sku && (
+                                <span className="text-[9px] text-muted-foreground/80 font-mono">
+                                  {p.sku}
+                                </span>
                               )}
                             </div>
                           </div>
-                          
-                          {/* Quick Product Visibility / Status Workflow Selector */}
-                          <div className="space-y-3 pt-2 border-t border-white/5">
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-1 text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
-                                <span>Status:</span>
-                                <span className={p.status === "PUBLISHED" ? "text-emerald-400" : "text-amber-500"}>
-                                  {p.status === "PUBLISHED" ? "Published" : "Unpublished"}
-                                </span>
-                              </div>
+
+                          {/* Action Toolbar: Visibility, Edit, Delete */}
+                          <div className="space-y-2 pt-2 border-t border-white/5">
+                            <div className="flex items-center gap-1.5">
+                              {/* Hide / Unhide Toggle */}
                               <button
                                 type="button"
                                 onClick={() => {
-                                  const isPublished = p.status === "PUBLISHED";
                                   const nextStatus = isPublished ? "UNPUBLISHED" : "PUBLISHED";
                                   const nextVisibility = isPublished ? "HIDDEN" : "VISIBLE";
                                   updateProduct(p.id, {
                                     ...p,
                                     status: nextStatus,
-                                    visibility: nextVisibility
+                                    visibility: nextVisibility,
                                   });
-                                  toast.success(isPublished ? "Product hidden" : "Product published live");
+                                  toast.success(isPublished ? `"${p.name}" hidden from shop` : `"${p.name}" published live`);
                                 }}
-                                className="bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-white rounded-lg text-[9px] font-bold uppercase tracking-wider px-2.5 py-1 outline-none cursor-pointer transition-colors"
+                                className={cn(
+                                  "flex-1 py-1.5 px-2 rounded-lg text-[9px] font-bold uppercase tracking-wider border flex items-center justify-center gap-1 transition-colors cursor-pointer",
+                                  isPublished
+                                    ? "bg-white/5 hover:bg-white/10 border-white/15 text-muted-foreground hover:text-foreground"
+                                    : "bg-emerald-500/15 hover:bg-emerald-500/25 border-emerald-500/30 text-emerald-400"
+                                )}
+                                title={isPublished ? "Hide from customer storefront" : "Publish to customer storefront"}
                               >
-                                {p.status === "PUBLISHED" ? "Hide" : "Unhide"}
+                                {isPublished ? (
+                                  <>
+                                    <EyeOff className="w-3 h-3" /> Hide
+                                  </>
+                                ) : (
+                                  <>
+                                    <Eye className="w-3 h-3" /> Publish
+                                  </>
+                                )}
                               </button>
-                            </div>
 
-                            <div className="flex gap-2">
-                              <button onClick={() => handleEditProduct(p)} className="flex-1 border border-white/10 hover:border-white/20 py-2 text-[10px] uppercase tracking-widest font-semibold flex items-center justify-center gap-1.5 rounded-xl cursor-pointer bg-white/[0.02]"><Edit2 className="w-3 h-3" /> Edit</button>
-                              <button onClick={() => handleDeleteProduct(p.id)} className="border border-rose-500/20 hover:border-rose-500/45 text-rose-400 py-2 px-3 text-[10px] flex items-center justify-center rounded-xl cursor-pointer bg-rose-500/5"><Trash2 className="w-3.5 h-3.5" /></button>
+                              {/* Edit Button */}
+                              <button
+                                type="button"
+                                onClick={() => handleEditProduct(p)}
+                                className="flex-1 border border-accent/30 hover:border-accent text-accent hover:bg-accent/10 py-1.5 px-2 text-[9px] uppercase tracking-wider font-bold flex items-center justify-center gap-1 rounded-lg cursor-pointer transition-colors"
+                              >
+                                <Edit2 className="w-3 h-3" /> Edit
+                              </button>
+
+                              {/* Delete Button */}
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteProduct(p.id)}
+                                className="border border-rose-500/25 hover:border-rose-500/60 text-rose-400 hover:bg-rose-500/15 p-1.5 rounded-lg cursor-pointer transition-colors"
+                                title="Delete product permanently"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
                             </div>
                           </div>
                         </div>
