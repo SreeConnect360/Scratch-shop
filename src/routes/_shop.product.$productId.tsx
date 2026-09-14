@@ -903,20 +903,8 @@ function ProductDetail() {
                 <ArrowLeft className="w-5 h-5" />
               </button>
 
-              {/* Desktop top-right overlay (Share button only) */}
-              <div className="hidden md:flex items-center gap-2 pointer-events-auto">
-                <button
-                  type="button"
-                  onClick={handleShare}
-                  className="p-2.5 rounded-full bg-black/40 dark:bg-black/60 text-white backdrop-blur-md hover:scale-105 transition-all border border-white/20 shadow-lg cursor-pointer"
-                  title="Share product link"
-                >
-                  <Share2 className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* Mobile top-right overlay (Wishlist icon first, Share icon below) */}
-              <div className="flex md:hidden flex-col gap-2 pointer-events-auto items-center">
+              {/* Top-right overlay (Wishlist icon above, Share icon below) */}
+              <div className="flex flex-col gap-2 pointer-events-auto items-center">
                 <button
                   type="button"
                   onClick={(e) => {
@@ -927,7 +915,7 @@ function ProductDetail() {
                     "p-2.5 rounded-full backdrop-blur-md hover:scale-105 transition-all border shadow-lg cursor-pointer",
                     isFavorite
                       ? "bg-red-500/80 text-white border-red-400"
-                      : "bg-black/40 dark:bg-black/60 text-white border-white/20"
+                      : "bg-black/40 dark:bg-black/60 text-white border-white/20 hover:border-[#D4AF37]"
                   )}
                   title={isFavorite ? "Remove from Wishlist" : "Add to Wishlist"}
                 >
@@ -1593,47 +1581,30 @@ function ProductDetail() {
             {/* ─── STICKY PRODUCT PURCHASE ACTION BANNER (DESKTOP) ─── */}
             <div className="hidden lg:block sticky bottom-4 z-30 mt-auto pt-2">
               <div className="liquid-glass bg-background/95 dark:bg-[#0A0A0A]/95 backdrop-blur-xl border border-border/80 dark:border-white/15 p-2.5 sm:p-3 rounded-2xl shadow-2xl shadow-black/30 transition-all duration-300">
-                <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-3">
                   {/* 1. Add to Bag */}
                   <button
                     type="button"
                     onClick={handleAddToCart}
                     className={cn(
-                      "flex-1 py-3.5 px-3 rounded-xl border-2 font-extrabold text-xs uppercase tracking-wider transition-all duration-200 cursor-pointer active:scale-95 flex items-center justify-center gap-2 group",
+                      "flex-1 py-3.5 px-4 rounded-xl border-2 font-extrabold text-xs uppercase tracking-wider transition-all duration-200 cursor-pointer active:scale-95 flex items-center justify-center gap-2 group",
                       isDark
                         ? "border-[#D4AF37] text-white hover:bg-[#D4AF37]/10"
                         : "border-[#D4AF37] text-slate-900 hover:bg-[#D4AF37]/10"
                     )}
                   >
                     <ShoppingBag className="w-4 h-4 text-[#D4AF37] group-hover:scale-110 transition-transform shrink-0" />
-                    <span className="truncate">ADD TO BAG</span>
+                    <span>ADD TO BAG</span>
                   </button>
 
-                  {/* 2. Wishlist */}
-                  <button
-                    type="button"
-                    onClick={handleWishlistToggle}
-                    className={cn(
-                      "p-3.5 rounded-xl border-2 transition-all duration-200 cursor-pointer active:scale-95 flex items-center justify-center shrink-0 group",
-                      isFavorite
-                        ? "bg-red-500/15 text-red-500 border-red-500/40 shadow-sm shadow-red-500/20"
-                        : isDark
-                        ? "border-white/20 text-white hover:border-[#D4AF37] hover:bg-white/5"
-                        : "border-slate-300 text-slate-900 hover:border-[#D4AF37] hover:bg-slate-50"
-                    )}
-                    title={isFavorite ? "Remove from Wishlist" : "Add to Wishlist"}
-                  >
-                    <Heart className={cn("w-4 h-4 transition-transform group-hover:scale-110", isFavorite && "fill-current text-red-500")} />
-                  </button>
-
-                  {/* 3. Buy Now */}
+                  {/* 2. Buy Now */}
                   <button
                     type="button"
                     onClick={handleBuyNow}
-                    className="flex-1 py-3.5 px-3 rounded-xl bg-[#D4AF37] text-black font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-[#D4AF37]/25 hover:bg-[#c49f2f] transition-all duration-200 cursor-pointer active:scale-95 flex items-center justify-center gap-2 group"
+                    className="flex-1 py-3.5 px-4 rounded-xl bg-[#D4AF37] text-black font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-[#D4AF37]/25 hover:bg-[#c49f2f] transition-all duration-200 cursor-pointer active:scale-95 flex items-center justify-center gap-2 group"
                   >
                     <ShoppingCart className="w-4 h-4 shrink-0 group-hover:scale-110 transition-transform" />
-                    <span className="truncate">BUY NOW</span>
+                    <span>BUY NOW</span>
                   </button>
                 </div>
               </div>
